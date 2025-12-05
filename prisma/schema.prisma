@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VerxioUser {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  verxioBalance     Float    @default(0)
+  creatorAddress    String?
+  /// @encrypted
+  creatorPrivateKey String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations: Links to transactions this user sent or received
+  sentTransactions     VerxioTransaction[] @relation("SentTransactions")
+  receivedTransactions VerxioTransaction[] @relation("ReceivedTransactions")
+  apiKeys              ApiKey[]
+
+  @@index([email])
+  @@index([creatorAddress])
+  @@map("verxio_users")
+}
+
+model VerxioTransaction {
+  id          String   @id @default(cuid())
+  fromUserId  String? // ID of user who sent (null if admin issued)
+  toUserId    String // ID of user who received
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations: These link the transaction to VerxioUser records
+  // fromUser: Links to the VerxioUser who sent (optional because admin can issue)
+  fromUser VerxioUser? @relation("SentTransactions", fields: [fromUserId], references: [id])
+  // toUser: Links to the VerxioUser who received
+  toUser   VerxioUser  @relation("ReceivedTransactions", fields: [toUserId], references: [id])
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([createdAt])
+  @@map("verxio_transactions")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  userId     String
+  name       String? // Optional name/description for the API key
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  user VerxioUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([userId])
+  @@index([isActive])
+  @@map("api_keys")
+}
+
+model LoyaltyProgram {
+  id                 String   @id @default(cuid())
+  creator            String
+  programPublicKey   String
+  /// @encrypted
+  programSecretKey   String
+  signature          String
+  metadataUri        String?  // Store the metadata URI for reuse when issuing passes
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  authorityPublicKey String
+  /// @encrypted
+  authoritySecretKey String
+
+  @@index([creator])
+  @@index([programPublicKey])
+  @@map("loyalty_programs")
+}
+
+model LoyaltyProgramClaimStatus {
+  id             String   @id @default(cuid())
+  programAddress String   @unique
+  claimEnabled   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("loyalty_program_claim_status")
+}
+
+model LoyaltyPass {
+  id                   String   @id @default(cuid())
+  loyaltyProgramAddress String
+  recipient            String
+  loyaltyPassPublicKey String
+  /// @encrypted
+  loyaltyPassPrivateKey String
+  signature            String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([loyaltyProgramAddress])
+  @@index([recipient])
+  @@index([loyaltyPassPublicKey])
+  @@map("loyalty_passes")
+}
+
+model VoucherCollection {
+  id                 String   @id @default(cuid())
+  creator            String
+  collectionPublicKey String
+  /// @encrypted
+  collectionSecretKey String
+  signature          String
+  metadataUri        String?  // Store the metadata URI for reuse when minting vouchers
+  authorityPublicKey String
+  /// @encrypted
+  authoritySecretKey String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  vouchers           Voucher[]
+
+  @@index([creator])
+  @@index([collectionPublicKey])
+  @@map("voucher_collections")
+}
+
+model Voucher {
+  id                String   @id @default(cuid())
+  collectionId      String
+  recipient         String
+  voucherPublicKey  String
+  /// @encrypted
+  voucherPrivateKey String
+  signature         String
+  worth             Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  collection        VoucherCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@index([recipient])
+  @@index([voucherPublicKey])
+  @@map("vouchers")
+}
