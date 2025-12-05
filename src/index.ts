@@ -22,28 +22,50 @@ const app: express.Application = express();
 app.use(helmet());
 
 // CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
-const serverPort = process.env.PORT || '8080';
+const defaultOrigins = [
+  'http://localhost:3000',
+  'https://playground.verxio.xyz',
+  'https://api.verxio.xyz'
+];
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || defaultOrigins;
+const serverPort = '8080';
 const serverOrigin = `http://localhost:${serverPort}`;
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl, Postman, etc.)
+    if (!origin || origin === 'null') {
+      return callback(null, true);
+    }
     
-    // Allow requests from the server itself (for Swagger UI)
+    // Allow requests from the server itself (for Swagger UI in development)
     if (origin === serverOrigin || origin.startsWith(`http://localhost:${serverPort}`)) {
       return callback(null, true);
     }
     
-    // Allow requests from allowed origins
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests from production API domain (for Swagger UI)
+    if (origin === 'https://api.verxio.xyz') {
+      return callback(null, true);
+    }
+    
+    // Allow requests from production playground domain
+    if (origin === 'https://playground.verxio.xyz') {
+      return callback(null, true);
+    }
+    
+    // Allow requests from allowed origins (from environment variable)
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
     // In development mode, allow all localhost origins
     if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
       return callback(null, true);
+    }
+    
+    // Log rejected origin for debugging (only in non-production)
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`CORS: Rejected origin: ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`);
     }
     
     callback(new Error('Not allowed by CORS'));
@@ -54,7 +76,8 @@ app.use(cors({
     'Content-Type', 
     'Authorization', 
     'X-Requested-With',
-    'X-API-Key'
+    'X-API-Key',
+    'Accept'
   ]
 }));
 

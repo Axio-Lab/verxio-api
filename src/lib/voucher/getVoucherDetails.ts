@@ -1,5 +1,3 @@
-import { AppError } from '../../middleware/errorHandler';
-
 const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KEY}`;
 
 export interface VoucherDetails {
