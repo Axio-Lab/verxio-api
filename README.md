@@ -2,7 +2,7 @@
 
 Express-based API server for Verxio Loyalty Program infrastructure.
 
-## 🚀 Quick Start
+## Quick Start
 
 1. **Install dependencies:**
 ```bash
