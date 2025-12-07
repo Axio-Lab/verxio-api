@@ -64,11 +64,6 @@ verxio-api/
 - `pnpm db:migrate` - Run database migrations
 - `pnpm db:studio` - Open Prisma Studio
 
-## 🌐 API Endpoints
-
-### Health Check
-- `GET /health` - Server health status
-
 ## 🔐 Environment Variables
 
 See `.env.example` for all required environment variables.
