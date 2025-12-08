@@ -64,18 +64,6 @@ verxio-api/
 - `pnpm db:migrate` - Run database migrations
 - `pnpm db:studio` - Open Prisma Studio
 
-## 🔐 Environment Variables
-
-See `.env.example` for all required environment variables.
-
-## 📝 Next Steps
-
-1. ✅ Authentication middleware (API Key) - Ready
-2. Create loyalty program routes
-3. Implement loyalty pass management
-4. Add voucher system endpoints
-5. Set up reward distribution
-6. Add analytics and reporting
 
 ## 🛠️ Tech Stack
 
