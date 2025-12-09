@@ -1,5 +1,4 @@
 import { prisma } from '../lib/prisma';
-import { randomUUID } from 'crypto';
 import { AppError } from '../middleware/errorHandler';
 import { createSignerFromKeypair, generateSigner } from '@metaplex-foundation/umi';
 import { publicKey } from '@metaplex-foundation/umi';
@@ -688,8 +687,8 @@ export const createVoucherClaimLink = async (
       };
     }
 
-    // Generate unique slug for claim link
-    const slug = `${Math.random().toString(36).slice(2, 12)}`;
+    // Generate unique claim code for claim link
+    const claimCode = `${Math.random().toString(36).slice(2, 12)}`;
 
     // Create reward link with same data structure as mint voucher
     const rewardLink = await (prisma as any).rewardLink.create({
@@ -698,7 +697,8 @@ export const createVoucherClaimLink = async (
         creatorAddress,
         collectionId: collection.id,
         collectionAddress: trimmedCollectionAddress,
-        slug,
+        slug: claimCode, // Keep for backward compatibility during migration
+        claimCode,
         voucherType,
         voucherName,
         description,
@@ -725,7 +725,7 @@ export const createVoucherClaimLink = async (
 
     return {
       success: true,
-      claimCode: rewardLink.slug,
+      claimCode: rewardLink.claimCode || rewardLink.slug, // Support both during migration
     };
   } catch (error: any) {
     console.error('Error creating voucher claim link:', error);
@@ -881,11 +881,15 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
   }
 };
 
-export const getVoucherClaimLink = async (slugOrId: string) => {
+export const getVoucherClaimLink = async (claimCodeOrId: string) => {
   try {
     const rewardLink = await (prisma as any).rewardLink.findFirst({
       where: {
-        OR: [{ id: slugOrId }, { slug: slugOrId }],
+        OR: [
+          { id: claimCodeOrId },
+          { claimCode: claimCodeOrId },
+          { slug: claimCodeOrId }, // Support old slug during migration
+        ],
       },
     });
 
@@ -900,9 +904,9 @@ export const getVoucherClaimLink = async (slugOrId: string) => {
   }
 };
 
-export const claimVoucherFromLink = async (slugOrId: string, recipientEmail: string) => {
+export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail: string) => {
   try {
-    const rewardRes = await getVoucherClaimLink(slugOrId);
+    const rewardRes = await getVoucherClaimLink(claimCodeOrId);
     if (!rewardRes.success || !rewardRes.rewardLink) {
       return { success: false, error: rewardRes.error || 'Claim link not found' };
     }

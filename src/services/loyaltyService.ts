@@ -19,6 +19,7 @@ const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KE
 export const API_COSTS = {
   CREATE_LOYALTY_PROGRAM: 100,
   ISSUE_LOYALTY_PASS: 50,
+  CREATE_LOYALTY_CLAIM_LINK: 50, // Merchant pays when creating claim link, customer claims for free
   REVOKE_POINTS: 25,
   GIFT_POINTS: 25,
 } as const;
@@ -1013,7 +1014,10 @@ export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) =
 /**
  * Issue new loyalty pass
  */
-export const issueLoyaltyPassBlockchain = async (params: IssueLoyaltyPassParams) => {
+export const issueLoyaltyPassBlockchain = async (
+  params: IssueLoyaltyPassParams,
+  skipApiCost: boolean = false // Set to true when called from claim link (authority already paid)
+) => {
   const { loyaltyProgramAddress, recipientEmail, passName, organizationName, authorityEmail } = params;
 
   if (!loyaltyProgramAddress || !recipientEmail || !passName || !authorityEmail) {
@@ -1021,12 +1025,14 @@ export const issueLoyaltyPassBlockchain = async (params: IssueLoyaltyPassParams)
   }
 
   try {
-    // Debit API cost from authority
-    await debitVerxioBalance(
-      authorityEmail,
-      API_COSTS.ISSUE_LOYALTY_PASS,
-      `Loyalty pass issuance fee: ${API_COSTS.ISSUE_LOYALTY_PASS} Verxio`
-    );
+    // Debit API cost from authority (skip if called from claim link - authority already paid)
+    if (!skipApiCost) {
+      await debitVerxioBalance(
+        authorityEmail,
+        API_COSTS.ISSUE_LOYALTY_PASS,
+        `Loyalty pass issuance fee: ${API_COSTS.ISSUE_LOYALTY_PASS} Verxio`
+      );
+    }
 
     // Get program details to find creator wallet and metadataUri
     const program = await (prisma as any).loyaltyProgram.findFirst({
@@ -1250,6 +1256,345 @@ export const giftLoyaltyPointsBlockchain = async (params: GiftPointsParams) => {
   } catch (error: any) {
     console.error('Error gifting loyalty points:', error);
     throw new AppError(`Failed to gift loyalty points: ${error.message}`, 500);
+  }
+};
+
+/**
+ * Check if user has sufficient Verxio balance
+ */
+const checkVerxioBalance = async (email: string, amount: number) => {
+  const user = await (prisma as any).verxioUser.findFirst({
+    where: { email },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  if (user.verxioBalance < amount) {
+    throw new AppError(
+      `Insufficient balance. Available: ${user.verxioBalance}, Required: ${amount}`,
+      400
+    );
+  }
+};
+
+export interface CreateLoyaltyClaimLinkData {
+  programAddress: string;
+  passName: string;
+  organizationName?: string;
+  description?: string;
+  authorityEmail: string;
+}
+
+export const createLoyaltyClaimLink = async (
+  data: CreateLoyaltyClaimLinkData,
+  skipDebit: boolean = false
+) => {
+  try {
+    const { programAddress, passName, organizationName, description, authorityEmail } = data;
+
+    if (!process.env.PRIVATE_KEY) {
+      throw new AppError('Private key not configured', 500);
+    }
+
+    // Validate required fields
+    if (!programAddress || !passName || !authorityEmail) {
+      return {
+        success: false,
+        error: 'programAddress, passName, and authorityEmail are required',
+      };
+    }
+
+    // Get authority info from email
+    const authorityInfo = await getUserCreatorInfo(authorityEmail);
+    const authorityAddress = authorityInfo.creatorAddress;
+
+    // Check if authority has sufficient balance (skip if called from batch)
+    if (!skipDebit) {
+      await checkVerxioBalance(authorityEmail, API_COSTS.CREATE_LOYALTY_CLAIM_LINK);
+    }
+
+    // Trim program address to handle any whitespace
+    const trimmedProgramAddress = programAddress.trim();
+
+    // Verify program ownership
+    const program = await (prisma as any).loyaltyProgram.findFirst({
+      where: {
+        programPublicKey: trimmedProgramAddress,
+      },
+      select: {
+        id: true,
+        creator: true,
+        metadataUri: true,
+      },
+    });
+
+    if (!program) {
+      return {
+        success: false,
+        error: `Loyalty program not found with address: ${trimmedProgramAddress}`,
+      };
+    }
+
+    // Verify ownership (authority must be the creator)
+    if (program.creator !== authorityAddress) {
+      return {
+        success: false,
+        error: `Loyalty program found but you are not the creator. Program creator: ${program.creator}, Your address: ${authorityAddress}`,
+      };
+    }
+
+    if (!program.metadataUri) {
+      return {
+        success: false,
+        error: 'Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.',
+      };
+    }
+
+    // Generate unique claim code
+    const claimCode = `${Math.random().toString(36).slice(2, 12)}`;
+
+    // Create loyalty claim link
+    const claimLink = await (prisma as any).loyaltyClaimLink.create({
+      data: {
+        creatorEmail: authorityEmail,
+        creatorAddress: authorityAddress,
+        programId: program.id,
+        programAddress: trimmedProgramAddress,
+        claimCode,
+        passName,
+        organizationName: organizationName || null,
+        description: description || null,
+        metadataUri: program.metadataUri,
+        status: 'active',
+      },
+    });
+
+    // Debit API cost after successful claim link creation (skip if called from batch)
+    if (!skipDebit) {
+      await debitVerxioBalance(
+        authorityEmail,
+        API_COSTS.CREATE_LOYALTY_CLAIM_LINK,
+        `Loyalty claim link creation fee: ${API_COSTS.CREATE_LOYALTY_CLAIM_LINK} Verxio`
+      );
+    }
+
+    return {
+      success: true,
+      claimCode: claimLink.claimCode,
+    };
+  } catch (error: any) {
+    console.error('Error creating loyalty claim link:', error);
+    return { success: false, error: error.message || 'Failed to create loyalty claim link' };
+  }
+};
+
+export interface CreateBatchLoyaltyClaimLinksData {
+  programAddress: string;
+  passName: string;
+  organizationName?: string;
+  description?: string;
+  authorityEmail: string;
+  quantity: number;
+}
+
+export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaimLinksData) => {
+  try {
+    const { quantity, ...singleLinkData } = data;
+
+    if (!quantity || quantity < 1) {
+      return {
+        success: false,
+        error: 'Quantity must be at least 1',
+      };
+    }
+
+    // Validate required fields first
+    if (!singleLinkData.programAddress || !singleLinkData.passName || !singleLinkData.authorityEmail) {
+      return {
+        success: false,
+        error: 'All required fields must be provided',
+      };
+    }
+
+    // Get authority info from email
+    const authorityInfo = await getUserCreatorInfo(singleLinkData.authorityEmail);
+    const authorityAddress = authorityInfo.creatorAddress;
+
+    // Trim program address
+    const trimmedProgramAddress = singleLinkData.programAddress.trim();
+
+    // Verify program ownership BEFORE attempting to create any links
+    const program = await (prisma as any).loyaltyProgram.findFirst({
+      where: {
+        programPublicKey: trimmedProgramAddress,
+      },
+      select: {
+        id: true,
+        creator: true,
+        metadataUri: true,
+      },
+    });
+
+    if (!program) {
+      return {
+        success: false,
+        error: `Loyalty program not found with address: ${trimmedProgramAddress}`,
+      };
+    }
+
+    // Verify ownership
+    if (program.creator !== authorityAddress) {
+      return {
+        success: false,
+        error: `Loyalty program found but you are not the creator. Program creator: ${program.creator}, Your address: ${authorityAddress}`,
+      };
+    }
+
+    if (!program.metadataUri) {
+      return {
+        success: false,
+        error: 'Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.',
+      };
+    }
+
+    // Calculate total cost
+    const totalCost = API_COSTS.CREATE_LOYALTY_CLAIM_LINK * quantity;
+
+    // Check if authority has sufficient balance for all links
+    await checkVerxioBalance(data.authorityEmail, totalCost);
+
+    const claimCodes: string[] = [];
+    const errors: string[] = [];
+
+    // Create links sequentially to avoid race conditions (skip individual debits)
+    for (let i = 0; i < quantity; i++) {
+      try {
+        const result = await createLoyaltyClaimLink(singleLinkData, true); // Skip individual debit
+        if (result.success && result.claimCode) {
+          claimCodes.push(result.claimCode);
+        } else {
+          errors.push(`Link ${i + 1}: ${result.error || 'Failed to create'}`);
+        }
+      } catch (error: any) {
+        errors.push(`Link ${i + 1}: ${error.message || 'Failed to create'}`);
+      }
+    }
+
+    // If all failed, return error (no debit needed)
+    if (claimCodes.length === 0) {
+      return {
+        success: false,
+        error: `Failed to create any claim links. Errors: ${errors.join('; ')}`,
+      };
+    }
+
+    // Debit total cost for successfully created links only
+    const actualCost = API_COSTS.CREATE_LOYALTY_CLAIM_LINK * claimCodes.length;
+    await debitVerxioBalance(
+      data.authorityEmail,
+      actualCost,
+      `Batch loyalty claim link creation fee: ${claimCodes.length} links × ${API_COSTS.CREATE_LOYALTY_CLAIM_LINK} Verxio = ${actualCost} Verxio`
+    );
+
+    // If some failed, return partial success
+    if (errors.length > 0) {
+      return {
+        success: true,
+        claimCodes,
+        partialSuccess: true,
+        errors,
+        message: `Created ${claimCodes.length} out of ${quantity} claim links`,
+      };
+    }
+
+    // All succeeded
+    return {
+      success: true,
+      claimCodes,
+      message: `Successfully created ${claimCodes.length} claim links`,
+    };
+  } catch (error: any) {
+    console.error('Error creating batch loyalty claim links:', error);
+    return { success: false, error: error.message || 'Failed to create batch claim links' };
+  }
+};
+
+export const getLoyaltyClaimLink = async (claimCodeOrId: string) => {
+  try {
+    const claimLink = await (prisma as any).loyaltyClaimLink.findFirst({
+      where: {
+        OR: [{ id: claimCodeOrId }, { claimCode: claimCodeOrId }],
+      },
+    });
+
+    if (!claimLink) {
+      return { success: false, error: 'Claim link not found' };
+    }
+
+    return { success: true, claimLink };
+  } catch (error: any) {
+    console.error('Error fetching loyalty claim link:', error);
+    return { success: false, error: error.message || 'Failed to fetch claim link' };
+  }
+};
+
+export const claimLoyaltyPassFromLink = async (claimCodeOrId: string, recipientEmail: string) => {
+  try {
+    const claimRes = await getLoyaltyClaimLink(claimCodeOrId);
+    if (!claimRes.success || !claimRes.claimLink) {
+      return { success: false, error: claimRes.error || 'Claim link not found' };
+    }
+
+    const claimLink = claimRes.claimLink as any;
+
+    if (claimLink.status === 'claimed') {
+      return { success: false, error: 'This claim link has already been used.' };
+    }
+
+    // Issue loyalty pass without charging API cost (authority already paid when creating claim link)
+    const issueParams: IssueLoyaltyPassParams = {
+      loyaltyProgramAddress: claimLink.programAddress,
+      recipientEmail,
+      passName: claimLink.passName || 'Loyalty Pass',
+      organizationName: claimLink.organizationName || undefined,
+      authorityEmail: claimLink.creatorEmail,
+    };
+
+    const issued = await issueLoyaltyPassBlockchain(issueParams, true); // Skip API cost
+    
+    if (!issued.success || !issued.result) {
+      return { success: false, error: 'Failed to issue loyalty pass from claim link' };
+    }
+
+    // Get the loyalty pass from database to get the ID
+    const savedPass = await (prisma as any).loyaltyPass.findFirst({
+      where: {
+        loyaltyPassPublicKey: issued.result.loyaltyPassPublicKey,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Update claim link status
+    await (prisma as any).loyaltyClaimLink.update({
+      where: { id: claimLink.id },
+      data: {
+        status: 'claimed',
+        loyaltyPassAddress: issued.result.loyaltyPassPublicKey,
+      },
+    });
+
+    return {
+      success: true,
+      loyaltyPassAddress: issued.result.loyaltyPassPublicKey,
+      loyaltyPassId: savedPass?.id || null,
+    };
+  } catch (error: any) {
+    console.error('Error claiming loyalty pass from link:', error);
+    return { success: false, error: error.message || 'Failed to claim loyalty pass' };
   }
 };
 

@@ -776,7 +776,7 @@ voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunctio
  *                 claimCode:
  *                   type: string
  *                   example: "abc123xyz"
- *                   description: The claim code/slug that can be used to claim the voucher
+ *                   description: The claim code that can be used to claim the voucher
  *       400:
  *         description: Invalid input
  */
@@ -891,7 +891,7 @@ voucherRouter.post('/claim-link/create', async (req: Request, res: Response, nex
  *                   items:
  *                     type: string
  *                   example: ["abc123xyz", "def456uvw", "ghi789rst"]
- *                   description: Array of claim codes/slugs
+ *                   description: Array of claim codes
  *                 message:
  *                   type: string
  *                   example: "Successfully created 20 claim links"
@@ -920,26 +920,26 @@ voucherRouter.post('/claim-link/create/batch', async (req: Request, res: Respons
 
 /**
  * @swagger
- * /voucher/claim-link/{slug}:
+ * /voucher/claim-link/{claimCode}:
  *   get:
  *     summary: Get claim link details
  *     tags: [Loyalty Cards and Vouchers]
  *     parameters:
  *       - in: path
- *         name: slug
+ *         name: claimCode
  *         required: true
  *         schema:
  *           type: string
- *         description: Claim link identifier returned during creation
+ *         description: Claim code returned during creation
  *     responses:
  *       200:
  *         description: Claim link fetched successfully
  *       404:
  *         description: Claim link not found
  */
-voucherRouter.get('/claim-link/:slug', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await voucherService.getVoucherClaimLink(req.params.slug);
+    const result = await voucherService.getVoucherClaimLink(req.params.claimCode);
     if (!result.success) {
       return res.status(404).json(result);
     }
@@ -951,17 +951,17 @@ voucherRouter.get('/claim-link/:slug', async (req: Request, res: Response, next:
 
 /**
  * @swagger
- * /voucher/claim-link/{slug}/claim:
+ * /voucher/claim-link/{claimCode}/claim:
  *   post:
  *     summary: Claim a loyalty card/voucher using a claim link
  *     tags: [Loyalty Cards and Vouchers]
  *     parameters:
  *       - in: path
- *         name: slug
+ *         name: claimCode
  *         required: true
  *         schema:
  *           type: string
- *         description: Claim link identifier returned during creation
+ *         description: Claim code returned during creation
  *     requestBody:
  *       required: true
  *       content:
@@ -981,11 +981,11 @@ voucherRouter.get('/claim-link/:slug', async (req: Request, res: Response, next:
  *       400:
  *         description: Invalid input or claim link already used/expired
  */
-voucherRouter.post('/claim-link/:slug/claim', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post('/claim-link/:claimCode/claim', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { slug } = req.params;
+    const { claimCode } = req.params;
     const { recipientEmail } = req.body;
-    const result = await voucherService.claimVoucherFromLink(slug, recipientEmail);
+    const result = await voucherService.claimVoucherFromLink(claimCode, recipientEmail);
     if (!result.success) {
       return res.status(400).json(result);
     }

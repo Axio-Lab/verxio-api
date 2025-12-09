@@ -79,6 +79,7 @@ model LoyaltyProgram {
   authorityPublicKey String
   /// @encrypted
   authoritySecretKey String
+  claimLinks         LoyaltyClaimLink[]
 
   @@index([creator])
   @@index([programPublicKey])
@@ -158,7 +159,8 @@ model RewardLink {
   creatorAddress    String
   collectionId      String
   collectionAddress String
-  slug              String   @unique
+  slug              String?  @unique // Deprecated: use claimCode instead
+  claimCode         String?  @unique
   voucherType       String
   voucherName       String?
   description       String?
@@ -184,6 +186,32 @@ model RewardLink {
   @@index([creatorAddress])
   @@index([collectionId])
   @@index([collectionAddress])
-  @@index([slug])
+  @@index([claimCode])
   @@map("reward_links")
+}
+
+model LoyaltyClaimLink {
+  id                  String   @id @default(cuid())
+  creatorEmail        String
+  creatorAddress      String
+  programId           String
+  programAddress      String
+  claimCode           String   @unique
+  passName            String?
+  organizationName    String?
+  description         String?
+  metadataUri         String?
+  status              String   @default("active")
+  loyaltyPassAddress  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([creatorEmail])
+  @@index([creatorAddress])
+  @@index([programId])
+  @@index([programAddress])
+  @@index([claimCode])
+  @@map("loyalty_claim_links")
 }

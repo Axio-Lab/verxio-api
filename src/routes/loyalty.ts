@@ -653,3 +653,235 @@ loyaltyRouter.put('/program/claim-status/:programAddress', async (req: Request, 
   }
 });
 
+/**
+ * @swagger
+ * /loyalty/claim-link/create:
+ *   post:
+ *     summary: Create a single claim link for a loyalty pass
+ *     tags: [Loyalty Programs]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - programAddress
+ *               - passName
+ *               - authorityEmail
+ *             properties:
+ *               programAddress:
+ *                 type: string
+ *                 example: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1EH..."
+ *                 description: Public key address of the loyalty program
+ *               passName:
+ *                 type: string
+ *                 example: "Gold Member Pass"
+ *               organizationName:
+ *                 type: string
+ *                 example: "Acme Inc."
+ *               description:
+ *                 type: string
+ *                 example: "Claim your loyalty pass"
+ *               authorityEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *                 description: Email address of the authority (must be a registered Verxio user)
+ *           examples:
+ *             example1:
+ *               summary: Create loyalty claim link
+ *               value:
+ *                 programAddress: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1....."
+ *                 passName: "Gold Member Pass"
+ *                 organizationName: "Acme Inc."
+ *                 description: "Claim your loyalty pass"
+ *                 authorityEmail: "merchant@example.com"
+ *     responses:
+ *       201:
+ *         description: Claim link created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 claimCode:
+ *                   type: string
+ *                   example: "abc123xyz"
+ *                   description: The claim code that can be used to claim the loyalty pass
+ *       400:
+ *         description: Invalid input
+ */
+loyaltyRouter.post('/claim-link/create', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await loyaltyService.createLoyaltyClaimLink(req.body);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /loyalty/claim-link/create/batch:
+ *   post:
+ *     summary: Create multiple claim links for loyalty passes in batch
+ *     tags: [Loyalty Programs]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - programAddress
+ *               - passName
+ *               - authorityEmail
+ *               - quantity
+ *             properties:
+ *               programAddress:
+ *                 type: string
+ *                 example: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1EH..."
+ *               passName:
+ *                 type: string
+ *                 example: "Gold Member Pass"
+ *               organizationName:
+ *                 type: string
+ *                 example: "Acme Inc."
+ *               description:
+ *                 type: string
+ *                 example: "Claim your loyalty pass"
+ *               authorityEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *               quantity:
+ *                 type: integer
+ *                 example: 20
+ *                 description: Number of claim links to create (minimum 1, no maximum limit)
+ *           examples:
+ *             example1:
+ *               summary: Create 20 loyalty claim links
+ *               value:
+ *                 programAddress: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1....."
+ *                 passName: "Gold Member Pass"
+ *                 organizationName: "Acme Inc."
+ *                 description: "Claim your loyalty pass"
+ *                 authorityEmail: "merchant@example.com"
+ *                 quantity: 20
+ *     responses:
+ *       201:
+ *         description: Claim links created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 claimCodes:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["abc123xyz", "def456uvw", "ghi789rst"]
+ *                   description: Array of claim codes
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully created 20 claim links"
+ *       400:
+ *         description: Invalid input
+ */
+loyaltyRouter.post('/claim-link/create/batch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await loyaltyService.createBatchLoyaltyClaimLinks(req.body);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /loyalty/claim-link/{claimCode}:
+ *   get:
+ *     summary: Get loyalty claim link details
+ *     tags: [Loyalty Programs]
+ *     parameters:
+ *       - in: path
+ *         name: claimCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Claim code returned during creation
+ *     responses:
+ *       200:
+ *         description: Claim link fetched successfully
+ *       404:
+ *         description: Claim link not found
+ */
+loyaltyRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await loyaltyService.getLoyaltyClaimLink(req.params.claimCode);
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /loyalty/claim-link/{claimCode}/claim:
+ *   post:
+ *     summary: Claim a loyalty pass using a claim link
+ *     tags: [Loyalty Programs]
+ *     parameters:
+ *       - in: path
+ *         name: claimCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Claim code returned during creation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientEmail
+ *             properties:
+ *               recipientEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "customer@example.com"
+ *     responses:
+ *       200:
+ *         description: Loyalty pass issued successfully from claim link
+ *       400:
+ *         description: Invalid input or claim link already used/expired
+ */
+loyaltyRouter.post('/claim-link/:claimCode/claim', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { claimCode } = req.params;
+    const { recipientEmail } = req.body;
+    const result = await loyaltyService.claimLoyaltyPassFromLink(claimCode, recipientEmail);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
