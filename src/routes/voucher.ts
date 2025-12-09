@@ -683,3 +683,315 @@ voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunctio
   }
 });
 
+/**
+ * @swagger
+ * /voucher/claim-link/create:
+ *   post:
+ *     summary: Create a single claim link for a loyalty card/voucher
+ *     tags: [Loyalty Cards and Vouchers]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - collectionAddress
+ *               - voucherName
+ *               - voucherType
+ *               - value
+ *               - description
+ *               - expiryDate
+ *               - maxUses
+ *               - merchantId
+ *               - creatorEmail
+ *             properties:
+ *               collectionAddress:
+ *                 type: string
+ *                 example: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1EH..."
+ *                 description: Public key address of the voucher collection. The stored metadataUri from this collection will be reused for minted vouchers.
+ *               voucherName:
+ *                 type: string
+ *                 example: "20% Off Summer Sale"
+ *               voucherType:
+ *                 type: string
+ *                 enum: [PERCENTAGE_OFF, FIXED_VERXIO_CREDITS, FREE_ITEM, BUY_ONE_GET_ONE, CUSTOM_REWARD, TOKEN, LOYALTY_COIN, FIAT]
+ *                 example: "PERCENTAGE_OFF"
+ *               value:
+ *                 type: number
+ *                 example: 20
+ *                 description: Value of the voucher (percentage, amount, etc.)
+ *               description:
+ *                 type: string
+ *                 example: "Get 20% off on all summer items"
+ *               expiryDate:
+ *                 type: string
+ *                 example: "25/12/2025"
+ *                 description: Expiry date in DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format. Must be in the future.
+ *               maxUses:
+ *                 type: integer
+ *                 example: 1
+ *                 description: Maximum number of times the voucher can be used
+ *               transferable:
+ *                 type: boolean
+ *                 example: true
+ *                 default: true
+ *               merchantId:
+ *                 type: string
+ *                 example: "merchant123"
+ *               conditions:
+ *                 type: string
+ *                 example: "Minimum purchase of $50"
+ *                 description: Optional. Conditions or terms for using this voucher (e.g., "Minimum purchase of $50", "Valid only on weekends")
+ *               creatorEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *                 description: Email address of the creator (must be a registered Verxio user)
+ *           examples:
+ *             example1:
+ *               summary: Create claim link
+ *               value:
+ *                 collectionAddress: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1....."
+ *                 voucherName: "20% Off Summer Sale"
+ *                 voucherType: "PERCENTAGE_OFF"
+ *                 value: 20
+ *                 description: "Get 20% off on all summer items"
+ *                 expiryDate: "25/12/2025"
+ *                 maxUses: 1
+ *                 transferable: true
+ *                 merchantId: "merchant123"
+ *                 conditions: "Minimum purchase of $50"
+ *                 creatorEmail: "merchant@example.com"
+ *     responses:
+ *       201:
+ *         description: Claim link created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 claimCode:
+ *                   type: string
+ *                   example: "abc123xyz"
+ *                   description: The claim code/slug that can be used to claim the voucher
+ *       400:
+ *         description: Invalid input
+ */
+voucherRouter.post('/claim-link/create', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await voucherService.createVoucherClaimLink(req.body);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /voucher/claim-link/create/batch:
+ *   post:
+ *     summary: Create multiple claim links for a loyalty card/voucher in batch
+ *     tags: [Loyalty Cards and Vouchers]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - collectionAddress
+ *               - voucherName
+ *               - voucherType
+ *               - value
+ *               - description
+ *               - expiryDate
+ *               - maxUses
+ *               - merchantId
+ *               - creatorEmail
+ *               - quantity
+ *             properties:
+ *               collectionAddress:
+ *                 type: string
+ *                 example: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1EH..."
+ *                 description: Public key address of the voucher collection
+ *               voucherName:
+ *                 type: string
+ *                 example: "20% Off Summer Sale"
+ *               voucherType:
+ *                 type: string
+ *                 enum: [PERCENTAGE_OFF, FIXED_VERXIO_CREDITS, FREE_ITEM, BUY_ONE_GET_ONE, CUSTOM_REWARD, TOKEN, LOYALTY_COIN, FIAT]
+ *                 example: "PERCENTAGE_OFF"
+ *               value:
+ *                 type: number
+ *                 example: 20
+ *               description:
+ *                 type: string
+ *                 example: "Get 20% off on all summer items"
+ *               expiryDate:
+ *                 type: string
+ *                 example: "25/12/2025"
+ *                 description: Expiry date in DD/MM/YYYY or ISO 8601 format. Must be in the future.
+ *               maxUses:
+ *                 type: integer
+ *                 example: 1
+ *               transferable:
+ *                 type: boolean
+ *                 example: true
+ *                 default: true
+ *               merchantId:
+ *                 type: string
+ *                 example: "merchant123"
+ *               conditions:
+ *                 type: string
+ *                 example: "Minimum purchase of $50"
+ *                 description: Optional. Conditions or terms for using this voucher
+ *               creatorEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *                 description: Email address of the creator (must be a registered Verxio user)
+ *               quantity:
+ *                 type: integer
+ *                 example: 20
+ *                 description: Number of claim links to create (minimum 1, no maximum limit)
+ *           examples:
+ *             example1:
+ *               summary: Create 20 claim links
+ *               value:
+ *                 collectionAddress: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1....."
+ *                 voucherName: "20% Off Summer Sale"
+ *                 voucherType: "PERCENTAGE_OFF"
+ *                 value: 20
+ *                 description: "Get 20% off on all summer items"
+ *                 expiryDate: "25/12/2025"
+ *                 maxUses: 1
+ *                 transferable: true
+ *                 merchantId: "merchant123"
+ *                 conditions: "Minimum purchase of $50"
+ *                 creatorEmail: "merchant@example.com"
+ *                 quantity: 20
+ *     responses:
+ *       201:
+ *         description: Claim links created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 claimCodes:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["abc123xyz", "def456uvw", "ghi789rst"]
+ *                   description: Array of claim codes/slugs
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully created 20 claim links"
+ *                 partialSuccess:
+ *                   type: boolean
+ *                   description: True if some links failed to create
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   description: Array of error messages for failed links (only present if partialSuccess is true)
+ *       400:
+ *         description: Invalid input
+ */
+voucherRouter.post('/claim-link/create/batch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await voucherService.createBatchVoucherClaimLinks(req.body);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /voucher/claim-link/{slug}:
+ *   get:
+ *     summary: Get claim link details
+ *     tags: [Loyalty Cards and Vouchers]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Claim link identifier returned during creation
+ *     responses:
+ *       200:
+ *         description: Claim link fetched successfully
+ *       404:
+ *         description: Claim link not found
+ */
+voucherRouter.get('/claim-link/:slug', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await voucherService.getVoucherClaimLink(req.params.slug);
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /voucher/claim-link/{slug}/claim:
+ *   post:
+ *     summary: Claim a loyalty card/voucher using a claim link
+ *     tags: [Loyalty Cards and Vouchers]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Claim link identifier returned during creation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientEmail
+ *             properties:
+ *               recipientEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "customer@example.com"
+ *     responses:
+ *       200:
+ *         description: Voucher minted successfully from claim link
+ *       400:
+ *         description: Invalid input or claim link already used/expired
+ */
+voucherRouter.post('/claim-link/:slug/claim', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slug } = req.params;
+    const { recipientEmail } = req.body;
+    const result = await voucherService.claimVoucherFromLink(slug, recipientEmail);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+

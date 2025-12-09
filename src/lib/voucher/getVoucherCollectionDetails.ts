@@ -3,7 +3,7 @@ const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KE
 
 export interface VoucherCollectionDetails {
   id: string;
-  name: string;
+  name: string; 
   description: string;
   image: string;
   attributes: {

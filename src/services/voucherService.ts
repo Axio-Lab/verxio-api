@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { randomUUID } from 'crypto';
 import { AppError } from '../middleware/errorHandler';
 import { createSignerFromKeypair, generateSigner } from '@metaplex-foundation/umi';
 import { publicKey } from '@metaplex-foundation/umi';
@@ -22,6 +23,7 @@ const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KE
 export const API_COSTS = {
   CREATE_VOUCHER_COLLECTION: 100,
   MINT_VOUCHER: 50,
+  CREATE_CLAIM_LINK: 50, // Merchant pays when creating claim link, customer claims for free
   REDEEM_VOUCHER: 25,
   CANCEL_VOUCHER: 25,
   EXTEND_VOUCHER_EXPIRY: 25,
@@ -84,6 +86,48 @@ const debitVerxioBalance = async (email: string, amount: number, description: st
       description,
     },
   });
+};
+
+const parseExpiryDateInput = (expiryDate?: string | Date) => {
+  if (!expiryDate) {
+    return { success: true as const, date: undefined as Date | undefined };
+  }
+
+  let expiryDateObj: Date;
+
+  if (typeof expiryDate === 'string') {
+    const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = expiryDate.match(ddmmyyyyPattern);
+
+    if (match) {
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1;
+      const year = parseInt(match[3], 10);
+      expiryDateObj = new Date(year, month, day, 23, 59, 59, 999);
+    } else {
+      expiryDateObj = new Date(expiryDate);
+    }
+  } else {
+    expiryDateObj = expiryDate;
+  }
+
+  if (isNaN(expiryDateObj.getTime())) {
+    return {
+      success: false as const,
+      error:
+        'Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+    };
+  }
+
+  const now = new Date();
+  if (expiryDateObj <= now) {
+    return {
+      success: false as const,
+      error: 'Voucher expiry date must be in the future',
+    };
+  }
+
+  return { success: true as const, date: expiryDateObj };
 };
 
 // Create Voucher Collection
@@ -536,6 +580,393 @@ export const getVoucherCollectionByPublicKey = async (
   }
 };
 
+export interface CreateVoucherClaimLinkData {
+  collectionAddress: string;
+  voucherName: string;
+  voucherType:
+    | 'PERCENTAGE_OFF'
+    | 'FIXED_VERXIO_CREDITS'
+    | 'FREE_ITEM'
+    | 'BUY_ONE_GET_ONE'
+    | 'CUSTOM_REWARD'
+    | 'TOKEN'
+    | 'LOYALTY_COIN'
+    | 'FIAT';
+  value: number;
+  description: string;
+  expiryDate: string | Date;
+  maxUses: number;
+  transferable?: boolean;
+  merchantId: string;
+  conditions?: string;
+  creatorEmail: string;
+}
+
+export const createVoucherClaimLink = async (
+  data: CreateVoucherClaimLinkData,
+  skipDebit: boolean = false // Set to true when called from batch (will debit total amount separately)
+) => {
+  try {
+    const {
+      collectionAddress,
+      voucherName,
+      voucherType,
+      value,
+      description,
+      expiryDate,
+      maxUses,
+      transferable = true,
+      merchantId,
+      conditions,
+      creatorEmail,
+    } = data;
+
+    if (!process.env.PRIVATE_KEY) {
+      throw new AppError('Private key not configured', 500);
+    }
+
+    // Validate required fields
+    if (!collectionAddress || !voucherName || !voucherType || value === undefined || value === null || !description || !expiryDate || maxUses === undefined || !merchantId || !creatorEmail) {
+      return { 
+        success: false, 
+        error: 'collectionAddress, voucherName, voucherType, value, description, expiryDate, maxUses, merchantId, and creatorEmail are required' 
+      };
+    }
+
+    // Parse expiry date (same logic as mintVoucher)
+    const parsedExpiry = parseExpiryDateInput(expiryDate);
+    if (!parsedExpiry.success || !parsedExpiry.date) {
+      return { success: false, error: parsedExpiry.error || 'Invalid expiry date' };
+    }
+
+    // Get creator info from email
+    const creatorInfo = await getUserCreatorInfo(creatorEmail);
+    const creatorAddress = creatorInfo.creatorAddress;
+
+    // Check if creator has sufficient balance (merchant pays for claim link creation)
+    await checkVerxioBalance(creatorEmail, API_COSTS.CREATE_CLAIM_LINK);
+
+    // Trim collection address to handle any whitespace
+    const trimmedCollectionAddress = collectionAddress.trim();
+
+    // First check if collection exists by public key
+    const collectionByKey = await (prisma as any).voucherCollection.findFirst({
+      where: {
+        collectionPublicKey: trimmedCollectionAddress,
+      },
+      select: {
+        id: true,
+        creator: true,
+        metadataUri: true,
+      },
+    });
+
+    if (!collectionByKey) {
+      return { 
+        success: false, 
+        error: `Voucher collection not found with address: ${trimmedCollectionAddress}` 
+      };
+    }
+
+    // Verify ownership
+    if (collectionByKey.creator !== creatorAddress) {
+      return { 
+        success: false, 
+        error: `Voucher collection found but you are not the creator. Collection creator: ${collectionByKey.creator}, Your address: ${creatorAddress}` 
+      };
+    }
+
+    const collection = {
+      id: collectionByKey.id,
+      metadataUri: collectionByKey.metadataUri,
+    };
+
+    if (!collection.metadataUri) {
+      return {
+        success: false,
+        error: 'Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.',
+      };
+    }
+
+    // Generate unique slug for claim link
+    const slug = `${Math.random().toString(36).slice(2, 12)}`;
+
+    // Create reward link with same data structure as mint voucher
+    const rewardLink = await (prisma as any).rewardLink.create({
+      data: {
+        creatorEmail,
+        creatorAddress,
+        collectionId: collection.id,
+        collectionAddress: trimmedCollectionAddress,
+        slug,
+        voucherType,
+        voucherName,
+        description,
+        voucherWorth: value,
+        maxUses,
+        expiryDate: parsedExpiry.date,
+        transferable,
+        conditions: conditions || null,
+        metadataUri: collection.metadataUri,
+        merchantId,
+        status: 'active',
+      },
+    });
+
+    // Debit API cost after successful claim link creation (merchant pays, customer claims for free)
+    // Skip if called from batch (will debit total amount separately)
+    if (!skipDebit) {
+      await debitVerxioBalance(
+        creatorEmail,
+        API_COSTS.CREATE_CLAIM_LINK,
+        `Claim link creation fee: ${API_COSTS.CREATE_CLAIM_LINK} Verxio`
+      );
+    }
+
+    return {
+      success: true,
+      claimCode: rewardLink.slug,
+    };
+  } catch (error: any) {
+    console.error('Error creating voucher claim link:', error);
+    return { success: false, error: error.message || 'Failed to create voucher claim link' };
+  }
+};
+
+export interface CreateBatchVoucherClaimLinksData {
+  collectionAddress: string;
+  voucherName: string;
+  voucherType:
+    | 'PERCENTAGE_OFF'
+    | 'FIXED_VERXIO_CREDITS'
+    | 'FREE_ITEM'
+    | 'BUY_ONE_GET_ONE'
+    | 'CUSTOM_REWARD'
+    | 'TOKEN'
+    | 'LOYALTY_COIN'
+    | 'FIAT';
+  value: number;
+  description: string;
+  expiryDate: string | Date;
+  maxUses: number;
+  transferable?: boolean;
+  merchantId: string;
+  conditions?: string;
+  creatorEmail: string;
+  quantity: number; // Number of claim links to create
+}
+
+export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaimLinksData) => {
+  try {
+    const { quantity, ...singleLinkData } = data;
+
+    if (!quantity || quantity < 1) {
+      return {
+        success: false,
+        error: 'Quantity must be at least 1',
+      };
+    }
+
+    // Validate required fields first
+    if (!singleLinkData.collectionAddress || !singleLinkData.voucherName || !singleLinkData.voucherType || 
+        singleLinkData.value === undefined || singleLinkData.value === null || !singleLinkData.description || 
+        !singleLinkData.expiryDate || singleLinkData.maxUses === undefined || !singleLinkData.merchantId || 
+        !singleLinkData.creatorEmail) {
+      return {
+        success: false,
+        error: 'All required fields must be provided',
+      };
+    }
+
+    // Get creator info from email
+    const creatorInfo = await getUserCreatorInfo(singleLinkData.creatorEmail);
+    const creatorAddress = creatorInfo.creatorAddress;
+
+    // Trim collection address to handle any whitespace
+    const trimmedCollectionAddress = singleLinkData.collectionAddress.trim();
+
+    // Verify collection ownership BEFORE attempting to create any links
+    const collectionByKey = await (prisma as any).voucherCollection.findFirst({
+      where: {
+        collectionPublicKey: trimmedCollectionAddress,
+      },
+      select: {
+        id: true,
+        creator: true,
+        metadataUri: true,
+      },
+    });
+
+    if (!collectionByKey) {
+      return {
+        success: false,
+        error: `Voucher collection not found with address: ${trimmedCollectionAddress}`,
+      };
+    }
+
+    // Verify ownership
+    if (collectionByKey.creator !== creatorAddress) {
+      return {
+        success: false,
+        error: `Voucher collection found but you are not the creator. Collection creator: ${collectionByKey.creator}, Your address: ${creatorAddress}`,
+      };
+    }
+
+    if (!collectionByKey.metadataUri) {
+      return {
+        success: false,
+        error: 'Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.',
+      };
+    }
+
+    // Calculate total cost
+    const totalCost = API_COSTS.CREATE_CLAIM_LINK * quantity;
+
+    // Check if creator has sufficient balance for all links
+    await checkVerxioBalance(data.creatorEmail, totalCost);
+
+    const claimCodes: string[] = [];
+    const errors: string[] = [];
+
+    // Create links sequentially to avoid race conditions (skip individual debits)
+    for (let i = 0; i < quantity; i++) {
+      try {
+        const result = await createVoucherClaimLink(singleLinkData, true); // Skip individual debit
+        if (result.success && result.claimCode) {
+          claimCodes.push(result.claimCode);
+        } else {
+          errors.push(`Link ${i + 1}: ${result.error || 'Failed to create'}`);
+        }
+      } catch (error: any) {
+        errors.push(`Link ${i + 1}: ${error.message || 'Failed to create'}`);
+      }
+    }
+
+    // If all failed, return error (no debit needed)
+    if (claimCodes.length === 0) {
+      return {
+        success: false,
+        error: `Failed to create any claim links. Errors: ${errors.join('; ')}`,
+      };
+    }
+
+    // Debit total cost for successfully created links only
+    const actualCost = API_COSTS.CREATE_CLAIM_LINK * claimCodes.length;
+    await debitVerxioBalance(
+      data.creatorEmail,
+      actualCost,
+      `Batch claim link creation fee: ${claimCodes.length} links × ${API_COSTS.CREATE_CLAIM_LINK} Verxio = ${actualCost} Verxio`
+    );
+
+    // If some failed, return partial success
+    if (errors.length > 0) {
+      return {
+        success: true,
+        claimCodes,
+        partialSuccess: true,
+        errors,
+        message: `Created ${claimCodes.length} out of ${quantity} claim links`,
+      };
+    }
+
+    // All succeeded
+    return {
+      success: true,
+      claimCodes,
+      message: `Successfully created ${claimCodes.length} claim links`,
+    };
+  } catch (error: any) {
+    console.error('Error creating batch voucher claim links:', error);
+    return { success: false, error: error.message || 'Failed to create batch claim links' };
+  }
+};
+
+export const getVoucherClaimLink = async (slugOrId: string) => {
+  try {
+    const rewardLink = await (prisma as any).rewardLink.findFirst({
+      where: {
+        OR: [{ id: slugOrId }, { slug: slugOrId }],
+      },
+    });
+
+    if (!rewardLink) {
+      return { success: false, error: 'Claim link not found' };
+    }
+
+    return { success: true, rewardLink };
+  } catch (error: any) {
+    console.error('Error fetching voucher claim link:', error);
+    return { success: false, error: error.message || 'Failed to fetch claim link' };
+  }
+};
+
+export const claimVoucherFromLink = async (slugOrId: string, recipientEmail: string) => {
+  try {
+    const rewardRes = await getVoucherClaimLink(slugOrId);
+    if (!rewardRes.success || !rewardRes.rewardLink) {
+      return { success: false, error: rewardRes.error || 'Claim link not found' };
+    }
+
+    const reward = rewardRes.rewardLink as any;
+
+    if (reward.status === 'claimed') {
+      return { success: false, error: 'This claim link has already been used.' };
+    }
+
+    if (reward.expiryDate) {
+      const expiry = new Date(reward.expiryDate);
+      if (expiry <= new Date()) {
+        await (prisma as any).rewardLink.update({
+          where: { id: reward.id },
+          data: { status: 'expired' },
+        });
+        return { success: false, error: 'This claim link has expired.' };
+      }
+    }
+
+    if (reward.voucherWorth === null || reward.voucherWorth === undefined) {
+      return { success: false, error: 'Claim link is missing voucher value.' };
+    }
+
+    const mintData: MintVoucherData = {
+      collectionAddress: reward.collectionAddress,
+      recipientEmail,
+      voucherName: reward.voucherName || 'Reward Voucher',
+      voucherType: reward.voucherType,
+      value: reward.voucherWorth,
+      description: reward.description || 'Voucher reward',
+      expiryDate: reward.expiryDate || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      maxUses: reward.maxUses ?? 1,
+      transferable: !!reward.transferable,
+      merchantId: reward.merchantId || reward.creatorAddress,
+      conditions: reward.conditions || undefined,
+    };
+
+    // Mint voucher without charging API cost (merchant already paid when creating claim link)
+    const minted = await mintVoucher(mintData, reward.creatorEmail, true);
+    if (!minted.success || !minted.voucher) {
+      return { success: false, error: minted.error || 'Failed to mint voucher from claim link' };
+    }
+
+    await (prisma as any).rewardLink.update({
+      where: { id: reward.id },
+      data: {
+        status: 'claimed',
+        voucherAddress: minted.voucher.voucherPublicKey,
+      },
+    });
+
+    return {
+      success: true,
+      voucherAddress: minted.voucher.voucherPublicKey,
+      voucherId: minted.voucher.id,
+    };
+  } catch (error: any) {
+    console.error('Error claiming voucher from link:', error);
+    return { success: false, error: error.message || 'Failed to claim voucher' };
+  }
+};
+
 // Mint Voucher
 export interface MintVoucherData {
   collectionAddress: string;
@@ -578,7 +1009,8 @@ export interface MintVoucherResult {
 
 export const mintVoucher = async (
   data: MintVoucherData,
-  creatorEmail: string
+  creatorEmail: string,
+  skipApiCost: boolean = false // Set to true when called from claim link (merchant already paid)
 ): Promise<MintVoucherResult> => {
   try {
     const {
@@ -607,8 +1039,10 @@ export const mintVoucher = async (
     const recipientInfo = await getUserCreatorInfo(recipientEmail);
     const recipient = recipientInfo.creatorAddress;
 
-    // Check if creator has sufficient balance
-    await checkVerxioBalance(creatorEmail, API_COSTS.MINT_VOUCHER);
+    // Check if creator has sufficient balance (skip if called from claim link - merchant already paid)
+    if (!skipApiCost) {
+      await checkVerxioBalance(creatorEmail, API_COSTS.MINT_VOUCHER);
+    }
 
     // Convert expiryDate to Date if it's a string (needed for metadata generation)
     let expiryDateObj: Date;
@@ -693,7 +1127,7 @@ export const mintVoucher = async (
       } catch (error) {
         return {
           success: false,
-          error: 'Metadata URI must be a valid URL (e.g., https://example.com/voucher-metadata.json)',
+          error: 'Metadata URI must be a valid URL',
         };
       }
     }
@@ -754,12 +1188,14 @@ export const mintVoucher = async (
       },
     });
 
-    // Debit API cost after successful mint
-    await debitVerxioBalance(
-      creatorEmail,
-      API_COSTS.MINT_VOUCHER,
-      `Voucher minting fee: ${API_COSTS.MINT_VOUCHER} Verxio`
-    );
+    // Debit API cost after successful mint (skip if called from claim link - merchant already paid)
+    if (!skipApiCost) {
+      await debitVerxioBalance(
+        creatorEmail,
+        API_COSTS.MINT_VOUCHER,
+        `Voucher minting fee: ${API_COSTS.MINT_VOUCHER} Verxio`
+      );
+    }
 
     return {
       success: true,
