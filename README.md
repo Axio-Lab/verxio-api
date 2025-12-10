@@ -65,13 +65,3 @@ verxio-api/
 - `pnpm db:studio` - Open Prisma Studio
 
 
-## 🛠️ Tech Stack
-
-- **Runtime:** Node.js 20+
-- **Framework:** Express.js
-- **Language:** TypeScript
-- **Database:** PostgreSQL (via Prisma)
-- **Blockchain:** Solana
-- **Authentication:** API Key
-- **IPFS:** Pinata
-
