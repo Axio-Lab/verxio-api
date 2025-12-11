@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  color: #111827;
+  background: #f9fafb;
+  font-family: "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
+}
+
+.gradient-hero {
+  background: radial-gradient(120% 120% at 10% 20%, rgba(59, 130, 246, 0.18), transparent 40%),
+    radial-gradient(110% 110% at 80% 0%, rgba(16, 185, 129, 0.18), transparent 35%),
+    linear-gradient(135deg, #f9fafb 0%, #ffffff 70%);
+}
+
+.card-surface {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 35px rgba(17, 24, 39, 0.08);
+  border-radius: 18px;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Constrain select dropdowns to prevent overflow */
+select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure select dropdowns are scrollable and constrained */
+select option {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
