@@ -486,28 +486,24 @@ export const getVoucherCollectionByPublicKey = async (
         try {
           const voucherDetails = await getVoucherDetails(voucher.voucherPublicKey);
           if (voucherDetails.success && voucherDetails.data) {
+            const vd = voucherDetails.data;
             return {
               ...voucher,
-              voucherName: voucherDetails.data.name || 'Unknown Voucher',
-              voucherType: voucherDetails.data.attributes.voucherType || 'Unknown',
-              value: voucherDetails.data.voucherData?.value || 0,
-              symbol: voucherDetails.data.symbol || 'USDC',
-              description: voucherDetails.data.description || '',
-              expiryDate: voucherDetails.data.voucherData?.expiryDate
-                ? new Date(voucherDetails.data.voucherData.expiryDate).toISOString()
-                : '',
-              maxUses: voucherDetails.data.voucherData?.maxUses || 1,
-              currentUses: voucherDetails.data.voucherData?.currentUses || 0,
-              transferable: voucherDetails.data.voucherData?.transferable ?? true,
-              status: voucherDetails.data.voucherData?.status || 'active',
-              merchantId: voucherDetails.data.voucherData?.merchantId || '',
-              conditions: Array.isArray(voucherDetails.data.voucherData?.conditions)
-                ? voucherDetails.data.voucherData.conditions.join(', ')
-                : voucherDetails.data.voucherData?.conditions || '',
-              image: voucherDetails.data.image || null,
-              isExpired: voucherDetails.data.isExpired || false,
-              canRedeem: voucherDetails.data.canRedeem || false,
-              voucherData: voucherDetails.data.voucherData || null,
+              voucherName: vd.name || 'Unknown Voucher',
+              voucherType: vd.type || 'Unknown',
+              value: vd.value ?? 0,
+              symbol: vd.symbol || 'USDC',
+              description: vd.voucherDescription || vd.description || '',
+              expiryDate: vd.expiryDate ? new Date(vd.expiryDate).toISOString() : '',
+              maxUses: vd.maxUses ?? 1,
+              currentUses: vd.currentUses ?? 0,
+              transferable: vd.transferable ?? true,
+              status: vd.status || 'active',
+              merchantId: vd.merchantId || '',
+              conditions: Array.isArray(vd.conditions) ? vd.conditions.join(', ') : vd.conditions || '',
+              image: vd.image || null,
+              isExpired: vd.isExpired || false,
+              canRedeem: vd.canRedeem || false,
               isLoadingDetails: false,
             };
           } else {
@@ -529,7 +525,6 @@ export const getVoucherCollectionByPublicKey = async (
               image: null,
               isExpired: false,
               canRedeem: false,
-              voucherData: null,
               isLoadingDetails: false,
             };
           }
@@ -552,7 +547,6 @@ export const getVoucherCollectionByPublicKey = async (
             image: null,
             isExpired: false,
             canRedeem: false,
-            voucherData: null,
             isLoadingDetails: false,
           };
         }
@@ -582,15 +576,7 @@ export const getVoucherCollectionByPublicKey = async (
 export interface CreateVoucherClaimLinkData {
   collectionAddress: string;
   voucherName: string;
-  voucherType:
-    | 'PERCENTAGE_OFF'
-    | 'FIXED_VERXIO_CREDITS'
-    | 'FREE_ITEM'
-    | 'BUY_ONE_GET_ONE'
-    | 'CUSTOM_REWARD'
-    | 'TOKEN'
-    | 'LOYALTY_COIN'
-    | 'FIAT';
+  voucherType: "CUSTOM_REWARD" | "TOKEN";
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -736,15 +722,7 @@ export const createVoucherClaimLink = async (
 export interface CreateBatchVoucherClaimLinksData {
   collectionAddress: string;
   voucherName: string;
-  voucherType:
-    | 'PERCENTAGE_OFF'
-    | 'FIXED_VERXIO_CREDITS'
-    | 'FREE_ITEM'
-    | 'BUY_ONE_GET_ONE'
-    | 'CUSTOM_REWARD'
-    | 'TOKEN'
-    | 'LOYALTY_COIN'
-    | 'FIAT';
+  voucherType: "CUSTOM_REWARD" | "TOKEN";
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -976,15 +954,7 @@ export interface MintVoucherData {
   collectionAddress: string;
   recipientEmail: string;
   voucherName: string;
-  voucherType:
-    | 'PERCENTAGE_OFF'
-    | 'FIXED_VERXIO_CREDITS'
-    | 'FREE_ITEM'
-    | 'BUY_ONE_GET_ONE'
-    | 'CUSTOM_REWARD'
-    | 'TOKEN'
-    | 'LOYALTY_COIN'
-    | 'FIAT';
+  voucherType: "CUSTOM_REWARD" | "TOKEN";
   value: number;
   valueSymbol?: string;
   assetName?: string;
@@ -1162,7 +1132,7 @@ export const mintVoucher = async (
         maxUses,
         transferable,
         merchantId: merchantId,
-        conditions: [], // Remove conditions from voucherData to avoid type conflicts
+        conditions: [conditions] as any,
       },
       assetSigner,
       updateAuthority,
