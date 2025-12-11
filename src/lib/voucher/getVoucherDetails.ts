@@ -6,36 +6,28 @@ export interface VoucherDetails {
   description: string;
   image: string;
   symbol: string;
+  assetName: string;
+  assetSymbol: string;
+  tokenAddress: string;
   isExpired: boolean;
   canRedeem: boolean;
-  attributes: {
-    voucherType: string;
-    maxUses: string;
-    expiryDate: string;
-    merchantId: string;
-    status: string;
-    conditions?: string;
-    valueSymbol?: string;
-    [key: string]: any;
-  };
   creator: string;
   owner: string;
   collectionId: string;
-  voucherData: {
-    type: string;
-    value: number;
-    remainingWorth: number;
-    status: string;
-    maxUses: number;
-    issuedAt: number;
-    conditions: string[];
-    description: string;
-    expiryDate: number;
-    merchantId: string;
-    currentUses: number;
-    transferable: boolean;
-    redemptionHistory: any[];
-  };
+  // Flattened voucherData fields
+  type: string;
+  value: number;
+  remainingWorth: number;
+  status: string;
+  maxUses: number;
+  issuedAt: number;
+  conditions: string;
+  voucherDescription: string;
+  expiryDate: number;
+  merchantId: string;
+  currentUses: number;
+  transferable: boolean;
+  redemptionHistory: any[];
 }
 
 interface RpcResponse {
@@ -125,15 +117,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     const metadata = asset.content?.metadata;
     const attributes = metadata?.attributes || [];
 
-    // Extract attributes from metadata
-    const voucherTypeAttr = attributes.find((attr: any) => attr.trait_type === 'Voucher Type');
-    const maxUsesAttr = attributes.find((attr: any) => attr.trait_type === 'Max Uses');
-    const expiryDateAttr = attributes.find((attr: any) => attr.trait_type === 'Expiry Date');
-    const merchantIdAttr = attributes.find((attr: any) => attr.trait_type === 'Merchant ID');
-    const statusAttr = attributes.find((attr: any) => attr.trait_type === 'Status');
-    const conditionsAttr = attributes.find(
-      (attr: any) => attr.trait_type === 'Conditions' || attr.trait_type === 'conditions'
-    );
+    // Extract attributes from metadata that are still surfaced
     const assetNameAttr = attributes.find((attr: any) => attr.trait_type === 'Asset Name');
     const assetSymbolAttr = attributes.find((attr: any) => attr.trait_type === 'Asset Symbol');
     const tokenAddressAttr = attributes.find((attr: any) => attr.trait_type === 'Token Address');
@@ -189,38 +173,33 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
       description: metadata?.description || '',
       image: asset.content?.links?.image || '',
       symbol: symbol,
+      assetName: assetNameAttr?.value || '',
+      assetSymbol: assetSymbolAttr?.value || '',
+      tokenAddress: tokenAddressAttr?.value || '',
       isExpired: isExpired,
       canRedeem: canRedeem,
-      attributes: {
-        voucherType: voucherTypeAttr?.value || '',
-        maxUses: maxUsesAttr?.value || '1',
-        expiryDate: expiryDateAttr?.value || '',
-        merchantId: merchantIdAttr?.value || '',
-        status: statusAttr?.value || 'Active',
-        conditions: conditionsAttr?.value || '',
-        valueSymbol: assetSymbolAttr?.value || '',
-        'Asset Name': assetNameAttr?.value || '',
-        'Asset Symbol': assetSymbolAttr?.value || '',
-        'Token Address': tokenAddressAttr?.value || '',
-      },
       creator: asset.ownership?.owner || '',
       owner: asset.ownership?.owner || '',
       collectionId: collectionId,
-      voucherData: {
-        type: voucherData.type || '',
-        value: originalValue,
-        remainingWorth: remainingWorth,
-        status: voucherData.status || 'active',
-        maxUses: voucherData.max_uses || 1,
-        issuedAt: voucherData.issued_at || 0,
-        conditions: voucherData.conditions || [],
-        description: voucherData.description || '',
-        expiryDate: voucherData.expiry_date || 0,
-        merchantId: voucherData.merchant_id || '',
-        currentUses: voucherData.current_uses || 0,
-        transferable: voucherData.transferable || true,
-        redemptionHistory: redemptionHistory,
-      },
+      // Flattened voucherData fields
+      type: voucherData.type || '',
+      value: originalValue,
+      remainingWorth: remainingWorth,
+      status: voucherData.status || 'active',
+      maxUses: voucherData.max_uses || 1,
+      issuedAt: voucherData.issued_at || 0,
+      conditions: Array.isArray(voucherData.conditions)
+        ? voucherData.conditions
+            .map((c: any) => (typeof c === 'string' ? c : c.value || ''))
+            .filter(Boolean)
+            .join(', ')
+        : voucherData.conditions || '',
+      voucherDescription: voucherData.description || '',
+      expiryDate: voucherData.expiry_date || 0,
+      merchantId: voucherData.merchant_id || '',
+      currentUses: voucherData.current_uses || 0,
+      transferable: voucherData.transferable || true,
+      redemptionHistory: redemptionHistory,
     };
 
     return { success: true, data: voucherDetails };

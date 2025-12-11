@@ -144,8 +144,8 @@ voucherRouter.post('/create', async (req: Request, res: Response, next: NextFunc
  *                 example: "20% Off Summer Sale"
  *               voucherType:
  *                 type: string
- *                 enum: [PERCENTAGE_OFF, FIXED_VERXIO_CREDITS, FREE_ITEM, BUY_ONE_GET_ONE, CUSTOM_REWARD, TOKEN, LOYALTY_COIN, FIAT]
- *                 example: "PERCENTAGE_OFF"
+ *                 enum: [CUSTOM_REWARD, TOKEN]
+ *                 example: "CUSTOM_REWARD"
  *               value:
  *                 type: number
  *                 example: 20
@@ -715,8 +715,8 @@ voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunctio
  *                 example: "20% Off Summer Sale"
  *               voucherType:
  *                 type: string
- *                 enum: [PERCENTAGE_OFF, FIXED_VERXIO_CREDITS, FREE_ITEM, BUY_ONE_GET_ONE, CUSTOM_REWARD, TOKEN, LOYALTY_COIN, FIAT]
- *                 example: "PERCENTAGE_OFF"
+ *                 enum: [CUSTOM_REWARD, TOKEN]
+ *                 example: "CUSTOM_REWARD"
  *               value:
  *                 type: number
  *                 example: 20
@@ -754,7 +754,7 @@ voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunctio
  *               value:
  *                 collectionAddress: "5bBmb9XSQ6BWofv98V1qoxiz8Ecb226mMYf1....."
  *                 voucherName: "20% Off Summer Sale"
- *                 voucherType: "PERCENTAGE_OFF"
+ *                 voucherType: "CUSTOM_REWARD"
  *                 value: 20
  *                 description: "Get 20% off on all summer items"
  *                 expiryDate: "25/12/2025"
@@ -825,8 +825,8 @@ voucherRouter.post('/claim-link/create', async (req: Request, res: Response, nex
  *                 example: "20% Off Summer Sale"
  *               voucherType:
  *                 type: string
- *                 enum: [PERCENTAGE_OFF, FIXED_VERXIO_CREDITS, FREE_ITEM, BUY_ONE_GET_ONE, CUSTOM_REWARD, TOKEN, LOYALTY_COIN, FIAT]
- *                 example: "PERCENTAGE_OFF"
+ *                 enum: [CUSTOM_REWARD, TOKEN]
+ *                 example: "CUSTOM_REWARD"
  *               value:
  *                 type: number
  *                 example: 20
