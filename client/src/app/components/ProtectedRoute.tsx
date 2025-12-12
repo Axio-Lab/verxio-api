@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { ReactNode } from "react";
+import { VerxioLoader } from "./VerxioLoader";
 
 type ProtectedRouteProps = {
   children: ReactNode;
@@ -22,7 +23,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-sm text-textSecondary">Loading...</div>
+        <VerxioLoader size="md" />
       </div>
     );
   }

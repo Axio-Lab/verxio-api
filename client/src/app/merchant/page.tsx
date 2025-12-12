@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import SectionHeader from "../components/SectionHeader";
 import StatCard from "../components/StatCard";
 import DealCard from "../components/DealCard";
@@ -234,6 +235,27 @@ export default function MerchantDashboard() {
               <span className="text-textPrimary">+12</span>
             </li>
           </ul>
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <Link
+              href="/profile"
+              className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              View Profile
+            </Link>
+          </div>
         </div>
       </section>
 

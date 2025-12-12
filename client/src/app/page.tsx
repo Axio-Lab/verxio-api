@@ -5,44 +5,9 @@ import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import DealCard from "./components/DealCard";
 import SectionHeader from "./components/SectionHeader";
+import { useDeals } from "./context/DealContext";
 
-const featuredDeals = [
-  {
-    id: "paris-fashion",
-    title: "Paris Fashion Week Exclusive",
-    merchant: "Maison Lumière",
-    discount: "35% OFF",
-    expiry: "Oct 12",
-    country: "France",
-    category: "Fashion",
-    tradeable: true,
-    worth: 150,
-    worthSymbol: "EUR",
-  },
-  {
-    id: "tokyo-sushi",
-    title: "Signature Omakase Experience",
-    merchant: "Kyoto & Co.",
-    discount: "25% OFF",
-    expiry: "Sep 30",
-    country: "Japan",
-    category: "Dining",
-    worth: 0,
-    worthSymbol: "JPY",
-  },
-  {
-    id: "nyc-spa",
-    title: "Wellness & Spa Day",
-    merchant: "Soho Serenity",
-    discount: "40% OFF",
-    expiry: "Nov 5",
-    country: "USA",
-    category: "Wellness",
-    tradeable: true,
-    worth: 75,
-    worthSymbol: "USD",
-  },
-];
+const FEATURED_DEAL_IDS = ["paris-fashion", "tokyo-sushi", "nyc-spa"];
 
 const logos = ["Brand1", "Brand2", "Brand3", "Brand4"];
 const featureBullets = [
@@ -81,6 +46,11 @@ const featureBullets = [
 export default function Home() {
   const router = useRouter();
   const { authenticated, ready } = usePrivy();
+  const { allDeals } = useDeals();
+
+  const featuredDeals = allDeals.filter((deal) =>
+    FEATURED_DEAL_IDS.includes(deal.id)
+  );
 
   useEffect(() => {
     if (ready && authenticated) {

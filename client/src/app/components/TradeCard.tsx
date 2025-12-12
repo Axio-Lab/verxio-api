@@ -1,11 +1,14 @@
+import Link from "next/link";
+
 type TradeCardProps = {
+  id: string;
   voucher: string;
   seller: string;
   price: string;
   discount: string;
 };
 
-export default function TradeCard({ voucher, seller, price, discount }: TradeCardProps) {
+export default function TradeCard({ id, voucher, seller, price, discount }: TradeCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -18,9 +21,12 @@ export default function TradeCard({ voucher, seller, price, discount }: TradeCar
           {discount} off
         </span>
         <span className="text-lg font-semibold text-textPrimary">{price}</span>
-        <button className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft">
+        <Link
+          href={`/deals/${id}`}
+          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+        >
           Buy Voucher
-        </button>
+        </Link>
       </div>
     </div>
   );
