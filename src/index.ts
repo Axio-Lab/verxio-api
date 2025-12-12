@@ -10,6 +10,7 @@ import { rateLimiter } from './middleware/rateLimiter';
 import { userRouter } from './routes/user';
 import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
+import { dealRouter } from './routes/deal';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
 
@@ -100,6 +101,7 @@ app.use(rateLimiter);
 app.use('/user', userRouter);
 app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
+app.use('/deal', dealRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)

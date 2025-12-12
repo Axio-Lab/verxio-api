@@ -938,6 +938,29 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       },
     });
 
+    // Update deal quantity remaining
+    try {
+      const deal = await (prisma as any).deal.findFirst({
+        where: {
+          collectionAddress: reward.collectionAddress,
+        },
+      });
+
+      if (deal && deal.quantityRemaining > 0) {
+        await (prisma as any).deal.update({
+          where: { id: deal.id },
+          data: {
+            quantityRemaining: {
+              decrement: 1,
+            },
+          },
+        });
+      }
+    } catch (dealError: any) {
+      // Log error but don't fail the claim if deal update fails
+      console.error('Error updating deal quantity:', dealError);
+    }
+
     return {
       success: true,
       voucherAddress: minted.voucher.voucherPublicKey,

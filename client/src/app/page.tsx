@@ -65,7 +65,7 @@ export default function Home() {
         <div className="relative grid gap-10 lg:grid-cols-2 lg:items-center">
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-primary shadow-sm">
-              Deal Discovery Platform
+              Loyalty Deals Discovery Platform
             </div>
             <h1 className="text-4xl font-semibold text-textPrimary sm:text-5xl">
               Discover Unbeatable Deals Worldwide
