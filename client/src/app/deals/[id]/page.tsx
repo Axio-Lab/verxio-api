@@ -1,60 +1,34 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
 import DealCard from "../../components/DealCard";
 import SectionHeader from "../../components/SectionHeader";
 import ProtectedRoute from "../../components/ProtectedRoute";
+import { useDeals } from "../../context/DealContext";
 
-const allDeals = [
-  {
-    id: "paris-fashion",
-    title: "Paris Fashion Week Exclusive",
-    merchant: "Maison Lumière",
-    discount: "35% OFF",
-    expiry: "Oct 12",
-    country: "France",
-    category: "Fashion",
-    tradeable: true,
-    worth: 150,
-    worthSymbol: "EUR",
-    description:
-      "Front-row access and boutique credits for a limited number of guests during Paris Fashion Week.",
-  },
-  {
-    id: "lisbon-brunch",
-    title: "Brunch for Two",
-    merchant: "Sunset Cafe",
-    discount: "30% OFF",
-    expiry: "Sep 28",
-    country: "Portugal",
-    category: "Dining",
-    tradeable: false,
-    worth: 0,
-    worthSymbol: "EUR",
-    description: "Weekend brunch bundle including fresh pastries, mains, and specialty coffee.",
-  },
-  {
-    id: "nairobi-safari",
-    title: "Safari Day Trip",
-    merchant: "Savannah Co.",
-    discount: "35% OFF",
-    expiry: "Nov 01",
-    country: "Kenya",
-    category: "Travel",
-    tradeable: true,
-    worth: 15000,
-    worthSymbol: "KES",
-    description: "Guided day safari with transport, lunch, and conservation briefing.",
-  },
-];
+const DEAL_DESCRIPTIONS: Record<string, string> = {
+  "paris-fashion":
+    "Front-row access and boutique credits for a limited number of guests during Paris Fashion Week.",
+  "lisbon-brunch":
+    "Weekend brunch bundle including fresh pastries, mains, and specialty coffee.",
+  "nairobi-safari":
+    "Guided day safari with transport, lunch, and conservation briefing.",
+};
 
 export default function DealDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const deal = allDeals.find((d) => d.id === id);
+  const { allDeals } = useDeals();
+  
+  const deal = useMemo(() => {
+    const dealData = allDeals.find((d) => d.id === id);
+    return dealData
+      ? { ...dealData, description: DEAL_DESCRIPTIONS[id] || "" }
+      : undefined;
+  }, [allDeals, id]);
 
   useEffect(() => {
     if (!deal) {
@@ -127,16 +101,6 @@ export default function DealDetailsPage() {
                 Terms: Single use, wallet ownership required, subject to merchant availability.
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft">
-                Claim Voucher
-              </button>
-              {deal.tradeable ? (
-                <button className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-textPrimary">
-                  Trade Voucher
-                </button>
-              ) : null}
-            </div>
           </div>
           <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5">
             <SectionHeader
@@ -163,6 +127,17 @@ export default function DealDetailsPage() {
                 <span>Redemption</span>
                 <span className="font-semibold text-textPrimary">In-store & digital</span>
               </div>
+            </div>
+            <div className="pt-4">
+              {deal.tradeable ? (
+                <button className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                  Buy Voucher
+                </button>
+              ) : (
+                <button className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                  Claim Voucher
+                </button>
+              )}
             </div>
           </div>
         </div>
