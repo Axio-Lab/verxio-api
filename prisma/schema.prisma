@@ -215,3 +215,22 @@ model LoyaltyClaimLink {
   @@index([claimCode])
   @@map("loyalty_claim_links")
 }
+
+model Deal {
+  id                 String   @id @default(cuid())
+  creatorEmail       String
+  collectionName     String
+  category           String?
+  tradeable          Boolean  @default(true)
+  quantity           Int
+  quantityRemaining  Int
+  currency           String?
+  country            String?
+  collectionAddress  String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([creatorEmail])
+  @@index([collectionAddress])
+  @@map("deals")
+}

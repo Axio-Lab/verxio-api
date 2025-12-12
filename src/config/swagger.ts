@@ -55,6 +55,10 @@ Only required for POST /user/issue-verxio endpoint.`,
       name: 'Loyalty Cards and Vouchers',
       description: 'create, mint, validate, redeem, cancel, and extend expiry of loyalty card and vouchers',
     },
+    {
+      name: 'Deals',
+      description: 'create and manage deals (voucher collections with batch claim links)',
+    },
   ],
 };
 
