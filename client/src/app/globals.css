@@ -40,3 +40,13 @@ select option {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Shimmer animation for token balance card */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
