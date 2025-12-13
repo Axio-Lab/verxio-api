@@ -3,9 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useDeals } from "../context/DealContext";
+import { useUser, useCreateUser } from "../../hooks/useUser";
 
 const navLinks = [
   { href: "/explore", label: "Explore" },
@@ -20,6 +21,30 @@ export default function Navbar() {
   const { login, logout, authenticated, user, ready } = usePrivy();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { searchQuery, setSearchQuery } = useDeals();
+  
+  // Get user email
+  const userEmail = user?.email?.address;
+  
+  // Check if user exists in Verxio system
+  const { data: userData, isLoading: isLoadingUser } = useUser(userEmail);
+  const createUser = useCreateUser();
+  
+  // Auto-create Verxio user profile if user is authenticated but doesn't exist
+  useEffect(() => {
+    if (authenticated && userEmail && !isLoadingUser) {
+      // Check if user doesn't exist (404 or error)
+      if (userData?.success === false && userData?.error === "User not found") {
+        // Auto-create user profile
+        if (!createUser.isPending && !createUser.isSuccess) {
+          createUser.mutate(userEmail, {
+            onError: (error) => {
+              console.error("Failed to create Verxio user profile:", error);
+            },
+          });
+        }
+      }
+    }
+  }, [authenticated, userEmail, userData, isLoadingUser, createUser]);
 
   const handleLogout = async () => {
     await logout();
