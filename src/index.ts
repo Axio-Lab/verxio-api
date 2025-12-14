@@ -121,10 +121,6 @@ app.use(errorHandler);
 
 app.listen(serverPort, () => {
   console.log(`🚀 Verxio API Server running on port ${serverPort}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔒 CORS enabled for: ${allowedOrigins.join(', ')}, ${serverOrigin}`);
-  console.log(`📍 Health check: http://localhost:${serverPort}/health`);
-  console.log(`📚 API Documentation: http://localhost:${serverPort}`);
 });
 
 export default app;

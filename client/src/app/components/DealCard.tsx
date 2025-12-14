@@ -78,6 +78,15 @@ export default function DealCard({
   const hasQuantity = quantityTotal !== undefined && quantityRemaining !== undefined;
   const soldOut = hasQuantity && quantityRemaining <= 0;
 
+  // Format country name - show "USA" for United States
+  const formatCountry = (country?: string): string => {
+    if (!country) return "";
+    if (country.toLowerCase().startsWith("united states") || country === "United States of America") {
+      return "USA";
+    }
+    return country;
+  };
+
   return (
     <Link
       href={`/deals/${id}`}
@@ -137,7 +146,7 @@ export default function DealCard({
                 {soldOut ? "Sold out" : `${quantityRemaining}/${quantityTotal} left`}
               </span>
             ) : null}
-            <span>{country}</span>
+            <span>{formatCountry(country)}</span>
           </div>
         </div>
       </div>

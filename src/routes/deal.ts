@@ -44,6 +44,11 @@ export const dealRouter: Router = Router();
  *                 type: string
  *                 example: "123 Main St, City, State"
  *                 description: Physical address of the merchant
+ *               merchantWebsite:
+ *                 type: string
+ *                 format: uri
+ *                 example: "https://www.acmestore.com"
+ *                 description: Website URL of the merchant (optional)
  *               contactEmail:
  *                 type: string
  *                 format: email
@@ -74,7 +79,7 @@ export const dealRouter: Router = Router();
  *               voucherWorth:
  *                 type: number
  *                 example: 150
- *                 description: Worth/value of the voucher
+ *                 description: Worth/value of the voucher (stored as 'worth' in the deal record)
  *               currencyCode:
  *                 type: string
  *                 example: "USD"
@@ -115,6 +120,7 @@ export const dealRouter: Router = Router();
  *                 collectionName: "Summer Sale Collection"
  *                 merchantName: "Acme Store"
  *                 merchantAddress: "123 Main St, City, State"
+ *                 merchantWebsite: "https://www.acmestore.com"
  *                 contactEmail: "contact@acmestore.com"
  *                 category: "Fashion"
  *                 description: "Collection of summer sale vouchers"
@@ -219,6 +225,10 @@ dealRouter.post('/create', async (req: Request, res: Response, next: NextFunctio
  *                       quantityRemaining:
  *                         type: integer
  *                         description: Number of vouchers remaining (not yet claimed)
+ *                       worth:
+ *                         type: number
+ *                         nullable: true
+ *                         description: Worth/value of the voucher - optional
  *                       currency:
  *                         type: string
  *                         nullable: true
@@ -230,6 +240,19 @@ dealRouter.post('/create', async (req: Request, res: Response, next: NextFunctio
  *                       collectionAddress:
  *                         type: string
  *                         description: Public key address of the voucher collection
+ *                       expiryDate:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
+ *                         description: Expiry date of the deal - optional
+ *                       dealType:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Type of voucher/deal (e.g., PERCENTAGE_OFF, FREE_SHIPPING) - optional
+ *                       conditions:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Conditions or terms for using this deal - optional
  *                       collectionDetails:
  *                         type: object
  *                         nullable: true
@@ -353,6 +376,10 @@ dealRouter.get('/all', async (req: Request, res: Response, next: NextFunction) =
  *                       quantityRemaining:
  *                         type: integer
  *                         description: Number of vouchers remaining (not yet claimed)
+ *                       worth:
+ *                         type: number
+ *                         nullable: true
+ *                         description: Worth/value of the voucher - optional
  *                       currency:
  *                         type: string
  *                         nullable: true
@@ -364,6 +391,69 @@ dealRouter.get('/all', async (req: Request, res: Response, next: NextFunction) =
  *                       collectionAddress:
  *                         type: string
  *                         description: Public key address of the voucher collection
+ *                       expiryDate:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
+ *                         description: Expiry date of the deal - optional
+ *                       dealType:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Type of voucher/deal (e.g., PERCENTAGE_OFF, FREE_SHIPPING) - optional
+ *                       conditions:
+ *                         type: string
+ *                         nullable: true
+ *                         description: Conditions or terms for using this deal - optional
+ *                       collectionDetails:
+ *                         type: object
+ *                         nullable: true
+ *                         description: Full collection details from blockchain
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                           attributes:
+ *                             type: object
+ *                             properties:
+ *                               merchant:
+ *                                 type: string
+ *                               collectionType:
+ *                                 type: string
+ *                               status:
+ *                                 type: string
+ *                               voucherTypes:
+ *                                 type: array
+ *                                 items:
+ *                                   type: string
+ *                           metadata:
+ *                             type: object
+ *                             properties:
+ *                               merchantName:
+ *                                 type: string
+ *                               merchantAddress:
+ *                                 type: string
+ *                               voucherTypes:
+ *                                 type: array
+ *                                 items:
+ *                                   type: string
+ *                           voucherStats:
+ *                             type: object
+ *                             properties:
+ *                               totalVouchersIssued:
+ *                                 type: integer
+ *                               totalVouchersRedeemed:
+ *                                 type: integer
+ *                               totalValueRedeemed:
+ *                                 type: number
+ *                           creator:
+ *                             type: string
+ *                           owner:
+ *                             type: string
  *                       claimCodes:
  *                         type: array
  *                         items:

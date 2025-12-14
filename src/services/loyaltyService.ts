@@ -394,8 +394,6 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     const userInfo = await getUserCreatorInfo(userEmail);
     const userWallet = userInfo.creatorAddress;
 
-    console.log('userWallet', userWallet);
-    
     // Fetch all NFTs owned by the user
     const url = RPC_ENDPOINT;
     const options = {
@@ -428,8 +426,6 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
 
     const response = await fetch(url, options);
     const data = (await response.json()) as RpcResponse;
-
-    console.log('data', data.result);
 
     if (data.error) {
       throw new AppError(data.error.message || 'Failed to fetch user assets', 500);
