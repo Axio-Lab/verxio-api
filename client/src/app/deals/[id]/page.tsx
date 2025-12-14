@@ -1,66 +1,97 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
 import DealCard from "../../components/DealCard";
 import SectionHeader from "../../components/SectionHeader";
 import ProtectedRoute from "../../components/ProtectedRoute";
+import { VerxioLoader } from "../../components/VerxioLoader";
+import { useDeals as useDealsAPI, type DealInfo } from "../../../hooks/useDeals";
 
-const allDeals = [
-  {
-    id: "paris-fashion",
-    title: "Paris Fashion Week Exclusive",
-    merchant: "Maison Lumière",
-    discount: "35% OFF",
-    expiry: "Oct 12",
-    country: "France",
-    category: "Fashion",
-    tradeable: true,
-    worth: 150,
-    worthSymbol: "EUR",
-    description:
-      "Front-row access and boutique credits for a limited number of guests during Paris Fashion Week.",
-  },
-  {
-    id: "lisbon-brunch",
-    title: "Brunch for Two",
-    merchant: "Sunset Cafe",
-    discount: "30% OFF",
-    expiry: "Sep 28",
-    country: "Portugal",
-    category: "Dining",
-    tradeable: false,
-    worth: 0,
-    worthSymbol: "EUR",
-    description: "Weekend brunch bundle including fresh pastries, mains, and specialty coffee.",
-  },
-  {
-    id: "nairobi-safari",
-    title: "Safari Day Trip",
-    merchant: "Savannah Co.",
-    discount: "35% OFF",
-    expiry: "Nov 01",
-    country: "Kenya",
-    category: "Travel",
-    tradeable: true,
-    worth: 15000,
-    worthSymbol: "KES",
-    description: "Guided day safari with transport, lunch, and conservation briefing.",
-  },
-];
+const DEAL_DESCRIPTIONS: Record<string, string> = {
+  "paris-fashion":
+    "Front-row access and boutique credits for a limited number of guests during Paris Fashion Week.",
+  "lisbon-brunch":
+    "Weekend brunch bundle including fresh pastries, mains, and specialty coffee.",
+  "nairobi-safari":
+    "Guided day safari with transport, lunch, and conservation briefing.",
+};
 
 export default function DealDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const deal = allDeals.find((d) => d.id === id);
+  const { data: apiDeals = [], isLoading } = useDealsAPI();
+  
+  // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
+  const formatDealType = (dealType?: string): string => {
+    if (!dealType) return "Deal";
+    return dealType.replace(/_/g, " ");
+  };
+
+  // Map API deals to the same format as mock deals, including description
+  const mappedApiDeals = !isLoading ? apiDeals.map((deal: DealInfo) => ({
+    id: deal.id,
+    title: deal.collectionName,
+    merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
+    discount: formatDealType(deal.dealType),
+    expiry: deal.expiryDate 
+      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })
+      : "N/A",
+    country: deal.country,
+    category: deal.category,
+    tradeable: deal.tradeable,
+    image: deal.collectionDetails?.image,
+    worth: deal.worth || 0,
+    worthSymbol: deal.currency || "USD",
+    quantityTotal: deal.quantity,
+    quantityRemaining: deal.quantityRemaining,
+    description: deal.collectionDetails?.description || "Deal collection",
+    conditions: deal.conditions || undefined,
+  })) : [];
+  
+  // Use only API deals (no mock data)
+  const allDeals = !isLoading ? mappedApiDeals : [];
+  
+  const deal = useMemo(() => {
+    if (isLoading) return undefined;
+    const dealData = allDeals.find((d: any) => d.id === id);
+    if (!dealData) return undefined;
+    
+    // Get description and conditions - check if it's an API deal
+    const apiDeal = apiDeals.find((d: DealInfo) => d.id === id);
+    const description = DEAL_DESCRIPTIONS[id] || apiDeal?.collectionDetails?.description || "Deal collection";
+    const conditions = apiDeal?.conditions || undefined;
+    
+    return {
+      ...dealData,
+      description,
+      conditions,
+    } as typeof dealData & { description: string; conditions?: string };
+  }, [allDeals, id, isLoading, apiDeals]);
 
   useEffect(() => {
-    if (!deal) {
+    if (!isLoading && !deal) {
       router.replace("/explore");
     }
-  }, [deal, router]);
+  }, [deal, router, isLoading]);
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex min-h-[400px] items-center justify-center">
+            <VerxioLoader size="lg" />
+          </div>
+        </main>
+      </ProtectedRoute>
+    );
+  }
 
   if (!deal) {
     return null;
@@ -98,7 +129,7 @@ export default function DealDetailsPage() {
     return `${formattedNumber} ${symbol}`;
   };
 
-  const related = allDeals.filter((d) => d.id !== id).slice(0, 2);
+  const related = allDeals.filter((d: any) => d.id !== id).slice(0, 2) as any[];
 
   return (
     <ProtectedRoute>
@@ -107,6 +138,14 @@ export default function DealDetailsPage() {
         <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
           <div className="space-y-4">
             <div className="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-green-50">
+              {deal.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={deal.image}
+                  alt={deal.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
               <div className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                 {deal.discount}
               </div>
@@ -124,18 +163,8 @@ export default function DealDetailsPage() {
                 What you get: {deal.description}
               </div>
               <div className="rounded-2xl bg-gray-50 p-4 text-sm text-textSecondary">
-                Terms: Single use, wallet ownership required, subject to merchant availability.
+                Terms: {deal.conditions}
               </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft">
-                Claim Voucher
-              </button>
-              {deal.tradeable ? (
-                <button className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-textPrimary">
-                  Trade Voucher
-                </button>
-              ) : null}
             </div>
           </div>
           <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5">
@@ -153,7 +182,11 @@ export default function DealDetailsPage() {
               </div>
               <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm">
                 <span>Quantity</span>
-                <span className="font-semibold text-textPrimary">1,200</span>
+                <span className="font-semibold text-textPrimary">
+                  {deal.quantityRemaining !== undefined && deal.quantityTotal !== undefined
+                    ? `${deal.quantityRemaining} / ${deal.quantityTotal}`
+                    : "N/A"}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm">
                 <span>Tradeable</span>
@@ -164,6 +197,17 @@ export default function DealDetailsPage() {
                 <span className="font-semibold text-textPrimary">In-store & digital</span>
               </div>
             </div>
+            <div className="pt-4">
+              {deal.tradeable ? (
+                <button className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                  Buy Voucher
+                </button>
+              ) : (
+                <button className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                  Claim Voucher
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -171,7 +215,7 @@ export default function DealDetailsPage() {
       <section className="mt-12">
         <SectionHeader title="Related deals" description="You might also like these collections." />
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {related.map((item) => (
+          {related.map((item: any) => (
             <DealCard key={item.id} {...item} />
           ))}
         </div>

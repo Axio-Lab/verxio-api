@@ -5,9 +5,9 @@ import TradeCard from "../components/TradeCard";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 const trades = [
-  { voucher: "Paris Fashion Week Exclusive", seller: "wallet...9ab3", price: "$120", discount: "35%" },
-  { voucher: "Safari Day Trip", seller: "wallet...5dd2", price: "$75", discount: "35%" },
-  { voucher: "Brunch for Two", seller: "wallet...118c", price: "$22", discount: "30%" },
+  { id: "paris-fashion", voucher: "Paris Fashion Week Exclusive", seller: "wallet...9ab3", price: "$120", discount: "35%" },
+  { id: "nairobi-safari", voucher: "Safari Day Trip", seller: "wallet...5dd2", price: "$75", discount: "35%" },
+  { id: "lisbon-brunch", voucher: "Brunch for Two", seller: "wallet...118c", price: "$22", discount: "30%" },
 ];
 
 export default function TradePage() {
@@ -17,7 +17,7 @@ export default function TradePage() {
       <SectionHeader
         eyebrow="Peer to peer"
         title="Trade Vouchers"
-        description="List, buy, and swap vouchers securely with wallet-based settlement."
+        description="List, buy, and swap vouchers securely with instant settlement."
       />
 
       <div className="mt-6 flex flex-wrap gap-3">

@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import SectionHeader from "../components/SectionHeader";
 import StatCard from "../components/StatCard";
-import DealCard from "../components/DealCard";
 import ProtectedRoute from "../components/ProtectedRoute";
-import CurrencySelect from "../components/CurrencySelect";
-import CountrySelect from "../components/CountrySelect";
-import ImageUpload from "../components/ImageUpload";
+import CreateDealForm from "../components/CreateDealForm";
+import CollectionCard from "../components/CollectionCard";
+import { VerxioLoader } from "../components/VerxioLoader";
+import { useDealsByUser } from "../../hooks/useDeals";
 
 const stats = [
   { label: "Total Vouchers Issued", value: "18,230", trend: "+12% MoM" },
@@ -16,241 +18,253 @@ const stats = [
   { label: "Total Trades", value: "1,223", trend: "+14% MoM" },
 ];
 
-const collections = [
-  {
-    id: "paris-fashion",
-    title: "Paris Fashion Week Exclusive",
-    merchant: "Maison Lumière",
-    discount: "35% OFF",
-    expiry: "Oct 12",
-    country: "France",
-    category: "Fashion",
-    tradeable: true,
-    worth: 150,
-    worthSymbol: "EUR",
-  },
-  {
-    id: "dubai-retreat",
-    title: "Luxury Spa Evening",
-    merchant: "Azure Spa",
-    discount: "45% OFF",
-    expiry: "Oct 03",
-    country: "UAE",
-    category: "Wellness",
-    worth: 200,
-    worthSymbol: "AED",
-  },
-];
 
 export default function MerchantDashboard() {
-  const [currencyCode, setCurrencyCode] = useState<string>("");
-  const [country, setCountry] = useState<string>("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleCurrencyChange = (code: string) => {
-    setCurrencyCode(code);
+  const { user } = usePrivy();
+  const userEmail = user?.email?.address;
+  const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
+  
+  const [selectedForAdd, setSelectedForAdd] = useState<string | null>(null);
+  const [selectedForExtend, setSelectedForExtend] = useState<string | null>(null);
+  const [addQuantity, setAddQuantity] = useState<number>(0);
+  const [extendDate, setExtendDate] = useState<string>("");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const collectionsPerPage = 4;
+  
+  // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
+  const formatDealType = (dealType?: string): string => {
+    if (!dealType) return "Deal";
+    return dealType.replace(/_/g, " ");
   };
 
-  const handleCountryChange = (countryName: string) => {
-    setCountry(countryName);
-  };
-
-  const handleImageChange = (file: File | null) => {
-    setImageFile(file);
-    setImageUrl(""); // Clear previous URL when new file is selected
-  };
-
-  const handlePublish = async () => {
-    setError(null);
-    setUploading(true);
-
-    try {
-      let finalImageUrl = imageUrl;
-
-      // Upload image if a file is selected
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Failed to upload image");
-        }
-
-        finalImageUrl = data.imageUrl;
-        setImageUrl(finalImageUrl);
-      }
-
-      // TODO: Create voucher collection with finalImageUrl and other form data
-      console.log("Publishing collection with image:", finalImageUrl);
-      // Add your API call here to create the voucher collection
-
-      // Reset form after successful publish
-      setImageFile(null);
-      setImageUrl("");
-      setCurrencyCode("");
-      setCountry("");
-      // Reset other form fields as needed
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to publish collection";
-      setError(errorMessage);
-    } finally {
-      setUploading(false);
-    }
-  };
+  // Map API deals to CollectionCard format (only when not loading)
+  const mappedUserDeals = !isLoadingDeals ? userDeals.map((deal) => ({
+    id: deal.id,
+    title: deal.collectionName,
+    merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
+    discount: formatDealType(deal.dealType),
+    expiry: deal.expiryDate 
+      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })
+      : "N/A",
+    country: deal.country,
+    category: deal.category,
+    tradeable: deal.tradeable,
+    worth: deal.worth || 0,
+    worthSymbol: deal.currency || "USD",
+    quantityTotal: deal.quantity,
+    quantityRemaining: deal.quantityRemaining,
+  })) : [];
+  
+  // Use only API deals (no mock data)
+  const allCollections = !isLoadingDeals ? mappedUserDeals : [];
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(allCollections.length / collectionsPerPage);
+  const startIndex = (currentPage - 1) * collectionsPerPage;
+  const endIndex = startIndex + collectionsPerPage;
+  const displayedCollections = allCollections.slice(startIndex, endIndex);
 
   return (
     <ProtectedRoute>
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <SectionHeader
-        eyebrow="Merchant Dashboard"
-        title="Create and manage your voucher collections"
-        description="Publish deals, manage inventory, and monitor claims and trade volume."
-      />
+        <SectionHeader
+          eyebrow="Merchant Dashboard"
+          title="Create and manage your voucher collections"
+          description="Publish deals, manage inventory, and monitor claims and trade volume."
+        />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
-
-      <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="card-surface p-6">
-          <h3 className="text-xl font-semibold text-textPrimary">Create Voucher Collection</h3>
-          <p className="mt-2 text-sm text-textSecondary">
-            Upload brand assets, define voucher details, and publish to the marketplace.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <input
-              placeholder="Collection Name"
-              className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            />
-            <input
-              placeholder="Category"
-              className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            />
-            <div className="sm:col-span-2">
-              <ImageUpload
-                onChange={handleImageChange}
-                placeholder="Upload cover image (PNG, JPG, GIF)"
-              />
-            </div>
-            <textarea
-              placeholder="Description"
-              className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none sm:col-span-2"
-              rows={3}
-            />
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="min-w-0">
-              <input
-                placeholder="Voucher Title"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div className="min-w-0">
-              <input
-                placeholder="Discount Value"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div className="min-w-0">
-              <input
-                type="number"
-                placeholder="Voucher Worth/Price (0 for free)"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div className="min-w-0">
-              <CurrencySelect
-                value={currencyCode}
-                onChange={handleCurrencyChange}
-                placeholder="Select currency"
-              />
-            </div>
-            <div className="min-w-0">
-              <CountrySelect
-                value={country}
-                onChange={handleCountryChange}
-                placeholder="Select country"
-              />
-            </div>
-            <div className="min-w-0">
-              <input
-                placeholder="Quantity"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div className="min-w-0">
-              <input
-                placeholder="Expiry Date"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-            <span className="text-textSecondary">Tradeable</span>
-            <label className="inline-flex cursor-pointer items-center gap-2">
-              <input type="checkbox" defaultChecked className="h-4 w-4 accent-primary" />
-              <span className="text-textPrimary">Yes</span>
-            </label>
-          </div>
-          {error && (
-            <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-          <button
-            onClick={handlePublish}
-            disabled={uploading}
-            className="mt-5 w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-          >
-            {uploading ? "Publishing..." : "Publish Collection"}
-          </button>
-        </div>
-
-        <div className="card-surface p-6">
-          <h3 className="text-xl font-semibold text-textPrimary">Recent Activity</h3>
-          <ul className="mt-4 space-y-3 text-sm text-textSecondary">
-            <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-              <span>Voucher claimed</span>
-              <span className="text-textPrimary">+32</span>
-            </li>
-            <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-              <span>New trade listing</span>
-              <span className="text-textPrimary">Safari Day Trip</span>
-            </li>
-            <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-              <span>Redemptions today</span>
-              <span className="text-textPrimary">+12</span>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-textPrimary">Manage Collections</h3>
-          <button className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary">
-            View Live
-          </button>
-        </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {collections.map((collection) => (
-            <DealCard key={collection.id} {...collection} />
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => (
+            <StatCard key={stat.label} {...stat} />
           ))}
         </div>
-      </section>
-    </main>
+
+        <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <CreateDealForm />
+
+
+
+          <div className="card-surface p-6">
+
+            <Link
+              href="/profile"
+              className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              View Profile
+            </Link>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+            </div>
+
+            <h3 className="text-xl font-semibold text-textPrimary">Recent Activity</h3>
+            <ul className="mt-4 space-y-3 text-sm text-textSecondary">
+              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+                <span>Voucher claimed</span>
+                <span className="text-textPrimary">+32</span>
+              </li>
+              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+                <span>New trade listing</span>
+                <span className="text-textPrimary">Safari Day Trip</span>
+              </li>
+              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+                <span>Redemptions today</span>
+                <span className="text-textPrimary">+12</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-textPrimary">Manage Collection</h3>
+            <Link
+              href="/merchant/deals"
+              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
+            >
+              View More
+            </Link>
+          </div>
+          {isLoadingDeals ? (
+            <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-4">
+              <VerxioLoader size="md" />
+              <p className="text-sm text-textSecondary">Loading your collections...</p>
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {displayedCollections.map((collection) => (
+                  <CollectionCard
+                    key={collection.id}
+                    {...collection}
+                    onAddDeal={() => setSelectedForAdd(collection.id)}
+                    onExtend={() => setSelectedForExtend(collection.id)}
+                  />
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                          currentPage === page
+                            ? "bg-primary text-white"
+                            : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {(selectedForAdd || selectedForExtend) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => {
+                setSelectedForAdd(null);
+                setSelectedForExtend(null);
+              }}
+            />
+            <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-textPrimary">
+                  {selectedForAdd ? "Add deal quantity" : "Extend expiry date"}
+                </h4>
+                <button
+                  onClick={() => {
+                    setSelectedForAdd(null);
+                    setSelectedForExtend(null);
+                  }}
+                  className="text-sm text-textSecondary hover:text-textPrimary"
+                >
+                  Close
+                </button>
+              </div>
+
+              {selectedForAdd ? (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-sm font-medium text-textSecondary">
+                    Quantity to add
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={addQuantity}
+                    onChange={(e) => setAddQuantity(Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="e.g. 100"
+                  />
+                  <button className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                    Publish
+                  </button>
+                </div>
+              ) : null}
+
+              {selectedForExtend ? (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-sm font-medium text-textSecondary">
+                    New expiry date
+                  </label>
+                  <input
+                    type="date"
+                    value={extendDate}
+                    onChange={(e) => setExtendDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  />
+                  <button className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+                    Extend
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </main>
     </ProtectedRoute>
   );
 }

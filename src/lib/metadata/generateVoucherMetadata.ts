@@ -49,15 +49,20 @@ export async function generateVoucherMetadata(
       throw new Error('Missing required data for metadata generation');
     }
 
+    // Ensure imageUri has https:// prefix
+    const normalizedImageUri = imageUri.startsWith('http://') || imageUri.startsWith('https://')
+      ? imageUri
+      : `https://${imageUri}`;
+
     const metadataObject = {
       name: voucherName,
       symbol: 'VERXIO-VOUCHER',
       description: description || `Voucher: ${voucherType} - ${value}`,
-      image: imageUri,
+      image: normalizedImageUri,
       properties: {
         files: [
           {
-            uri: imageUri,
+            uri: normalizedImageUri,
             type: mimeType || 'image/png',
           },
         ],
