@@ -25,6 +25,7 @@ app.use(helmet());
 // CORS configuration
 const defaultOrigins = [
   'http://localhost:3000',
+  'https://deals.verxio.xyz',
   'https://playground.verxio.xyz',
   'https://api.verxio.xyz'
 ];
