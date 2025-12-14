@@ -7,7 +7,8 @@ import getSymbolFromCurrency from "currency-symbol-map";
 import SectionHeader from "../../components/SectionHeader";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import { VerxioLoader } from "../../components/VerxioLoader";
-import { useDealsByUser } from "../../../hooks/useDeals";
+import ExplorerLink from "../../components/ExplorerLink";
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "../../../hooks/useDeals";
 
 export default function MerchantCollectionDetailsPage() {
   const params = useParams();
@@ -16,6 +17,8 @@ export default function MerchantCollectionDetailsPage() {
   const userEmail = user?.email?.address;
   const id = params.id as string;
   const { data: userDeals = [], isLoading } = useDealsByUser(userEmail);
+  const addDealQuantityMutation = useAddDealQuantity();
+  const extendDealExpiryMutation = useExtendDealExpiry();
   const [showAddDeal, setShowAddDeal] = useState(false);
   const [showExtend, setShowExtend] = useState(false);
   const [addQuantity, setAddQuantity] = useState<number>(0);
@@ -99,8 +102,15 @@ export default function MerchantCollectionDetailsPage() {
             </div>
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-wide text-textSecondary">{deal.category || "Uncategorized"}</p>
-              <h1 className="text-3xl font-semibold text-textPrimary">{deal.collectionName}</h1>
-              <p className="text-sm text-textSecondary">{merchantName} • {deal.country || "N/A"}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-semibold text-textPrimary">{deal.collectionName}</h1>
+                  <p className="text-sm text-textSecondary">{merchantName} • {deal.country || "N/A"}</p>
+                </div>
+                {deal.collectionAddress && (
+                  <ExplorerLink address={deal.collectionAddress} />
+                )}
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-blue-50 p-4 text-sm text-primary">
@@ -188,9 +198,24 @@ export default function MerchantCollectionDetailsPage() {
                 placeholder="e.g. 100"
               />
               <button
-                className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+                onClick={async () => {
+                  if (!deal || !userEmail || addQuantity <= 0) return;
+                  try {
+                    await addDealQuantityMutation.mutateAsync({
+                      dealId: deal.id,
+                      quantity: addQuantity,
+                      creatorEmail: userEmail,
+                    });
+                    setShowAddDeal(false);
+                    setAddQuantity(0);
+                  } catch (error) {
+                    console.error("Failed to add deal quantity:", error);
+                  }
+                }}
+                disabled={addDealQuantityMutation.isPending || addQuantity <= 0}
+                className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Publish
+                {addDealQuantityMutation.isPending ? "Adding..." : "Publish"}
               </button>
             </div>
           </div>
@@ -224,9 +249,24 @@ export default function MerchantCollectionDetailsPage() {
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
               <button
-                className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+                onClick={async () => {
+                  if (!deal || !userEmail || !extendDate) return;
+                  try {
+                    await extendDealExpiryMutation.mutateAsync({
+                      dealId: deal.id,
+                      newExpiryDate: extendDate,
+                      creatorEmail: userEmail,
+                    });
+                    setShowExtend(false);
+                    setExtendDate("");
+                  } catch (error) {
+                    console.error("Failed to extend deal expiry:", error);
+                  }
+                }}
+                disabled={extendDealExpiryMutation.isPending || !extendDate}
+                className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Extend
+                {extendDealExpiryMutation.isPending ? "Extending..." : "Extend"}
               </button>
             </div>
           </div>
