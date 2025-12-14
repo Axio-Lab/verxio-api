@@ -30,37 +30,40 @@ export default function DealDetailsPage() {
   };
 
   // Map API deals to the same format as mock deals, including description
-  const mappedApiDeals = !isLoading ? apiDeals.map((deal: DealInfo) => ({
-    id: deal.id,
-    title: deal.collectionName,
-    merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
-    discount: formatDealType(deal.dealType),
-    expiry: deal.expiryDate 
-      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : "N/A",
-    country: deal.country,
-    category: deal.category,
-    tradeable: deal.tradeable,
-    image: deal.collectionDetails?.image,
-    worth: deal.worth || 0,
-    worthSymbol: deal.currency || "USD",
-    quantityTotal: deal.quantity,
-    quantityRemaining: deal.quantityRemaining,
-    description: deal.collectionDetails?.description || "Deal collection",
-    conditions: deal.conditions || undefined,
-    collectionAddress: deal.collectionAddress,
-  })) : [];
+  const mappedApiDeals = useMemo(() => {
+    if (isLoading) return [];
+    return apiDeals.map((deal: DealInfo) => ({
+      id: deal.id,
+      title: deal.collectionName,
+      merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
+      discount: formatDealType(deal.dealType),
+      expiry: deal.expiryDate 
+        ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+          })
+        : "N/A",
+      country: deal.country,
+      category: deal.category,
+      tradeable: deal.tradeable,
+      image: deal.collectionDetails?.image,
+      worth: deal.worth || 0,
+      worthSymbol: deal.currency || "USD",
+      quantityTotal: deal.quantity,
+      quantityRemaining: deal.quantityRemaining,
+      description: deal.collectionDetails?.description || "Deal collection",
+      conditions: deal.conditions || undefined,
+      collectionAddress: deal.collectionAddress,
+    }));
+  }, [isLoading, apiDeals]);
   
   // Use only API deals (no mock data)
-  const allDeals = !isLoading ? mappedApiDeals : [];
+  const allDeals = mappedApiDeals;
   
   const deal = useMemo(() => {
     if (isLoading) return undefined;
-    const dealData = allDeals.find((d: any) => d.id === id);
+    const dealData = allDeals.find((d) => d.id === id);
     if (!dealData) return undefined;
     
     // Get description and conditions - check if it's an API deal
@@ -148,7 +151,7 @@ export default function DealDetailsPage() {
     return `${formattedNumber} ${symbol}`;
   };
 
-  const related = allDeals.filter((d: any) => d.id !== id).slice(0, 2) as any[];
+  const related = allDeals.filter((d) => d.id !== id).slice(0, 2);
 
   return (
     <ProtectedRoute>
@@ -273,10 +276,11 @@ export default function DealDetailsPage() {
                       setTimeout(() => {
                         router.push("/profile/vouchers");
                       }, 1500);
-                    } catch (error: any) {
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : "Failed to claim voucher. Please try again.";
                       setMessage({
                         type: "error",
-                        text: error.message || "Failed to claim voucher. Please try again.",
+                        text: errorMessage,
                       });
                     }
                   }}
@@ -303,7 +307,7 @@ export default function DealDetailsPage() {
       <section className="mt-12">
         <SectionHeader title="Related deals" description="You might also like these collections." />
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {related.map((item: any) => (
+          {related.map((item) => (
             <DealCard key={item.id} {...item} />
           ))}
         </div>

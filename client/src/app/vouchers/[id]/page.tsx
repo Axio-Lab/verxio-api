@@ -155,8 +155,9 @@ export default function VoucherDetailsPage() {
       } else {
         setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
       }
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to redeem voucher' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
+      setMessage({ type: 'error', text: errorMessage });
     }
   };
 
