@@ -576,7 +576,7 @@ export const getVoucherCollectionByPublicKey = async (
 export interface CreateVoucherClaimLinkData {
   collectionAddress: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN";
+  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -722,7 +722,7 @@ export const createVoucherClaimLink = async (
 export interface CreateBatchVoucherClaimLinksData {
   collectionAddress: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN";
+  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -809,7 +809,7 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
     // Create links sequentially to avoid race conditions (skip individual debits)
     for (let i = 0; i < quantity; i++) {
       try {
-        const result = await createVoucherClaimLink(singleLinkData, true); // Skip individual debit
+        const result = await createVoucherClaimLink(singleLinkData as CreateVoucherClaimLinkData, true); // Skip individual debit
         if (result.success && result.claimCode) {
           claimCodes.push(result.claimCode);
         } else {
@@ -938,6 +938,29 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       },
     });
 
+    // Update deal quantity remaining
+    try {
+      const deal = await (prisma as any).deal.findFirst({
+        where: {
+          collectionAddress: reward.collectionAddress,
+        },
+      });
+
+      if (deal && deal.quantityRemaining > 0) {
+        await (prisma as any).deal.update({
+          where: { id: deal.id },
+          data: {
+            quantityRemaining: {
+              decrement: 1,
+            },
+          },
+        });
+      }
+    } catch (dealError: any) {
+      // Log error but don't fail the claim if deal update fails
+      console.error('Error updating deal quantity:', dealError);
+    }
+
     return {
       success: true,
       voucherAddress: minted.voucher.voucherPublicKey,
@@ -954,7 +977,7 @@ export interface MintVoucherData {
   collectionAddress: string;
   recipientEmail: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN";
+  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
   value: number;
   valueSymbol?: string;
   assetName?: string;

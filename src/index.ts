@@ -10,6 +10,7 @@ import { rateLimiter } from './middleware/rateLimiter';
 import { userRouter } from './routes/user';
 import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
+import { dealRouter } from './routes/deal';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
 
@@ -100,6 +101,7 @@ app.use(rateLimiter);
 app.use('/user', userRouter);
 app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
+app.use('/deal', dealRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)
@@ -119,10 +121,6 @@ app.use(errorHandler);
 
 app.listen(serverPort, () => {
   console.log(`🚀 Verxio API Server running on port ${serverPort}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔒 CORS enabled for: ${allowedOrigins.join(', ')}, ${serverOrigin}`);
-  console.log(`📍 Health check: http://localhost:${serverPort}/health`);
-  console.log(`📚 API Documentation: http://localhost:${serverPort}`);
 });
 
 export default app;

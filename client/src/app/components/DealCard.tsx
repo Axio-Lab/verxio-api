@@ -15,6 +15,8 @@ export type DealCardProps = {
   image?: string;
   worth?: number;
   worthSymbol?: string;
+  quantityTotal?: number;
+  quantityRemaining?: number;
 };
 
 export default function DealCard({
@@ -29,6 +31,8 @@ export default function DealCard({
   image,
   worth,
   worthSymbol = "USDC",
+  quantityTotal,
+  quantityRemaining,
 }: DealCardProps) {
   const getCurrencySymbol = (code: string): string => {
     // Special cases for crypto currencies
@@ -60,6 +64,27 @@ export default function DealCard({
     
     // All other currencies: symbol after amount
     return `${formattedNumber} ${symbol}`;
+  };
+
+  const isExpired = (): boolean => {
+    const currentYear = new Date().getFullYear();
+    const expiryDate = new Date(`${expiry} ${currentYear}`);
+    if (Number.isNaN(expiryDate.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expiryDate < today;
+  };
+
+  const hasQuantity = quantityTotal !== undefined && quantityRemaining !== undefined;
+  const soldOut = hasQuantity && quantityRemaining <= 0;
+
+  // Format country name - show "USA" for United States
+  const formatCountry = (country?: string): string => {
+    if (!country) return "";
+    if (country.toLowerCase().startsWith("united states") || country === "United States of America") {
+      return "USA";
+    }
+    return country;
   };
 
   return (
@@ -104,10 +129,25 @@ export default function DealCard({
         </div>
         <div className="mt-auto flex items-center justify-between text-xs text-textSecondary">
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            Expires {expiry}
+            <span
+              className={`h-2 w-2 rounded-full ${isExpired() ? "bg-red-500" : "bg-amber-400"}`}
+            />
+            {isExpired() ? "Expired" : `Expires ${expiry}`}
           </span>
-          <span>{country}</span>
+          <div className="flex items-center gap-3">
+            {hasQuantity ? (
+              <span
+                className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                  soldOut
+                    ? "bg-gray-100 text-gray-500"
+                    : "bg-blue-50 text-blue-700"
+                }`}
+              >
+                {soldOut ? "Sold out" : `${quantityRemaining}/${quantityTotal} left`}
+              </span>
+            ) : null}
+            <span>{formatCountry(country)}</span>
+          </div>
         </div>
       </div>
     </Link>

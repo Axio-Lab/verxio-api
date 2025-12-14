@@ -1,9 +1,12 @@
+import Link from "next/link";
+
 type VoucherCardProps = {
   merchant: string;
   discount: string;
   expiry: string;
   quantity?: number;
   tradeable?: boolean;
+  voucherId?: string;
 };
 
 export default function VoucherCard({
@@ -12,8 +15,9 @@ export default function VoucherCard({
   expiry,
   quantity,
   tradeable,
+  voucherId,
 }: VoucherCardProps) {
-  return (
+  const cardContent = (
     <div className="card-surface flex flex-col gap-3 p-4 transition-transform hover:-translate-y-1">
       <div className="flex items-center justify-between">
         <div>
@@ -32,13 +36,36 @@ export default function VoucherCard({
         {quantity !== undefined ? <span>Qty: {quantity}</span> : null}
       </div>
       <div className="flex gap-2">
-        <button className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft">
+        <button 
+          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
           Redeem
         </button>
-        <button className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-textPrimary">
+        <button 
+          className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-textPrimary"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
           Trade
         </button>
       </div>
     </div>
   );
+
+  // If voucherId is provided, make it a link; otherwise, just a div
+  if (voucherId) {
+    return (
+      <Link href={`/vouchers/${voucherId}`} className="block">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }
