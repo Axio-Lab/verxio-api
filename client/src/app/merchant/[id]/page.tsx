@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import getSymbolFromCurrency from "currency-symbol-map";
 import SectionHeader from "../../components/SectionHeader";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import { VerxioLoader } from "../../components/VerxioLoader";
@@ -52,13 +51,6 @@ export default function MerchantCollectionDetailsPage() {
     return null;
   }
 
-  const getCurrencySymbol = (code?: string): string => {
-    if (!code) return "USD";
-    if (code === "SOL") return "SOL";
-    if (code === "USDC") return "$";
-    const symbol = getSymbolFromCurrency(code);
-    return symbol || code;
-  };
 
   // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
   const formatDealType = (dealType?: string): string => {

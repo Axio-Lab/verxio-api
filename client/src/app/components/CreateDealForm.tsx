@@ -37,7 +37,7 @@ export default function CreateDealForm() {
   const [transferable, setTransferable] = useState<boolean>(false);
   const [expiryDate, setExpiryDate] = useState<string>("");
   const [conditions, setConditions] = useState<string>("");
-  const [imageUploadKey, setImageUploadKey] = useState<number>(0);
+  const [imageUploadKey] = useState<number>(0);
 
   const handleCurrencyChange = (code: string) => {
     setCurrencyCode(code);

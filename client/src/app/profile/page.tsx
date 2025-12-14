@@ -70,7 +70,11 @@ export default function ProfilePage() {
       const dateB = new Date(b.claimedAt).getTime();
       return dateB - dateA; // Descending order (newest first)
     })
-    .map(({ claimedAt, ...voucher }) => voucher) // Remove claimedAt from final objects
+    .map((voucher) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { claimedAt, ...rest } = voucher;
+      return rest;
+    }) // Remove claimedAt from final objects
     : [];
   
   // Pagination state
@@ -145,8 +149,9 @@ export default function ProfilePage() {
       } else {
         setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
       }
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to redeem voucher' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
+      setMessage({ type: 'error', text: errorMessage });
     }
   };
 

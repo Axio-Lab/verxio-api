@@ -58,7 +58,11 @@ export default function AllVouchersPage() {
       const dateB = new Date(b.claimedAt).getTime();
       return dateB - dateA; // Descending order (newest first)
     })
-    .map(({ claimedAt, ...voucher }) => voucher) // Remove claimedAt from final objects
+    .map((voucher) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { claimedAt, ...rest } = voucher;
+      return rest;
+    }) // Remove claimedAt from final objects
     : [];
   
   // Pagination calculations
@@ -131,8 +135,9 @@ export default function AllVouchersPage() {
       } else {
         setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
       }
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to redeem voucher' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
+      setMessage({ type: 'error', text: errorMessage });
     }
   };
 
@@ -166,11 +171,13 @@ export default function AllVouchersPage() {
               <>
                 <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {displayedVouchers.map((voucher, index) => (
-                    <VoucherCard
-                      key={`${voucher.voucherId || voucher.voucherName}-${index}`}
-                      {...voucher}
-                      voucherId={voucher.voucherId}
-                    />
+                    <div key={`${voucher.voucherId || voucher.voucherName}-${index}`}>
+                      <VoucherCard
+                        {...voucher}
+                        voucherId={voucher.voucherId}
+                        onRedeem={() => handleRedeemClick(voucher)}
+                      />
+                    </div>
                   ))}
                 </div>
                 
