@@ -15,21 +15,37 @@ const CATEGORIES = [
   "Food",
 ];
 
-const DISCOUNT_RANGES = [
-  { value: "", label: "All Discounts" },
-  { value: "0-20", label: "0-20%" },
-  { value: "21-40", label: "21-40%" },
-  { value: "41-60", label: "41-60%" },
-  { value: "60+", label: "60%+" },
+const DEAL_TYPES = [
+  { value: "", label: "All Deal Types" },
+  { value: "default", label: "Default" },
+  { value: "percentage_off", label: "Percentage Off" },
+  { value: "fixed_amount_off", label: "Fixed Amount Off" },
+  { value: "buy_one_get_one", label: "Buy One Get One" },
+  { value: "custom_reward", label: "Custom Reward" },
+  { value: "free_shipping", label: "Free Shipping" },
+  { value: "free_delivery", label: "Free Delivery" },
+  { value: "free_gift", label: "Free Gift" },
+  { value: "free_item", label: "Free Item" },
+  { value: "free_trial", label: "Free Trial" },
+  { value: "free_sample", label: "Free Sample" },
+  { value: "free_consultation", label: "Free Consultation" },
+  { value: "free_repair", label: "Free Repair" },
 ];
 
-export default function DealFilters() {
-  const { filters, setFilters, allDeals } = useDeals();
+type DealFiltersProps = {
+  deals?: Array<{
+    merchant?: string;
+    dealType?: string;
+  }>;
+};
 
-  // Get unique merchants
+export default function DealFilters({ deals = [] }: DealFiltersProps) {
+  const { filters, setFilters } = useDeals();
+
+  // Get unique merchants from API deals
   const merchants = Array.from(
-    new Set(allDeals.map((deal) => deal.merchant))
-  ).sort();
+    new Set(deals.map((deal) => deal.merchant).filter(Boolean))
+  ).sort() as string[];
 
   // Get countries
   const countries = getNames();
@@ -74,12 +90,12 @@ export default function DealFilters() {
           placeholder="All Merchants"
         />
         <CustomSelect
-          value={filters.discountRange}
+          value={filters.dealType}
           onChange={(value) =>
-            setFilters({ ...filters, discountRange: value })
+            setFilters({ ...filters, dealType: value })
           }
-          options={DISCOUNT_RANGES}
-          placeholder="Discount Range"
+          options={DEAL_TYPES}
+          placeholder="Deal Type"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -99,7 +115,7 @@ export default function DealFilters() {
         {(filters.country ||
           filters.category ||
           filters.merchant ||
-          filters.discountRange ||
+          filters.dealType ||
           filters.expiringSoon) && (
           <button
             onClick={() =>
@@ -107,7 +123,7 @@ export default function DealFilters() {
                 country: "",
                 category: "",
                 merchant: "",
-                discountRange: "",
+                dealType: "",
                 expiringSoon: false,
               })
             }

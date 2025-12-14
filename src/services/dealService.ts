@@ -11,6 +11,7 @@ export interface CreateDealData {
   collectionName: string;
   merchantName: string;
   merchantAddress: string;
+  merchantWebsite?: string;
   contactEmail?: string;
   category?: string;
   description?: string;
@@ -42,24 +43,50 @@ export interface CreateDealResult {
 
 export const createDeal = async (data: CreateDealData): Promise<CreateDealResult> => {
   try {
-    // Step 1: Map voucher type from form format to API format for collection
-    // Collection uses array of voucher types, but we'll use CUSTOM_REWARD or TOKEN
+    // Step 1: Map voucher type from form format to API format
+    // Form sends lowercase with underscores (e.g., "percentage_off")
+    // API expects uppercase with underscores (e.g., "PERCENTAGE_OFF")
     const mapVoucherTypeForCollection = (type: string): string => {
-      if (type === 'TOKEN' || type.toLowerCase() === 'token') {
-        return 'TOKEN';
+      if (!type) {
+        return 'CUSTOM_REWARD';
       }
-      // Map form types to API types - most are custom rewards
-      return 'CUSTOM_REWARD';
+      
+      // Convert to uppercase and handle special cases
+      const normalizedType = type.toUpperCase().trim();
+      
+      // Handle special mappings
+      if (normalizedType === 'TOKEN' || normalizedType === 'DEFAULT') {
+        return normalizedType === 'TOKEN' ? 'TOKEN' : 'CUSTOM_REWARD';
+      }
+      
+      // Map common form values to API values
+      const typeMap: Record<string, string> = {
+        'PERCENTAGE_OFF': 'PERCENTAGE_OFF',
+        'FIXED_AMOUNT_OFF': 'FIXED_AMOUNT_OFF',
+        'BUY_ONE_GET_ONE': 'BUY_ONE_GET_ONE',
+        'CUSTOM_REWARD': 'CUSTOM_REWARD',
+        'FREE_SHIPPING': 'FREE_SHIPPING',
+        'FREE_DELIVERY': 'FREE_DELIVERY',
+        'FREE_GIFT': 'FREE_GIFT',
+        'FREE_ITEM': 'FREE_ITEM',
+        'FREE_TRIAL': 'FREE_TRIAL',
+        'FREE_SAMPLE': 'FREE_SAMPLE',
+        'FREE_CONSULTATION': 'FREE_CONSULTATION',
+        'FREE_REPAIR': 'FREE_REPAIR',
+      };
+      
+      return typeMap[normalizedType] || 'CUSTOM_REWARD';
     };
 
     // Step 2: Create voucher collection
+    const mappedVoucherTypeForCollection: string = mapVoucherTypeForCollection(data.voucherType);
     const collectionData: voucherService.CreateVoucherCollectionData = {
       creatorEmail: data.creatorEmail,
       voucherCollectionName: data.collectionName,
       merchantName: data.merchantName,
       merchantAddress: data.merchantAddress,
       contactInfo: data.contactEmail,
-      voucherTypes: [mapVoucherTypeForCollection(data.voucherType)],
+      voucherTypes: [mappedVoucherTypeForCollection],
       description: data.description,
       imageUri: data.imageURL,
     };
@@ -74,10 +101,11 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
     }
 
     // Step 3: Create batch claim links based on quantity
+    const mappedVoucherType = mapVoucherTypeForCollection(data.voucherType);
     const batchLinkData: voucherService.CreateBatchVoucherClaimLinksData = {
       collectionAddress: collectionResult.collection.collectionPublicKey,
       voucherName: data.voucherName,
-      voucherType: mapVoucherTypeForCollection(data.voucherType) as 'CUSTOM_REWARD' | 'TOKEN',
+      voucherType: mappedVoucherType,
       value: data.voucherWorth,
       description: data.description || '',
       expiryDate: data.expiryDate,
@@ -99,6 +127,11 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
     }
 
     // Step 4: Create Deal record in database
+    // Convert expiryDate string to Date if provided
+    const expiryDateValue = data.expiryDate 
+      ? (typeof data.expiryDate === 'string' ? new Date(data.expiryDate) : data.expiryDate)
+      : null;
+    
     const dealRecord = await (prisma as any).deal.create({
       data: {
         creatorEmail: data.creatorEmail,
@@ -107,9 +140,14 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
         tradeable: data.tradeable !== undefined ? data.tradeable : true,
         quantity: batchResult.claimCodes.length,
         quantityRemaining: batchResult.claimCodes.length, // Initial value, will be calculated dynamically
+        worth: data.voucherWorth || null,
         currency: data.currencyCode,
         country: data.country,
         collectionAddress: collectionResult.collection.collectionPublicKey,
+        website: data.merchantWebsite || null,
+        expiryDate: expiryDateValue,
+        dealType: mappedVoucherType || null, // Use the mapped voucher type from Step 3
+        conditions: data.conditions || null,
       },
     });
 
@@ -147,9 +185,13 @@ export interface DealInfo {
   tradeable: boolean;
   quantity: number;
   quantityRemaining: number;
+  worth?: number;
   currency?: string;
   country?: string;
   collectionAddress: string;
+  expiryDate?: Date;
+  dealType?: string;
+  conditions?: string;
   claimCodes?: string[];
   claimedVouchers?: ClaimedVoucherDetail[];
   collectionDetails?: VoucherCollectionDetails;
@@ -168,9 +210,13 @@ export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInf
         category: true,
         tradeable: true,
         quantity: true,
+        worth: true,
         currency: true,
         country: true,
         collectionAddress: true,
+        expiryDate: true,
+        dealType: true,
+        conditions: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -219,9 +265,13 @@ export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInf
           tradeable: deal.tradeable,
           quantity: deal.quantity,
           quantityRemaining: unclaimedCount, // Dynamically calculated
+          worth: deal.worth || undefined,
           currency: deal.currency || undefined,
           country: deal.country || undefined,
           collectionAddress: deal.collectionAddress,
+          expiryDate: deal.expiryDate || undefined,
+          dealType: deal.dealType || undefined,
+          conditions: deal.conditions || undefined,
           collectionDetails: collectionDetails || undefined,
           createdAt: deal.createdAt,
           updatedAt: deal.updatedAt,
@@ -256,9 +306,13 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
         category: true,
         tradeable: true,
         quantity: true,
+        worth: true,
         currency: true,
         country: true,
         collectionAddress: true,
+        expiryDate: true,
+        dealType: true,
+        conditions: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -267,10 +321,35 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
       },
     });
 
+    // Get unique collection addresses to fetch collection details once per collection
+    const uniqueCollectionAddresses: string[] = Array.from(
+      new Set(deals.map((deal: any) => deal.collectionAddress))
+    );
+
+    // Fetch collection details for all unique collections
+    const collectionDetailsMap = new Map<string, VoucherCollectionDetails>();
+    await Promise.all(
+      uniqueCollectionAddresses.map(async (collectionAddress) => {
+        const collectionDetails = await getVoucherCollectionDetails(collectionAddress);
+        if (collectionDetails.success && collectionDetails.data) {
+          collectionDetailsMap.set(collectionAddress, collectionDetails.data);
+        }
+      })
+    );
+
     // Calculate quantityRemaining and get claim codes + claimed voucher details
     const dealsInfo: DealInfo[] = await Promise.all(
       deals.map(async (deal: any) => {
-        // Get all reward links for this collection
+        // Count unclaimed reward links (voucherAddress is null)
+        const unclaimedCount = await (prisma as any).rewardLink.count({
+          where: {
+            collectionAddress: deal.collectionAddress,
+            status: 'active',
+            voucherAddress: null, // Not claimed yet
+          },
+        });
+
+        // Get all reward links for this collection to get claim codes and claimed vouchers
         const rewardLinks = await (prisma as any).rewardLink.findMany({
           where: {
             collectionAddress: deal.collectionAddress,
@@ -286,9 +365,6 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
             updatedAt: true,
           },
         });
-
-        // Count unclaimed (voucherAddress is null)
-        const unclaimedCount = rewardLinks.filter((link: any) => !link.voucherAddress).length;
 
         // Get all claim codes
         const claimCodes = rewardLinks
@@ -320,6 +396,9 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
             })
         );
 
+        // Get collection details from cache
+        const collectionDetails = collectionDetailsMap.get(deal.collectionAddress) || undefined;
+
         return {
           id: deal.id,
           creatorEmail: deal.creatorEmail,
@@ -328,9 +407,14 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
           tradeable: deal.tradeable,
           quantity: deal.quantity,
           quantityRemaining: unclaimedCount, // Dynamically calculated
+          worth: deal.worth || undefined,
           currency: deal.currency || undefined,
           country: deal.country || undefined,
           collectionAddress: deal.collectionAddress,
+          expiryDate: deal.expiryDate || undefined,
+          dealType: deal.dealType || undefined,
+          conditions: deal.conditions || undefined,
+          collectionDetails: collectionDetails || undefined,
           claimCodes: claimCodes.length > 0 ? claimCodes : undefined,
           claimedVouchers: claimedVouchers.length > 0 ? claimedVouchers : undefined,
           createdAt: deal.createdAt,

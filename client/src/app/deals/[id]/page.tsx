@@ -6,7 +6,8 @@ import getSymbolFromCurrency from "currency-symbol-map";
 import DealCard from "../../components/DealCard";
 import SectionHeader from "../../components/SectionHeader";
 import ProtectedRoute from "../../components/ProtectedRoute";
-import { useDeals } from "../../context/DealContext";
+import { VerxioLoader } from "../../components/VerxioLoader";
+import { useDeals as useDealsAPI, type DealInfo } from "../../../hooks/useDeals";
 
 const DEAL_DESCRIPTIONS: Record<string, string> = {
   "paris-fashion":
@@ -21,20 +22,76 @@ export default function DealDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { allDeals } = useDeals();
+  const { data: apiDeals = [], isLoading } = useDealsAPI();
+  
+  // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
+  const formatDealType = (dealType?: string): string => {
+    if (!dealType) return "Deal";
+    return dealType.replace(/_/g, " ");
+  };
+
+  // Map API deals to the same format as mock deals, including description
+  const mappedApiDeals = !isLoading ? apiDeals.map((deal: DealInfo) => ({
+    id: deal.id,
+    title: deal.collectionName,
+    merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
+    discount: formatDealType(deal.dealType),
+    expiry: deal.expiryDate 
+      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })
+      : "N/A",
+    country: deal.country,
+    category: deal.category,
+    tradeable: deal.tradeable,
+    image: deal.collectionDetails?.image,
+    worth: deal.worth || 0,
+    worthSymbol: deal.currency || "USD",
+    quantityTotal: deal.quantity,
+    quantityRemaining: deal.quantityRemaining,
+    description: deal.collectionDetails?.description || "Deal collection",
+    conditions: deal.conditions || undefined,
+  })) : [];
+  
+  // Use only API deals (no mock data)
+  const allDeals = !isLoading ? mappedApiDeals : [];
   
   const deal = useMemo(() => {
-    const dealData = allDeals.find((d) => d.id === id);
-    return dealData
-      ? { ...dealData, description: DEAL_DESCRIPTIONS[id] || "" }
-      : undefined;
-  }, [allDeals, id]);
+    if (isLoading) return undefined;
+    const dealData = allDeals.find((d: any) => d.id === id);
+    if (!dealData) return undefined;
+    
+    // Get description and conditions - check if it's an API deal
+    const apiDeal = apiDeals.find((d: DealInfo) => d.id === id);
+    const description = DEAL_DESCRIPTIONS[id] || apiDeal?.collectionDetails?.description || "Deal collection";
+    const conditions = apiDeal?.conditions || undefined;
+    
+    return {
+      ...dealData,
+      description,
+      conditions,
+    } as typeof dealData & { description: string; conditions?: string };
+  }, [allDeals, id, isLoading, apiDeals]);
 
   useEffect(() => {
-    if (!deal) {
+    if (!isLoading && !deal) {
       router.replace("/explore");
     }
-  }, [deal, router]);
+  }, [deal, router, isLoading]);
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex min-h-[400px] items-center justify-center">
+            <VerxioLoader size="lg" />
+          </div>
+        </main>
+      </ProtectedRoute>
+    );
+  }
 
   if (!deal) {
     return null;
@@ -72,7 +129,7 @@ export default function DealDetailsPage() {
     return `${formattedNumber} ${symbol}`;
   };
 
-  const related = allDeals.filter((d) => d.id !== id).slice(0, 2);
+  const related = allDeals.filter((d: any) => d.id !== id).slice(0, 2) as any[];
 
   return (
     <ProtectedRoute>
@@ -81,6 +138,14 @@ export default function DealDetailsPage() {
         <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
           <div className="space-y-4">
             <div className="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-green-50">
+              {deal.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={deal.image}
+                  alt={deal.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
               <div className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                 {deal.discount}
               </div>
@@ -98,7 +163,7 @@ export default function DealDetailsPage() {
                 What you get: {deal.description}
               </div>
               <div className="rounded-2xl bg-gray-50 p-4 text-sm text-textSecondary">
-                Terms: Single use, wallet ownership required, subject to merchant availability.
+                Terms: {deal.conditions}
               </div>
             </div>
           </div>
@@ -117,7 +182,11 @@ export default function DealDetailsPage() {
               </div>
               <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm">
                 <span>Quantity</span>
-                <span className="font-semibold text-textPrimary">1,200</span>
+                <span className="font-semibold text-textPrimary">
+                  {deal.quantityRemaining !== undefined && deal.quantityTotal !== undefined
+                    ? `${deal.quantityRemaining} / ${deal.quantityTotal}`
+                    : "N/A"}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm">
                 <span>Tradeable</span>
@@ -146,7 +215,7 @@ export default function DealDetailsPage() {
       <section className="mt-12">
         <SectionHeader title="Related deals" description="You might also like these collections." />
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {related.map((item) => (
+          {related.map((item: any) => (
             <DealCard key={item.id} {...item} />
           ))}
         </div>

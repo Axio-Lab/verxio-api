@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import SectionHeader from "../components/SectionHeader";
 import VoucherCard from "../components/VoucherCard";
 import TradeCard from "../components/TradeCard";
 import ProtectedRoute from "../components/ProtectedRoute";
+import { VerxioLoader } from "../components/VerxioLoader";
 import { useUser } from "../../hooks/useUser";
+import { useClaimedVouchers } from "../../hooks/useDeals";
 
 const vouchers = [
   { merchant: "Maison Lumière", discount: "35% OFF", expiry: "Oct 12", quantity: 2, tradeable: true },
@@ -22,12 +25,42 @@ export default function ProfilePage() {
   const { user } = usePrivy();
   const userEmail = user?.email?.address;
   const { data: userData, isLoading: isLoadingUser } = useUser(userEmail);
+  const { data: claimedVouchers = [], isLoading: isLoadingVouchers } = useClaimedVouchers(userEmail);
 
   const email = userEmail || "Not available";
   const walletAddress = user?.wallet?.address
     ? `${user.wallet.address}`
     : "Not connected";
   const verxioBalance = userData?.user?.verxioBalance ?? 0;
+  
+  // Map API vouchers to VoucherCard format (only when not loading)
+  const mappedVouchers = !isLoadingVouchers ? claimedVouchers.map((voucher) => ({
+    merchant: voucher.collectionName || voucher.voucherDetails?.name || "Unknown",
+    discount: voucher.voucherDetails?.type || "Voucher",
+    expiry: voucher.voucherDetails?.expiryDate
+      ? new Date(voucher.voucherDetails.expiryDate).toLocaleDateString()
+      : "N/A",
+    quantity: 1, // Each voucher is individual
+    tradeable: voucher.tradeable,
+    voucherId: voucher.voucherAddress, // For navigation
+  })) : [];
+  
+  // Add voucherId to mock vouchers for consistency (only when not loading)
+  const mockVouchersWithId = !isLoadingVouchers ? vouchers.map((v, index) => ({
+    ...v,
+    voucherId: `mock-${index}`,
+  })) : [];
+  
+  // Combine mock vouchers with API vouchers (only after loading completes)
+  const allVouchers = !isLoadingVouchers ? [...mockVouchersWithId, ...mappedVouchers] : [];
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const vouchersPerPage = 3;
+  const totalPages = Math.ceil(allVouchers.length / vouchersPerPage);
+  const startIndex = (currentPage - 1) * vouchersPerPage;
+  const endIndex = startIndex + vouchersPerPage;
+  const displayedVouchers = allVouchers.slice(startIndex, endIndex);
 
   return (
     <ProtectedRoute>
@@ -132,8 +165,19 @@ export default function ProfilePage() {
 
       <section className="mt-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-semibold text-textPrimary sm:text-xl">My Vouchers</h3>
+          <div>
+            <h3 className="text-lg font-semibold text-textPrimary sm:text-xl">My Vouchers</h3>
+            <p className="mt-1 text-sm text-textSecondary">
+              {allVouchers.length} voucher{allVouchers.length !== 1 ? "s" : ""} total
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/profile/vouchers"
+              className="flex-1 rounded-full border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white sm:flex-none"
+            >
+              View All
+            </Link>
             <button className="flex-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary sm:flex-none">
               Redeem
             </button>
@@ -142,11 +186,62 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {vouchers.map((voucher) => (
-            <VoucherCard key={voucher.merchant} {...voucher} />
-          ))}
-        </div>
+        {isLoadingVouchers ? (
+          <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-4">
+            <VerxioLoader size="md" />
+            <p className="text-sm text-textSecondary">Loading your vouchers...</p>
+          </div>
+        ) : displayedVouchers.length > 0 ? (
+          <>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {displayedVouchers.map((voucher, index) => (
+                <VoucherCard key={`${voucher.merchant}-${index}`} {...voucher} />
+              ))}
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors ${
+                        currentPage === page
+                          ? "bg-primary text-white"
+                          : "text-textSecondary hover:text-primary"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        ) : !isLoadingVouchers ? (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-12 text-center">
+            <p className="text-lg font-semibold text-textPrimary">No vouchers yet</p>
+            <p className="mt-2 text-sm text-textSecondary">
+              Claim vouchers from deals to see them here
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-10">

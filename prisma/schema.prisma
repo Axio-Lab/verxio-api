@@ -217,18 +217,23 @@ model LoyaltyClaimLink {
 }
 
 model Deal {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   creatorEmail       String
   collectionName     String
   category           String?
-  tradeable          Boolean  @default(true)
+  tradeable          Boolean   @default(true)
   quantity           Int
   quantityRemaining  Int
+  worth              Float?
   currency           String?
   country            String?
+  website            String?
+  expiryDate         DateTime?
+  dealType           String?
+  conditions         String?
   collectionAddress  String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([creatorEmail])
   @@index([collectionAddress])

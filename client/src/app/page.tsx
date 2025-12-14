@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import DealCard from "./components/DealCard";
 import SectionHeader from "./components/SectionHeader";
-import { useDeals } from "./context/DealContext";
-
-const FEATURED_DEAL_IDS = ["paris-fashion", "tokyo-sushi", "nyc-spa"];
+import { VerxioLoader } from "./components/VerxioLoader";
+import { useDeals, type DealInfo } from "../hooks/useDeals";
 
 const logos = ["Brand1", "Brand2", "Brand3", "Brand4"];
 const featureBullets = [
@@ -46,11 +45,55 @@ const featureBullets = [
 export default function Home() {
   const router = useRouter();
   const { authenticated, ready } = usePrivy();
-  const { allDeals } = useDeals();
+  const { data: apiDeals = [], isLoading } = useDeals();
 
-  const featuredDeals = allDeals.filter((deal) =>
-    FEATURED_DEAL_IDS.includes(deal.id)
-  );
+  // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
+  const formatDealType = (dealType?: string): string => {
+    if (!dealType) return "Deal";
+    return dealType.replace(/_/g, " ");
+  };
+
+  // Map API deals to DealCard format and get most recent deals (featured)
+  // API returns deals sorted by createdAt desc, so first ones are most recent
+  const mappedApiDeals = !isLoading ? apiDeals.map((deal: DealInfo) => ({
+    id: deal.id,
+    title: deal.collectionName,
+    merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
+    discount: formatDealType(deal.dealType),
+    expiry: deal.expiryDate 
+      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })
+      : "N/A",
+    country: deal.country,
+    category: deal.category,
+    tradeable: deal.tradeable,
+    image: deal.collectionDetails?.image,
+    worth: deal.worth || 0,
+    worthSymbol: deal.currency || "USD",
+    quantityTotal: deal.quantity,
+    quantityRemaining: deal.quantityRemaining,
+  })) : [];
+
+  // Get most recent deals (featured) - API already returns sorted by createdAt desc, take first 3
+  type MappedDeal = {
+    id: string;
+    title: string;
+    merchant: string;
+    discount: string;
+    expiry: string;
+    country?: string;
+    category?: string;
+    tradeable?: boolean;
+    image?: string;
+    worth?: number;
+    worthSymbol?: string;
+    quantityTotal?: number;
+    quantityRemaining?: number;
+  };
+  const featuredDeals: MappedDeal[] = mappedApiDeals.slice(0, 3);
 
   useEffect(() => {
     if (ready && authenticated) {
@@ -79,7 +122,7 @@ export default function Home() {
                 href="/explore"
                 className="rounded-full bg-primary px-5 py-3 text-center text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
               >
-                Explore Deals
+                Explore Loyalty Deals
               </a>
               <a
                 href="/merchant"
@@ -103,22 +146,30 @@ export default function Home() {
               </span>
             </div>
             <div className="grid gap-3">
-              {featuredDeals.map((deal) => (
-                <div
-                  key={deal.id}
-                  className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-                >
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-textSecondary">{deal.category}</p>
-                    <p className="text-base font-semibold text-textPrimary">{deal.title}</p>
-                    <p className="text-sm text-textSecondary">{deal.merchant}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{deal.discount}</p>
-                    <p className="text-xs text-textSecondary">Expires {deal.expiry}</p>
-                  </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <VerxioLoader size="md" />
                 </div>
-              ))}
+              ) : featuredDeals.length > 0 ? (
+                featuredDeals.map((deal) => (
+                  <div
+                    key={deal.id}
+                    className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  >
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-textSecondary">{deal.category || "Deal"}</p>
+                      <p className="text-base font-semibold text-textPrimary">{deal.title}</p>
+                      <p className="text-sm text-textSecondary">{deal.merchant}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-primary">{deal.discount}</p>
+                      <p className="text-xs text-textSecondary">Expires {deal.expiry}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="py-8 text-center text-sm text-textSecondary">No featured deals available</p>
+              )}
             </div>
           </div>
         </div>
@@ -150,11 +201,22 @@ export default function Home() {
           title="Featured deals across the globe"
           description="Hand-picked collections ready to claim or trade."
         />
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featuredDeals.map((deal) => (
-            <DealCard key={deal.id} {...deal} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="mt-8 flex min-h-[300px] items-center justify-center">
+            <VerxioLoader size="lg" />
+          </div>
+        ) : featuredDeals.length > 0 ? (
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredDeals.map((deal) => (
+              <DealCard key={deal.id} {...deal} />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-12 text-center">
+            <p className="text-lg font-semibold text-textPrimary">No featured deals available</p>
+            <p className="mt-2 text-sm text-textSecondary">Check back later for new deals</p>
+          </div>
+        )}
       </section>
 
       <section className="mt-14 rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
