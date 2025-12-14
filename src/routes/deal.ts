@@ -38,12 +38,14 @@ export const dealRouter: Router = Router();
  *                 description: Name of the voucher collection
  *               merchantName:
  *                 type: string
+ *                 maxLength: 75
  *                 example: "Acme Store"
- *                 description: Name of the merchant
+ *                 description: Name of the merchant (max 75 characters)
  *               merchantAddress:
  *                 type: string
+ *                 maxLength: 75
  *                 example: "123 Main St, City, State"
- *                 description: Physical address of the merchant
+ *                 description: Physical address of the merchant (max 75 characters)
  *               merchantWebsite:
  *                 type: string
  *                 format: uri
@@ -60,8 +62,9 @@ export const dealRouter: Router = Router();
  *                 description: Category of the deal
  *               description:
  *                 type: string
+ *                 maxLength: 150
  *                 example: "Collection of summer sale vouchers"
- *                 description: Description of the deal collection
+ *                 description: Description of the deal collection (max 150 characters)
  *               imageURL:
  *                 type: string
  *                 format: uri
@@ -110,8 +113,9 @@ export const dealRouter: Router = Router();
  *                 description: Whether the voucher is transferable
  *               conditions:
  *                 type: string
+ *                 maxLength: 75
  *                 example: "Minimum purchase of $50"
- *                 description: Conditions or terms for using this voucher
+ *                 description: Conditions or terms for using this voucher (max 75 characters)
  *           examples:
  *             example1:
  *               summary: Create a deal with 100 vouchers
@@ -717,6 +721,264 @@ dealRouter.get('/collection/:collectionAddress/vouchers', async (req: Request, r
     if (!result.success) {
       return res.status(400).json(result);
     }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /deal/{dealId}/add-quantity:
+ *   post:
+ *     summary: Add more claim links to an existing deal
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: dealId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the deal to add quantity to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - quantity
+ *               - creatorEmail
+ *             properties:
+ *               quantity:
+ *                 type: number
+ *                 example: 10
+ *                 description: Number of additional claim links to create
+ *               creatorEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *     responses:
+ *       200:
+ *         description: Successfully added claim links
+ *       400:
+ *         description: Invalid input or deal not found
+ */
+dealRouter.post('/:dealId/add-quantity', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { dealId } = req.params;
+    const { quantity, creatorEmail } = req.body;
+    
+    if (!quantity || !creatorEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'quantity and creatorEmail are required',
+      });
+    }
+
+    const result = await dealService.addDealQuantity({
+      dealId,
+      quantity: Number(quantity),
+      creatorEmail,
+    });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /deal/{dealId}/extend-expiry:
+ *   post:
+ *     summary: Extend expiry date for all unclaimed vouchers in a deal
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: dealId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the deal to extend expiry for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newExpiryDate
+ *               - creatorEmail
+ *             properties:
+ *               newExpiryDate:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-12-31"
+ *                 description: New expiry date for unclaimed vouchers
+ *               creatorEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "merchant@example.com"
+ *     responses:
+ *       200:
+ *         description: Successfully extended expiry
+ *       400:
+ *         description: Invalid input or deal not found
+ */
+dealRouter.post('/:dealId/extend-expiry', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { dealId } = req.params;
+    const { newExpiryDate, creatorEmail } = req.body;
+    
+    if (!newExpiryDate || !creatorEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'newExpiryDate and creatorEmail are required',
+      });
+    }
+
+    const result = await dealService.extendDealExpiry({
+      dealId,
+      newExpiryDate,
+      creatorEmail,
+    });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /deal/{dealId}/claim:
+ *   post:
+ *     summary: Claim a voucher from a deal (automatically selects an unclaimed claim code)
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: dealId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the deal to claim a voucher from
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientEmail
+ *             properties:
+ *               recipientEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "customer@example.com"
+ *                 description: Email address of the user claiming the voucher
+ *     responses:
+ *       200:
+ *         description: Successfully claimed voucher
+ *       400:
+ *         description: Invalid input, no vouchers available, or user already claimed
+ */
+dealRouter.post('/:dealId/claim', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { dealId } = req.params;
+    const { recipientEmail } = req.body;
+    
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'recipientEmail is required',
+      });
+    }
+
+    const result = await dealService.claimDealVoucher({
+      dealId,
+      recipientEmail,
+    });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /deal/redeem:
+ *   post:
+ *     summary: Redeem a voucher (user-facing endpoint)
+ *     tags: [Deals]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - voucherAddress
+ *               - userEmail
+ *             properties:
+ *               voucherAddress:
+ *                 type: string
+ *                 example: "7xKXtg2CZ3QvF3j..."
+ *                 description: Public key address of the voucher to redeem
+ *               userEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *                 description: Email address of the user redeeming the voucher
+ *               merchantId:
+ *                 type: string
+ *                 example: "Acme Store"
+ *                 description: Optional merchant ID (will be fetched from voucher if not provided)
+ *               redemptionAmount:
+ *                 type: number
+ *                 example: 100
+ *                 description: Optional redemption amount
+ *     responses:
+ *       200:
+ *         description: Voucher redeemed successfully
+ *       400:
+ *         description: Invalid input or redemption failed
+ */
+dealRouter.post('/redeem', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { voucherAddress, userEmail, merchantId, redemptionAmount } = req.body;
+
+    if (!voucherAddress || !userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'voucherAddress and userEmail are required',
+      });
+    }
+
+    const result = await dealService.redeemUserVoucher({
+      voucherAddress,
+      userEmail,
+      merchantId,
+      redemptionAmount,
+    });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
     res.json(result);
   } catch (error) {
     next(error);

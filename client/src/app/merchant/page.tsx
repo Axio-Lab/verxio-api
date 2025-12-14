@@ -9,7 +9,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import CreateDealForm from "../components/CreateDealForm";
 import CollectionCard from "../components/CollectionCard";
 import { VerxioLoader } from "../components/VerxioLoader";
-import { useDealsByUser } from "../../hooks/useDeals";
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "../../hooks/useDeals";
 
 const stats = [
   { label: "Total Vouchers Issued", value: "18,230", trend: "+12% MoM" },
@@ -23,6 +23,8 @@ export default function MerchantDashboard() {
   const { user } = usePrivy();
   const userEmail = user?.email?.address;
   const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
+  const addDealQuantityMutation = useAddDealQuantity();
+  const extendDealExpiryMutation = useExtendDealExpiry();
   
   const [selectedForAdd, setSelectedForAdd] = useState<string | null>(null);
   const [selectedForExtend, setSelectedForExtend] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export default function MerchantDashboard() {
     worthSymbol: deal.currency || "USD",
     quantityTotal: deal.quantity,
     quantityRemaining: deal.quantityRemaining,
+    collectionAddress: deal.collectionAddress,
   })) : [];
   
   // Use only API deals (no mock data)
@@ -135,13 +138,15 @@ export default function MerchantDashboard() {
 
         <section className="mt-10">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-textPrimary">Manage Collection</h3>
-            <Link
-              href="/merchant/deals"
-              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
-            >
-              View More
-            </Link>
+            <h3 className="text-xl font-semibold text-textPrimary">Manage Deals</h3>
+            {allCollections.length > collectionsPerPage && (
+              <Link
+                href="/merchant/deals"
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
+              >
+                View More
+              </Link>
+            )}
           </div>
           {isLoadingDeals ? (
             <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-4">
@@ -239,8 +244,25 @@ export default function MerchantDashboard() {
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                     placeholder="e.g. 100"
                   />
-                  <button className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
-                    Publish
+                  <button
+                    onClick={async () => {
+                      if (!selectedForAdd || !userEmail || addQuantity <= 0) return;
+                      try {
+                        await addDealQuantityMutation.mutateAsync({
+                          dealId: selectedForAdd,
+                          quantity: addQuantity,
+                          creatorEmail: userEmail,
+                        });
+                        setSelectedForAdd(null);
+                        setAddQuantity(0);
+                      } catch (error) {
+                        console.error("Failed to add deal quantity:", error);
+                      }
+                    }}
+                    disabled={addDealQuantityMutation.isPending || addQuantity <= 0}
+                    className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addDealQuantityMutation.isPending ? "Adding..." : "Publish"}
                   </button>
                 </div>
               ) : null}
@@ -256,8 +278,25 @@ export default function MerchantDashboard() {
                     onChange={(e) => setExtendDate(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                   />
-                  <button className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
-                    Extend
+                  <button
+                    onClick={async () => {
+                      if (!selectedForExtend || !userEmail || !extendDate) return;
+                      try {
+                        await extendDealExpiryMutation.mutateAsync({
+                          dealId: selectedForExtend,
+                          newExpiryDate: extendDate,
+                          creatorEmail: userEmail,
+                        });
+                        setSelectedForExtend(null);
+                        setExtendDate("");
+                      } catch (error) {
+                        console.error("Failed to extend deal expiry:", error);
+                      }
+                    }}
+                    disabled={extendDealExpiryMutation.isPending || !extendDate}
+                    className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {extendDealExpiryMutation.isPending ? "Extending..." : "Extend"}
                   </button>
                 </div>
               ) : null}

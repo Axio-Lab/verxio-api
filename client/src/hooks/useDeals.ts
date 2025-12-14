@@ -94,7 +94,8 @@ export function useDeals() {
       const data = await response.json();
       return data.deals || [];
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Always consider data stale to allow immediate refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 }
 
@@ -117,7 +118,8 @@ export function useDealsByUser(email: string | undefined) {
       return data.deals || [];
     },
     enabled: !!email,
-    staleTime: 30 * 1000,
+    staleTime: 0, // Always consider data stale to allow immediate refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 }
 
@@ -143,9 +145,12 @@ export function useCreateDeal() {
       return response.json();
     },
     onSuccess: (data, variables) => {
-      // Invalidate and refetch deals after creating
+      // Invalidate and immediately refetch deals after creating
       queryClient.invalidateQueries({ queryKey: ["deals", "all"] });
       queryClient.invalidateQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["deals", "all"] });
+      queryClient.refetchQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
     },
   });
 }
@@ -211,6 +216,196 @@ export function useClaimedVouchers(email: string | undefined) {
       return data.vouchers || [];
     },
     enabled: !!email,
-    staleTime: 30 * 1000,
+    staleTime: 0, // Always consider data stale to allow immediate refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}
+
+/**
+ * Add more claim links to an existing deal
+ */
+export interface AddDealQuantityData {
+  dealId: string;
+  quantity: number;
+  creatorEmail: string;
+}
+
+export interface AddDealQuantityResponse {
+  success: boolean;
+  claimCodes?: string[];
+  newQuantity?: number;
+  error?: string;
+}
+
+export function useAddDealQuantity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: AddDealQuantityData): Promise<AddDealQuantityResponse> => {
+      const response = await fetch(`${API_BASE_URL}/deal/${data.dealId}/add-quantity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantity: data.quantity,
+          creatorEmail: data.creatorEmail,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to add deal quantity" }));
+        throw new Error(error.error || "Failed to add deal quantity");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate and immediately refetch deals after adding quantity
+      queryClient.invalidateQueries({ queryKey: ["deals", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["deals", "all"] });
+      queryClient.refetchQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
+    },
+  });
+}
+
+/**
+ * Extend expiry for all unclaimed vouchers in a deal
+ */
+export interface ExtendDealExpiryData {
+  dealId: string;
+  newExpiryDate: string;
+  creatorEmail: string;
+}
+
+export interface ExtendDealExpiryResponse {
+  success: boolean;
+  vouchersUpdated?: number;
+  error?: string;
+}
+
+export function useExtendDealExpiry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: ExtendDealExpiryData): Promise<ExtendDealExpiryResponse> => {
+      const response = await fetch(`${API_BASE_URL}/deal/${data.dealId}/extend-expiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newExpiryDate: data.newExpiryDate,
+          creatorEmail: data.creatorEmail,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to extend deal expiry" }));
+        throw new Error(error.error || "Failed to extend deal expiry");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate and immediately refetch deals after extending expiry
+      queryClient.invalidateQueries({ queryKey: ["deals", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["deals", "all"] });
+      queryClient.refetchQueries({ queryKey: ["deals", "user", variables.creatorEmail] });
+    },
+  });
+}
+
+/**
+ * Claim a voucher from a deal
+ */
+export interface ClaimDealVoucherData {
+  dealId: string;
+  recipientEmail: string;
+}
+
+export interface ClaimDealVoucherResponse {
+  success: boolean;
+  voucherAddress?: string;
+  claimCode?: string;
+  error?: string;
+}
+
+export function useClaimDealVoucher() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: ClaimDealVoucherData): Promise<ClaimDealVoucherResponse> => {
+      const response = await fetch(`${API_BASE_URL}/deal/${data.dealId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientEmail: data.recipientEmail,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to claim voucher" }));
+        throw new Error(error.error || "Failed to claim voucher");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate and immediately refetch deals and claimed vouchers after claiming
+      queryClient.invalidateQueries({ queryKey: ["deals", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["vouchers", "claimed", variables.recipientEmail] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["deals", "all"] });
+      queryClient.refetchQueries({ queryKey: ["vouchers", "claimed", variables.recipientEmail] });
+    },
+  });
+}
+
+/**
+ * Redeem a voucher
+ */
+export interface RedeemVoucherData {
+  voucherAddress: string;
+  userEmail: string;
+  merchantId?: string;
+  redemptionAmount?: number;
+}
+
+export interface RedeemVoucherResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export function useRedeemVoucher() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: RedeemVoucherData): Promise<RedeemVoucherResponse> => {
+      const response = await fetch(`${API_BASE_URL}/deal/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voucherAddress: data.voucherAddress,
+          userEmail: data.userEmail,
+          merchantId: data.merchantId,
+          redemptionAmount: data.redemptionAmount,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to redeem voucher" }));
+        throw new Error(error.error || "Failed to redeem voucher");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate and immediately refetch claimed vouchers after redemption
+      queryClient.invalidateQueries({ queryKey: ["vouchers", "claimed", variables.userEmail] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["vouchers", "claimed", variables.userEmail] });
+    },
   });
 }

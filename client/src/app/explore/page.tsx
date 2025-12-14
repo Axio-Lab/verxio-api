@@ -47,6 +47,7 @@ export default function ExplorePage() {
     worthSymbol: deal.currency || "USD",
     quantityTotal: deal.quantity,
     quantityRemaining: deal.quantityRemaining,
+    collectionAddress: deal.collectionAddress,
   })) : [];
   
   // Filter deals based on search query and all filters
