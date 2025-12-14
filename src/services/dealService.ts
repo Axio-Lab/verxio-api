@@ -41,13 +41,46 @@ export interface CreateDealResult {
   error?: string;
 }
 
+// Character limits to prevent Solana transaction size errors
+const CHAR_LIMITS = {
+  DESCRIPTION: 75,
+  CONDITIONS: 75,
+  MERCHANT_NAME: 75,
+  MERCHANT_ADDRESS: 75,
+} as const;
+
 export const createDeal = async (data: CreateDealData): Promise<CreateDealResult> => {
   try {
+    // Validate and truncate string fields to prevent Solana transaction size errors
+    const truncatedDescription = data.description 
+      ? (data.description.length > CHAR_LIMITS.DESCRIPTION 
+          ? data.description.substring(0, CHAR_LIMITS.DESCRIPTION) 
+          : data.description)
+      : '';
+    
+    const truncatedConditions = data.conditions 
+      ? (data.conditions.length > CHAR_LIMITS.CONDITIONS 
+          ? data.conditions.substring(0, CHAR_LIMITS.CONDITIONS) 
+          : data.conditions)
+      : '';
+    
+    const truncatedMerchantName = data.merchantName 
+      ? (data.merchantName.length > CHAR_LIMITS.MERCHANT_NAME 
+          ? data.merchantName.substring(0, CHAR_LIMITS.MERCHANT_NAME) 
+          : data.merchantName)
+      : '';
+    
+    const truncatedMerchantAddress = data.merchantAddress 
+      ? (data.merchantAddress.length > CHAR_LIMITS.MERCHANT_ADDRESS 
+          ? data.merchantAddress.substring(0, CHAR_LIMITS.MERCHANT_ADDRESS) 
+          : data.merchantAddress)
+      : '';
+
     // Step 1: Map voucher type from form format to API format
     // Form sends lowercase with underscores (e.g., "percentage_off")
     // API expects uppercase with underscores (e.g., "PERCENTAGE_OFF")
     const mapVoucherTypeForCollection = (type: string): string => {
-      if (!type) {
+      if (!type || type.trim() === '') {
         return 'CUSTOM_REWARD';
       }
       
@@ -83,11 +116,11 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
     const collectionData: voucherService.CreateVoucherCollectionData = {
       creatorEmail: data.creatorEmail,
       voucherCollectionName: data.collectionName,
-      merchantName: data.merchantName,
-      merchantAddress: data.merchantAddress,
+      merchantName: truncatedMerchantName,
+      merchantAddress: truncatedMerchantAddress,
       contactInfo: data.contactEmail,
       voucherTypes: [mappedVoucherTypeForCollection],
-      description: data.description,
+      description: truncatedDescription,
       imageUri: data.imageURL,
     };
 
@@ -107,12 +140,12 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
       voucherName: data.voucherName,
       voucherType: mappedVoucherType,
       value: data.voucherWorth,
-      description: data.description || '',
+      description: truncatedDescription || '',
       expiryDate: data.expiryDate,
       maxUses: data.maxUses,
       transferable: data.transferable || false,
-      merchantId: data.merchantName, // Using merchant name as merchantId
-      conditions: data.conditions,
+      merchantId: truncatedMerchantName, // Using truncated merchant name as merchantId
+      conditions: truncatedConditions,
       creatorEmail: data.creatorEmail,
       quantity: data.quantity,
     };
@@ -147,7 +180,7 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
         website: data.merchantWebsite || null,
         expiryDate: expiryDateValue,
         dealType: mappedVoucherType || null, // Use the mapped voucher type from Step 3
-        conditions: data.conditions || null,
+        conditions: truncatedConditions || null,
       },
     });
 
@@ -538,6 +571,7 @@ export interface UserClaimedVoucher {
   
   // Deal info (from Deal table)
   dealId?: string;
+  creatorEmail?: string; // Merchant email for redemption
   collectionAddress: string;
   collectionName: string;
   category?: string;
@@ -619,6 +653,7 @@ export const getDealsClaimedByUser = async (
           },
           select: {
             id: true,
+            creatorEmail: true,
             collectionName: true,
             category: true,
             tradeable: true,
@@ -645,6 +680,7 @@ export const getDealsClaimedByUser = async (
           
           // Deal info (from Deal table)
           dealId: deal?.id,
+          creatorEmail: deal?.creatorEmail, // Include creatorEmail for redemption
           collectionAddress: voucher.collection.collectionPublicKey,
           collectionName: deal?.collectionName || collectionDetails?.name,
           category: deal?.category || undefined,
@@ -670,6 +706,429 @@ export const getDealsClaimedByUser = async (
     return {
       success: false,
       error: error.message || 'Failed to get deals claimed by user',
+    };
+  }
+};
+
+export interface AddDealQuantityData {
+  dealId: string;
+  quantity: number;
+  creatorEmail: string;
+}
+
+export interface AddDealQuantityResult {
+  success: boolean;
+  claimCodes?: string[];
+  newQuantity?: number;
+  error?: string;
+}
+
+/**
+ * Add more claim links to an existing deal (reuses collection info, no metadata upload needed)
+ */
+export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDealQuantityResult> => {
+  try {
+    const { dealId, quantity, creatorEmail } = data;
+
+    if (!quantity || quantity < 1) {
+      return {
+        success: false,
+        error: 'Quantity must be at least 1',
+      };
+    }
+
+    // Get the deal to find collection address and details
+    const deal = await (prisma as any).deal.findFirst({
+      where: {
+        id: dealId,
+        creatorEmail: creatorEmail,
+      },
+    });
+
+    if (!deal) {
+      return {
+        success: false,
+        error: 'Deal not found or you are not the creator',
+      };
+    }
+
+    // Get collection details to reuse metadata
+    const collection = await (prisma as any).voucherCollection.findFirst({
+      where: {
+        collectionPublicKey: deal.collectionAddress,
+      },
+      select: {
+        id: true,
+        metadataUri: true,
+      },
+    });
+
+    if (!collection || !collection.metadataUri) {
+      return {
+        success: false,
+        error: 'Collection not found or missing metadata',
+      };
+    }
+
+    // Get an existing reward link to reuse its data structure
+    const existingLink = await (prisma as any).rewardLink.findFirst({
+      where: {
+        collectionAddress: deal.collectionAddress,
+        creatorEmail: creatorEmail,
+        status: 'active',
+      },
+      select: {
+        voucherName: true,
+        voucherType: true,
+        voucherWorth: true,
+        description: true,
+        expiryDate: true,
+        maxUses: true,
+        transferable: true,
+        merchantId: true,
+        conditions: true,
+      },
+    });
+
+    if (!existingLink) {
+      return {
+        success: false,
+        error: 'No existing claim links found for this deal. Cannot determine voucher details.',
+      };
+    }
+
+    // Create batch claim links using existing collection and voucher details
+    const batchLinkData: voucherService.CreateBatchVoucherClaimLinksData = {
+      collectionAddress: deal.collectionAddress,
+      voucherName: existingLink.voucherName || deal.collectionName,
+      voucherType: existingLink.voucherType || deal.dealType || 'CUSTOM_REWARD',
+      value: existingLink.voucherWorth || deal.worth || 0,
+      description: existingLink.description || '',
+      expiryDate: existingLink.expiryDate || deal.expiryDate || new Date(),
+      maxUses: existingLink.maxUses || 1,
+      transferable: existingLink.transferable || false,
+      merchantId: existingLink.merchantId || '',
+      conditions: existingLink.conditions || deal.conditions || undefined,
+      creatorEmail: creatorEmail,
+      quantity: quantity,
+    };
+
+    const batchResult = await voucherService.createBatchVoucherClaimLinks(batchLinkData);
+
+    if (!batchResult.success || !batchResult.claimCodes) {
+      return {
+        success: false,
+        error: batchResult.error || 'Failed to create additional claim links',
+      };
+    }
+
+    // Update deal quantity
+    const updatedDeal = await (prisma as any).deal.update({
+      where: { id: dealId },
+      data: {
+        quantity: {
+          increment: batchResult.claimCodes.length,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      claimCodes: batchResult.claimCodes,
+      newQuantity: updatedDeal.quantity,
+    };
+  } catch (error: any) {
+    console.error('Error adding deal quantity:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to add deal quantity',
+    };
+  }
+};
+
+export interface ExtendDealExpiryData {
+  dealId: string;
+  newExpiryDate: string | Date;
+  creatorEmail: string;
+}
+
+export interface ExtendDealExpiryResult {
+  success: boolean;
+  vouchersUpdated?: number;
+  error?: string;
+}
+
+/**
+ * Extend expiry for all unclaimed vouchers in a deal collection and update deal expiry
+ */
+export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<ExtendDealExpiryResult> => {
+  try {
+    const { dealId, newExpiryDate, creatorEmail } = data;
+
+    // Convert newExpiryDate to Date if it's a string
+    let expiryDateObj: Date;
+    if (typeof newExpiryDate === 'string') {
+      expiryDateObj = new Date(newExpiryDate);
+    } else {
+      expiryDateObj = newExpiryDate;
+    }
+
+    if (isNaN(expiryDateObj.getTime())) {
+      return {
+        success: false,
+        error: 'Invalid expiry date format',
+      };
+    }
+
+    // Get the deal
+    const deal = await (prisma as any).deal.findFirst({
+      where: {
+        id: dealId,
+        creatorEmail: creatorEmail,
+      },
+    });
+
+    if (!deal) {
+      return {
+        success: false,
+        error: 'Deal not found or you are not the creator',
+      };
+    }
+
+    // Get all unclaimed reward links for this collection
+    const unclaimedLinks = await (prisma as any).rewardLink.findMany({
+      where: {
+        collectionAddress: deal.collectionAddress,
+        status: 'active',
+        voucherAddress: null, // Unclaimed
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (unclaimedLinks.length === 0) {
+      return {
+        success: false,
+        error: 'No unclaimed vouchers found to extend expiry',
+      };
+    }
+
+    // Update expiry date for all unclaimed reward links
+    await (prisma as any).rewardLink.updateMany({
+      where: {
+        id: { in: unclaimedLinks.map((link: any) => link.id) },
+      },
+      data: {
+        expiryDate: expiryDateObj,
+      },
+    });
+
+    // Update deal expiry date
+    await (prisma as any).deal.update({
+      where: { id: dealId },
+      data: {
+        expiryDate: expiryDateObj,
+      },
+    });
+
+    return {
+      success: true,
+      vouchersUpdated: unclaimedLinks.length,
+    };
+  } catch (error: any) {
+    console.error('Error extending deal expiry:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to extend deal expiry',
+    };
+  }
+};
+
+export interface ClaimDealVoucherData {
+  dealId: string;
+  recipientEmail: string;
+}
+
+export interface RedeemVoucherData {
+  voucherAddress: string;
+  userEmail: string;
+  merchantId?: string;
+  redemptionAmount?: number;
+}
+
+export interface RedeemVoucherResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Redeem a voucher - gets creatorEmail from deal automatically
+ */
+export const redeemUserVoucher = async (data: RedeemVoucherData): Promise<RedeemVoucherResult> => {
+  try {
+    const { voucherAddress, userEmail, merchantId, redemptionAmount } = data;
+
+    // Get voucher to find collection address
+    const voucher = await (prisma as any).voucher.findFirst({
+      where: {
+        voucherPublicKey: voucherAddress,
+        recipient: userEmail, // Ensure user owns this voucher
+      },
+      select: {
+        collection: {
+          select: {
+            collectionPublicKey: true,
+          },
+        },
+      },
+    });
+
+    if (!voucher) {
+      return {
+        success: false,
+        error: 'Voucher not found or you do not own this voucher',
+      };
+    }
+
+    // Get deal to find creatorEmail
+    const deal = await (prisma as any).deal.findFirst({
+      where: {
+        collectionAddress: voucher.collection.collectionPublicKey,
+      },
+      select: {
+        creatorEmail: true,
+      },
+    });
+
+    if (!deal || !deal.creatorEmail) {
+      return {
+        success: false,
+        error: 'Deal not found for this voucher',
+      };
+    }
+
+    // Get merchantId from voucher details if not provided
+    let finalMerchantId = merchantId;
+    if (!finalMerchantId) {
+      const voucherDetailsResult = await getVoucherDetails(voucherAddress);
+      if (voucherDetailsResult.success && voucherDetailsResult.data) {
+        finalMerchantId = voucherDetailsResult.data.merchantId || '';
+      }
+    }
+
+    // Call voucherService.redeemVoucher
+    const redeemResult = await voucherService.redeemVoucher(
+      voucherAddress,
+      finalMerchantId || '',
+      deal.creatorEmail,
+      redemptionAmount
+    );
+
+    return redeemResult;
+  } catch (error: any) {
+    console.error('Error redeeming user voucher:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to redeem voucher',
+    };
+  }
+};
+
+export interface ClaimDealVoucherResult {
+  success: boolean;
+  voucherAddress?: string;
+  claimCode?: string;
+  error?: string;
+}
+
+/**
+ * Claim a voucher from a deal by automatically selecting an unclaimed claim code
+ */
+export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<ClaimDealVoucherResult> => {
+  try {
+    const { dealId, recipientEmail } = data;
+
+    // Get the deal
+    const deal = await (prisma as any).deal.findFirst({
+      where: {
+        id: dealId,
+      },
+      select: {
+        collectionAddress: true,
+        // tradeable: true,
+      },
+    });
+
+    if (!deal) {
+      return {
+        success: false,
+        error: 'Deal not found',
+      };
+    }
+
+    // Check if deal is not tradeable and user already owns a voucher in this collection
+    if (!deal.tradeable) {
+      const existingVoucher = await (prisma as any).voucher.findFirst({
+        where: {
+          recipient: recipientEmail,
+          collection: {
+            collectionPublicKey: deal.collectionAddress,
+          },
+        },
+      });
+
+      if (existingVoucher) {
+        return {
+          success: false,
+          error: 'You have already claimed a voucher from this deal collection. Each user can only claim one non-tradeable voucher per collection.',
+        };
+      }
+    }
+
+    // Find an unclaimed claim code for this collection
+    const unclaimedLink = await (prisma as any).rewardLink.findFirst({
+      where: {
+        collectionAddress: deal.collectionAddress,
+        status: 'active',
+        voucherAddress: null, // Unclaimed
+      },
+      select: {
+        claimCode: true,
+      },
+      orderBy: {
+        createdAt: 'asc', // Claim oldest first
+      },
+    });
+
+    if (!unclaimedLink || !unclaimedLink.claimCode) {
+      return {
+        success: false,
+        error: 'No unclaimed vouchers available for this deal',
+      };
+    }
+
+    // Claim the voucher using the claim code
+    const claimResult = await voucherService.claimVoucherFromLink(unclaimedLink.claimCode, recipientEmail);
+
+    if (!claimResult.success) {
+      return {
+        success: false,
+        error: claimResult.error || 'Failed to claim voucher',
+      };
+    }
+
+    return {
+      success: true,
+      voucherAddress: claimResult.voucherAddress,
+      claimCode: unclaimedLink.claimCode,
+    };
+  } catch (error: any) {
+    console.error('Error claiming deal voucher:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to claim deal voucher',
     };
   }
 };

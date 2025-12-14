@@ -189,31 +189,60 @@ export default function CreateDealForm() {
             placeholder="Upload cover image (PNG, JPG, GIF)"
           />
         </div>
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none sm:col-span-2"
-          rows={3}
-          required
-        />
+        <div className="sm:col-span-2">
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 75) {
+                setDescription(value);
+              }
+            }}
+            maxLength={75}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            rows={3}
+            required
+          />
+          <p className="mt-1 text-xs text-textSecondary">
+            {description.length}/75 characters
+          </p>
+        </div>
         <div className="min-w-0 sm:col-span-2">
           <input
             placeholder="Merchant Name"
             value={merchantName}
-            onChange={(e) => setMerchantName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 75) {
+                setMerchantName(value);
+              }
+            }}
+            maxLength={75}
             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             required
           />
+          <p className="mt-1 text-xs text-textSecondary">
+            {merchantName.length}/75 characters
+          </p>
         </div>
         <div className="min-w-0">
           <input
             placeholder="Merchant Address"
             value={merchantAddress}
-            onChange={(e) => setMerchantAddress(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 75) {
+                setMerchantAddress(value);
+              }
+            }}
+            maxLength={75}
             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             required
           />
+          <p className="mt-1 text-xs text-textSecondary">
+            {merchantAddress.length}/75 characters
+          </p>
         </div>
         <div className="min-w-0">
           <input
@@ -336,11 +365,20 @@ export default function CreateDealForm() {
         <textarea
           placeholder="Conditions"
           value={conditions}
-          onChange={(e) => setConditions(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= 75) {
+              setConditions(value);
+            }
+          }}
+          maxLength={75}
           className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           rows={3}
           required
         />
+        <p className="mt-1 text-xs text-textSecondary">
+          {conditions.length}/75 characters
+        </p>
       </div>
       {error && (
         <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">

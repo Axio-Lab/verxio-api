@@ -8,36 +8,6 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import { VerxioLoader } from "../../components/VerxioLoader";
 import { useDealsByUser } from "../../../hooks/useDeals";
 
-const mockCollections = [
-  {
-    id: "paris-fashion",
-    title: "Paris Fashion Week Exclusive",
-    merchant: "Maison Lumière",
-    discount: "35% OFF",
-    expiry: "Oct 12",
-    country: "France",
-    category: "Fashion",
-    tradeable: true,
-    worth: 150,
-    worthSymbol: "EUR",
-    quantityTotal: 100,
-    quantityRemaining: 24,
-  },
-  {
-    id: "dubai-retreat",
-    title: "Luxury Spa Evening",
-    merchant: "Azure Spa",
-    discount: "45% OFF",
-    expiry: "Oct 03",
-    country: "UAE",
-    category: "Wellness",
-    worth: 200,
-    worthSymbol: "AED",
-    quantityTotal: 80,
-    quantityRemaining: 0,
-  },
-];
-
 export default function AllDealsPage() {
   const { user } = usePrivy();
   const userEmail = user?.email?.address;
@@ -54,7 +24,7 @@ export default function AllDealsPage() {
   };
 
   // Map API deals to CollectionCard format (only when not loading)
-  const mappedUserDeals = !isLoadingDeals ? userDeals.map((deal) => ({
+  const allCollections = !isLoadingDeals ? userDeals.map((deal) => ({
     id: deal.id,
     title: deal.collectionName,
     merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
@@ -73,13 +43,8 @@ export default function AllDealsPage() {
     worthSymbol: deal.currency || "USD",
     quantityTotal: deal.quantity,
     quantityRemaining: deal.quantityRemaining,
+    collectionAddress: deal.collectionAddress,
   })) : [];
-  
-  // Add id to mock collections (only when not loading)
-  const mockCollectionsWithId = !isLoadingDeals ? mockCollections : [];
-
-  // Combine mock collections with API deals (only after loading completes)
-  const allCollections = !isLoadingDeals ? [...mockCollectionsWithId, ...mappedUserDeals] : [];
   
   // Pagination calculations
   const totalPages = Math.ceil(allCollections.length / collectionsPerPage);
