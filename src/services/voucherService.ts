@@ -910,6 +910,35 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       return { success: false, error: 'Claim link is missing voucher value.' };
     }
 
+    // Check if deal exists and if voucher is non-tradeable, prevent double claiming
+    const deal = await (prisma as any).deal.findFirst({
+      where: {
+        collectionAddress: reward.collectionAddress,
+      },
+      select: {
+        tradeable: true,
+      },
+    });
+
+    // If deal is not tradeable, check if user already owns a voucher in this collection
+    if (deal && !deal.tradeable) {
+      const existingVoucher = await (prisma as any).voucher.findFirst({
+        where: {
+          recipient: recipientEmail,
+          collection: {
+            collectionPublicKey: reward.collectionAddress,
+          },
+        },
+      });
+
+      if (existingVoucher) {
+        return {
+          success: false,
+          error: 'You have already claimed a voucher from this collection. Each user can only claim one non-tradeable voucher per collection.',
+        };
+      }
+    }
+
     const mintData: MintVoucherData = {
       collectionAddress: reward.collectionAddress,
       recipientEmail,
@@ -917,11 +946,11 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       voucherType: reward.voucherType,
       value: reward.voucherWorth,
       description: reward.description || 'Voucher reward',
-      expiryDate: reward.expiryDate || new Date(Date.now() + 24 * 60 * 60 * 1000),
-      maxUses: reward.maxUses ?? 1,
+      expiryDate: reward.expiryDate,
+      maxUses: reward.maxUses,
       transferable: !!reward.transferable,
-      merchantId: reward.merchantId || reward.creatorAddress,
-      conditions: reward.conditions || undefined,
+      merchantId: reward.merchantId,
+      conditions: reward.conditions,
     };
 
     // Mint voucher without charging API cost (merchant already paid when creating claim link)

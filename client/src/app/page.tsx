@@ -75,6 +75,7 @@ export default function Home() {
     worthSymbol: deal.currency || "USD",
     quantityTotal: deal.quantity,
     quantityRemaining: deal.quantityRemaining,
+    collectionAddress: deal.collectionAddress,
   })) : [];
 
   // Get most recent deals (featured) - API already returns sorted by createdAt desc, take first 3

@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import getSymbolFromCurrency from "currency-symbol-map";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import { VerxioLoader } from "../../components/VerxioLoader";
+import ExplorerLink from "../../components/ExplorerLink";
 import { usePrivy } from "@privy-io/react-auth";
-import { useClaimedVouchers } from "../../../hooks/useDeals";
+import { useClaimedVouchers, useRedeemVoucher } from "../../../hooks/useDeals";
 
 interface VoucherDisplayData {
-  isMock: boolean;
   merchant: string;
   discount: string;
   expiry: string;
-  quantity: number;
   tradeable: boolean;
   description: string;
   category?: string;
@@ -29,6 +27,12 @@ interface VoucherDisplayData {
   claimedAt?: string | Date;
   voucherDetails?: unknown;
   collectionDetails?: unknown;
+  redemptionHistory?: Array<{
+    amount?: number;
+    timestamp?: number;
+    location?: string;
+    [key: string]: unknown;
+  }>;
 }
 
 export default function VoucherDetailsPage() {
@@ -39,48 +43,12 @@ export default function VoucherDetailsPage() {
   const voucherId = params.id as string;
   
   const { data: claimedVouchers = [], isLoading } = useClaimedVouchers(userEmail);
+  const redeemVoucherMutation = useRedeemVoucher();
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
+  const [redemptionAmount, setRedemptionAmount] = useState<number>(0);
   
   const voucher = useMemo((): VoucherDisplayData | undefined => {
-    // Check if it's a mock voucher
-    if (voucherId.startsWith("mock-")) {
-      // Return mock data for mock vouchers
-      const mockVouchers = [
-        { 
-          merchant: "Maison Lumière", 
-          discount: "35% OFF", 
-          expiry: "Oct 12", 
-          quantity: 2, 
-          tradeable: true,
-          description: "Exclusive fashion week voucher with boutique credits",
-        },
-        { 
-          merchant: "Sunset Cafe", 
-          discount: "30% OFF", 
-          expiry: "Sep 28", 
-          quantity: 1, 
-          tradeable: false,
-          description: "Brunch bundle including fresh pastries and specialty coffee",
-        },
-        { 
-          merchant: "Savannah Co.", 
-          discount: "35% OFF", 
-          expiry: "Nov 01", 
-          quantity: 3, 
-          tradeable: true,
-          description: "Safari day trip with transport and lunch included",
-        },
-      ];
-      const mockIndex = parseInt(voucherId.replace("mock-", ""), 10);
-      if (isNaN(mockIndex) || mockIndex < 0 || mockIndex >= mockVouchers.length) {
-        return undefined;
-      }
-      return { 
-        ...mockVouchers[mockIndex], 
-        isMock: true,
-        description: mockVouchers[mockIndex].description || "",
-      } as VoucherDisplayData;
-    }
-    
     // Find real voucher from API
     const foundVoucher = claimedVouchers.find((v) => v.voucherAddress === voucherId);
     if (!foundVoucher) return undefined;
@@ -95,6 +63,12 @@ export default function VoucherDetailsPage() {
       maxUses?: number;
       currentUses?: number;
       conditions?: string;
+      redemptionHistory?: Array<{
+        amount?: number;
+        timestamp?: number;
+        location?: string;
+        [key: string]: unknown;
+      }>;
     } | undefined;
     
     const collectionDetails = foundVoucher.collectionDetails as {
@@ -103,14 +77,18 @@ export default function VoucherDetailsPage() {
       [key: string]: unknown;
     } | undefined;
     
+    // Format voucher type (e.g., "FREE_REPAIR" -> "FREE REPAIR")
+    const formatVoucherType = (type?: string): string => {
+      if (!type) return "Voucher";
+      return type.replace(/_/g, " ").toUpperCase();
+    };
+
     return {
-      isMock: false,
       merchant: foundVoucher.collectionName || voucherDetails?.name || "Unknown",
-      discount: voucherDetails?.type || "Voucher",
+      discount: formatVoucherType(voucherDetails?.type),
       expiry: voucherDetails?.expiryDate
         ? new Date(voucherDetails.expiryDate).toLocaleDateString()
         : "N/A",
-      quantity: 1,
       tradeable: foundVoucher.tradeable,
       description: voucherDetails?.description || collectionDetails?.description || "",
       voucherDetails: foundVoucher.voucherDetails,
@@ -125,14 +103,63 @@ export default function VoucherDetailsPage() {
       conditions: voucherDetails?.conditions ? String(voucherDetails.conditions) : undefined,
       claimCode: foundVoucher.claimCode,
       claimedAt: foundVoucher.claimedAt,
+      redemptionHistory: voucherDetails?.redemptionHistory || [],
     };
   }, [claimedVouchers, voucherId]);
 
   useEffect(() => {
     if (!isLoading && !voucher) {
-      router.replace("/profile");
+      router.replace("/profile/vouchers");
     }
   }, [voucher, isLoading, router]);
+
+  // Auto-hide messages after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  const handleRedeemClick = () => {
+    if (!userEmail || !voucherId || !voucher) {
+      setMessage({ type: 'error', text: 'Please log in to redeem vouchers' });
+      return;
+    }
+    setShowRedeemModal(true);
+  };
+
+  const handleRedeemConfirm = async () => {
+    if (!userEmail || !voucherId || !voucher || redemptionAmount <= 0) {
+      setMessage({ type: 'error', text: 'Please enter a valid redemption amount' });
+      return;
+    }
+
+    const voucherDetails = voucher.voucherDetails as { merchantId?: string } | undefined;
+    const merchantId = voucherDetails?.merchantId;
+
+    try {
+      const result = await redeemVoucherMutation.mutateAsync({
+        voucherAddress: voucherId,
+        userEmail: userEmail,
+        merchantId: merchantId,
+        redemptionAmount: redemptionAmount,
+      });
+
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message || 'Voucher redeemed successfully!' });
+        setShowRedeemModal(false);
+        setRedemptionAmount(0);
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
+      setMessage({ type: 'error', text: errorMessage });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -186,28 +213,6 @@ export default function VoucherDetailsPage() {
   return (
     <ProtectedRoute>
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <Link
-            href="/profile"
-            className="inline-flex items-center gap-2 text-sm text-textSecondary hover:text-primary"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back to Profile
-          </Link>
-        </div>
-
         <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
             <div className="space-y-4">
@@ -245,10 +250,17 @@ export default function VoucherDetailsPage() {
                 <p className="text-xs uppercase tracking-wide text-textSecondary">
                   {voucher.category || "Voucher"}
                 </p>
-                <h1 className="text-3xl font-semibold text-textPrimary">{voucher.merchant}</h1>
-                {voucher.country && (
-                  <p className="text-sm text-textSecondary">{String(voucher.country)}</p>
-                )}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-semibold text-textPrimary">{voucher.merchant}</h1>
+                    {voucher.country && (
+                      <p className="text-sm text-textSecondary">{String(voucher.country)}</p>
+                    )}
+                  </div>
+                  {voucherId && (
+                    <ExplorerLink address={voucherId} />
+                  )}
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-blue-50 p-4 text-sm text-primary">
@@ -311,23 +323,147 @@ export default function VoucherDetailsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {voucher.tradeable ? (
-                  <button className="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
+              <div className="pt-4 flex flex-col gap-3">
+                {message && (
+                  <div
+                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                      message.type === 'success'
+                        ? 'bg-green-50 text-green-800'
+                        : 'bg-red-50 text-red-800'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                )}
+                <button
+                  onClick={handleRedeemClick}
+                  disabled={!userEmail || !voucher}
+                  className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                >
+                  Redeem Voucher
+                </button>
+                {voucher.tradeable && (
+                  <button className="w-full rounded-full border border-primary bg-white px-5 py-3 text-sm font-semibold text-primary shadow-soft transition-transform hover:-translate-y-0.5">
                     Trade Voucher
                   </button>
-                ) : (
-                  <button className="w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5">
-                    Redeem Voucher
-                  </button>
                 )}
-                <button className="w-full rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary">
-                  View Collection
+                <button
+                  onClick={() => router.push("/profile/vouchers")}
+                  className="w-full rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-textPrimary shadow-soft transition-transform hover:-translate-y-0.5"
+                >
+                  Go back
                 </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Redemption History Card */}
+        {voucher.redemptionHistory && voucher.redemptionHistory.length > 0 && (
+          <div className="mt-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-card">
+            <h2 className="mb-4 text-xl font-semibold text-textPrimary">Redemption History</h2>
+            <div className="space-y-3">
+              {voucher.redemptionHistory.map((redemption, index) => {
+                const redemptionDate = redemption.timestamp
+                  ? new Date(redemption.timestamp).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Unknown date';
+                
+                const amount = redemption.amount;
+                const formattedAmount = amount !== undefined && amount !== null
+                  ? formatAmount(amount)
+                  : 'N/A';
+
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-textPrimary">
+                        {redemption.location || 'Redemption'}
+                      </p>
+                      <p className="text-xs text-textSecondary">{redemptionDate}</p>
+                    </div>
+                    {amount !== undefined && amount !== null && (
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-primary">{formattedAmount}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {voucher.redemptionHistory && voucher.redemptionHistory.length === 0 && (
+          <div className="mt-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-card">
+            <h2 className="mb-4 text-xl font-semibold text-textPrimary">Redemption History</h2>
+            <p className="text-sm text-textSecondary">No redemptions yet</p>
+          </div>
+        )}
+
+        {/* Redemption Amount Modal */}
+        {showRedeemModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => {
+                setShowRedeemModal(false);
+                setRedemptionAmount(0);
+              }}
+            />
+            <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-textPrimary">
+                  Redeem Voucher
+                </h4>
+                <button
+                  onClick={() => {
+                    setShowRedeemModal(false);
+                    setRedemptionAmount(0);
+                  }}
+                  className="text-sm text-textSecondary hover:text-textPrimary"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <label className="block text-sm font-medium text-textSecondary">
+                  Redemption Amount
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={redemptionAmount || ''}
+                  onChange={(e) => setRedemptionAmount(Number(e.target.value))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  placeholder={`e.g. ${voucher.remainingWorth ? formatAmount(voucher.remainingWorth) : '0'}`}
+                />
+                {voucher.remainingWorth !== undefined && voucher.remainingWorth !== null && (
+                  <p className="text-xs text-textSecondary">
+                    Remaining balance: {formatAmount(voucher.remainingWorth)}
+                  </p>
+                )}
+                <button
+                  onClick={handleRedeemConfirm}
+                  disabled={redeemVoucherMutation.isPending || redemptionAmount <= 0}
+                  className="w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {redeemVoucherMutation.isPending ? "Redeeming..." : "Redeem"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </ProtectedRoute>
   );
