@@ -124,7 +124,7 @@ The backend infrastructure powering the Verxio ecosystem. It enables:
 - Express + Prisma–powered services
 
 🔗 Links:
-
+- website: https://deals.verxio.xyz
 - Playground: https://playground.verxio.xyz(devnet)
 - Production: https://api.verxio.xyz
 - GitHub: https://github.com/verxioprotocol (Loyalty infrastructure SDK)
