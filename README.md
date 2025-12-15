@@ -1,23 +1,28 @@
-# Verxio Deals API  
-*On-chain loyalty infrastructure powering tokenized deals on Solana*
+<div align="center">
+
+The on-chain loyalty infrastructure powering tokenized deals on Solana
 
 Build, sell, trade, and redeem loyalty vouchers — globally, instantly, and on-chain.
 
+<br />
+
+</div>
+
 ---
 
-## What Is Verxio?
+What Is Verxio?
 
 Verxio is the loyalty infrastructure layer for the internet.
 
-- API-first protocol to mint tokenized loyalty cards and vouchers
-- Pre-sell value to unlock instant cashflow (secured on Solana)
-- Global marketplace where users discover, trade, and redeem the best loyalty deals
+At its core, Verxio is an API-first protocol that allows businesses to mint tokenized loyalty cards and vouchers, sell them before redemption, and unlock instant cashflow — all secured on Solana.
+
+On top of this infrastructure sits Verxio, a global marketplace where users discover, trade, and redeem the best loyalty deals worldwide.
 
 Think: Stripe for loyalty × Shopify for vouchers × a cashflow engine — powered by Solana.
 
 ---
 
-## The Problem
+The Problem
 
 Loyalty programs are broken:
 - Consumers juggle fragmented apps and unused vouchers
@@ -28,12 +33,13 @@ Loyalty programs are broken:
 
 ---
 
-## The Verxio Solution
+The Verxio Solution
 
 ### Loyalty, rebuilt as infrastructure
-Verxio turns loyalty into a programmable, liquid, global asset class.
+Verxio turns loyalty into a programmable, liquid, and global asset class.
 
 ### Tokenized Loyalty Vouchers (NFTs)
+Each voucher is an on-chain NFT:
 - Verifiable ownership
 - Immutable redemption history
 - Fraud-proof by design
@@ -69,6 +75,7 @@ Verxio turns loyalty into a programmable, liquid, global asset class.
 - Loyalty becomes liquid, not locked.
 
 ### Merchant Toolkit
+Everything businesses need, out of the box:
 - Collection creation with IPFS image storage
 - Batch voucher minting
 - Inventory and expiry management
@@ -78,7 +85,7 @@ Verxio turns loyalty into a programmable, liquid, global asset class.
 
 ---
 
-## Market Impact
+ Market Impact
 
 **Consumers**
 - Global access to deals
@@ -97,7 +104,7 @@ Verxio turns loyalty into a programmable, liquid, global asset class.
 
 ---
 
-## Competitive Advantages
+Competitive Advantages
 - First tokenized loyalty infrastructure on Solana
 - Full lifecycle support: mint → sell → redeem → trade
 - API-first and developer-friendly
@@ -107,44 +114,22 @@ Verxio turns loyalty into a programmable, liquid, global asset class.
 
 ---
 
-## What Is the Verxio Deals API?
+What Is the Verxio Deals API?
 
-Backend infrastructure powering the Verxio ecosystem. It enables:
+The backend infrastructure powering the Verxio ecosystem. It enables:
 - Tokenized voucher issuance
 - On-chain redemption tracking
 - Merchant & consumer flows
 - Secure, API-key–protected access
 - Express + Prisma–powered services
 
-Links:
-- Playground (devnet): https://playground.verxio.xyz
+🔗 Links:
+
+- Playground: https://playground.verxio.xyz(devnet)
 - Production: https://api.verxio.xyz
-- GitHub (SDK): https://github.com/verxioprotocol
+- GitHub: https://github.com/verxioprotocol (Loyalty infrastructure SDK)
 
----
 
-## Verxio Deals Client (Frontend)
-
-The `client/` directory contains the Next.js 14 application that brings the Verxio experience to life.
-
-**Features**
-- **Marketplace / Explore**: Real collections (no mocks); filter by country, merchant, category, deal type; expiring-soon and global search
-- **Deal Pages**: Live on-chain data; claim/disable logic; explorer links; redemption history
-- **User Profile**: Wallet & balance; paginated vouchers; redeem/trade flows
-- **Merchant Dashboard**: Create collections (Pinata uploads); manage supply & expiry; inventory and analytics
-- **Auth & Data**: Privy authentication; Solana default chain; TanStack Query for instant refetches
-- **UX Polish**: Responsive layouts; Verxio loaders; toasts, pagination, formatting everywhere
-
-**Run Locally**
-```bash
-cd client
-npm install
-npm run dev   # or npm run build && npm start
-```
-
----
-
-## Final Thought
 
 Verxio isn’t just a loyalty platform. It’s the loyalty infrastructure layer — a programmable cashflow engine that lets businesses sell the future, unlock liquidity today, and give users ownership of their loyalty.
 
