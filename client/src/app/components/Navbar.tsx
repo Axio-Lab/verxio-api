@@ -206,7 +206,7 @@ export default function Navbar() {
               onClick={login}
               className="rounded-full bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
             >
-              Login with Privy
+              Get Started
             </button>
           )}
         </div>
