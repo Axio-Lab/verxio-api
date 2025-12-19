@@ -1,14 +1,19 @@
  "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import DealCard from "./components/DealCard";
 import SectionHeader from "./components/SectionHeader";
-import { VerxioLoader } from "./components/VerxioLoader";
-import { useDeals, type DealInfo } from "../hooks/useDeals";
+import { mockDeals, type MappedDeal } from "../data/mockDeals";
 
-const logos = ["Brand1", "Brand2", "Brand3", "Brand4"];
+// Brand logos from public/brand folder
+const brandLogos = [
+  { name: "Gear Force", logo: "/brand/gear_force_logo.png" },
+  { name: "Infinity Fitness", logo: "/brand/infinity_fitness_logo.png" },
+  { name: "Living Room", logo: "/brand/living_room_logo.png" },
+  { name: "Ooma's Kitchen", logo: "/brand/oomas_kitchen_logo.png" },
+];
 const featureBullets = [
   {
     title: "Global Marketplace",
@@ -45,56 +50,37 @@ const featureBullets = [
 export default function Home() {
   const router = useRouter();
   const { authenticated, ready } = usePrivy();
-  const { data: apiDeals = [], isLoading } = useDeals();
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
-  // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
-  const formatDealType = (dealType?: string): string => {
-    if (!dealType) return "Deal";
-    return dealType.replace(/_/g, " ");
+  // Use mock data for featured deals (first 3 deals) - for hero section
+  const featuredDeals: MappedDeal[] = mockDeals.slice(0, 3);
+
+  // Slider configuration: show 3 deals at a time, auto-advance every 4 seconds
+  const dealsPerSlide = 3;
+  const slideInterval = 4000; // 4 seconds
+
+  // Calculate total number of slides - ensure we have enough slides to show all deals with 3 per slide
+  // If deals don't divide evenly, create enough slides to show all deals by wrapping
+  const totalSlides = Math.ceil(mockDeals.length / dealsPerSlide);
+
+  // Get deals for a specific slide, wrapping around if needed to always return 3 deals
+  const getDealsForSlide = (slideIndex: number): MappedDeal[] => {
+    const deals: MappedDeal[] = [];
+    for (let i = 0; i < dealsPerSlide; i++) {
+      const dealIndex = (slideIndex * dealsPerSlide + i) % mockDeals.length;
+      deals.push(mockDeals[dealIndex]);
+    }
+    return deals;
   };
 
-  // Map API deals to DealCard format and get most recent deals (featured)
-  // API returns deals sorted by createdAt desc, so first ones are most recent
-  const mappedApiDeals = !isLoading ? apiDeals.map((deal: DealInfo) => ({
-    id: deal.id,
-    title: deal.collectionName,
-    merchant: deal.collectionDetails?.metadata?.merchantName || "Unknown Merchant",
-    discount: formatDealType(deal.dealType),
-    expiry: deal.expiryDate 
-      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : "N/A",
-    country: deal.country,
-    category: deal.category,
-    tradeable: deal.tradeable,
-    image: deal.collectionDetails?.image,
-    worth: deal.worth || 0,
-    worthSymbol: deal.currency || "USD",
-    quantityTotal: deal.quantity,
-    quantityRemaining: deal.quantityRemaining,
-    collectionAddress: deal.collectionAddress,
-  })) : [];
+  // Auto-advance slider
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % totalSlides);
+    }, slideInterval);
 
-  // Get most recent deals (featured) - API already returns sorted by createdAt desc, take first 3
-  type MappedDeal = {
-    id: string;
-    title: string;
-    merchant: string;
-    discount: string;
-    expiry: string;
-    country?: string;
-    category?: string;
-    tradeable?: boolean;
-    image?: string;
-    worth?: number;
-    worthSymbol?: string;
-    quantityTotal?: number;
-    quantityRemaining?: number;
-  };
-  const featuredDeals: MappedDeal[] = mappedApiDeals.slice(0, 3);
+    return () => clearInterval(interval);
+  }, [totalSlides]);
 
   useEffect(() => {
     if (ready && authenticated) {
@@ -147,11 +133,7 @@ export default function Home() {
               </span>
             </div>
             <div className="grid gap-3">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <VerxioLoader size="md" />
-                </div>
-              ) : featuredDeals.length > 0 ? (
+              {featuredDeals.length > 0 ? (
                 featuredDeals.map((deal) => (
                   <div
                     key={deal.id}
@@ -202,15 +184,49 @@ export default function Home() {
           title="Featured deals across the globe"
           description="Hand-picked collections ready to claim or trade."
         />
-        {isLoading ? (
-          <div className="mt-8 flex min-h-[300px] items-center justify-center">
-            <VerxioLoader size="lg" />
-          </div>
-        ) : featuredDeals.length > 0 ? (
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {featuredDeals.map((deal) => (
-              <DealCard key={deal.id} {...deal} />
-            ))}
+        {mockDeals.length > 0 ? (
+          <div className="mt-6">
+            {/* Slider container */}
+            <div className="relative overflow-hidden">
+              <div
+                className="flex transition-transform duration-700 ease-in-out"
+                style={{
+                  transform: `translateX(-${currentSlideIndex * 100}%)`,
+                }}
+              >
+                {Array.from({ length: totalSlides }).map((_, slideIndex) => {
+                  const slideDeals = getDealsForSlide(slideIndex);
+                  return (
+                    <div
+                      key={slideIndex}
+                      className="min-w-full flex-shrink-0"
+                    >
+                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {slideDeals.map((deal, dealIndex) => (
+                          <DealCard key={`${deal.id}-${slideIndex}-${dealIndex}`} {...deal} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Slider indicators */}
+            <div className="mt-8 flex items-center justify-center gap-2">
+              {Array.from({ length: totalSlides }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlideIndex(index)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    index === currentSlideIndex
+                      ? "w-8 bg-primary"
+                      : "w-2 bg-gray-300 hover:bg-gray-400"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-12 text-center">
@@ -233,12 +249,17 @@ export default function Home() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {logos.map((logo) => (
+            {brandLogos.map((brand) => (
               <div
-                key={logo}
-                className="flex h-16 flex-1 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-sm font-semibold text-textSecondary min-w-[140px]"
+                key={brand.name}
+                className="relative flex h-32 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white px-4 py-3 min-w-[200px]"
               >
-                {logo}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={brand.logo}
+                  alt={brand.name}
+                  className="h-full w-auto max-w-full object-contain"
+                />
               </div>
             ))}
           </div>
