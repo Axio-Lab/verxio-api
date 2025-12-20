@@ -409,3 +409,49 @@ export function useRedeemVoucher() {
     },
   });
 }
+
+/**
+ * Merchant statistics
+ */
+export interface MerchantStats {
+  vouchersIssued: number;
+  dealsClaimed: number;
+  totalRedemptions: number;
+  totalTrades: number;
+  vouchersIssuedTrend?: number;
+  dealsClaimedTrend?: number;
+  totalRedemptionsTrend?: number;
+  totalTradesTrend?: number;
+}
+
+export interface MerchantStatsResponse {
+  success: boolean;
+  stats?: MerchantStats;
+  error?: string;
+}
+
+/**
+ * Get merchant statistics for a user
+ */
+export function useMerchantStats(email: string | undefined) {
+  return useQuery({
+    queryKey: ["merchant", "stats", email],
+    queryFn: async (): Promise<MerchantStatsResponse> => {
+      if (!email) {
+        return {
+          success: false,
+          error: "Email is required",
+        };
+      }
+      const response = await fetch(`${API_BASE_URL}/deal/stats/${encodeURIComponent(email)}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to fetch merchant stats" }));
+        throw new Error(error.error || "Failed to fetch merchant stats");
+      }
+      return response.json();
+    },
+    enabled: !!email,
+    staleTime: 0, // Always consider data stale to allow immediate refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}

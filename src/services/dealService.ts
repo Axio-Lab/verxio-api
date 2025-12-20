@@ -1132,3 +1132,234 @@ export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<Clai
     };
   }
 };
+
+export interface MerchantStats {
+  vouchersIssued: number; // Total deals created by the user
+  dealsClaimed: number; // How many vouchers have been claimed from user's deals
+  totalRedemptions: number; // How many unique vouchers have been redeemed (at least once)
+  totalTrades: number; // Vouchers the user has traded (0 for now)
+  // Trends (Month over Month)
+  vouchersIssuedTrend?: number; // Percentage change from previous month
+  dealsClaimedTrend?: number;
+  totalRedemptionsTrend?: number;
+  totalTradesTrend?: number;
+}
+
+/**
+ * Get merchant statistics for a user
+ */
+export const getMerchantStats = async (userEmail: string): Promise<{ success: boolean; stats?: MerchantStats; error?: string }> => {
+  try {
+    // 1. Count vouchers issued (deals created by the user)
+    const vouchersIssued = await (prisma as any).deal.count({
+      where: {
+        creatorEmail: userEmail,
+      },
+    });
+
+    // 2. Get all deals created by the user to find their collection addresses
+    const userDeals = await (prisma as any).deal.findMany({
+      where: {
+        creatorEmail: userEmail,
+      },
+      select: {
+        collectionAddress: true,
+      },
+    });
+
+    const collectionAddresses = userDeals.map((deal: any) => deal.collectionAddress);
+
+    if (collectionAddresses.length === 0) {
+      return {
+        success: true,
+        stats: {
+          vouchersIssued: 0,
+          dealsClaimed: 0,
+          totalRedemptions: 0,
+          totalTrades: 0,
+          vouchersIssuedTrend: 0,
+          dealsClaimedTrend: 0,
+          totalRedemptionsTrend: 0,
+          totalTradesTrend: 0,
+        },
+      };
+    }
+
+    // 3. Count how many vouchers have been claimed from user's deals
+    // (count vouchers where collection address matches user's collections)
+    const dealsClaimed = await (prisma as any).voucher.count({
+      where: {
+        collection: {
+          collectionPublicKey: {
+            in: collectionAddresses,
+          },
+        },
+      },
+    });
+
+    // 4. Count total redemptions (unique vouchers that have been redeemed at least once)
+    // Get all vouchers from user's collections and check their redemption history
+    const claimedVouchers = await (prisma as any).voucher.findMany({
+      where: {
+        collection: {
+          collectionPublicKey: {
+            in: collectionAddresses,
+          },
+        },
+      },
+      select: {
+        voucherPublicKey: true,
+        createdAt: true,
+      },
+    });
+
+    // Fetch voucher details in parallel to check redemption history
+    // Also store voucher creation dates for trend calculation
+    let totalRedemptions = 0;
+    const voucherDetailsWithDates: Array<{ details: any; createdAt: Date }> = [];
+    
+    const voucherDetailsPromises = claimedVouchers.map(async (voucher: any) => {
+      const details = await getVoucherDetails(voucher.voucherPublicKey).catch((error) => {
+        console.error(`Error fetching voucher details for ${voucher.voucherPublicKey}:`, error);
+        return { success: false, data: null };
+      });
+      return { details, createdAt: voucher.createdAt ? new Date(voucher.createdAt) : new Date() };
+    });
+
+    const voucherDetailsResults = await Promise.all(voucherDetailsPromises);
+
+    for (const { details: result, createdAt } of voucherDetailsResults) {
+      if (result.success && result.data) {
+        const voucherDetails = result.data;
+        // Count vouchers that have been redeemed at least once
+        // A voucher is considered redeemed if it has redemption history OR is marked as used
+        const hasRedemptions = 
+          (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
+          voucherDetails.status === 'used' ||
+          (voucherDetails.currentUses && voucherDetails.currentUses > 0);
+        
+        if (hasRedemptions) {
+          totalRedemptions += 1; // Count unique vouchers, not redemption events
+        }
+        
+        // Store for trend calculation
+        voucherDetailsWithDates.push({ details: voucherDetails, createdAt });
+      }
+    }
+
+    // 5. Total trades (0 for now - trading functionality not implemented)
+    const totalTrades = 0;
+
+    // 6. Calculate Month-over-Month trends
+    // Compare current month activity to previous month activity
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    // Current month activity
+    const currentMonthVouchersIssued = await (prisma as any).deal.count({
+      where: {
+        creatorEmail: userEmail,
+        createdAt: {
+          gte: currentMonthStart,
+        },
+      },
+    });
+
+    const currentMonthDealsClaimed = collectionAddresses.length > 0 ? await (prisma as any).voucher.count({
+      where: {
+        collection: {
+          collectionPublicKey: {
+            in: collectionAddresses,
+          },
+        },
+        createdAt: {
+          gte: currentMonthStart,
+        },
+      },
+    }) : 0;
+
+    // Previous month activity
+    const previousMonthVouchersIssued = await (prisma as any).deal.count({
+      where: {
+        creatorEmail: userEmail,
+        createdAt: {
+          gte: previousMonthStart,
+          lte: previousMonthEnd,
+        },
+      },
+    });
+
+    const previousMonthDealsClaimed = collectionAddresses.length > 0 ? await (prisma as any).voucher.count({
+      where: {
+        collection: {
+          collectionPublicKey: {
+            in: collectionAddresses,
+          },
+        },
+        createdAt: {
+          gte: previousMonthStart,
+          lte: previousMonthEnd,
+        },
+      },
+    }) : 0;
+
+    // Calculate redemption trends using the voucher details we already fetched
+    // Note: We use voucher creation date as a proxy for redemption date since exact redemption timestamps
+    // are not easily accessible. This is an approximation.
+    let currentMonthRedemptions = 0;
+    let previousMonthRedemptions = 0;
+
+    for (const { details: voucherDetails, createdAt } of voucherDetailsWithDates) {
+      const hasRedemptions = 
+        (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
+        voucherDetails.status === 'used' ||
+        (voucherDetails.currentUses && voucherDetails.currentUses > 0);
+      
+      if (hasRedemptions) {
+        // Use voucher creation date as proxy for redemption timing
+        // Vouchers created in current month with redemptions count as current month redemptions
+        // Vouchers created in previous month with redemptions count as previous month redemptions
+        if (createdAt >= currentMonthStart) {
+          currentMonthRedemptions += 1;
+        } else if (createdAt >= previousMonthStart && createdAt <= previousMonthEnd) {
+          previousMonthRedemptions += 1;
+        }
+      }
+    }
+
+    // Calculate trends (percentage change)
+    const calculateTrend = (current: number, previous: number): number => {
+      if (previous === 0) {
+        return current > 0 ? 100 : 0; // If previous was 0 and current > 0, it's 100% increase
+      }
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    const vouchersIssuedTrend = calculateTrend(currentMonthVouchersIssued, previousMonthVouchersIssued);
+    const dealsClaimedTrend = calculateTrend(currentMonthDealsClaimed, previousMonthDealsClaimed);
+    const totalRedemptionsTrend = calculateTrend(currentMonthRedemptions, previousMonthRedemptions);
+    const totalTradesTrend = 0; // No trades yet
+
+    return {
+      success: true,
+      stats: {
+        vouchersIssued,
+        dealsClaimed,
+        totalRedemptions,
+        totalTrades,
+        vouchersIssuedTrend,
+        dealsClaimedTrend,
+        totalRedemptionsTrend,
+        totalTradesTrend,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error getting merchant stats:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get merchant stats',
+    };
+  }
+};
