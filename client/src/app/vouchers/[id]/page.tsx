@@ -22,14 +22,18 @@ interface VoucherDisplayData {
   remainingWorth?: number | null;
   maxUses?: number | null;
   currentUses?: number | null;
+  status?: string;
+  canRedeem?: boolean;
   conditions?: string;
   claimCode?: string;
   claimedAt?: string | Date;
   voucherDetails?: unknown;
   collectionDetails?: unknown;
   redemptionHistory?: Array<{
-    amount?: number;
+    total_amount?: number;
+    redemption_value?: number;
     timestamp?: number;
+    transaction_id?: string;
     location?: string;
     [key: string]: unknown;
   }>;
@@ -62,9 +66,12 @@ export default function VoucherDetailsPage() {
       remainingWorth?: number;
       maxUses?: number;
       currentUses?: number;
+      status?: string;
+      canRedeem?: boolean;
       conditions?: string;
       redemptionHistory?: Array<{
-        amount?: number;
+        total_amount?: number;
+        redemption_value?: number;
         timestamp?: number;
         location?: string;
         [key: string]: unknown;
@@ -100,6 +107,8 @@ export default function VoucherDetailsPage() {
       remainingWorth: voucherDetails?.remainingWorth,
       maxUses: voucherDetails?.maxUses,
       currentUses: voucherDetails?.currentUses,
+      status: voucherDetails?.status,
+      canRedeem: voucherDetails?.canRedeem,
       conditions: voucherDetails?.conditions ? String(voucherDetails.conditions) : undefined,
       claimCode: foundVoucher.claimCode,
       claimedAt: foundVoucher.claimedAt,
@@ -187,7 +196,11 @@ export default function VoucherDetailsPage() {
   };
 
   const formatAmount = (amount?: number | null): string => {
-    if (amount === undefined || amount === null || amount === 0) return "Free";
+    if (amount === undefined || amount === null || amount === 0) {
+      // Show $0 (or currency equivalent) instead of "Free" for used vouchers
+      const symbol = getCurrencySymbol(voucher.currency);
+      return voucher.currency === "SOL" ? "SOL 0" : `${symbol}0`;
+    }
     const symbol = getCurrencySymbol(voucher.currency);
     const formattedNumber = Number(amount).toLocaleString('en-US', {
       minimumFractionDigits: 0,
@@ -208,6 +221,33 @@ export default function VoucherDetailsPage() {
     } catch {
       return false;
     }
+  };
+
+  // Check if voucher can be redeemed
+  const canRedeemVoucher = (): boolean => {
+    if (!voucher) return false;
+    
+    // Check if explicitly marked as cannot redeem
+    if (voucher.canRedeem === false) return false;
+    
+    // Check status
+    if (voucher.status === 'used' || voucher.status === 'Used') return false;
+    
+    // Check if max uses reached
+    if (voucher.maxUses !== undefined && voucher.maxUses !== null &&
+        voucher.currentUses !== undefined && voucher.currentUses !== null) {
+      if (voucher.currentUses >= voucher.maxUses) return false;
+    }
+    
+    // Check if remaining worth is 0 or less
+    if (voucher.remainingWorth !== undefined && voucher.remainingWorth !== null && voucher.remainingWorth <= 0) {
+      return false;
+    }
+    
+    // Check if expired
+    if (isExpired()) return false;
+    
+    return true;
   };
 
   return (
@@ -288,19 +328,33 @@ export default function VoucherDetailsPage() {
                       </span>
                     </div>
                   )}
-                  {voucher.remainingWorth !== undefined && voucher.remainingWorth !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-textSecondary">Remaining:</span>
+                    <span className="font-semibold text-textPrimary">
+                      {canRedeemVoucher() && voucher.remainingWorth !== undefined && voucher.remainingWorth !== null
+                        ? formatAmount(voucher.remainingWorth)
+                        : formatAmount(0)}
+                    </span>
+                  </div>
+                  {voucher.maxUses !== undefined && voucher.maxUses !== null && (
                     <div className="flex justify-between">
-                      <span className="text-textSecondary">Remaining:</span>
+                      <span className="text-textSecondary">Uses:</span>
                       <span className="font-semibold text-textPrimary">
-                        {formatAmount(typeof voucher.remainingWorth === 'number' ? voucher.remainingWorth : undefined)}
+                        {typeof voucher.currentUses === 'number' ? voucher.currentUses : 0} / {typeof voucher.maxUses === 'number' ? voucher.maxUses : 0}
                       </span>
                     </div>
                   )}
-                  {voucher.maxUses !== undefined && voucher.maxUses !== null && (
+                  {voucher.status && (
                     <div className="flex justify-between">
-                      <span className="text-textSecondary">Max Uses:</span>
-                      <span className="font-semibold text-textPrimary">
-                        {typeof voucher.currentUses === 'number' ? voucher.currentUses : 0} / {typeof voucher.maxUses === 'number' ? voucher.maxUses : 0}
+                      <span className="text-textSecondary">Status:</span>
+                      <span className={`font-semibold ${
+                        voucher.status.toLowerCase() === 'used' 
+                          ? 'text-red-600' 
+                          : voucher.status.toLowerCase() === 'active'
+                          ? 'text-green-600'
+                          : 'text-textPrimary'
+                      }`}>
+                        {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1).toLowerCase()}
                       </span>
                     </div>
                   )}
@@ -337,10 +391,26 @@ export default function VoucherDetailsPage() {
                 )}
                 <button
                   onClick={handleRedeemClick}
-                  disabled={!userEmail || !voucher}
+                  disabled={!userEmail || !voucher || !canRedeemVoucher()}
                   className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  Redeem Voucher
+                  {(() => {
+                    if (!canRedeemVoucher() && voucher?.status === 'used') {
+                      return 'Voucher Already Used';
+                    }
+                    if (!canRedeemVoucher() && 
+                        voucher?.currentUses !== undefined && voucher?.currentUses !== null && 
+                        voucher?.maxUses !== undefined && voucher?.maxUses !== null && 
+                        voucher.currentUses >= voucher.maxUses) {
+                      return 'Max Uses Reached';
+                    }
+                    if (!canRedeemVoucher() && 
+                        voucher?.remainingWorth !== undefined && voucher?.remainingWorth !== null && 
+                        voucher.remainingWorth <= 0) {
+                      return 'No Value Remaining';
+                    }
+                    return 'Redeem Voucher';
+                  })()}
                 </button>
                 {voucher.tradeable && (
                   <button className="w-full rounded-full border border-primary bg-white px-5 py-3 text-sm font-semibold text-primary shadow-soft transition-transform hover:-translate-y-0.5">
@@ -374,9 +444,11 @@ export default function VoucherDetailsPage() {
                     })
                   : 'Unknown date';
                 
-                const amount = redemption.amount;
-                const formattedAmount = amount !== undefined && amount !== null
-                  ? formatAmount(amount)
+                const totalAmount = typeof redemption.total_amount === 'number' 
+                  ? redemption.total_amount 
+                  : undefined;
+                const formattedAmount = totalAmount !== undefined && totalAmount !== null
+                  ? formatAmount(totalAmount)
                   : 'N/A';
 
                 return (
@@ -386,11 +458,11 @@ export default function VoucherDetailsPage() {
                   >
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-textPrimary">
-                        {redemption.location || 'Redemption'}
+                        {'Redemption'}
                       </p>
                       <p className="text-xs text-textSecondary">{redemptionDate}</p>
                     </div>
-                    {amount !== undefined && amount !== null && (
+                    {totalAmount !== undefined && (
                       <div className="text-right">
                         <p className="text-sm font-semibold text-primary">{formattedAmount}</p>
                       </div>
