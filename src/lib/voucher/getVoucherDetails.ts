@@ -144,13 +144,19 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
       redemptionHistory: [],
     };
 
-    // Calculate remaining worth for TOKEN and FIAT vouchers
+    // Calculate remaining worth for all voucher types that have redemption history
     const originalValue = voucherData.value || 0;
     const redemptionHistory = voucherData.redemption_history || [];
-    const remainingWorth =
-      voucherData.type?.toLowerCase() === 'token' || voucherData.type?.toLowerCase() === 'fiat'
-        ? calculateRemainingWorth(originalValue, redemptionHistory)
-        : originalValue;
+    const maxUses = voucherData.max_uses || 1;
+    
+    // Calculate remaining worth by subtracting total redeemed amounts from original value
+    const remainingWorth = redemptionHistory.length > 0
+      ? calculateRemainingWorth(originalValue, redemptionHistory)
+      : originalValue;
+
+    // Calculate current uses from redemption history (source of truth)
+    // Cap it at maxUses to ensure it never exceeds the maximum
+    const currentUses = Math.min(redemptionHistory.length, maxUses);
 
     // Calculate if voucher is expired
     const currentTime = Date.now();
@@ -161,7 +167,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     const canRedeem =
       !isExpired &&
       (voucherData.status === 'active' || voucherData.status === 'Active') &&
-      (voucherData.current_uses || 0) < (voucherData.max_uses || 1) &&
+      currentUses < maxUses &&
       remainingWorth > 0;
 
     // Get symbol from attributes
@@ -186,7 +192,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
       value: originalValue,
       remainingWorth: remainingWorth,
       status: voucherData.status || 'active',
-      maxUses: voucherData.max_uses || 1,
+      maxUses: maxUses,
       issuedAt: voucherData.issued_at || 0,
       conditions: Array.isArray(voucherData.conditions)
         ? voucherData.conditions
@@ -197,7 +203,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
       voucherDescription: voucherData.description || '',
       expiryDate: voucherData.expiry_date || 0,
       merchantId: voucherData.merchant_id || '',
-      currentUses: voucherData.current_uses || 0,
+      currentUses: currentUses, // Use calculated value from redemption history
       transferable: voucherData.transferable || true,
       redemptionHistory: redemptionHistory,
     };

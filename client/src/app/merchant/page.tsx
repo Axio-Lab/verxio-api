@@ -9,20 +9,14 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import CreateDealForm from "../components/CreateDealForm";
 import CollectionCard from "../components/CollectionCard";
 import { VerxioLoader } from "../components/VerxioLoader";
-import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "../../hooks/useDeals";
-
-const stats = [
-  { label: "Total Vouchers Issued", value: "18,230", trend: "+12% MoM" },
-  { label: "Total Claims", value: "9,412", trend: "+8% MoM" },
-  { label: "Total Redemptions", value: "6,987", trend: "+6% MoM" },
-  { label: "Total Trades", value: "1,223", trend: "+14% MoM" },
-];
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats } from "../../hooks/useDeals";
 
 
 export default function MerchantDashboard() {
   const { user } = usePrivy();
   const userEmail = user?.email?.address;
   const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
+  const { data: statsData, isLoading: isLoadingStats } = useMerchantStats(userEmail);
   const addDealQuantityMutation = useAddDealQuantity();
   const extendDealExpiryMutation = useExtendDealExpiry();
   
@@ -83,9 +77,56 @@ export default function MerchantDashboard() {
         />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <StatCard key={stat.label} {...stat} />
-          ))}
+          {isLoadingStats ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="card-surface p-5">
+                <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
+                <div className="mt-2 h-8 w-32 animate-pulse rounded bg-gray-200" />
+              </div>
+            ))
+          ) : statsData?.stats ? (
+            [
+              { 
+                label: "Total Vouchers Issued", 
+                value: statsData.stats.vouchersIssued.toLocaleString(),
+                trend: statsData.stats.vouchersIssuedTrend !== undefined 
+                  ? `${statsData.stats.vouchersIssuedTrend >= 0 ? '+' : ''}${statsData.stats.vouchersIssuedTrend}% MoM`
+                  : undefined
+              },
+              { 
+                label: "Total Claims", 
+                value: statsData.stats.dealsClaimed.toLocaleString(),
+                trend: statsData.stats.dealsClaimedTrend !== undefined
+                  ? `${statsData.stats.dealsClaimedTrend >= 0 ? '+' : ''}${statsData.stats.dealsClaimedTrend}% MoM`
+                  : undefined
+              },
+              { 
+                label: "Total Redemptions", 
+                value: statsData.stats.totalRedemptions.toLocaleString(),
+                trend: statsData.stats.totalRedemptionsTrend !== undefined
+                  ? `${statsData.stats.totalRedemptionsTrend >= 0 ? '+' : ''}${statsData.stats.totalRedemptionsTrend}% MoM`
+                  : undefined
+              },
+              { 
+                label: "Total Trades", 
+                value: statsData.stats.totalTrades.toLocaleString(),
+                trend: statsData.stats.totalTradesTrend !== undefined
+                  ? `${statsData.stats.totalTradesTrend >= 0 ? '+' : ''}${statsData.stats.totalTradesTrend}% MoM`
+                  : undefined
+              },
+            ].map((stat) => (
+              <StatCard key={stat.label} label={stat.label} value={stat.value} trend={stat.trend} />
+            ))
+          ) : (
+            [
+              { label: "Total Vouchers Issued", value: "0" },
+              { label: "Total Claims", value: "0" },
+              { label: "Total Redemptions", value: "0" },
+              { label: "Total Trades", value: "0" },
+            ].map((stat) => (
+              <StatCard key={stat.label} label={stat.label} value={stat.value} />
+            ))
+          )}
         </div>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">

@@ -984,3 +984,69 @@ dealRouter.post('/redeem', async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 });
+
+/**
+ * @swagger
+ * /deal/stats/{email}:
+ *   get:
+ *     summary: Get merchant statistics for a user
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User email address
+ *     responses:
+ *       200:
+ *         description: Merchant statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     vouchersIssued:
+ *                       type: number
+ *                       description: Total deals created by the user
+ *                     dealsClaimed:
+ *                       type: number
+ *                       description: How many vouchers have been claimed from user's deals
+ *                     totalRedemptions:
+ *                       type: number
+ *                       description: How many claimed vouchers have been used/redeemed
+ *                     totalTrades:
+ *                       type: number
+ *                       description: Vouchers the user has traded (0 for now)
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: User not found
+ */
+dealRouter.get('/stats/:email', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+      });
+    }
+
+    const result = await dealService.getMerchantStats(email);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
