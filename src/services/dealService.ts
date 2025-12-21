@@ -5,6 +5,7 @@ import {
   type VoucherCollectionDetails,
 } from '../lib/voucher/getVoucherCollectionDetails';
 import { getVoucherDetails, type VoucherDetails } from '../lib/voucher/getVoucherDetails';
+import { getUserCreatorInfo } from './userService';
 
 export interface CreateDealData {
   creatorEmail: string;
@@ -1360,6 +1361,319 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
     return {
       success: false,
       error: error.message || 'Failed to get merchant stats',
+    };
+  }
+};
+
+export interface RecentActivity {
+  type: 'claim' | 'redemption' | 'deal_created';
+  message: string;
+  timestamp: Date;
+  value?: string;
+}
+
+/**
+ * Get recent activity for a merchant
+ */
+export const getMerchantRecentActivity = async (userEmail: string, limit: number = 10): Promise<{ success: boolean; activities?: RecentActivity[]; error?: string }> => {
+  try {
+    // Get creator address from email
+    const creatorInfo = await getUserCreatorInfo(userEmail);
+    const creatorAddress = creatorInfo.creatorAddress;
+
+    // Get all deals created by the user to find their collection addresses
+    const userDeals = await (prisma as any).deal.findMany({
+      where: {
+        creatorEmail: userEmail,
+      },
+      select: {
+        collectionAddress: true,
+        collectionName: true,
+      },
+    });
+
+    const collectionAddresses = userDeals.map((deal: any) => deal.collectionAddress);
+    const activities: RecentActivity[] = [];
+
+    if (collectionAddresses.length > 0) {
+      // Get recent vouchers claimed (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const recentClaims = await (prisma as any).voucher.findMany({
+        where: {
+          collection: {
+            collectionPublicKey: {
+              in: collectionAddresses,
+            },
+          },
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
+        select: {
+          createdAt: true,
+          collection: {
+            select: {
+              collectionPublicKey: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+      });
+
+      // Get deal names for claims
+      for (const claim of recentClaims) {
+        const deal = userDeals.find((d: any) => d.collectionAddress === claim.collection.collectionPublicKey);
+        activities.push({
+          type: 'claim',
+          message: `Voucher claimed`,
+          timestamp: claim.createdAt,
+          value: deal?.collectionName || 'Unknown Deal',
+        });
+      }
+
+      // Get recent redemptions (vouchers that have been redeemed recently)
+      // We'll check vouchers claimed in the last 7 days and see if they have redemptions
+      const recentVouchers = await (prisma as any).voucher.findMany({
+        where: {
+          collection: {
+            collectionPublicKey: {
+              in: collectionAddresses,
+            },
+          },
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
+        select: {
+          voucherPublicKey: true,
+          createdAt: true,
+          collection: {
+            select: {
+              collectionPublicKey: true,
+            },
+          },
+        },
+        take: 50, // Check up to 50 recent vouchers for redemptions
+      });
+
+      // Check which vouchers have been redeemed (simplified - using creation date as proxy)
+      // In a real implementation, you'd check redemption timestamps
+      for (const voucher of recentVouchers) {
+        try {
+          const voucherDetailsResult = await getVoucherDetails(voucher.voucherPublicKey);
+          if (voucherDetailsResult.success && voucherDetailsResult.data) {
+            const voucherDetails = voucherDetailsResult.data;
+            const hasRedemptions = 
+              (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
+              voucherDetails.status === 'used' ||
+              (voucherDetails.currentUses && voucherDetails.currentUses > 0);
+            
+            if (hasRedemptions) {
+              const deal = userDeals.find((d: any) => d.collectionAddress === voucher.collection.collectionPublicKey);
+              activities.push({
+                type: 'redemption',
+                message: `Voucher redeemed`,
+                timestamp: voucher.createdAt, // Using creation date as proxy
+                value: deal?.collectionName || 'Unknown Deal',
+              });
+            }
+          }
+        } catch (error) {
+          // Skip if voucher details can't be fetched
+        }
+      }
+    }
+
+    // Get recent deals created
+    const recentDeals = await (prisma as any).deal.findMany({
+      where: {
+        creatorEmail: userEmail,
+      },
+      select: {
+        collectionName: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 5,
+    });
+
+    for (const deal of recentDeals) {
+      activities.push({
+        type: 'deal_created',
+        message: `New deal created`,
+        timestamp: deal.createdAt,
+        value: deal.collectionName,
+      });
+    }
+
+    // Sort by timestamp (most recent first) and limit
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const limitedActivities = activities.slice(0, limit);
+
+    return {
+      success: true,
+      activities: limitedActivities,
+    };
+  } catch (error: any) {
+    console.error('Error getting merchant recent activity:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get recent activity',
+    };
+  }
+};
+
+/**
+ * Get voucher details by claim code
+ */
+export const getVoucherByClaimCode = async (claimCode: string, userEmail: string): Promise<{ success: boolean; voucher?: any; error?: string }> => {
+  try {
+    // Get creator address to verify ownership
+    const creatorInfo = await getUserCreatorInfo(userEmail);
+    const creatorAddress = creatorInfo.creatorAddress;
+
+    // Find the reward link by claim code
+    const rewardLink = await (prisma as any).rewardLink.findFirst({
+      where: {
+        OR: [
+          { claimCode: claimCode },
+          { slug: claimCode }, // Support old slug
+        ],
+      },
+      include: {
+        collection: {
+          select: {
+            creator: true,
+            collectionPublicKey: true,
+          },
+        },
+      },
+    });
+
+    if (!rewardLink) {
+      return {
+        success: false,
+        error: 'Claim code not found',
+      };
+    }
+
+    // Verify the merchant owns this collection
+    if (rewardLink.collection.creator !== creatorAddress) {
+      return {
+        success: false,
+        error: 'You do not have permission to view this voucher',
+      };
+    }
+
+    // Check if the claim link has been claimed
+    if (rewardLink.status !== 'claimed') {
+      return {
+        success: false,
+        error: 'This claim code has not been claimed yet.',
+      };
+    }
+
+    // Try to find voucher using voucherAddress if it's stored in the RewardLink
+    let finalVoucher = null;
+    
+    if (rewardLink.voucherAddress) {
+      finalVoucher = await (prisma as any).voucher.findFirst({
+        where: {
+          voucherPublicKey: rewardLink.voucherAddress,
+        },
+        select: {
+          voucherPublicKey: true,
+          recipient: true,
+          createdAt: true,
+        },
+      });
+    }
+
+    // If voucherAddress not available, find by collection and time window
+    if (!finalVoucher) {
+      const claimTimeStart = new Date(rewardLink.updatedAt);
+      claimTimeStart.setMinutes(claimTimeStart.getMinutes() - 5); // 5 minutes before
+      const claimTimeEnd = new Date(rewardLink.updatedAt);
+      claimTimeEnd.setMinutes(claimTimeEnd.getMinutes() + 5); // 5 minutes after
+
+      finalVoucher = await (prisma as any).voucher.findFirst({
+        where: {
+          collection: {
+            collectionPublicKey: rewardLink.collection.collectionPublicKey,
+          },
+          createdAt: {
+            gte: claimTimeStart,
+            lte: claimTimeEnd,
+          },
+        },
+        select: {
+          voucherPublicKey: true,
+          recipient: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }
+
+    // If still not found, try finding the most recent one from the collection
+    if (!finalVoucher) {
+      finalVoucher = await (prisma as any).voucher.findFirst({
+        where: {
+          collection: {
+            collectionPublicKey: rewardLink.collection.collectionPublicKey,
+          },
+        },
+        select: {
+          voucherPublicKey: true,
+          recipient: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }
+
+    if (!finalVoucher) {
+      return {
+        success: false,
+        error: 'No voucher found for this claim code. It may not have been claimed yet.',
+      };
+    }
+
+    // Get full voucher details from blockchain
+    const voucherDetailsResult = await getVoucherDetails(finalVoucher.voucherPublicKey);
+    
+    if (!voucherDetailsResult.success || !voucherDetailsResult.data) {
+      return {
+        success: false,
+        error: voucherDetailsResult.error || 'Failed to fetch voucher details',
+      };
+    }
+
+    return {
+      success: true,
+      voucher: {
+        ...voucherDetailsResult.data,
+        claimCode: rewardLink.claimCode || rewardLink.slug,
+        claimedAt: finalVoucher.createdAt,
+        recipient: finalVoucher.recipient,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error getting voucher by claim code:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get voucher by claim code',
     };
   }
 };
