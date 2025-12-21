@@ -409,3 +409,125 @@ export function useRedeemVoucher() {
     },
   });
 }
+
+/**
+ * Merchant statistics
+ */
+export interface MerchantStats {
+  vouchersIssued: number;
+  dealsClaimed: number;
+  totalRedemptions: number;
+  totalTrades: number;
+  vouchersIssuedTrend?: number;
+  dealsClaimedTrend?: number;
+  totalRedemptionsTrend?: number;
+  totalTradesTrend?: number;
+}
+
+export interface MerchantStatsResponse {
+  success: boolean;
+  stats?: MerchantStats;
+  error?: string;
+}
+
+/**
+ * Get merchant statistics for a user
+ */
+export function useMerchantStats(email: string | undefined) {
+  return useQuery({
+    queryKey: ["merchant", "stats", email],
+    queryFn: async (): Promise<MerchantStatsResponse> => {
+      if (!email) {
+        return {
+          success: false,
+          error: "Email is required",
+        };
+      }
+      const response = await fetch(`${API_BASE_URL}/deal/stats/${encodeURIComponent(email)}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to fetch merchant stats" }));
+        throw new Error(error.error || "Failed to fetch merchant stats");
+      }
+      return response.json();
+    },
+    enabled: !!email,
+    staleTime: 0, // Always consider data stale to allow immediate refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}
+
+/**
+ * Recent activity
+ */
+export interface RecentActivity {
+  type: 'claim' | 'redemption' | 'deal_created';
+  message: string;
+  timestamp: string;
+  value?: string;
+}
+
+export interface RecentActivityResponse {
+  success: boolean;
+  activities?: RecentActivity[];
+  error?: string;
+}
+
+/**
+ * Get recent activity for a merchant
+ */
+export function useMerchantRecentActivity(email: string | undefined, limit: number = 10) {
+  return useQuery({
+    queryKey: ["merchant", "recent-activity", email, limit],
+    queryFn: async (): Promise<RecentActivityResponse> => {
+      if (!email) {
+        return {
+          success: false,
+          error: "Email is required",
+        };
+      }
+      const response = await fetch(`${API_BASE_URL}/deal/recent-activity/${encodeURIComponent(email)}?limit=${limit}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to fetch recent activity" }));
+        throw new Error(error.error || "Failed to fetch recent activity");
+      }
+      return response.json();
+    },
+    enabled: !!email,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+}
+
+/**
+ * Voucher details by claim code
+ */
+export interface VoucherByClaimCodeResponse {
+  success: boolean;
+  voucher?: any;
+  error?: string;
+}
+
+/**
+ * Get voucher details by claim code (mutation for manual lookup)
+ */
+export function useVoucherByClaimCode() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ claimCode, userEmail }: { claimCode: string; userEmail: string }): Promise<VoucherByClaimCodeResponse> => {
+      const response = await fetch(`${API_BASE_URL}/deal/voucher-by-claim-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ claimCode, userEmail }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to fetch voucher" }));
+        throw new Error(error.error || "Failed to fetch voucher");
+      }
+
+      return response.json();
+    },
+  });
+}

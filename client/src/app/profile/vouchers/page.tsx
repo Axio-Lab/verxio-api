@@ -32,21 +32,35 @@ export default function AllVouchersPage() {
   // Map API vouchers to VoucherCard format and sort by most recent claim (only when not loading)
   const allVouchers = !isLoadingVouchers ? claimedVouchers
     .map((voucher) => {
-      const merchantId = voucher.voucherDetails?.merchantId;
-      const voucherName = voucher.voucherDetails?.name || voucher.collectionName || "Unknown Voucher";
+      const voucherDetails = voucher.voucherDetails as {
+        merchantId?: string;
+        name?: string;
+        expiryDate?: number;
+        remainingWorth?: number | null;
+        status?: string;
+        currentUses?: number | null;
+        maxUses?: number | null;
+        canRedeem?: boolean;
+      } | undefined;
+      const merchantId = voucherDetails?.merchantId;
+      const voucherName = voucherDetails?.name || voucher.collectionName || "Unknown Voucher";
       return {
         voucherName: typeof voucherName === 'string' ? voucherName : "Unknown Voucher",
         merchantId: typeof merchantId === 'string' ? merchantId : "Unknown Merchant",
         category: voucher.category || "Voucher",
-        expiry: voucher.voucherDetails?.expiryDate
-          ? new Date(voucher.voucherDetails.expiryDate).toLocaleDateString()
+        expiry: voucherDetails?.expiryDate
+          ? new Date(voucherDetails.expiryDate).toLocaleDateString()
           : "N/A",
         country: voucher.country,
-        remainingWorth: typeof voucher.voucherDetails?.remainingWorth === 'number' 
-          ? voucher.voucherDetails.remainingWorth 
-          : (voucher.voucherDetails?.remainingWorth === null ? null : undefined),
+        remainingWorth: typeof voucherDetails?.remainingWorth === 'number' 
+          ? voucherDetails.remainingWorth 
+          : (voucherDetails?.remainingWorth === null ? null : undefined),
         currency: voucher.currency,
         tradeable: voucher.tradeable,
+        status: voucherDetails?.status,
+        currentUses: voucherDetails?.currentUses,
+        maxUses: voucherDetails?.maxUses,
+        canRedeem: voucherDetails?.canRedeem,
         voucherId: voucher.voucherAddress, // For navigation
         voucherAddress: voucher.voucherAddress, // For explorer link
         claimedAt: voucher.claimedAt, // Keep for sorting

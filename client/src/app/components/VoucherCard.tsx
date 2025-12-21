@@ -11,6 +11,10 @@ type VoucherCardProps = {
   currency?: string;
   tradeable?: boolean;
   voucherId?: string;
+  status?: string;
+  currentUses?: number | null;
+  maxUses?: number | null;
+  canRedeem?: boolean;
   onRedeem?: () => void;
 };
 
@@ -24,6 +28,10 @@ export default function VoucherCard({
   currency,
   tradeable,
   voucherId,
+  status,
+  currentUses,
+  maxUses,
+  canRedeem,
   onRedeem,
 }: VoucherCardProps) {
   const getCurrencySymbol = (code?: string): string => {
@@ -35,7 +43,11 @@ export default function VoucherCard({
   };
 
   const formatAmount = (amount?: number | null): string => {
-    if (amount === undefined || amount === null || amount === 0) return "Free";
+    if (amount === undefined || amount === null || amount === 0) {
+      // Show $0 (or currency equivalent) instead of "Free" for used vouchers
+      const symbol = getCurrencySymbol(currency);
+      return currency === "SOL" ? "SOL 0" : `${symbol}0`;
+    }
     const symbol = getCurrencySymbol(currency);
     const formattedNumber = Number(amount).toLocaleString('en-US', {
       minimumFractionDigits: 0,
@@ -47,6 +59,19 @@ export default function VoucherCard({
     }
     return `${formattedNumber} ${symbol}`;
   };
+
+  // Check if voucher is used/claimed
+  const isUsed = (): boolean => {
+    if (status === 'used' || status === 'Used') return true;
+    if (maxUses !== undefined && maxUses !== null && 
+        currentUses !== undefined && currentUses !== null) {
+      return currentUses >= maxUses;
+    }
+    if (canRedeem === false) return true;
+    return false;
+  };
+
+  const used = isUsed();
 
   const formatCountry = (country?: string): string => {
     if (!country) return "";
@@ -75,34 +100,44 @@ export default function VoucherCard({
           <span>Expires {expiry}</span>
           {country && <span>{formatCountry(country)}</span>}
         </div>
-        {remainingWorth !== undefined && remainingWorth !== null && (
-          <div className="flex items-center justify-between">
-            <span>Remaining:</span>
-            <span className="font-semibold text-primary">{formatAmount(remainingWorth)}</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <span>Remaining:</span>
+          <span className="font-semibold text-primary">
+            {used ? formatAmount(0) : formatAmount(remainingWorth)}
+          </span>
+        </div>
       </div>
       <div className="mt-2 flex gap-2">
         <button 
-          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft"
+          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold shadow-soft ${
+            used 
+              ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+              : 'bg-primary text-white'
+          }`}
+          disabled={used}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (onRedeem) {
+            if (!used && onRedeem) {
               onRedeem();
             }
           }}
         >
-          Redeem
+          {used ? 'Voucher Used' : 'Redeem'}
         </button>
         <button 
-          className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-textPrimary"
+          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${
+            used || !tradeable
+              ? 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200'
+              : 'border border-gray-200 text-textPrimary hover:border-primary hover:text-primary'
+          }`}
+          disabled={used || !tradeable}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
           }}
         >
-          Trade
+          {used || !tradeable ? 'Can\'t Trade' : 'Trade'}
         </button>
       </div>
     </div>
