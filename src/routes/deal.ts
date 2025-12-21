@@ -1050,3 +1050,97 @@ dealRouter.get('/stats/:email', async (req: Request, res: Response, next: NextFu
     next(error);
   }
 });
+
+/**
+ * @swagger
+ * /deal/recent-activity/{email}:
+ *   get:
+ *     summary: Get recent activity for a merchant
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User email address
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 10
+ *         description: Maximum number of activities to return
+ *     responses:
+ *       200:
+ *         description: Recent activity retrieved successfully
+ */
+dealRouter.get('/recent-activity/:email', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.params;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+      });
+    }
+
+    const result = await dealService.getMerchantRecentActivity(email, limit);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /deal/voucher-by-claim-code:
+ *   post:
+ *     summary: Get voucher details by claim code
+ *     tags: [Deals]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - claimCode
+ *               - userEmail
+ *             properties:
+ *               claimCode:
+ *                 type: string
+ *               userEmail:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Voucher details retrieved successfully
+ */
+dealRouter.post('/voucher-by-claim-code', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { claimCode, userEmail } = req.body;
+
+    if (!claimCode || !userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'claimCode and userEmail are required',
+      });
+    }
+
+    const result = await dealService.getVoucherByClaimCode(claimCode, userEmail);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});

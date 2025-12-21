@@ -9,7 +9,8 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import CreateDealForm from "../components/CreateDealForm";
 import CollectionCard from "../components/CollectionCard";
 import { VerxioLoader } from "../components/VerxioLoader";
-import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats } from "../../hooks/useDeals";
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats, useMerchantRecentActivity, useVoucherByClaimCode } from "../../hooks/useDeals";
+import VoucherDetailsModal from "../components/VoucherDetailsModal";
 
 
 export default function MerchantDashboard() {
@@ -24,6 +25,12 @@ export default function MerchantDashboard() {
   const [selectedForExtend, setSelectedForExtend] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState<number>(0);
   const [extendDate, setExtendDate] = useState<string>("");
+  const [claimCodeInput, setClaimCodeInput] = useState<string>("");
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  
+  const { data: recentActivityData, isLoading: isLoadingActivity } = useMerchantRecentActivity(userEmail, 5);
+  const voucherByClaimCodeMutation = useVoucherByClaimCode();
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,6 +40,30 @@ export default function MerchantDashboard() {
   const formatDealType = (dealType?: string): string => {
     if (!dealType) return "Deal";
     return dealType.replace(/_/g, " ");
+  };
+
+  // Handle voucher lookup
+  const handleVoucherLookup = () => {
+    if (!claimCodeInput.trim() || !userEmail) return;
+    
+    setLookupError(null); // Clear previous errors
+    
+    voucherByClaimCodeMutation.mutate(
+      { claimCode: claimCodeInput.trim(), userEmail },
+      {
+        onSuccess: (data) => {
+          if (data.success && data.voucher) {
+            setShowVoucherModal(true);
+            setLookupError(null);
+          } else {
+            setLookupError(data.error || "Failed to fetch voucher");
+          }
+        },
+        onError: (error: any) => {
+          setLookupError(error.message || "Failed to fetch voucher. Please try again.");
+        },
+      }
+    );
   };
 
   // Map API deals to CollectionCard format (only when not loading)
@@ -76,7 +107,7 @@ export default function MerchantDashboard() {
           description="Publish deals, manage inventory, and monitor claims and trade volume."
         />
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {isLoadingStats ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="card-surface p-5">
@@ -159,21 +190,61 @@ export default function MerchantDashboard() {
             <div className="mt-4 pt-4 border-t border-gray-200">
             </div>
 
+            <h3 className="text-xl font-semibold text-textPrimary">Lookup Voucher</h3>
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={claimCodeInput}
+                  onChange={(e) => {
+                    setClaimCodeInput(e.target.value);
+                    setLookupError(null); // Clear error when user types
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && claimCodeInput.trim() && userEmail) {
+                      handleVoucherLookup();
+                    }
+                  }}
+                  placeholder="Enter claim code"
+                  className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <button
+                  onClick={handleVoucherLookup}
+                  disabled={!claimCodeInput.trim() || !userEmail || voucherByClaimCodeMutation.isPending}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {voucherByClaimCodeMutation.isPending ? "Loading..." : "Lookup"}
+                </button>
+              </div>
+              {lookupError && (
+                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                  {lookupError}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-gray-200">
+            </div>
+
             <h3 className="text-xl font-semibold text-textPrimary">Recent Activity</h3>
-            <ul className="mt-4 space-y-3 text-sm text-textSecondary">
-              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-                <span>Voucher claimed</span>
-                <span className="text-textPrimary">+32</span>
-              </li>
-              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-                <span>New trade listing</span>
-                <span className="text-textPrimary">Safari Day Trip</span>
-              </li>
-              <li className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-                <span>Redemptions today</span>
-                <span className="text-textPrimary">+12</span>
-              </li>
-            </ul>
+            {isLoadingActivity ? (
+              <div className="mt-4 flex items-center justify-center py-4">
+                <VerxioLoader size="sm" />
+              </div>
+            ) : recentActivityData?.activities && recentActivityData.activities.length > 0 ? (
+              <ul className="mt-4 space-y-3 text-sm text-textSecondary">
+                {recentActivityData.activities.map((activity, index) => (
+                  <li key={index} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+                    <span>{activity.message}</span>
+                    <span className="text-textPrimary">
+                      {activity.value || new Date(activity.timestamp).toLocaleDateString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-textSecondary">No recent activity</p>
+            )}
           </div>
         </section>
 
@@ -246,6 +317,16 @@ export default function MerchantDashboard() {
             </>
           )}
         </section>
+
+        {showVoucherModal && voucherByClaimCodeMutation.data?.voucher && (
+          <VoucherDetailsModal
+            voucher={voucherByClaimCodeMutation.data.voucher}
+            onClose={() => {
+              setShowVoucherModal(false);
+              setClaimCodeInput("");
+            }}
+          />
+        )}
 
         {(selectedForAdd || selectedForExtend) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
