@@ -124,7 +124,11 @@ export default function DealCard({
               <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                 Tradeable
               </span>
-            ) : null}
+            ) : (
+              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                Non-tradeable
+              </span>
+            )}
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between text-xs text-textSecondary">
