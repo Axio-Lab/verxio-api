@@ -14,9 +14,13 @@ import getSymbolFromCurrency from "currency-symbol-map";
 
 
 
-const trades = [
-  { id: "nairobi-safari", voucher: "Safari Day Trip", seller: "wallet...me", price: "$90", discount: "35%" },
-];
+const trades: Array<{
+  id: string;
+  voucher: string;
+  seller: string;
+  price: string;
+  discount: string;
+}> = [];
 
 export default function ProfilePage() {
   const { user } = usePrivy();
@@ -355,9 +359,16 @@ export default function ProfilePage() {
       <section className="mt-10">
         <h3 className="text-lg font-semibold text-textPrimary sm:text-xl">My Trades</h3>
         <div className="mt-4 space-y-3">
-          {trades.map((trade) => (
-            <TradeCard key={trade.voucher} {...trade} />
-          ))}
+          {trades.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+              <p className="text-base font-semibold text-textPrimary">No trades yet</p>
+              <p className="mt-2 text-sm text-textSecondary">
+                List a voucher for trade to see it appear here.
+              </p>
+            </div>
+          ) : (
+            trades.map((trade) => <TradeCard key={trade.voucher} {...trade} />)
+          )}
         </div>
       </section>
 
