@@ -129,6 +129,14 @@ The backend infrastructure powering the Verxio ecosystem. It enables:
 - Production: https://api.verxio.xyz
 - GitHub: https://github.com/verxioprotocol (Loyalty infrastructure SDK)
 
+---
+
+<div align="center">
+  
+**Built with ❤️ by the Verxio Team**
+  
+</div>
+
 
 
 Verxio isn’t just a loyalty platform. It’s the loyalty infrastructure layer — a programmable cashflow engine that lets businesses sell the future, unlock liquidity today, and give users ownership of their loyalty.
