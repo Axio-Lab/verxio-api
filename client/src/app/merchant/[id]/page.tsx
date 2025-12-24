@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "../../components/SectionHeader";
-import ProtectedRoute from "../../components/ProtectedRoute";
-import { VerxioLoader } from "../../components/VerxioLoader";
-import ExplorerLink from "../../components/ExplorerLink";
-import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "../../../hooks/useDeals";
+import SectionHeader from "@/app/components/SectionHeader";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import ExplorerLink from "@/app/components/ExplorerLink";
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "@/hooks/useDeals";
 
 export default function MerchantCollectionDetailsPage() {
   const params = useParams();

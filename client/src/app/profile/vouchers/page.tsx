@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
-import VoucherCard from "../../components/VoucherCard";
-import ProtectedRoute from "../../components/ProtectedRoute";
-import { VerxioLoader } from "../../components/VerxioLoader";
-import { useClaimedVouchers, useRedeemVoucher } from "../../../hooks/useDeals";
+import VoucherCard from "@/app/components/VoucherCard";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 import getSymbolFromCurrency from "currency-symbol-map";
 
 export default function AllVouchersPage() {

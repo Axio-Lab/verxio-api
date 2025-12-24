@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
-import CollectionCard from "../../components/CollectionCard";
-import ProtectedRoute from "../../components/ProtectedRoute";
-import { VerxioLoader } from "../../components/VerxioLoader";
-import { useDealsByUser } from "../../../hooks/useDeals";
+import CollectionCard from "@/app/components/CollectionCard";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useDealsByUser } from "@/hooks/useDeals";
 
 export default function AllDealsPage() {
   const { user } = usePrivy();
