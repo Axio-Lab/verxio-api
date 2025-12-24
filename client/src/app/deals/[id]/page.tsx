@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
-import DealCard from "../../components/DealCard";
-import SectionHeader from "../../components/SectionHeader";
-import ProtectedRoute from "../../components/ProtectedRoute";
-import { VerxioLoader } from "../../components/VerxioLoader";
-import ExplorerLink from "../../components/ExplorerLink";
-import { useDeals as useDealsAPI, type DealInfo, useClaimDealVoucher, useClaimedVouchers } from "../../../hooks/useDeals";
+import DealCard from "@/app/components/DealCard";
+import SectionHeader from "@/app/components/SectionHeader";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import ExplorerLink from "@/app/components/ExplorerLink";
+import { useDeals as useDealsAPI, type DealInfo, useClaimDealVoucher, useClaimedVouchers } from "@/hooks/useDeals";
 import { usePrivy } from "@privy-io/react-auth";
 
 

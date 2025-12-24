@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "../components/SectionHeader";
-import VoucherCard from "../components/VoucherCard";
-import TradeCard from "../components/TradeCard";
-import ProtectedRoute from "../components/ProtectedRoute";
-import { VerxioLoader } from "../components/VerxioLoader";
-import { useUser } from "../../hooks/useUser";
-import { useClaimedVouchers, useRedeemVoucher } from "../../hooks/useDeals";
+import SectionHeader from "@/app/components/SectionHeader";
+import VoucherCard from "@/app/components/VoucherCard";
+import TradeCard from "@/app/components/TradeCard";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useUser } from "@/hooks/useUser";
+import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 import getSymbolFromCurrency from "currency-symbol-map";
 
 
