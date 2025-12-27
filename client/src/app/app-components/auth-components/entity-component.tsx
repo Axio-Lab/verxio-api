@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
 
 type EntityHeaderProps = {
     title: string;
@@ -20,6 +21,21 @@ type EntityContainerProps = {
     search?: React.ReactNode;
     pagination?: React.ReactNode;
     children: React.ReactNode;
+}
+
+type EntitySearchProps = {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+}
+
+type EntityPaginationProps = {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    totalItems?: number;
+    itemsPerPage?: number;
+    showInfo?: boolean;
 }
 
 export const EntityHeader = ({
@@ -87,8 +103,12 @@ export const EntityContainer = ({ header, search, pagination, children }: Entity
             <div className="mx-auto max-w-screen-xl flex flex-col gap-y-8 h-full">
                 {header}
 
-                <div>
-                    {search}
+                <div className="flex flex-col gap-4">
+                    {search && (
+                        <div className="flex justify-end w-full">
+                            {search}
+                        </div>
+                    )}
                     {children}
                 </div>
                 {pagination}
@@ -96,3 +116,145 @@ export const EntityContainer = ({ header, search, pagination, children }: Entity
         </div>
     )
 }
+
+export const EntitySearch = ({ value, onChange, placeholder = "Search" }: EntitySearchProps) => {
+    return (
+        <div className="relative w-full sm:w-auto">
+            <SearchIcon className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
+            <Input
+                className="pl-8 w-full sm:w-auto sm:min-w-[200px] sm:max-w-[300px] bg-background shadow-none border-border"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+            />
+        </div>
+    )
+}
+
+export const EntityPagination = ({
+    currentPage,
+    totalPages,
+    onPageChange,
+    totalItems,
+    itemsPerPage = 10,
+    showInfo = true,
+}: EntityPaginationProps) => {
+    // Don't render if there's only one page or no pages
+    if (totalPages <= 1) {
+        return null;
+    }
+
+    // Calculate page range to show
+    const getPageNumbers = () => {
+        const pages: (number | "ellipsis")[] = [];
+        const maxVisible = 5; // Show max 5 page numbers
+
+        if (totalPages <= maxVisible) {
+            // Show all pages if total is less than max
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            // Always show first page
+            pages.push(1);
+
+            if (currentPage <= 3) {
+                // Show first 4 pages and ellipsis
+                for (let i = 2; i <= 4; i++) {
+                    pages.push(i);
+                }
+                pages.push("ellipsis");
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                // Show ellipsis and last 4 pages
+                pages.push("ellipsis");
+                for (let i = totalPages - 3; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                // Show ellipsis, current page range, and ellipsis
+                pages.push("ellipsis");
+                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                    pages.push(i);
+                }
+                pages.push("ellipsis");
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
+
+    const pageNumbers = getPageNumbers();
+
+    // Calculate item range for info display
+    const startItem = totalItems ? (currentPage - 1) * itemsPerPage + 1 : 0;
+    const endItem = totalItems
+        ? Math.min(currentPage * itemsPerPage, totalItems)
+        : 0;
+
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+            {showInfo && (
+                <div className="text-sm text-textSecondary">
+                    Page <span className="font-semibold text-textPrimary">{currentPage}</span> of{" "}
+                    <span className="font-semibold text-textPrimary">{totalPages}</span>
+                </div>
+            )}
+            <div className="flex items-center justify-center gap-2">
+                <button
+                    onClick={() => {
+                        if (currentPage > 1) {
+                            onPageChange(currentPage - 1);
+                        }
+                    }}
+                    disabled={currentPage === 1}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                    {pageNumbers.map((page, index) => {
+                        if (page === "ellipsis") {
+                            return (
+                                <span
+                                    key={`ellipsis-${index}`}
+                                    className="flex h-9 w-9 items-center justify-center text-textSecondary"
+                                >
+                                    ...
+                                </span>
+                            );
+                        }
+
+                        return (
+                            <button
+                                key={page}
+                                onClick={() => onPageChange(page)}
+                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                    currentPage === page
+                                        ? "bg-primary text-white"
+                                        : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        );
+                    })}
+                </div>
+                
+                <button
+                    onClick={() => {
+                        if (currentPage < totalPages) {
+                            onPageChange(currentPage + 1);
+                        }
+                    }}
+                    disabled={currentPage === totalPages}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    );
+};
