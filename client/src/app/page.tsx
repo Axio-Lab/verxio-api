@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import DealCard from "./components/DealCard";
-import SectionHeader from "./components/SectionHeader";
-import { mockDeals, type MappedDeal } from "../data/mockDeals";
+import DealCard from "@/app/components/DealCard";
+import SectionHeader from "@/app/components/SectionHeader";
+import { mockDeals, type MappedDeal } from "@/data/mockDeals";
 
 // Brand logos from public/brand folder
 const brandLogos = [
@@ -115,7 +115,7 @@ export default function Home() {
                 href="/merchant"
                 className="rounded-full border border-gray-200 bg-white px-5 py-3 text-center text-sm font-semibold text-textPrimary transition-transform hover:-translate-y-0.5"
               >
-                Create a Merchant Account
+                Create a Business Account
               </a>
             </div>
             <div className="flex items-center gap-3">
