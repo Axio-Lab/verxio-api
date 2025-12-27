@@ -1,10 +1,10 @@
 "use client";
 
-import DealCard from "@/app/components/DealCard";
-import SectionHeader from "@/app/components/SectionHeader";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import DealFilters from "@/app/components/DealFilters";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
+import DealCard from "@/app/app-components/DealCard";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import DealFilters from "@/app/app-components/DealFilters";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
 import { useDeals as useDealsContext } from "@/app/context/DealContext"; // Only used for searchQuery
 import { useDeals } from "@/hooks/useDeals";
 

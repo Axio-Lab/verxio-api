@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import Link from "next/link";
 import CurrencySelect from "./CurrencySelect";
 import CountrySelect from "./CountrySelect";
@@ -11,7 +11,7 @@ import VoucherTypeSelect from "./VoucherTypeSelect";
 import { useCreateDeal, type CreateDealData } from "../../hooks/useDeals";
 
 export default function CreateDealForm() {
-  const { user } = usePrivy();
+  const { user } = useAuthWithVerxioUser();
   const createDeal = useCreateDeal();
   
   const [collectionName, setCollectionName] = useState<string>("");
@@ -66,7 +66,7 @@ export default function CreateDealForm() {
     setUploading(true);
 
     try {
-      const userEmail = user?.email?.address;
+      const userEmail = user?.email;
       if (!userEmail) {
         throw new Error("Please log in to create a deal");
       }

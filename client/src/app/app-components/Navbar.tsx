@@ -3,10 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, FormEvent, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useMemo, useState, FormEvent } from "react";
+import { LogOut } from "lucide-react";
+import { toast } from "sonner";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import { useDeals } from "../context/DealContext";
-import { useUser, useCreateUser } from "../../hooks/useUser";
 
 const navLinks = [
   { href: "/explore", label: "Explore" },
@@ -18,38 +19,26 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const active = useMemo(() => pathname?.split("?")[0], [pathname]);
-  const { login, logout, authenticated, user, ready } = usePrivy();
+  const { isAuthenticated, user, isLoading, signOut } = useAuthWithVerxioUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { searchQuery, setSearchQuery } = useDeals();
   
-  // Get user email
-  const userEmail = user?.email?.address;
-  
-  // Check if user exists in Verxio system
-  const { data: userData, isLoading: isLoadingUser } = useUser(userEmail);
-  const createUser = useCreateUser();
-  
-  // Auto-create Verxio user profile if user is authenticated but doesn't exist
-  useEffect(() => {
-    if (authenticated && userEmail && !isLoadingUser) {
-      // Check if user doesn't exist (404 or error)
-      if (userData?.success === false && userData?.error === "User not found") {
-        // Auto-create user profile
-        if (!createUser.isPending && !createUser.isSuccess) {
-          createUser.mutate(userEmail, {
-            onError: (error) => {
-              console.error("Failed to create Verxio user profile:", error);
-            },
-          });
-        }
-      }
-    }
-  }, [authenticated, userEmail, userData, isLoadingUser, createUser]);
+
+  const handleLogin = () => {
+    // Navigate to login page
+    router.push("/login");
+  };
 
   const handleLogout = async () => {
-    await logout();
-    router.push("/");
-    setMobileMenuOpen(false);
+    try {
+      await signOut();
+      toast.success("Logged out successful");
+      router.push("/");
+      setMobileMenuOpen(false);
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out. Please try again.");
+    }
   };
 
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
@@ -59,8 +48,8 @@ export default function Navbar() {
     }
   };
 
-  // Don't render auth-dependent UI until Privy is ready  
-  if (!ready) {
+  // Don't render auth-dependent UI until auth is loaded  
+  if (isLoading) {
     return (
       <header className="sticky top-0 z-40 w-full backdrop-blur bg-white/75 border-b border-gray-100">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
@@ -106,10 +95,10 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {authenticated && (
+        {isAuthenticated && (
           <form
             onSubmit={handleSearch}
-            className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm md:flex"
+            className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-md shadow-gray-900/10 md:flex"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -137,13 +126,13 @@ export default function Navbar() {
         )}
 
         <div className="flex items-center gap-2">
-          {authenticated &&
+          {isAuthenticated &&
             navLinks.map((link) =>
               link.disabled ? (
                 <button
                   key={link.label}
                   onClick={(e) => e.preventDefault()}
-                  className="hidden items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-textSecondary transition-colors md:inline-flex"
+                  className="hidden items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-medium text-textSecondary shadow-md shadow-gray-900/10 transition-all md:inline-flex"
                 >
                   <span>{link.label}</span>
                   {link.badge && (
@@ -156,10 +145,10 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`hidden rounded-full px-3 py-2 text-sm font-medium transition-colors md:inline-block ${
+                  className={`hidden rounded-full px-3 py-2 text-sm font-medium transition-all md:inline-block ${
                     active === link.href
-                      ? "bg-primary text-white"
-                      : "text-textSecondary hover:text-textPrimary"
+                      ? "bg-primary text-white shadow-md shadow-primary/30"
+                      : "bg-white text-textSecondary shadow-md shadow-gray-900/10 hover:text-textPrimary hover:shadow-lg hover:shadow-gray-900/15"
                   }`}
                 >
                   {link.label}
@@ -167,22 +156,18 @@ export default function Navbar() {
               )
             )}
 
-          {authenticated ? (
+          {isAuthenticated ? (
             <>
-              <div className="hidden items-center gap-2 rounded-full bg-gray-100 px-3 py-1 md:flex">
-                <span className="text-xs font-semibold text-textPrimary">
-                  {user?.email?.address}
-                </span>
-              </div>
               <button
                 onClick={handleLogout}
-                className="hidden rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition hover:border-primary md:block"
+                className="hidden items-center gap-2 text-sm font-medium text-red-600 transition-colors hover:text-red-600 md:flex"
               >
-                Logout
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
               </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="rounded-full border border-gray-200 bg-white p-2 text-textPrimary transition hover:border-primary md:hidden"
+                className="rounded-full border border-gray-200 bg-white p-2 text-textPrimary shadow-md shadow-gray-900/10 transition-all hover:border-primary hover:shadow-lg hover:shadow-gray-900/15 md:hidden"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
@@ -218,8 +203,8 @@ export default function Navbar() {
             </>
           ) : (
             <button
-              onClick={login}
-              className="rounded-full bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+              onClick={handleLogin}
+              className="rounded-full bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white shadow-md shadow-gray-900/10 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-900/15"
             >
               Get Started
             </button>
@@ -228,7 +213,7 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Menu */}
-      {authenticated && mobileMenuOpen && (
+      {isAuthenticated && mobileMenuOpen && (
         <div className="border-t border-gray-100 bg-white md:hidden">
           <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
             <div className="space-y-3">
@@ -250,26 +235,22 @@ export default function Navbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`block rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                    className={`block rounded-full px-4 py-2 text-sm font-medium transition-all ${
                       active === link.href
-                        ? "bg-primary text-white"
-                        : "text-textSecondary hover:bg-gray-50 hover:text-textPrimary"
+                        ? "bg-primary text-white shadow-md shadow-primary/30"
+                        : "bg-white text-textSecondary shadow-md shadow-gray-900/10 hover:bg-gray-50 hover:text-textPrimary hover:shadow-lg hover:shadow-gray-900/15"
                     }`}
                   >
                     {link.label}
                   </Link>
                 )
               )}
-              <div className="flex items-center justify-between rounded-full bg-gray-100 px-4 py-2">
-                <span className="text-xs font-semibold text-textPrimary">
-                  {user?.email?.address}
-                </span>
-              </div>
               <button
                 onClick={handleLogout}
-                className="w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition hover:border-primary"
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:text-red-600"
               >
-                Logout
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
               </button>
             </div>
           </div>

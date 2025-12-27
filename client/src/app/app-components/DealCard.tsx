@@ -90,7 +90,7 @@ export default function DealCard({
   return (
     <Link
       href={`/deals/${id}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card transition-transform hover:-translate-y-1"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md shadow-gray-900/10 transition-transform hover:-translate-y-1 hover:shadow-lg hover:shadow-gray-900/15"
     >
       <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-blue-50 to-green-50">
         {image ? (

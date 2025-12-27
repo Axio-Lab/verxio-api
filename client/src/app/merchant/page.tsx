@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "@/app/components/SectionHeader";
-import StatCard from "@/app/components/StatCard";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import CreateDealForm from "@/app/components/CreateDealForm";
-import CollectionCard from "@/app/components/CollectionCard";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import StatCard from "@/app/app-components/StatCard";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import CreateDealForm from "@/app/app-components/CreateDealForm";
+import CollectionCard from "@/app/app-components/CollectionCard";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
 import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats, useMerchantRecentActivity, useVoucherByClaimCode } from "@/hooks/useDeals";
-import VoucherDetailsModal from "@/app/components/VoucherDetailsModal";
+import VoucherDetailsModal from "@/app/app-components/VoucherDetailsModal";
 
 
 export default function MerchantDashboard() {
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
   const { data: statsData, isLoading: isLoadingStats } = useMerchantStats(userEmail);
   const addDealQuantityMutation = useAddDealQuantity();
@@ -101,11 +101,19 @@ export default function MerchantDashboard() {
   return (
     <ProtectedRoute>
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="flex items-start justify-between">
         <SectionHeader
           eyebrow="Merchant Dashboard"
           title="Create and manage your voucher collections"
           description="Publish deals, manage inventory, and monitor claims and trade volume."
         />
+          <Link
+            href="/workflows"
+            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
+          >
+            View Dashboard
+          </Link>
+        </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {isLoadingStats ? (

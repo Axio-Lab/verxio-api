@@ -82,7 +82,7 @@ export default function VoucherCard({
   };
 
   const cardContent = (
-    <div className="card-surface flex h-full min-h-[240px] flex-col gap-2 p-4 transition-transform hover:-translate-y-1">
+    <div className="card-surface flex h-full min-h-[240px] flex-col gap-2 p-4 shadow-md shadow-gray-900/10 transition-transform hover:-translate-y-1 hover:shadow-lg hover:shadow-gray-900/15">
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-xs uppercase tracking-wide text-textSecondary">{category}</p>
@@ -109,7 +109,7 @@ export default function VoucherCard({
       </div>
       <div className="mt-2 flex gap-2">
         <button 
-          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold shadow-soft ${
+          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold shadow-md shadow-gray-900/10 ${
             used 
               ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
               : 'bg-primary text-white'

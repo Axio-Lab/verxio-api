@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "@/app/components/SectionHeader";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
-import ExplorerLink from "@/app/components/ExplorerLink";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
+import ExplorerLink from "@/app/app-components/ExplorerLink";
 import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry } from "@/hooks/useDeals";
 
 export default function MerchantCollectionDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const id = params.id as string;
   const { data: userDeals = [], isLoading } = useDealsByUser(userEmail);
   const addDealQuantityMutation = useAddDealQuantity();

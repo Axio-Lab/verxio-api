@@ -3,20 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
-import DealCard from "@/app/components/DealCard";
-import SectionHeader from "@/app/components/SectionHeader";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
-import ExplorerLink from "@/app/components/ExplorerLink";
+import DealCard from "@/app/app-components/DealCard";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
+import ExplorerLink from "@/app/app-components/ExplorerLink";
 import { useDeals as useDealsAPI, type DealInfo, useClaimDealVoucher, useClaimedVouchers } from "@/hooks/useDeals";
-import { usePrivy } from "@privy-io/react-auth";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 
 
 export default function DealDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const id = params.id as string;
   const { data: apiDeals = [], isLoading } = useDealsAPI();
   const { data: claimedVouchers = [], isLoading: isLoadingClaimed } = useClaimedVouchers(userEmail);

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useAuth } from "@/hooks/useAuth";
 import { ReactNode } from "react";
 import { VerxioLoader } from "./VerxioLoader";
 
@@ -12,15 +12,15 @@ type ProtectedRouteProps = {
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
-  const { authenticated, ready } = usePrivy();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (ready && !authenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.replace("/");
     }
-  }, [authenticated, ready, router]);
+  }, [isAuthenticated, isLoading, router]);
 
-  if (!ready) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <VerxioLoader size="md" />
@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!authenticated) {
+  if (!isAuthenticated) {
     return null;
   }
 
