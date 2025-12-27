@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeals } from "../context/DealContext";
+import { useDealFilters } from "@/hooks/useSearchParams";
 import CustomSelect from "./CustomSelect";
 import { getNames } from "country-list";
 
@@ -40,7 +40,7 @@ type DealFiltersProps = {
 };
 
 export default function DealFilters({ deals = [] }: DealFiltersProps) {
-  const { filters, setFilters } = useDeals();
+  const { filters, setFilters } = useDealFilters();
 
   // Get unique merchants from API deals
   const merchants = Array.from(
@@ -73,27 +73,25 @@ export default function DealFilters({ deals = [] }: DealFiltersProps) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CustomSelect
           value={filters.country}
-          onChange={(value) => setFilters({ ...filters, country: value })}
+          onChange={(value) => setFilters({ country: value })}
           options={countryOptions}
           placeholder="All Countries"
         />
         <CustomSelect
           value={filters.category}
-          onChange={(value) => setFilters({ ...filters, category: value })}
+          onChange={(value) => setFilters({ category: value })}
           options={categoryOptions}
           placeholder="All Categories"
         />
         <CustomSelect
           value={filters.merchant}
-          onChange={(value) => setFilters({ ...filters, merchant: value })}
+          onChange={(value) => setFilters({ merchant: value })}
           options={merchantOptions}
           placeholder="All Merchants"
         />
         <CustomSelect
           value={filters.dealType}
-          onChange={(value) =>
-            setFilters({ ...filters, dealType: value })
-          }
+          onChange={(value) => setFilters({ dealType: value })}
           options={DEAL_TYPES}
           placeholder="Deal Type"
         />
@@ -104,7 +102,7 @@ export default function DealFilters({ deals = [] }: DealFiltersProps) {
             type="checkbox"
             checked={filters.expiringSoon}
             onChange={(e) =>
-              setFilters({ ...filters, expiringSoon: e.target.checked })
+              setFilters({ expiringSoon: e.target.checked })
             }
             className="h-4 w-4 accent-primary"
           />
