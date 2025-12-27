@@ -7,7 +7,7 @@ import { useMemo, useState, FormEvent } from "react";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthWithVerxioUser } from "@/hooks/useAuth";
-import { useDeals } from "../context/DealContext";
+import { useSearchQuery } from "@/hooks/useSearchParams";
 
 const navLinks = [
   { href: "/explore", label: "Explore" },
@@ -21,7 +21,7 @@ export default function Navbar() {
   const active = useMemo(() => pathname?.split("?")[0], [pathname]);
   const { isAuthenticated, user, isLoading, signOut } = useAuthWithVerxioUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { searchQuery, setSearchQuery } = useDeals();
+  const { searchQuery, setSearchQuery } = useSearchQuery();
   
 
   const handleLogin = () => {
@@ -95,7 +95,7 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {isAuthenticated && (
+        {isAuthenticated && active === "/explore" && (
           <form
             onSubmit={handleSearch}
             className="hidden items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-md shadow-gray-900/10 md:flex"

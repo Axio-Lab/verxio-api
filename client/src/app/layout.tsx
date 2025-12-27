@@ -6,6 +6,7 @@ import { RouteGuard } from "./app-components/RouteGuard";
 import Providers from "./providers";
 import { DealProvider } from "./context/DealContext";
 import { Toaster } from "@/components/ui/sonner";
+import { NuqsProvider } from "@/lib/nuqs-adapter";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -36,14 +37,16 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <DealProvider>
-            <RouteGuard>
-              <ConditionalNavbar />
-              {children}
-              <ConditionalFooter />
-            </RouteGuard>
-            <Toaster />
-          </DealProvider>
+          <NuqsProvider>
+            <DealProvider>
+              <RouteGuard>
+                <ConditionalNavbar />
+                {children}
+                <ConditionalFooter />
+              </RouteGuard>
+              <Toaster />
+            </DealProvider>
+          </NuqsProvider>
         </Providers>
       </body>
     </html>
