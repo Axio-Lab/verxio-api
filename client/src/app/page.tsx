@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
-import DealCard from "@/app/components/DealCard";
-import SectionHeader from "@/app/components/SectionHeader";
+import { useAuth } from "@/hooks/useAuth";
+import DealCard from "@/app/app-components/DealCard";
+import SectionHeader from "@/app/app-components/SectionHeader";
 import { mockDeals, type MappedDeal } from "@/data/mockDeals";
 
 // Brand logos from public/brand folder
@@ -49,7 +49,7 @@ const featureBullets = [
 
 export default function Home() {
   const router = useRouter();
-  const { authenticated, ready } = usePrivy();
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   // Use mock data for featured deals (first 3 deals) - for hero section
@@ -83,10 +83,10 @@ export default function Home() {
   }, [totalSlides]);
 
   useEffect(() => {
-    if (ready && authenticated) {
+    if (!isLoading && isAuthenticated) {
       router.replace("/explore");
     }
-  }, [authenticated, ready, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -121,7 +121,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <span className="h-2 w-2 rounded-full bg-green-500" />
               <p className="text-sm text-textSecondary">
-                Secure authentication with Privy. Consumer-ready from day one.
+                Secure authentication with Better Auth. Consumer-ready from day one.
               </p>
             </div>
           </div>

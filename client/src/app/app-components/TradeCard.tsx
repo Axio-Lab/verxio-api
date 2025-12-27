@@ -10,7 +10,7 @@ type TradeCardProps = {
 
 export default function TradeCard({ id, voucher, seller, price, discount }: TradeCardProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-md shadow-gray-900/10 transition-shadow hover:shadow-lg hover:shadow-gray-900/15 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm text-textSecondary">Voucher</p>
         <h3 className="text-lg font-semibold text-textPrimary">{voucher}</h3>
@@ -23,7 +23,7 @@ export default function TradeCard({ id, voucher, seller, price, discount }: Trad
         <span className="text-lg font-semibold text-textPrimary">{price}</span>
         <Link
           href={`/deals/${id}`}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-md shadow-gray-900/10 transition-transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-900/15"
         >
           Buy Voucher
         </Link>

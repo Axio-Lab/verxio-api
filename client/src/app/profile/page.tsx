@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "@/app/components/SectionHeader";
-import VoucherCard from "@/app/components/VoucherCard";
-import TradeCard from "@/app/components/TradeCard";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import VoucherCard from "@/app/app-components/VoucherCard";
+import TradeCard from "@/app/app-components/TradeCard";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
 import { useUser } from "@/hooks/useUser";
 import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 import getSymbolFromCurrency from "currency-symbol-map";
-
-
 
 const trades: Array<{
   id: string;
@@ -23,8 +21,8 @@ const trades: Array<{
 }> = [];
 
 export default function ProfilePage() {
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const { data: userData, isLoading: isLoadingUser } = useUser(userEmail);
   const { data: claimedVouchers = [], isLoading: isLoadingVouchers } = useClaimedVouchers(userEmail);
   const redeemVoucherMutation = useRedeemVoucher();
@@ -40,9 +38,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const email = userEmail || "Not available";
-  const walletAddress = user?.wallet?.address
-    ? `${user.wallet.address}`
-    : "Not connected";
+  const walletAddress = userData?.user?.creatorAddress || "Not connected";
   const verxioBalance = userData?.user?.verxioBalance ?? 0;
   
   // Map API vouchers to VoucherCard format and sort by most recent claim (only when not loading)
@@ -222,7 +218,7 @@ export default function ProfilePage() {
 
       {/* Verxio Balance - Token Balance Card */}
       <div className="mt-6 flex justify-end">
-        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-blue-50/50 to-secondary/5 p-4 shadow-card ring-1 ring-primary/10">
+        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-blue-50/50 to-secondary/5 p-4 shadow-md shadow-gray-900/10 ring-1 ring-primary/10 transition-shadow hover:shadow-lg hover:shadow-gray-900/15">
           {/* Decorative background pattern */}
           <div className="absolute inset-0 opacity-[0.03]">
             <div className="absolute inset-0" style={{
@@ -264,12 +260,12 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-6 grid gap-4 text-sm text-textSecondary sm:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-md shadow-gray-900/10 transition-shadow hover:shadow-lg hover:shadow-gray-900/15">
           <p className="text-xs uppercase tracking-wide text-textSecondary">Email</p>
           <p className="mt-1 break-words text-base font-semibold text-textPrimary">{email}</p>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
-          <p className="text-xs uppercase tracking-wide text-textSecondary">Connected Wallet</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-md shadow-gray-900/10 transition-shadow hover:shadow-lg hover:shadow-gray-900/15">
+          <p className="text-xs uppercase tracking-wide text-textSecondary">Creator Wallet</p>
           <p className="mt-1 break-all text-xs font-semibold text-textPrimary sm:text-base">{walletAddress}</p>
         </div>
       </div>
@@ -347,7 +343,7 @@ export default function ProfilePage() {
             )}
           </>
         ) : !isLoadingVouchers ? (
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-12 text-center">
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-md shadow-gray-900/10">
             <p className="text-lg font-semibold text-textPrimary">No vouchers yet</p>
             <p className="mt-2 text-sm text-textSecondary">
               Claim vouchers from deals to see them here
@@ -360,7 +356,7 @@ export default function ProfilePage() {
         <h3 className="text-lg font-semibold text-textPrimary sm:text-xl">My Trades</h3>
         <div className="mt-4 space-y-3">
           {trades.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-md shadow-gray-900/10">
               <p className="text-base font-semibold text-textPrimary">No trades yet</p>
               <p className="mt-2 text-sm text-textSecondary">
                 List a voucher for trade to see it appear here.

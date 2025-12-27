@@ -64,7 +64,7 @@ export default function CollectionCard({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-card">
+    <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-md shadow-gray-900/10 transition-shadow hover:shadow-lg hover:shadow-gray-900/15">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-textSecondary">{category}</p>
@@ -116,13 +116,13 @@ export default function CollectionCard({
         </Link>
         <button
           onClick={onAddDeal}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-md shadow-gray-900/10 transition-transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-900/15"
         >
           Add deal
         </button>
         <button
           onClick={onExtend}
-          className="rounded-full border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary shadow-soft transition-transform hover:-translate-y-0.5"
+          className="rounded-full border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary shadow-md shadow-gray-900/10 transition-transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-900/15"
         >
           Extend expiry
         </button>

@@ -34,12 +34,8 @@ export default function Footer() {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between text-xs text-textSecondary">
+        <div className="flex items-center justify-center text-xs text-textSecondary">
           <span>© {new Date().getFullYear()} Verxio. All rights reserved.</span>
-          <div className="flex items-center gap-3">
-            <span className="h-2 w-2 rounded-full bg-green-500" />
-            <span>Secure by Privy</span>
-          </div>
         </div>
       </div>
     </footer>

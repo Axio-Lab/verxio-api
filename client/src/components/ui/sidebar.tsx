@@ -204,10 +204,11 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            data-collapsible="icon"
+            className="w-[--sidebar-width-icon] bg-white p-0 text-sidebar-foreground [&>button]:hidden z-50 group"
             style={
               {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
               } as React.CSSProperties
             }
             side={side}
@@ -216,7 +217,7 @@ const Sidebar = React.forwardRef<
               <SheetTitle>Sidebar</SheetTitle>
               <SheetDescription>Displays the mobile sidebar.</SheetDescription>
             </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div className="flex h-full w-full flex-col bg-white">{children}</div>
           </SheetContent>
         </Sheet>
       )
