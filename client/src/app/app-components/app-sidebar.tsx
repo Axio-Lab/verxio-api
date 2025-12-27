@@ -25,6 +25,7 @@ import {
     SidebarMenu,
     SidebarMenuItem,
     SidebarMenuButton,
+    SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 const menuItems = [
@@ -117,6 +118,7 @@ export const AppSidebar = () => {
                         </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarHeader>
+            <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
             <SidebarContent>
                 {menuItems.map((item) => (
                     <SidebarGroup key={item.title}>
@@ -146,6 +148,7 @@ export const AppSidebar = () => {
                     </SidebarGroup>
                 ))}
             </SidebarContent>
+            <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
             <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
