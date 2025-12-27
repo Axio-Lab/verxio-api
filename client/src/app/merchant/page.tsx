@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import SectionHeader from "../components/SectionHeader";
-import StatCard from "../components/StatCard";
-import ProtectedRoute from "../components/ProtectedRoute";
-import CreateDealForm from "../components/CreateDealForm";
-import CollectionCard from "../components/CollectionCard";
-import { VerxioLoader } from "../components/VerxioLoader";
-import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats, useMerchantRecentActivity, useVoucherByClaimCode } from "../../hooks/useDeals";
-import VoucherDetailsModal from "../components/VoucherDetailsModal";
+import SectionHeader from "@/app/components/SectionHeader";
+import StatCard from "@/app/components/StatCard";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import CreateDealForm from "@/app/components/CreateDealForm";
+import CollectionCard from "@/app/components/CollectionCard";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats, useMerchantRecentActivity, useVoucherByClaimCode } from "@/hooks/useDeals";
+import VoucherDetailsModal from "@/app/components/VoucherDetailsModal";
 
 
 export default function MerchantDashboard() {

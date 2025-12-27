@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
-import ProtectedRoute from "../../components/ProtectedRoute";
-import { VerxioLoader } from "../../components/VerxioLoader";
-import ExplorerLink from "../../components/ExplorerLink";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { VerxioLoader } from "@/app/components/VerxioLoader";
+import ExplorerLink from "@/app/components/ExplorerLink";
 import { usePrivy } from "@privy-io/react-auth";
-import { useClaimedVouchers, useRedeemVoucher } from "../../../hooks/useDeals";
+import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 
 interface VoucherDisplayData {
   merchant: string;

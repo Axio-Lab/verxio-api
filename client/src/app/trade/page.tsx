@@ -1,8 +1,8 @@
 "use client";
 
-import SectionHeader from "../components/SectionHeader";
-import TradeCard from "../components/TradeCard";
-import ProtectedRoute from "../components/ProtectedRoute";
+import SectionHeader from "@/app/components/SectionHeader";
+import TradeCard from "@/app/components/TradeCard";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
 
 const trades = [
   { id: "paris-fashion", voucher: "Paris Fashion Week Exclusive", seller: "wallet...9ab3", price: "$120", discount: "35%" },
