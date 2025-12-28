@@ -11,6 +11,7 @@ import { userRouter } from './routes/user';
 import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
 import { dealRouter } from './routes/deal';
+import { workflowRouter } from './routes/workflow';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
 
@@ -79,6 +80,7 @@ app.use(cors({
     'Authorization', 
     'X-Requested-With',
     'X-API-Key',
+    'X-User-Email', 
     'Accept'
   ]
 }));
@@ -103,6 +105,7 @@ app.use('/user', userRouter);
 app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
 app.use('/deal', dealRouter);
+app.use('/workflows', workflowRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)

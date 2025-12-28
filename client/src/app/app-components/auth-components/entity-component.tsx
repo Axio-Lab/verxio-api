@@ -1,8 +1,30 @@
 import { Button } from "@/components/ui/button";
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { AlertTriangleIcon, Loader2Icon, MoreVerticalIcon, PackageOpenIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import {
+    Empty,
+    EmptyContent,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle
+} from "@/components/ui/empty";
+import {
+    Card,
+    CardContent,
+    CardTitle,
+    CardDescription
+} from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 type EntityHeaderProps = {
     title: string;
@@ -37,6 +59,38 @@ type EntityPaginationProps = {
     itemsPerPage?: number;
     showInfo?: boolean;
 }
+
+interface StatesViewProps {
+    message?: string;
+};
+
+interface LoadingViewProps extends StatesViewProps {
+    entity?: string;
+};
+
+interface EmptyViewProps extends StatesViewProps {
+    onNew?: () => void;
+};
+
+interface EntityListProps<T> {
+    items: T[];
+    renderItem: (item: T, index: number) => React.ReactNode;
+    getKey: (item: T, index: number) => string | number;
+    emptyView?: React.ReactNode;
+    className?: string;
+}
+
+interface EntityItemProps {
+    href: string;
+    title: string;
+    subtitle?: React.ReactNode;
+    image?: React.ReactNode;
+    action?: React.ReactNode;
+    onRemove?: () => void | Promise<void>;
+    isRemoving?: boolean;
+    className?: string;
+}
+
 
 export const EntityHeader = ({
     title,
@@ -144,8 +198,6 @@ export const EntityPagination = ({
     currentPage,
     totalPages,
     onPageChange,
-    totalItems,
-    itemsPerPage = 10,
     showInfo = true,
 }: EntityPaginationProps) => {
     // Don't render if there's only one page or no pages
@@ -196,12 +248,6 @@ export const EntityPagination = ({
 
     const pageNumbers = getPageNumbers();
 
-    // Calculate item range for info display
-    const startItem = totalItems ? (currentPage - 1) * itemsPerPage + 1 : 0;
-    const endItem = totalItems
-        ? Math.min(currentPage * itemsPerPage, totalItems)
-        : 0;
-
     return (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
             {showInfo && (
@@ -222,7 +268,7 @@ export const EntityPagination = ({
                 >
                     Previous
                 </button>
-                
+
                 <div className="flex items-center gap-1">
                     {pageNumbers.map((page, index) => {
                         if (page === "ellipsis") {
@@ -240,18 +286,17 @@ export const EntityPagination = ({
                             <button
                                 key={page}
                                 onClick={() => onPageChange(page)}
-                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                                    currentPage === page
-                                        ? "bg-primary text-white"
-                                        : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
-                                }`}
+                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${currentPage === page
+                                    ? "bg-primary text-white"
+                                    : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+                                    }`}
                             >
                                 {page}
                             </button>
                         );
                     })}
                 </div>
-                
+
                 <button
                     onClick={() => {
                         if (currentPage < totalPages) {
@@ -267,3 +312,183 @@ export const EntityPagination = ({
         </div>
     );
 };
+
+
+export const LoadingView = ({
+    entity = "items",
+    message
+}: LoadingViewProps) => {
+    return (
+        <div className="flex  flex-1 flex-col items-center justify-center h-full gap-y-4">
+            <Loader2Icon className="size-6 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+                {message || `Loading ${entity}...`}
+            </p>
+        </div>
+
+    )
+}
+
+export const ErrorView = ({
+    message
+}: StatesViewProps) => {
+    return (
+        <div className="flex  flex-1 flex-col items-center justify-center h-full gap-y-4">
+            <AlertTriangleIcon className="size-6 text-primary" />
+            <p className="text-sm text-muted-foreground">
+                {message}
+            </p>
+        </div>
+
+    )
+}
+
+export const EmptyView = ({
+    message,
+    onNew
+}: EmptyViewProps) => {
+    return (
+        <Empty className="border border-dashed bg-white">
+            <EmptyHeader>
+                <EmptyMedia variant="icon">
+                    <PackageOpenIcon />
+                </EmptyMedia>
+            </EmptyHeader>
+            <EmptyTitle>No items</EmptyTitle>
+            {
+                !!message && (
+                    <EmptyDescription>{message}</EmptyDescription>
+                )
+            }
+            {
+                !!onNew && (
+                    <EmptyContent>
+                        <Button onClick={onNew}>Add item</Button>
+                    </EmptyContent>
+                )
+            }
+        </Empty>
+    )
+}
+
+
+export function EntityList<T>({
+    items,
+    renderItem,
+    getKey,
+    emptyView,
+    className
+}: EntityListProps<T>) {
+    if (items.length === 0 && emptyView) {
+        return (
+            <div className="flex-1 flex justify-center items-center">
+                <div className="max-w-sm mx-auto">{emptyView}</div>
+            </div>
+        )
+    }
+    return (
+        <div className={cn("flex flex-col gap-y-4", className)}>
+            {
+                items.map((item, index) => (
+                    <div key={getKey ? getKey(item, index) : index}>
+                        {renderItem(item, index)}
+                    </div>
+                ))
+            }
+        </div>
+    )
+}
+
+export const EntityItem = ({
+    href,
+    title,
+    subtitle,
+    image,
+    action,
+    onRemove,
+    isRemoving,
+    className
+}: EntityItemProps) => {
+    const [open, setOpen] = useState(false);
+
+    const handleRemove = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isRemoving) {
+            return;
+        }
+        if (onRemove) {
+            try {
+                await onRemove();
+            } catch (error) {
+                // Error handling is done in the mutation hook
+            } finally {
+                // Close dropdown whether deletion succeeds or fails
+                setOpen(false);
+            }
+        }
+    }
+
+    return (
+        <Link href={href} prefetch>
+            <Card className={cn(
+                "p-4 shadow-none hover:shadow cursor-pointer",
+                isRemoving && "opacity-50 cursor-not-allowed",
+                className)}>
+                <CardContent className="flex flex-row items-center justify-between p-0">
+                    <div className="flex items-center gap-3">
+                        {image}
+                        <div>
+                            <CardTitle className="text-base font-medium">{title}</CardTitle>
+                            {!!subtitle && (<CardDescription className="text-xm">{subtitle}</CardDescription>)}
+                        </div>
+                    </div>
+                    {
+                        (action || onRemove) && (
+                            <div className="flex items-center gap-x-4">
+                                {action}
+                                {onRemove && (
+                                    <DropdownMenu open={open} onOpenChange={setOpen}>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={(e) => e.stopPropagation()}
+                                                disabled={isRemoving}
+                                            >
+                                                <MoreVerticalIcon className="size-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            onClick={(e) => e.stopPropagation()}
+                                            align="end">
+                                            <DropdownMenuItem 
+                                                onClick={handleRemove}
+                                                disabled={isRemoving}
+                                            >
+                                                {isRemoving ? (
+                                                    <>
+                                                        <Spinner className="size-4" />
+                                                        <span>Deleting...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <TrashIcon className="size-4" />
+                                                        <span>Delete</span>
+                                                    </>
+                                                )}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
+                        )
+                    }
+                </CardContent>
+
+                {action}
+
+            </Card>
+        </Link>
+    )
+}

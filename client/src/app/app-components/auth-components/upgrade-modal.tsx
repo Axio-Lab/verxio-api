@@ -18,7 +18,7 @@ interface UpgradeModalProps {
     onOpenChange: (open: boolean) => void;
 }
 
-export const UpgradeModal = ({ open, onOpenChange }: UpgradeModalProps) => {
+export const UpgradeModalComponent = ({ open, onOpenChange }: UpgradeModalProps) => {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
