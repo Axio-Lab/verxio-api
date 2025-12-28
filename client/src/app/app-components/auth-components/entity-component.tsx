@@ -55,64 +55,73 @@ export const EntityHeader = ({
     };
 
     return (
-        <div className="flex flex-row items-center justify-between gap-x-4">
+        <div className="flex flex-row items-start justify-between gap-x-4">
             <div className="flex flex-col">
                 <h1 className="text-lg md:text-xl font-semibold">{title}</h1>
                 {description && <p className="text-xs md:text-sm text-muted-foreground">{description}</p>}
             </div>
-            {
-                onNew && !newButtonRef && (
-                    <Button
-                        disabled={disabled || isCreating}
-                        onClick={handleNew}
-                        size="sm"
-                        className="flex items-center gap-2"
-                    >
-                        {isCreating ? (
-                            <>
-                                <Spinner className="size-4" />
-                                <span>Creating...</span>
-                            </>
-                        ) : (
-                            <>
+            <div className="flex flex-col items-end gap-3">
+                {
+                    onNew && !newButtonRef && (
+                        <Button
+                            disabled={disabled || isCreating}
+                            onClick={handleNew}
+                            size="sm"
+                            className="flex items-center gap-2"
+                        >
+                            {isCreating ? (
+                                <>
+                                    <Spinner className="size-4" />
+                                    <span>Creating...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <PlusIcon className="size-4" />
+                                    {newButtonLabel}
+                                </>
+                            )}
+                        </Button>
+                    )
+                }
+                {
+                    newButtonRef && !onNew && (
+                        <Button
+                            size="sm"
+                            asChild>
+                            <Link href={newButtonRef} prefetch >
                                 <PlusIcon className="size-4" />
                                 {newButtonLabel}
-                            </>
-                        )}
-                    </Button>
-                )}
-            {
-                newButtonRef && !onNew && (
-                    <Button
-                        size="sm"
-                        asChild>
-                        <Link href={newButtonRef} prefetch >
-                            <PlusIcon className="size-4" />
-                            {newButtonLabel}
-                        </Link>
-                    </Button>
-
-                )}
+                            </Link>
+                        </Button>
+                    )
+                }
+            </div>
         </div>
     )
 }
 
 export const EntityContainer = ({ header, search, pagination, children }: EntityContainerProps) => {
     return (
-        <div className="p-4 md:px-10 md:py-6 h-full">
-            <div className="mx-auto max-w-screen-xl flex flex-col gap-y-8 h-full">
-                {header}
-
-                <div className="flex flex-col gap-4">
+        <div className="px-4 md:px-6 py-4 md:py-6 h-full flex flex-col">
+            <div className="w-full flex flex-col gap-y-8 h-full flex-1">
+                <div>
+                    {header}
                     {search && (
-                        <div className="flex justify-end w-full">
+                        <div className="flex justify-end mt-3">
                             {search}
                         </div>
                     )}
+                </div>
+
+                <div className="flex flex-col gap-4 flex-1">
                     {children}
                 </div>
-                {pagination}
             </div>
+            {pagination && (
+                <div className="mt-auto">
+                    {pagination}
+                </div>
+            )}
         </div>
     )
 }

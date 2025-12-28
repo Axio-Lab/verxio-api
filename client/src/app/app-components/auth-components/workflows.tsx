@@ -7,16 +7,14 @@ import { EntityHeader, EntityContainer, EntitySearch, EntityPagination } from ".
 
 export const WorkflowsHeader = ({ disabled }: { disabled?: boolean }) => {
     return (
-        <>
-            <EntityHeader
-                title="Workflows"
-                description="Create and manage workflows to automate your business processes"
-                onNew={() => { }}
-                newButtonLabel="New Workflow"
-                disabled={disabled}
-                isCreating={false}
-            />
-        </>
+        <EntityHeader
+            title="Workflows"
+            description="Create and manage workflows to automate your business processes"
+            onNew={() => { }}
+            newButtonLabel="New Workflow"
+            disabled={disabled}
+            isCreating={false}
+        />
     )
 }
 
