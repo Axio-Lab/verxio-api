@@ -70,6 +70,7 @@ interface LoadingViewProps extends StatesViewProps {
 
 interface EmptyViewProps extends StatesViewProps {
     onNew?: () => void;
+    isCreating?: boolean;
 };
 
 interface EntityListProps<T> {
@@ -345,7 +346,8 @@ export const ErrorView = ({
 
 export const EmptyView = ({
     message,
-    onNew
+    onNew,
+    isCreating
 }: EmptyViewProps) => {
     return (
         <Empty className="border border-dashed bg-white">
@@ -363,7 +365,20 @@ export const EmptyView = ({
             {
                 !!onNew && (
                     <EmptyContent>
-                        <Button onClick={onNew}>Add item</Button>
+                        <Button 
+                            onClick={onNew} 
+                            disabled={isCreating}
+                            className="flex items-center gap-2"
+                        >
+                            {isCreating ? (
+                                <>
+                                    <Spinner className="size-4" />
+                                    <span>Creating...</span>
+                                </>
+                            ) : (
+                                "Add item"
+                            )}
+                        </Button>
                     </EmptyContent>
                 )
             }

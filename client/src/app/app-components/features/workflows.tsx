@@ -1,20 +1,27 @@
 "use client";
 
 import { EntityHeader, EntityContainer, EntitySearch, EntityPagination, LoadingView, ErrorView, EmptyView, EntityList, EntityItem } from "./entity-component";
-import { useCreateWorkflow, useDeleteWorkflow, Workflow } from "@/hooks/useWorkflows";
+import { useDeleteWorkflow, Workflow } from "@/hooks/useWorkflows";
 import { formatDistanceToNow } from "date-fns";
 import { WorkflowIcon } from "lucide-react";
-import { toast } from "sonner";
 
-export const WorkflowsHeader = ({ disabled }: { disabled?: boolean }) => {
+export const WorkflowsHeader = ({ 
+    disabled, 
+    isCreating, 
+    onNew 
+}: { 
+    disabled?: boolean;
+    isCreating?: boolean;
+    onNew?: () => void;
+}) => {
     return (
         <EntityHeader
             title="Workflows"
             description="Create and manage workflows to automate your business processes"
-            onNew={() => { }}
+            onNew={onNew}
             newButtonLabel="New Workflow"
             disabled={disabled}
-            isCreating={false}
+            isCreating={isCreating}
         />
     )
 }
@@ -25,7 +32,9 @@ export const WorkflowsContainer = ({
     onSearchChange, 
     currentPage, 
     totalPages, 
-    onPageChange 
+    onPageChange,
+    isCreating,
+    onCreateWorkflow
 }: { 
     children: React.ReactNode;
     searchValue?: string;
@@ -33,10 +42,12 @@ export const WorkflowsContainer = ({
     currentPage?: number;
     totalPages?: number;
     onPageChange?: (page: number) => void;
+    isCreating?: boolean;
+    onCreateWorkflow?: () => void;
 }) => {
     return (
         <EntityContainer
-            header={<WorkflowsHeader />}
+            header={<WorkflowsHeader isCreating={isCreating} onNew={onCreateWorkflow} />}
             search={searchValue !== undefined && onSearchChange ? (
                 <WorkflowsSearch value={searchValue} onChange={onSearchChange} />
             ) : undefined}
@@ -98,27 +109,18 @@ export const WorkflowsErrorView = () => {
     )
 }
 
-export const WorkflowsEmptyView = () => {
-    const createWorkflow = useCreateWorkflow();
-    
-    const handleCreateWorkflow = () => {
-        createWorkflow.mutate(
-            { name: "New Workflow" },
-            {
-                onSuccess: () => {
-                    toast.success("Workflow created successfully");
-                },
-                onError: (error: Error) => {
-                    toast.error(error.message || "Failed to create workflow");
-                },
-            }
-        );
-    };
-
+export const WorkflowsEmptyView = ({ 
+    isCreating, 
+    onCreateWorkflow 
+}: { 
+    isCreating?: boolean;
+    onCreateWorkflow?: () => void;
+}) => {
     return (
         <EmptyView
             message="No workflows found. Create your first workflow to get started."
-            onNew={handleCreateWorkflow}
+            onNew={onCreateWorkflow}
+            isCreating={isCreating}
         />
     );
 };

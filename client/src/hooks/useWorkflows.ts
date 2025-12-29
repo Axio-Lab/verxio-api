@@ -31,7 +31,7 @@ export function useWorkflows(page: number = 1, limit: number = 10, search?: stri
       if (search) {
         params.append("search", search);
       }
-      return authenticatedGet<WorkflowsResponse>(`/workflows?${params.toString()}`);
+      return authenticatedGet<WorkflowsResponse>(`/workflow?${params.toString()}`);
     },
   });
 }
@@ -39,7 +39,7 @@ export function useWorkflows(page: number = 1, limit: number = 10, search?: stri
 export function useWorkflow(id: string) {
   return useProtectedQuery<Workflow>({
     queryKey: ["workflow", id],
-    queryFn: () => authenticatedGet<Workflow>(`/workflows/${id}`),
+    queryFn: () => authenticatedGet<Workflow>(`/workflow/${id}`),
     enabled: !!id,
   });
 }
@@ -48,7 +48,7 @@ export function useCreateWorkflow() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<Workflow, Error, { name: string }>({
-    mutationFn: (data) => authenticatedPost<Workflow>("/workflows", data),
+    mutationFn: (data) => authenticatedPost<Workflow>("/workflow/create", data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       toast.success(`Workflow "${data.name}" created`);
@@ -65,14 +65,14 @@ export function useUpdateWorkflow() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<Workflow, Error, { id: string; name: string }>({
-    mutationFn: ({ id, ...data }) => authenticatedPut<Workflow>(`/workflows/${id}`, data),
+    mutationFn: ({ id, ...data }) => authenticatedPut<Workflow>(`/workflow/update/${id}`, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       queryClient.invalidateQueries({ queryKey: ["workflow", data.id] });
       toast.success(`Workflow "${data.name}" updated`);
     },
     onError: (error) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update workflow";
+      const errorMessage = error instanceof Error ? error.message : "Failed to save workflow";
       toast.error(errorMessage);
     },
   });
@@ -82,10 +82,10 @@ export function useDeleteWorkflow() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<void, Error, { id: string; name: string }>({
-    mutationFn: ({ id }) => authenticatedDelete(`/workflows/${id}`),
+    mutationFn: ({ id }) => authenticatedDelete(`/workflow/delete/${id}`),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
-      toast.success(`Workflow "${variables.name}" removed`);
+      toast.success(`Workflow "${variables.name}" deleted`);
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete workflow";

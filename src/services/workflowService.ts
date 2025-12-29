@@ -1,5 +1,8 @@
-import { prisma } from '../lib/prisma';
+import { basePrismaClient } from '../lib/prisma';
 import { AppError } from '../middleware/errorHandler';
+
+// Use basePrismaClient for workflow model since extended client doesn't expose it
+const prismaClient = basePrismaClient as any;
 
 export interface CreateWorkflowData {
   name: string;
@@ -41,7 +44,7 @@ export const createWorkflow = async (
   }
 
   // Verify user exists
-  const user = await (prisma as any).user.findUnique({
+  const user = await prismaClient.user.findUnique({
     where: { id: data.userId },
   });
 
@@ -49,7 +52,7 @@ export const createWorkflow = async (
     throw new AppError('User not found', 404);
   }
 
-  const workflow = await (prisma as any).workflow.create({
+  const workflow = await prismaClient.workflow.create({
     data: {
       name: data.name.trim(),
       userId: data.userId,
@@ -88,10 +91,10 @@ export const getWorkflows = async (
   }
 
   // Get total count
-  const total = await (prisma as any).workflow.count({ where });
+  const total = await prismaClient.workflow.count({ where });
 
   // Get workflows
-  const workflows = await (prisma as any).workflow.findMany({
+  const workflows = await prismaClient.workflow.findMany({
     where,
     skip,
     take,
@@ -126,7 +129,7 @@ export const getWorkflow = async (
     throw new AppError('User ID is required', 400);
   }
 
-  const workflow = await (prisma as any).workflow.findFirst({
+  const workflow = await prismaClient.workflow.findFirst({
     where: {
       id,
       userId, // Ensure user owns the workflow
@@ -161,7 +164,7 @@ export const updateWorkflow = async (
   }
 
   // Verify workflow exists and belongs to user
-  const existingWorkflow = await (prisma as any).workflow.findFirst({
+  const existingWorkflow = await prismaClient.workflow.findFirst({
     where: {
       id,
       userId,
@@ -172,7 +175,7 @@ export const updateWorkflow = async (
     throw new AppError('Workflow not found', 404);
   }
 
-  const workflow = await (prisma as any).workflow.update({
+  const workflow = await prismaClient.workflow.update({
     where: { id },
     data: {
       name: data.name.trim(),
@@ -198,7 +201,7 @@ export const deleteWorkflow = async (
   }
 
   // Verify workflow exists and belongs to user
-  const existingWorkflow = await (prisma as any).workflow.findFirst({
+  const existingWorkflow = await prismaClient.workflow.findFirst({
     where: {
       id,
       userId,
@@ -209,7 +212,7 @@ export const deleteWorkflow = async (
     throw new AppError('Workflow not found', 404);
   }
 
-  await (prisma as any).workflow.delete({
+  await prismaClient.workflow.delete({
     where: { id },
   });
 };

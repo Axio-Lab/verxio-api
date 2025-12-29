@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from './errorHandler';
 import { prisma } from '../lib/prisma';
+import { AppError } from './errorHandler';
 
 /**
  * Better Auth Authentication Middleware
