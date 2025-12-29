@@ -105,7 +105,7 @@ app.use('/user', userRouter);
 app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
 app.use('/deal', dealRouter);
-app.use('/workflows', workflowRouter);
+app.use('/workflow', workflowRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)

@@ -9,10 +9,12 @@ workflowRouter.use(betterAuthMiddleware);
 
 /**
  * @swagger
- * /workflows:
+ * /workflow:
  *   get:
  *     summary: Get workflows with pagination and search
  *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -53,10 +55,12 @@ workflowRouter.get('/', async (req: Request, res: Response, next: NextFunction) 
 
 /**
  * @swagger
- * /workflows:
+ * /workflow/create:
  *   post:
  *     summary: Create a new workflow
  *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -77,7 +81,7 @@ workflowRouter.get('/', async (req: Request, res: Response, next: NextFunction) 
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.post('/', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { name } = req.body;
@@ -95,10 +99,12 @@ workflowRouter.post('/', async (req: Request, res: Response, next: NextFunction)
 
 /**
  * @swagger
- * /workflows/{id}:
+ * /workflow/{id}:
  *   get:
  *     summary: Get a single workflow by ID
  *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -128,10 +134,12 @@ workflowRouter.get('/:id', async (req: Request, res: Response, next: NextFunctio
 
 /**
  * @swagger
- * /workflows/{id}:
+ * /workflow/update/{id}:
  *   put:
  *     summary: Update a workflow
  *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -159,7 +167,7 @@ workflowRouter.get('/:id', async (req: Request, res: Response, next: NextFunctio
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.put('/update/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -174,10 +182,12 @@ workflowRouter.put('/:id', async (req: Request, res: Response, next: NextFunctio
 
 /**
  * @swagger
- * /workflows/{id}:
+ * /workflow/delete/{id}:
  *   delete:
  *     summary: Delete a workflow
  *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -193,7 +203,7 @@ workflowRouter.put('/:id', async (req: Request, res: Response, next: NextFunctio
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
