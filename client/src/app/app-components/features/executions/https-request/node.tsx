@@ -1,9 +1,11 @@
 "use client";
 
-import type { NodeProps } from "@xyflow/react";
+import type { NodeProps, Node } from "@xyflow/react";
 import { GlobeIcon } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { BaseExecutionNode } from "./base-execution-node";
+import { FormType, HttpRequestDialog } from "./dialog";
+import { useReactFlow } from "@xyflow/react";
 
 type HTTPSRequestNodeData = {
     endpoint?: string;
@@ -13,24 +15,60 @@ type HTTPSRequestNodeData = {
     [key: string]: unknown;
 }
 
-export const HttpRequestNode = memo((props: NodeProps) => {
+type HTTPSRequestNodeType = Node<HTTPSRequestNodeData>;
+
+export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => {
     const { data } = props;
-    const nodeData = (data || {}) as HTTPSRequestNodeData;
-    const description = nodeData?.endpoint 
-        ? `${nodeData.method || "GET"} ${nodeData.endpoint}`
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const { setNodes } = useReactFlow();
+    const nodeData = data;
+    const nodeStatus = "initial";
+    const description = nodeData?.endpoint
+        ? `${nodeData.method || "GET"}: ${nodeData.endpoint}`
         : "Not configured";
 
+    const handleOpenSettings = () => {
+        setDialogOpen(true);
+    }
+    const handleSubmit = (values: FormType) => {
+        setNodes((nodes) => nodes.map((node) => {
+            if (node.id === props.id) {
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        endpoint: values.endpoint,
+                        method: values.method,
+                        body: values.body,
+                    }
+                };
+            }
+            return node;
+        }));
+    };
+
     return (
-        <BaseExecutionNode
-            {...props}
-            icon={GlobeIcon}
-            name={"HTTP Request"}
-            description={description}
-            onSettings={() => {}}
-            onDoubleClick={() => {}}
-            iconColor="!text-green-600 dark:!text-green-400"
-            handleColor="!border-green-500 !bg-green-500"
-        />
+        <>
+            <HttpRequestDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                onSubmit={handleSubmit}
+                defaultEndpoint={nodeData?.endpoint}
+                defaultMethod={nodeData?.method || "GET"}
+                defaultBody={nodeData?.body || ""}
+            />
+            <BaseExecutionNode
+                {...props}
+                icon={GlobeIcon}
+                name={"HTTP Request"}
+                description={description}
+                onSettings={handleOpenSettings}
+                status={nodeStatus}
+                onDoubleClick={handleOpenSettings}
+                iconColor="!text-green-600 dark:!text-green-400"
+                handleColor="!border-green-500 !bg-green-500"
+            />
+        </>
     );
 });
 

@@ -1,7 +1,7 @@
 "use client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { SaveIcon } from "lucide-react";
+import { SaveIcon, Loader2Icon } from "lucide-react";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -10,9 +10,12 @@ import {
     BreadcrumbList,
 } from "@/components/ui/breadcrumb";
 import Link from "next/link";
-import { useUpdateWorkflow, useWorkflow } from "@/hooks/useWorkflows";
-import { useEffect, useRef, useState } from "react";
+import { useUpdateWorkflowName, useWorkflow, useUpdateWorkflow } from "@/hooks/useWorkflows";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
+import { useAtomValue, useSetAtom } from "jotai";
+import { editorAtom, hasUnsavedChangesAtom } from "./atoms";
+import { NodeType } from "./node-types";
 
 export const EditorBreadcrumbs = ({ workflowId }: { workflowId: string }) => {
     return (
@@ -31,16 +34,212 @@ export const EditorBreadcrumbs = ({ workflowId }: { workflowId: string }) => {
 };
 
 export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
+    const editor = useAtomValue(editorAtom);
+    const { data: workflow } = useWorkflow(workflowId);
+    const saveWorkflow = useUpdateWorkflow();
+    const [hasChanges, setHasChanges] = useState(false);
+    const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
+    const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Function to check for changes - compares current editor state with saved workflow state
+    const checkForChanges = useCallback(() => {
+        if (!editor || !workflow) {
+            setHasChanges(false);
+            return;
+        }
+
+        const currentNodes = editor.getNodes();
+        const currentEdges = editor.getEdges();
+
+        // Filter out INITIAL nodes from comparison (they're handled specially and not saved)
+        const currentNodesFiltered = currentNodes.filter(node => node.type !== 'INITIAL' && node.type !== NodeType.INITIAL);
+        const savedNodesFiltered = (workflow.nodes || []).filter(node => node.type !== 'INITIAL');
+
+        // Create sets for quick lookup
+        const currentNodeIds = new Set(currentNodesFiltered.map(n => n.id));
+        const savedNodeIds = new Set(savedNodesFiltered.map(n => n.id));
+
+        // Check if node count changed
+        if (currentNodeIds.size !== savedNodeIds.size) {
+            setHasChanges(true);
+            return;
+        }
+
+        // Check if any nodes were added or removed
+        for (const id of currentNodeIds) {
+            if (!savedNodeIds.has(id)) {
+                // New node added
+                setHasChanges(true);
+                return;
+            }
+        }
+        for (const id of savedNodeIds) {
+            if (!currentNodeIds.has(id)) {
+                // Node removed
+                setHasChanges(true);
+                return;
+            }
+        }
+
+        // Compare existing nodes
+        for (const currentNode of currentNodesFiltered) {
+            const savedNode = savedNodesFiltered.find(n => n.id === currentNode.id);
+            if (!savedNode) continue;
+
+            // Extract clean data (remove temporary fields)
+            const { isDeleting, onDelete, label, ...currentNodeData } = currentNode.data || {};
+            const currentNodeName = typeof currentNode.data?.label === 'string' 
+                ? currentNode.data.label 
+                : currentNode.id;
+
+            // Compare node properties
+            if (
+                currentNodeName !== savedNode.name ||
+                currentNode.type !== savedNode.type ||
+                Math.abs(currentNode.position.x - savedNode.position.x) > 0.01 ||
+                Math.abs(currentNode.position.y - savedNode.position.y) > 0.01 ||
+                JSON.stringify(currentNodeData) !== JSON.stringify(savedNode.data || {})
+            ) {
+                setHasChanges(true);
+                return;
+            }
+        }
+
+        // Compare edges/connections
+        const currentEdgesForCompare = currentEdges.map((edge) => ({
+            source: edge.source,
+            target: edge.target,
+            sourceHandle: edge.sourceHandle || 'main',
+            targetHandle: edge.targetHandle || 'main',
+        })).sort((a, b) => {
+            const aKey = `${a.source}-${a.target}-${a.sourceHandle}-${a.targetHandle}`;
+            const bKey = `${b.source}-${b.target}-${b.sourceHandle}-${b.targetHandle}`;
+            return aKey.localeCompare(bKey);
+        });
+
+        const savedConnectionsForCompare = (workflow.connections || []).map((conn) => ({
+            source: conn.source,
+            target: conn.target,
+            sourceHandle: conn.sourceHandle || 'main',
+            targetHandle: conn.targetHandle || 'main',
+        })).sort((a, b) => {
+            const aKey = `${a.source}-${a.target}-${a.sourceHandle}-${a.targetHandle}`;
+            const bKey = `${b.source}-${b.target}-${b.sourceHandle}-${b.targetHandle}`;
+            return aKey.localeCompare(bKey);
+        });
+
+        if (currentEdgesForCompare.length !== savedConnectionsForCompare.length) {
+            setHasChanges(true);
+            return;
+        }
+
+        // Compare each edge
+        for (let i = 0; i < currentEdgesForCompare.length; i++) {
+            const current = currentEdgesForCompare[i];
+            const saved = savedConnectionsForCompare[i];
+            if (
+                current.source !== saved.source ||
+                current.target !== saved.target ||
+                current.sourceHandle !== saved.sourceHandle ||
+                current.targetHandle !== saved.targetHandle
+            ) {
+                setHasChanges(true);
+                return;
+            }
+        }
+
+        // No changes detected
+        setHasChanges(false);
+    }, [editor, workflow]);
+
+    // Check for changes periodically and when workflow updates
+    useEffect(() => {
+        if (!editor || !workflow) {
+            setHasChanges(false);
+            return;
+        }
+
+        // Initial check
+        checkForChanges();
+
+        // Set up interval to check for changes
+        checkIntervalRef.current = setInterval(checkForChanges, 500);
+
+        return () => {
+            if (checkIntervalRef.current) {
+                clearInterval(checkIntervalRef.current);
+            }
+        };
+    }, [editor, workflow, checkForChanges]);
+
+    // Sync hasChanges to atom for navigation guard
+    useEffect(() => {
+        setHasUnsavedChanges(hasChanges);
+    }, [hasChanges, setHasUnsavedChanges]);
+
+    const handleSave = async () => {
+        if (!editor || !workflow) {
+            return;
+        }
+        const nodes = editor.getNodes();
+        const edges = editor.getEdges();
+        
+        // Filter out INITIAL nodes (they're not saved)
+        const nodesToSave = nodes.filter(node => node.type !== 'INITIAL' && node.type !== NodeType.INITIAL);
+        
+        // Transform ReactFlow nodes to API format
+        const transformedNodes = nodesToSave.map((node) => {
+            // Remove temporary fields from data (isDeleting, onDelete, label)
+            const { isDeleting, onDelete, label, ...nodeData } = node.data || {};
+            return {
+                id: node.id,
+                name: typeof node.data?.label === 'string' ? node.data.label : node.id,
+                type: node.type || 'INITIAL',
+                position: node.position,
+                data: nodeData,
+            };
+        });
+
+        // Transform ReactFlow edges to API format
+        const transformedConnections = edges.map((edge) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            sourceHandle: edge.sourceHandle || 'main',
+            targetHandle: edge.targetHandle || 'main',
+        }));
+        
+        try {
+            await saveWorkflow.mutateAsync({
+                id: workflowId,
+                data: {
+                    name: workflow.name,
+                    nodes: transformedNodes,
+                    connections: transformedConnections,
+                },
+            });
+            // Changes are saved - the workflow will refetch automatically
+            // The editor will sync the new saved state, and hasChanges will update
+        } catch (error) {
+            // Error is handled by the mutation's onError callback
+            console.error('Failed to save workflow:', error);
+        }
+    };
 
     return (
         <>
             <div className="ml-auto">
                 <Button
                     size="sm"
-                    onClick={() => {}}
+                    onClick={handleSave}
+                    disabled={saveWorkflow.isPending || !hasChanges}
                 >
-                    <SaveIcon className="size-4" />
-                    Save
+                    {saveWorkflow.isPending ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                        <SaveIcon className="size-4" />
+                    )}
+                    {saveWorkflow.isPending ? "Saving..." : "Save"}
                 </Button>
             </div>
         </>
@@ -62,7 +261,7 @@ export const EditorHeader = ({ workflowId }: { workflowId: string }) => {
 
 export const EditorNameInput = ({ workflowId }: { workflowId: string }) => {
     const { data: workflow } = useWorkflow(workflowId);
-    const updateWorkflow = useUpdateWorkflow();
+    const updateWorkflowName = useUpdateWorkflowName();
 
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(workflow?.name);
@@ -86,7 +285,7 @@ export const EditorNameInput = ({ workflowId }: { workflowId: string }) => {
             return;
         }
         try {
-            updateWorkflow.mutateAsync(
+            updateWorkflowName.mutateAsync(
                 {
                     id: workflowId,
                     name: name!,
@@ -112,7 +311,7 @@ export const EditorNameInput = ({ workflowId }: { workflowId: string }) => {
     if (isEditing) {
         return (
             <Input
-                disabled={updateWorkflow.isPending}
+                disabled={updateWorkflowName.isPending}
                 ref={inputRef}
                 type="text"
                 value={name}

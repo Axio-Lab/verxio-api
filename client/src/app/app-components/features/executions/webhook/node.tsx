@@ -2,8 +2,9 @@
 
 import type { NodeProps } from "@xyflow/react";
 import { WebhookIcon } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { BaseExecutionNode } from "../https-request/base-execution-node";
+import { WebhookDialog } from "./dialog";
 
 type WebhookNodeData = {
     endpoint?: string;
@@ -15,22 +16,32 @@ type WebhookNodeData = {
 
 export const WebhookNode = memo((props: NodeProps) => {
     const { data } = props;
+    const [dialogOpen, setDialogOpen] = useState(false);
     const nodeData = (data || {}) as WebhookNodeData;
+    const nodeStatus = "initial";
     const description = nodeData?.endpoint 
         ? `${nodeData.method || "POST"} ${nodeData.endpoint}`
         : "Not configured";
+    
+    const handleOpenSettings = () => {
+        setDialogOpen(true);
+    }
 
     return (
-        <BaseExecutionNode
-            {...props}
-            icon={WebhookIcon}
-            name="Webhook"
-            description={description}
-            onSettings={() => {}}
-            onDoubleClick={() => {}}
-            iconColor="!text-purple-600 dark:!text-purple-400"
-            handleColor="!border-purple-500 !bg-purple-500"
-        />
+        <>
+            <WebhookDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+            <BaseExecutionNode
+                {...props}
+                icon={WebhookIcon}
+                name="Webhook"
+                description={description}
+                status={nodeStatus}
+                onSettings={handleOpenSettings}
+                onDoubleClick={handleOpenSettings}
+                iconColor="!text-purple-600 dark:!text-purple-400"
+                handleColor="!border-purple-500 !bg-purple-500"
+            />
+        </>
     );
 });
 

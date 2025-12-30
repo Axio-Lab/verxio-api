@@ -1,7 +1,7 @@
 "use client";
 
 import { NodeToolbar, Position } from "@xyflow/react";
-import { SettingsIcon, TrashIcon } from "lucide-react";
+import { SettingsIcon, TrashIcon, Loader2Icon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ interface WorkflowNodeProps {
   onSettings?: () => void;
   name?: string;
   description?: string;
+  isDeleting?: boolean;
 }
 
 export const WorkflowNode = ({ 
@@ -20,17 +21,22 @@ export const WorkflowNode = ({
     onDelete, 
     onSettings, 
     name, 
-    description 
+    description,
+    isDeleting = false
 }: WorkflowNodeProps) => {
     return (
         <>
         {showToolbar && (
             <NodeToolbar>
-                <Button size="sm" variant="ghost" onClick={onSettings}>
+                <Button size="sm" variant="ghost" onClick={onSettings} disabled={isDeleting}>
                     <SettingsIcon className="size-4" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={onDelete}>
-                    <TrashIcon className="size-4" />
+                <Button size="sm" variant="ghost" onClick={onDelete} disabled={isDeleting}>
+                    {isDeleting ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                        <TrashIcon className="size-4" />
+                    )}
                 </Button>
             </NodeToolbar>
         )}
@@ -42,11 +48,11 @@ export const WorkflowNode = ({
                     isVisible
                     className="max-w-[200px] text-center"
                 >
-                    <p className="font-medium">
+                    <p className="text-xs font-medium">
                         {name}
                     </p>
                     {description && (
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                             {description}
                         </p>
                     )}
