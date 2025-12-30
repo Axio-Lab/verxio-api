@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { Editor, EditorLoader } from "@/app/app-components/features/editor";
-import { EditorHeader } from "@/app/app-components/features/editor-header";
+import { Editor, EditorLoader } from "@/app/app-components/features/editor/editor";
+import { EditorHeader } from "@/app/app-components/features/editor/editor-header";
 import { EditorErrorBoundaryFallback } from "./editor-error-boundary";
 
 // Server component wrapper

@@ -4,10 +4,34 @@ import { useProtectedQuery, useProtectedMutation } from "@/hooks/useProtectedApi
 import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/lib/api-client";
 import { toast } from "sonner";
 
+export interface WorkflowNode {
+  id: string;
+  workflowId: string;
+  name: string;
+  type: string;
+  position: { x: number; y: number };
+  data: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WorkflowConnection {
+  id: string;
+  workflowId: string;
+  source: string;
+  target: string;
+  sourceHandle: string;
+  targetHandle: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Workflow {
   id: string;
   name: string;
   userId: string;
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
   createdAt: Date;
   updatedAt: Date;
 }

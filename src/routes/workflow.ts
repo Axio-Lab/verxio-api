@@ -36,6 +36,23 @@ workflowRouter.use(betterAuthMiddleware);
  *     responses:
  *       200:
  *         description: List of workflows
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 workflows:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Workflow'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
  *       401:
  *         description: Unauthorized
  */
@@ -76,6 +93,10 @@ workflowRouter.get('/', async (req: Request, res: Response, next: NextFunction) 
  *     responses:
  *       201:
  *         description: Workflow created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Workflow'
  *       400:
  *         description: Bad request
  *       401:
@@ -115,6 +136,10 @@ workflowRouter.post('/create', async (req: Request, res: Response, next: NextFun
  *     responses:
  *       200:
  *         description: Workflow details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Workflow'
  *       404:
  *         description: Workflow not found
  *       401:
@@ -162,6 +187,10 @@ workflowRouter.get('/:id', async (req: Request, res: Response, next: NextFunctio
  *     responses:
  *       200:
  *         description: Workflow updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Workflow'
  *       404:
  *         description: Workflow not found
  *       401:

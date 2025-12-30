@@ -1,8 +1,8 @@
 import { Suspense, cache } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query";
-import { WorkflowsLoadingView } from "@/app/app-components/features/workflows";
-import { WorkflowsErrorBoundaryFallback } from "@/app/app-components/features/workflows-error-boundary";
+import { WorkflowsLoadingView } from "@/app/app-components/features/workflow/workflows";
+import { WorkflowsErrorBoundaryFallback } from "@/app/app-components/features/workflow/workflows-error-boundary";
 import { WorkflowsContent } from "./workflows-content-client";
 
 // Get or create a QueryClient instance for server-side prefetching

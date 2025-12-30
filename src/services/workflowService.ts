@@ -1,5 +1,6 @@
 import { basePrismaClient } from '../lib/prisma';
 import { AppError } from '../middleware/errorHandler';
+const { NodeType } = require('../../node_modules/.prisma/client');
 
 // Use basePrismaClient for workflow model since extended client doesn't expose it
 const prismaClient = basePrismaClient as any;
@@ -13,12 +14,63 @@ export interface UpdateWorkflowData {
   name: string;
 }
 
+export interface NodeResponse {
+  id: string;
+  workflowId: string;
+  name: string;
+  type: string;
+  position: { x: number; y: number };
+  data: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ConnectionResponse {
+  id: string;
+  workflowId: string;
+  source: string;
+  target: string;
+  sourceHandle: string;
+  targetHandle: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Helper function to transform database connection to API response format
+function transformConnection(connection: any): ConnectionResponse {
+  return {
+    id: connection.id,
+    workflowId: connection.workflowId,
+    source: connection.fromNodeId,
+    target: connection.toNodeId,
+    sourceHandle: connection.fromOutput,
+    targetHandle: connection.toInput,
+    createdAt: connection.createdAt,
+    updatedAt: connection.updatedAt,
+  };
+}
+
+// Helper function to transform workflow with connections
+function transformWorkflow(workflow: any): WorkflowResponse {
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    userId: workflow.userId,
+    createdAt: workflow.createdAt,
+    updatedAt: workflow.updatedAt,
+    nodes: workflow.nodes || [],
+    connections: (workflow.connections || []).map(transformConnection),
+  };
+}
+
 export interface WorkflowResponse {
   id: string;
   name: string;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
+  nodes: NodeResponse[];
+  connections: ConnectionResponse[];
 }
 
 export interface WorkflowsListResponse {
@@ -56,10 +108,21 @@ export const createWorkflow = async (
     data: {
       name: data.name.trim(),
       userId: data.userId,
+      nodes: {
+        create: {
+          name: NodeType.INITIAL,
+          type: NodeType.INITIAL,
+          position: { x: 0, y: 0 },
+        },
+      },
+    },
+    include: {
+      nodes: true,
+      connections: true,
     },
   });
 
-  return workflow;
+  return transformWorkflow(workflow);
 };
 
 /**
@@ -93,7 +156,7 @@ export const getWorkflows = async (
   // Get total count
   const total = await prismaClient.workflow.count({ where });
 
-  // Get workflows
+  // Get workflows with nodes
   const workflows = await prismaClient.workflow.findMany({
     where,
     skip,
@@ -101,12 +164,16 @@ export const getWorkflows = async (
     orderBy: {
       createdAt: 'desc',
     },
+    include: {
+      nodes: true,
+      connections: true,
+    },
   });
 
   const totalPages = Math.ceil(total / limit);
 
   return {
-    workflows,
+    workflows: workflows.map(transformWorkflow),
     total,
     page,
     limit,
@@ -134,13 +201,17 @@ export const getWorkflow = async (
       id,
       userId, // Ensure user owns the workflow
     },
+    include: {
+      nodes: true,
+      connections: true,
+    },
   });
 
   if (!workflow) {
     throw new AppError('Workflow not found', 404);
   }
 
-  return workflow;
+  return transformWorkflow(workflow);
 };
 
 /**
@@ -180,9 +251,13 @@ export const updateWorkflow = async (
     data: {
       name: data.name.trim(),
     },
+    include: {
+      nodes: true,
+      connections: true,
+    },
   });
 
-  return workflow;
+  return transformWorkflow(workflow);
 };
 
 /**
