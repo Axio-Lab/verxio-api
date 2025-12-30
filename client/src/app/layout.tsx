@@ -4,9 +4,9 @@ import "./globals.css";
 import { ConditionalNavbar, ConditionalFooter } from "./app-components/ConditionalNavbar";
 import { RouteGuard } from "./app-components/RouteGuard";
 import Providers from "./providers";
-import { DealProvider } from "./context/DealContext";
 import { Toaster } from "@/components/ui/sonner";
 import { NuqsProvider } from "@/lib/nuqs-adapter";
+import { Provider as JotaiProvider } from 'jotai';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -38,14 +38,14 @@ export default function RootLayout({
       >
         <Providers>
           <NuqsProvider>
-            <DealProvider>
               <RouteGuard>
                 <ConditionalNavbar />
+                <JotaiProvider>
                 {children}
+                </JotaiProvider>
                 <ConditionalFooter />
               </RouteGuard>
               <Toaster />
-            </DealProvider>
           </NuqsProvider>
         </Providers>
       </body>

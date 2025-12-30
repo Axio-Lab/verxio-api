@@ -85,15 +85,50 @@ export function useCreateWorkflow() {
 }
 
 
-export function useUpdateWorkflow() {
+export function useUpdateWorkflowName() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<Workflow, Error, { id: string; name: string }>({
-    mutationFn: ({ id, ...data }) => authenticatedPut<Workflow>(`/workflow/update/${id}`, data),
+    mutationFn: ({ id, ...data }) => authenticatedPut<Workflow>(`/workflow/update/name/${id}`, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       queryClient.invalidateQueries({ queryKey: ["workflow", data.id] });
       toast.success(`Workflow "${data.name}" updated`);
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update workflow name";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+export interface UpdateWorkflowData {
+  name?: string;
+  nodes: Array<{
+    id?: string;
+    name: string;
+    type: string;
+    position: { x: number; y: number };
+    data?: Record<string, any>;
+  }>;
+  connections: Array<{
+    id?: string;
+    source: string;
+    target: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  }>;
+}
+
+export function useUpdateWorkflow() {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<Workflow, Error, { id: string; data: UpdateWorkflowData }>({
+    mutationFn: ({ id, data }) => authenticatedPut<Workflow>(`/workflow/update/${id}`, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["workflows"] });
+      queryClient.invalidateQueries({ queryKey: ["workflow", data.id] });
+      toast.success(`Workflow "${data.name}" saved`);
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to save workflow";

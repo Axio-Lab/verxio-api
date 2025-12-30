@@ -9,12 +9,14 @@ import { BaseNode, BaseNodeContent } from "@/components/base-node";
 import { BaseHandle } from "@/components/base-handle";
 import { WorkflowNode } from "@/app/app-components/features/workflow/workflow-node";
 import { cn } from "@/lib/utils";
+import { NodeStatusIndicator, type NodeStatus } from "@/components/node-status-indicator";
 
 interface BaseTriggerNodeProps extends NodeProps {
     icon: LucideIcon | string;
     name: string;
     description?: string;
     children?: ReactNode;
+    status?: NodeStatus;
     onSettings?: () => void;
     onDoubleClick?: () => void;
 }
@@ -26,24 +28,38 @@ export const BaseTriggerNode = memo(
         description,
         children,
         selected,
-        // status?: NodeStatus,
+        data,
+        status = "initial",
         onSettings,
         onDoubleClick,
     }: BaseTriggerNodeProps) => {
 
-        const handleDelete = () => {
+        const isDeleting = data?.isDeleting === true;
 
+        const handleDelete = () => {
+            if (data?.onDelete && typeof data.onDelete === 'function') {
+                // Call delete handler immediately
+                data.onDelete();
+            }
         }
+
+        // Always show toolbar if deleting, or if selected
+        const shouldShowToolbar = selected || isDeleting;
 
         return (
             <WorkflowNode
                 name={name}
                 description={description}
-                showToolbar={selected}
+                showToolbar={shouldShowToolbar}
                 onSettings={onSettings}
                 onDelete={handleDelete}
+                isDeleting={isDeleting}
             >
-                <BaseNode onClick={onDoubleClick}
+                <NodeStatusIndicator 
+                status={status}
+                variant="border" 
+                className="rounded-l-2xl">
+                <BaseNode  status={status} onDoubleClick={onDoubleClick}
                 className="rounded-l-2xl relative group"
                 >
                     <BaseNodeContent>
@@ -60,6 +76,7 @@ export const BaseTriggerNode = memo(
                             className="!border-blue-500 !bg-blue-500" />
                     </BaseNodeContent>
                 </BaseNode>
+                </NodeStatusIndicator>
             </WorkflowNode>
         )
     }
