@@ -20,7 +20,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css';
 import { NodeComponents } from '@/app/app-components/features/editor/node-components';
-import { AddNodeButton } from '@/app/app-components/features/editor/add-node-button';
+import { AddNodeButton } from '@/app/app-components/features/editor/node-components';
+import { NodeType } from '@/app/app-components/features/editor/node-types';
 
 export const EditorLoader = () => {
   return <LoadingView message="Loading editor..." />;
@@ -68,8 +69,32 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     setEdges(workflowEdges);
   }, [workflowNodes, workflowEdges]);
 
+  // Check if we should show the initial node (only when there are no other nodes)
+  const hasNonInitialNodes = useMemo(() => {
+    return nodes.some(node => node.type !== NodeType.INITIAL);
+  }, [nodes]);
+
+  // Filter out INITIAL node if there are other nodes
+  const displayNodes = useMemo(() => {
+    if (hasNonInitialNodes) {
+      return nodes.filter(node => node.type !== NodeType.INITIAL);
+    }
+    return nodes;
+  }, [nodes, hasNonInitialNodes]);
+
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
+    (changes: NodeChange[]) => {
+      setNodes((nodesSnapshot) => {
+        // Apply changes to the full nodes array (including INITIAL if present)
+        const updatedNodes = applyNodeChanges(changes, nodesSnapshot);
+        // If we have non-INITIAL nodes, automatically remove INITIAL nodes
+        const hasNonInitial = updatedNodes.some(node => node.type !== NodeType.INITIAL);
+        if (hasNonInitial) {
+          return updatedNodes.filter(node => node.type !== NodeType.INITIAL);
+        }
+        return updatedNodes;
+      });
+    },
     [],
   );
   const onEdgesChange = useCallback(
@@ -97,7 +122,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   return (
     <div className="size-full">
       <ReactFlow
-        nodes={nodes}
+        nodes={displayNodes}
         edges={edges}
         nodeTypes={NodeComponents}
         onNodesChange={onNodesChange}
