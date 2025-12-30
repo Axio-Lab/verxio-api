@@ -41,6 +41,145 @@ Only required for POST /user/issue-verxio endpoint.`,
 Required for all workflow endpoints. This header should contain the authenticated user's email address from Better Auth session.`,
       },
     },
+    schemas: {
+      Node: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'Node ID',
+          },
+          workflowId: {
+            type: 'string',
+            description: 'Workflow ID this node belongs to',
+          },
+          name: {
+            type: 'string',
+            description: 'Node name',
+            example: 'Initial Node',
+          },
+          type: {
+            type: 'string',
+            enum: ['INITIAL'],
+            description: 'Node type',
+          },
+          position: {
+            type: 'object',
+            properties: {
+              x: {
+                type: 'number',
+                description: 'X coordinate',
+              },
+              y: {
+                type: 'number',
+                description: 'Y coordinate',
+              },
+            },
+            description: 'Node position coordinates',
+          },
+          data: {
+            type: 'object',
+            description: 'Additional node data',
+            additionalProperties: true,
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Creation timestamp',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Last update timestamp',
+          },
+        },
+      },
+      Connection: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'Connection ID',
+          },
+          workflowId: {
+            type: 'string',
+            description: 'Workflow ID this connection belongs to',
+          },
+          source: {
+            type: 'string',
+            description: 'Source node ID',
+          },
+          target: {
+            type: 'string',
+            description: 'Target node ID',
+          },
+          sourceHandle: {
+            type: 'string',
+            description: 'Output port name on source node',
+            example: 'main',
+            default: 'main',
+          },
+          targetHandle: {
+            type: 'string',
+            description: 'Input port name on target node',
+            example: 'main',
+            default: 'main',
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Creation timestamp',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Last update timestamp',
+          },
+        },
+      },
+      Workflow: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'Workflow ID',
+          },
+          name: {
+            type: 'string',
+            description: 'Workflow name',
+            example: 'Email Marketing Campaign',
+          },
+          userId: {
+            type: 'string',
+            description: 'User ID who owns the workflow',
+          },
+          nodes: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Node',
+            },
+            description: 'Nodes in the workflow',
+          },
+          connections: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Connection',
+            },
+            description: 'Connections between nodes in the workflow',
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Creation timestamp',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Last update timestamp',
+          },
+        },
+      },
+    },
   },
   tags: [
     // {

@@ -1,6 +1,6 @@
 "use client";
 
-import { EntityHeader, EntityContainer, EntitySearch, EntityPagination, LoadingView, ErrorView, EmptyView, EntityList, EntityItem } from "./entity-component";
+import { EntityHeader, EntityContainer, EntitySearch, EntityPagination, LoadingView, ErrorView, EmptyView, EntityList, EntityItem } from "../editor/entity-component";
 import { useDeleteWorkflow, Workflow } from "@/hooks/useWorkflows";
 import { formatDistanceToNow } from "date-fns";
 import { WorkflowIcon } from "lucide-react";

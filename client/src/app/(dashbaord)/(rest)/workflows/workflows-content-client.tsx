@@ -7,9 +7,9 @@ import {
   WorkflowsErrorView, 
   WorkflowsEmptyView,
   WorkflowsList
-} from "@/app/app-components/features/workflows";
+} from "@/app/app-components/features/workflow/workflows";
 import { useWorkflows, useCreateWorkflow } from "@/hooks/useWorkflows";
-import { WorkflowNameInput } from "@/app/app-components/features/workflow-name-input";
+import { WorkflowNameInput } from "@/app/app-components/features/workflow/workflow-name-input";
 
 
 

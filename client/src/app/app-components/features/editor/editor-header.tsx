@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import Link from "next/link";
 import { useUpdateWorkflow, useWorkflow } from "@/hooks/useWorkflows";
-import { WorkflowNameInput } from "./workflow-name-input";
+import { WorkflowNameInput } from "../workflow/workflow-name-input";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
