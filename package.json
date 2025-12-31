@@ -41,11 +41,13 @@
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
+    "inngest": "^3.48.1",
     "morgan": "^1.10.0",
     "pinata": "^2.4.9",
     "prisma-field-encryption": "^1.6.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "toposort": "^2.0.2",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
@@ -55,6 +57,7 @@
     "@types/node": "^20",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
+    "@types/toposort": "^2.0.7",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9",

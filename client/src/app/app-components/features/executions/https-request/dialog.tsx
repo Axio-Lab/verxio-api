@@ -1,5 +1,4 @@
 "use client";
-
 import {
     Dialog,
     DialogContent,
@@ -19,12 +18,12 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -35,50 +34,46 @@ import { toast } from "sonner";
 import { useEffect } from "react";
 
 const formSchema = z.object({
-    endpoint: z.string().url({message: "Please enter a valid URL"}),
+    endpoint: z.string().url({ message: "Please enter a valid URL" }),
     method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]),
     body: z.string().optional()
     // .refine(),
 });
 
-export type FormType = z.infer<typeof formSchema>;
+export type HttpRequestFormValues = z.infer<typeof formSchema>;
 
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSubmit: (values: z.infer<typeof formSchema>) => void;
-    defaultEndpoint?: string;
-    defaultMethod: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS";
-    defaultBody: string;
+    defaultValues?: Partial<HttpRequestFormValues>;
 }
 
 export const HttpRequestDialog = ({
     open,
     onOpenChange,
     onSubmit,
-    defaultEndpoint = "",
-    defaultMethod = "GET",
-    defaultBody = "",
+    defaultValues = {},
 }: Props) => {
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            endpoint: defaultEndpoint,
-            method: defaultMethod,
-            body: defaultBody,
+            endpoint: defaultValues.endpoint || "",
+            method: defaultValues.method || "GET",
+            body: defaultValues.body || "",
         },
-     
+
     })
-useEffect(() => {
-    if (open) {
-        form.reset({
-            endpoint: defaultEndpoint,
-            method: defaultMethod,
-            body: defaultBody,
-        });
-    }
-}, [open, defaultEndpoint, defaultMethod, defaultBody]);
+    useEffect(() => {
+        if (open) {
+            form.reset({
+                endpoint: defaultValues.endpoint || "",
+                method: defaultValues.method || "GET",
+                body: defaultValues.body || "",
+            });
+        }
+    }, [open, defaultValues, form]);
 
     const watchMethod = form.watch("method");
     const showBodyField = ["POST", "PUT", "PATCH"].includes(watchMethod);
@@ -111,14 +106,14 @@ useEffect(() => {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Method</FormLabel>
-                                    <Select 
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
                                     >
                                         <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select a method" />
-                                        </SelectTrigger>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select a method" />
+                                            </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="GET">GET</SelectItem>
@@ -128,7 +123,7 @@ useEffect(() => {
                                             <SelectItem value="DELETE">DELETE</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <FormDescription>   
+                                    <FormDescription>
                                         The HTTP method to use for the request.
                                     </FormDescription>
                                     <FormMessage />
@@ -136,21 +131,21 @@ useEffect(() => {
                             )}
                         />
 
-<FormField
+                        <FormField
                             control={form.control}
                             name="endpoint"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Endpoint URL</FormLabel>
-                                        <FormControl>
-                                        <Input 
-                                        {...field} 
-                                        placeholder="https://api.example.com/users/{{httpResponse.data.id}}"
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            placeholder="https://api.example.com/users/{{httpResponse.data.id}}"
                                         />
-                                        </FormControl>
-                                    <FormDescription>   
-                                       Static URL or use{"{{variables}}"} for simple values or
-                                       {"{{json variables}}"} to stringify objects.
+                                    </FormControl>
+                                    <FormDescription>
+                                        Static URL or use{"{{variables}}"} for simple values or
+                                        {"{{json variables}}"} to stringify objects.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -163,7 +158,7 @@ useEffect(() => {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Request Body</FormLabel>
-                                        <FormControl>  
+                                        <FormControl>
                                             <Textarea
                                                 {...field}
                                                 placeholder={`{\n  "userId": "{{httpResponse.data.id}}",\n  "name": "{{httpResponse.data.name}}",\n  "items": ["{{httpResponse.data.items}}"]\n}`}

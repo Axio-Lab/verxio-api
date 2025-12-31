@@ -153,3 +153,27 @@ export function useDeleteWorkflow() {
   });
 }
 
+export interface TriggerWorkflowResponse {
+  success: boolean;
+  message: string;
+  workflowId: string;
+  workflowName: string;
+}
+
+export function useTriggerWorkflow() {
+  return useProtectedMutation<TriggerWorkflowResponse, Error, { id: string; data?: Record<string, any> }>({
+    mutationFn: ({ id, data }) => {
+      // Send data in the format expected by the backend: { data: {...} }
+      const body = data ? { data } : {};
+      return authenticatedPost<TriggerWorkflowResponse>(`/workflow/trigger/${id}`, body);
+    },
+    onSuccess: (data) => {
+      toast.success(`Workflow "${data.workflowName}" executed`);
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to execute workflow";
+      toast.error(errorMessage);
+    },
+  });
+}
+

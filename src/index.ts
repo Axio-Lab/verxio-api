@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
+import { serve } from 'inngest/express';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { rateLimiter } from './middleware/rateLimiter';
@@ -14,6 +15,8 @@ import { dealRouter } from './routes/deal';
 import { workflowRouter } from './routes/workflow';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
+import { inngest } from './inngest';
+import { functions } from './inngest/functions';
 
 // Load environment variables
 dotenv.config();
@@ -98,6 +101,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Rate limiting
 app.use(rateLimiter);
+
+// Inngest endpoint (must be before other routes that might catch it)
+app.use('/api/inngest', serve({ client: inngest, functions }));
 
 // API routes
 // app.use('/health', healthRouter);
