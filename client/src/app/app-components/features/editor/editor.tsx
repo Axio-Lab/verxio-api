@@ -24,6 +24,7 @@ import { AddNodeButton } from '@/app/app-components/features/editor/node-compone
 import { NodeType } from '@/app/app-components/features/editor/node-types';
 import { useSetAtom } from "jotai";
 import { editorAtom } from "./atoms";
+import { ExecuteWorkflowButton } from "../executions/execute-workflow-button";
 
 export const EditorLoader = () => {
   return <LoadingView message="Loading editor..." />;
@@ -188,7 +189,11 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     (params: Connection) => setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
     [],
   );
- 
+
+  // Check if we have a manual trigger node (must be before early returns to follow Rules of Hooks)
+  const hasManualTriggerNode = useMemo(() => {
+    return nodes.some(node => node.type === NodeType.MANUAL_TRIGGER);
+  }, [nodes]);
 
   if (isLoading) {
     return <EditorLoader />;
@@ -201,7 +206,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   if (!workflow) {
     return <EditorError />;
   }
-
+  
   return (
     <div className="size-full">
       <ReactFlow
@@ -223,9 +228,14 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           <Background />
           <Controls />
           <MiniMap />
-          <Panel position="top-right">
-            <AddNodeButton />
-          </Panel>
+            <Panel position="top-right">
+              <AddNodeButton />
+            </Panel>
+            {hasManualTriggerNode && (
+              <Panel position="bottom-center">
+                <ExecuteWorkflowButton workflowId={workflowId} />
+              </Panel>
+            )}
         </ReactFlow>
 
     </div>

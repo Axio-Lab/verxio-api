@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import * as workflowService from '../services/workflowService';
 import { betterAuthMiddleware } from '../middleware/betterAuth';
 import { AppError } from '../middleware/errorHandler';
+import { inngest } from '../inngest';
 
 export const workflowRouter: Router = Router();
 
@@ -359,6 +360,73 @@ workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: N
 
     await workflowService.deleteWorkflow(id, user.id);
     res.status(200).json({ success: true, message: 'Workflow deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /workflow/trigger/{id}:
+ *   post:
+ *     summary: Trigger a workflow execution via Inngest
+ *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Workflow ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 description: Optional data to pass to the workflow execution
+ *                 example:
+ *                   payload: "example data"
+ *     responses:
+ *       200:
+ *         description: Workflow trigger event sent successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Workflow not found
+ *       401:
+ *         description: Unauthorized
+ */
+workflowRouter.post('/trigger/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { data } = req.body;
+
+    // Verify workflow exists and belongs to user, and get workflow name
+    const workflow = await workflowService.getWorkflow(id, user.id);
+
+    // Send event to Inngest to trigger workflow execution
+    await inngest.send({
+      name: "workflow/trigger",
+      data: {
+        workflowId: id,
+        userId: user.id,
+        data: data || {},
+      },
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Workflow trigger event sent successfully',
+      workflowId: id,
+      workflowName: workflow.name,
+    });
   } catch (error) {
     next(error);
   }
