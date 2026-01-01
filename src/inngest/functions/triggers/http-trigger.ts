@@ -1,8 +1,9 @@
 import { NonRetriableError } from "inngest";
 import type { NodeExecutor } from "../types";
-import ky, {type Options as KyOptions} from "ky";
+import ky, { type Options as KyOptions } from "ky";
 
 type HttpTriggerData = {
+    variables?: string;
     endpoint?: string;
     method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
     body?: string;
@@ -21,41 +22,56 @@ export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async (
         throw new NonRetriableError("HTTP Request node: no endpoint configured");
     }
 
+    // Validate variables is configured
+    if (!data.variables) {
+        throw new NonRetriableError("Variable name configured");
+    }
+
     const result = await step.run("http-request", async () => {
         const endpoint = data.endpoint!;
         const method = data.method || "GET";
 
-        const options: KyOptions = { 
+        const options: KyOptions = {
             method,
             timeout: 30000, // 30 second timeout
         };
 
-        // Add body for POST, PUT, PATCH requests
-        if (["POST", "PUT", "PATCH"].includes(method) && data.body) {
-            try {
-                // Try to parse as JSON, if it fails, use as string
-                const parsedBody = JSON.parse(data.body);
-                options.json = parsedBody;
-            } catch {
-                // If not valid JSON, send as text
-                options.body = data.body;
+        // Add body and headers for POST, PUT, PATCH requests
+        if (["POST", "PUT", "PATCH"].includes(method)) {
+            options.headers = {
+                "Content-Type": "application/json",
+            };
+
+            if (data.body) {
+                try {
+                    // Try to parse as JSON, if it fails, use as string
+                    const parsedBody = JSON.parse(data.body);
+                    options.json = parsedBody;
+                } catch {
+                    // If not valid JSON, send as text
+                    options.body = data.body;
+                }
             }
         }
 
         try {
             const response = await ky(endpoint, options);
             const contentType = response.headers.get("content-type");
-            const responseData = contentType?.includes("application/json") 
-                ? await response.json() 
+            const responseData = contentType?.includes("application/json")
+                ? await response.json()
                 : await response.text();
 
-            return {
-                ...context,
+            const responsePayload = {
                 httpResponse: {
                     status: response.status,
                     statusText: response.statusText,
                     data: responseData,
                 }
+            }
+
+            return {
+                ...context,
+                [data.variables!]: responsePayload,
             };
         } catch (error: any) {
             // Handle HTTP errors
@@ -64,7 +80,7 @@ export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async (
                 const errorData = contentType?.includes("application/json")
                     ? await error.response.json()
                     : await error.response.text();
-                
+
                 throw new NonRetriableError(
                     `HTTP Request failed: ${error.response.status} ${error.response.statusText}. ${JSON.stringify(errorData)}`
                 );
