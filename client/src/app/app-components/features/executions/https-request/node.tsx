@@ -42,6 +42,8 @@ export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => 
             }
             return node;
         }));
+        // Note: Change detection will pick up this update automatically via the interval check
+        // The save button will become active once changes are detected
     };
 
     return (

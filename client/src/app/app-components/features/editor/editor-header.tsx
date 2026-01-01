@@ -92,13 +92,26 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
                 ? currentNode.data.label 
                 : currentNode.id;
 
+            // Normalize data objects for comparison (sort keys for consistent comparison)
+            const normalizeData = (data: any) => {
+                if (!data || typeof data !== 'object') return data;
+                const sorted = Object.keys(data).sort().reduce((acc, key) => {
+                    acc[key] = data[key];
+                    return acc;
+                }, {} as any);
+                return JSON.stringify(sorted);
+            };
+
+            const currentDataStr = normalizeData(currentNodeData);
+            const savedDataStr = normalizeData(savedNode.data || {});
+
             // Compare node properties
             if (
                 currentNodeName !== savedNode.name ||
                 currentNode.type !== savedNode.type ||
                 Math.abs(currentNode.position.x - savedNode.position.x) > 0.01 ||
                 Math.abs(currentNode.position.y - savedNode.position.y) > 0.01 ||
-                JSON.stringify(currentNodeData) !== JSON.stringify(savedNode.data || {})
+                currentDataStr !== savedDataStr
             ) {
                 setHasChanges(true);
                 return;
@@ -162,8 +175,8 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
         // Initial check
         checkForChanges();
 
-        // Set up interval to check for changes
-        checkIntervalRef.current = setInterval(checkForChanges, 500);
+        // Set up interval to check for changes (check more frequently for better responsiveness)
+        checkIntervalRef.current = setInterval(checkForChanges, 250);
 
         return () => {
             if (checkIntervalRef.current) {

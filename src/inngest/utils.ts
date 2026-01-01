@@ -55,5 +55,6 @@ export const topologicalSort = (nodes: any[], connections: any[]): any[] => {
     (node) => !connectedNodeIds.has(node.id)
   );
 
+  // Return sorted connected nodes first, then unconnected nodes
   return [...sortedNodes, ...unconnectedNodes];
 };

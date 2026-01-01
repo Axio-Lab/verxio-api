@@ -82,7 +82,7 @@ export const HttpRequestDialog = ({
         try {
             await Promise.resolve(onSubmit(values));
             onOpenChange(false);
-            toast.success("HTTP request configured successfully");
+            toast.success("HTTP request configured");
             form.reset();
         } catch (error) {
             // Error handling is done in the parent component
