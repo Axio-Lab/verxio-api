@@ -42,6 +42,7 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
     "inngest": "^3.48.1",
+    "ky": "^1.14.2",
     "morgan": "^1.10.0",
     "pinata": "^2.4.9",
     "prisma-field-encryption": "^1.6.0",

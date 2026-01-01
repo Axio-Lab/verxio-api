@@ -1,6 +1,6 @@
 import { basePrismaClient } from '../lib/prisma';
 import { AppError } from '../middleware/errorHandler';
-const { NodeType } = require('../../node_modules/.prisma/client');
+import { NodeType } from '../lib/node-types';
 
 
 
