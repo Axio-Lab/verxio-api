@@ -31,3 +31,15 @@ export const writeRateLimiter = rateLimit({
   }
 });
 
+// More lenient rate limiter for workflow triggers (allows more frequent execution)
+export const workflowTriggerRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // Allow 10 workflow triggers per minute
+  message: {
+    success: false,
+    error: 'Too many workflow triggers, please try again in a moment.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+

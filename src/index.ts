@@ -99,8 +99,14 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('combined'));
 }
 
-// Rate limiting
-app.use(rateLimiter);
+// Rate limiting (exclude Inngest endpoints as they have their own rate limiting)
+app.use((req, res, next) => {
+  // Skip rate limiting for Inngest endpoints
+  if (req.path.startsWith('/api/inngest')) {
+    return next();
+  }
+  return rateLimiter(req, res, next);
+});
 
 // Inngest endpoint (must be before other routes that might catch it)
 app.use('/api/inngest', serve({ client: inngest, functions }));

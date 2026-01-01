@@ -1,98 +1,108 @@
+import Handlebars from "handlebars";
 import { NonRetriableError } from "inngest";
 import type { NodeExecutor } from "../types";
 import ky, { type Options as KyOptions } from "ky";
 
+Handlebars.registerHelper("json", (context) => JSON.stringify(context, null, 2));
+
 type HttpTriggerData = {
-    variables?: string;
-    endpoint?: string;
-    method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+    variables: string;
+    endpoint: string;
+    method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
     body?: string;
 };
 
-export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async (
-    {
-        data,
-        nodeId,
-        context,
-        step,
-    }) => {
+// Helper to get nested value from context by path (e.g., "testflow.httpResponse.data")
+const getContextValue = (context: Record<string, unknown>, path: string): unknown => {
+    return path.split('.').reduce((obj: any, key) => obj?.[key], context);
+};
 
-    // Validate endpoint is configured
-    if (!data.endpoint) {
-        throw new NonRetriableError("HTTP Request node: no endpoint configured");
+// Helper to process request body with Handlebars templating
+const processRequestBody = (body: string, context: Record<string, unknown>): { json?: any; body?: string } => {
+    const jsonHelperPattern = /\{\{json\s+([^}]+)\}\}/;
+    const match = body.trim().match(jsonHelperPattern);
+    
+    if (match?.[1]) {
+        const value = getContextValue(context, match[1].trim());
+        if (value !== undefined) return { json: value };
     }
-
-    // Validate variables is configured
-    if (!data.variables) {
-        throw new NonRetriableError("Variable name configured");
+    
+    // Compile Handlebars template
+    const compiled = Handlebars.compile(body)(context);
+    
+    // Try to parse as JSON
+    try {
+        return { json: JSON.parse(compiled) };
+    } catch {
+        return { body: compiled };
     }
+};
 
-    const result = await step.run("http-request", async () => {
-        const endpoint = data.endpoint!;
+// Helper to extract response data based on content type
+const extractResponseData = async (response: Response): Promise<unknown> => {
+    const contentType = response.headers.get("content-type");
+    return contentType?.includes("application/json") 
+        ? await response.json() 
+        : await response.text();
+};
+
+// Helper to handle HTTP errors
+const handleHttpError = async (error: any): Promise<never> => {
+    if (error.response) {
+        const errorData = await extractResponseData(error.response);
+        throw new NonRetriableError(
+            `HTTP Request failed: ${error.response.status} ${error.response.statusText}. ${JSON.stringify(errorData)}`
+        );
+    }
+    throw new NonRetriableError(`HTTP Request failed: ${error.message || 'Unknown error'}`);
+};
+
+export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async ({
+    data,
+    nodeId,
+    context,
+    step,
+}) => {
+    // Validate required fields
+    if (!data.endpoint) throw new NonRetriableError("HTTP Endpoint is not configured");
+    if (!data.variables) throw new NonRetriableError("Variable name is required");
+    if (!data.method) throw new NonRetriableError("HTTP Method is not configured");
+
+    return await step.run(`http-request-${nodeId}`, async () => {
+        const endpoint = Handlebars.compile(data.endpoint)(context);
         const method = data.method || "GET";
-
+        
         const options: KyOptions = {
             method,
-            timeout: 30000, // 30 second timeout
+            timeout: 30000,
         };
 
         // Add body and headers for POST, PUT, PATCH requests
         if (["POST", "PUT", "PATCH"].includes(method)) {
-            options.headers = {
-                "Content-Type": "application/json",
-            };
-
+            options.headers = { "Content-Type": "application/json" };
+            
             if (data.body) {
-                try {
-                    // Try to parse as JSON, if it fails, use as string
-                    const parsedBody = JSON.parse(data.body);
-                    options.json = parsedBody;
-                } catch {
-                    // If not valid JSON, send as text
-                    options.body = data.body;
-                }
+                const bodyOptions = processRequestBody(data.body, context);
+                Object.assign(options, bodyOptions);
             }
         }
 
         try {
             const response = await ky(endpoint, options);
-            const contentType = response.headers.get("content-type");
-            const responseData = contentType?.includes("application/json")
-                ? await response.json()
-                : await response.text();
-
-            const responsePayload = {
-                httpResponse: {
-                    status: response.status,
-                    statusText: response.statusText,
-                    data: responseData,
-                }
-            }
+            const responseData = await extractResponseData(response);
 
             return {
                 ...context,
-                [data.variables!]: responsePayload,
+                [data.variables]: {
+                    httpResponse: {
+                        status: response.status,
+                        statusText: response.statusText,
+                        data: responseData,
+                    }
+                }
             };
         } catch (error: any) {
-            // Handle HTTP errors
-            if (error.response) {
-                const contentType = error.response.headers.get("content-type");
-                const errorData = contentType?.includes("application/json")
-                    ? await error.response.json()
-                    : await error.response.text();
-
-                throw new NonRetriableError(
-                    `HTTP Request failed: ${error.response.status} ${error.response.statusText}. ${JSON.stringify(errorData)}`
-                );
-            }
-            throw new NonRetriableError(
-                `HTTP Request failed: ${error.message || 'Unknown error'}`
-            );
+            return handleHttpError(error);
         }
     });
-
-    // Return the result which includes the updated context with httpResponse
-    return result;
-
-
-}
+};

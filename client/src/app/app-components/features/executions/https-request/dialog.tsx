@@ -96,15 +96,16 @@ export const HttpRequestDialog = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle>HTTP Request</DialogTitle>
                     <DialogDescription>
                         Configure settings for the HTTP request node.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8 mt-4">
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
+                        <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
                         <FormField
                             control={form.control}
                             name="variables"
@@ -118,7 +119,7 @@ export const HttpRequestDialog = ({
                                         />
                                     </FormControl>
                                     <FormDescription>
-                                        Use this name to reefernce the result un other nodes: {" "}
+                                        Use this name to reference the result in other nodes: {" "}
                                        { `{"{{${watchVariables}.httpResponse.data}}"}`}
                                     </FormDescription>
                                     <FormMessage />
@@ -199,7 +200,8 @@ export const HttpRequestDialog = ({
                                 )}
                             />
                         )}
-                        <DialogFooter className="mt-4">
+                        </div>
+                        <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting ? (
                                     <>
