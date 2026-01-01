@@ -8,6 +8,7 @@ import { HttpRequestFormValues, HttpRequestDialog } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
 
 type HTTPSRequestNodeData = {
+    variables?: string;
     endpoint?: string;
     method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS";
     body?: string;
