@@ -8,3 +8,5 @@ export const NodeType = {
     WEBHOOK: "WEBHOOK",
     INITIAL: "INITIAL",
 } as const;
+
+export type NodeTypeValue = typeof NodeType[keyof typeof NodeType];

@@ -3,6 +3,7 @@ import * as workflowService from '../services/workflowService';
 import { betterAuthMiddleware } from '../middleware/betterAuth';
 import { AppError } from '../middleware/errorHandler';
 import { inngest } from '../inngest';
+import { workflowTriggerRateLimiter } from '../middleware/rateLimiter';
 
 export const workflowRouter: Router = Router();
 
@@ -402,7 +403,7 @@ workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: N
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.post('/trigger/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.post('/trigger/:id', workflowTriggerRateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;

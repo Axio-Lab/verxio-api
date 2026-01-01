@@ -4,17 +4,34 @@ import { useTriggerWorkflow } from "@/hooks/useWorkflows";
 import { useAtomValue } from "jotai";
 import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
 import { toast } from "sonner";
+import { useRef, useCallback } from "react";
 
 export const ExecuteWorkflowButton = ({ workflowId }: {
     workflowId: string
 }) => {
     const triggerWorkflow = useTriggerWorkflow();
     const hasUnsavedChanges = useAtomValue(hasUnsavedChangesAtom);
+    const lastClickTimeRef = useRef<number>(0);
+    const DEBOUNCE_MS = 2000; // 2 seconds debounce
 
-    const handleExecuteWorkflow = async () => {
+    const handleExecuteWorkflow = useCallback(async () => {
         // Check for unsaved changes before executing
         if (hasUnsavedChanges) {
             toast.error("Please save your workflow before executing");
+            return;
+        }
+
+        // Debounce: prevent multiple rapid clicks
+        const now = Date.now();
+        const timeSinceLastClick = now - lastClickTimeRef.current;
+        if (timeSinceLastClick < DEBOUNCE_MS) {
+            toast.info("Please wait a moment before executing again");
+            return;
+        }
+        lastClickTimeRef.current = now;
+
+        // Prevent execution if already pending
+        if (triggerWorkflow.isPending) {
             return;
         }
 
@@ -26,7 +43,7 @@ export const ExecuteWorkflowButton = ({ workflowId }: {
             // Error is handled by the hook's onError callback
             console.error("Failed to trigger workflow:", error);
         }
-    };
+    }, [workflowId, hasUnsavedChanges, triggerWorkflow]);
 
     return (
         <Button 

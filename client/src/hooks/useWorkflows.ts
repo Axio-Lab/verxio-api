@@ -167,6 +167,13 @@ export function useTriggerWorkflow() {
       const body = data ? { data } : {};
       return authenticatedPost<TriggerWorkflowResponse>(`/workflow/trigger/${id}`, body);
     },
+    // Don't retry on 429 (Too Many Requests) errors
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message.includes('429') || error.message.includes('Too many requests')) {
+        return false;
+      }
+      return failureCount < 2; // Retry up to 2 times for other errors
+    },
     onSuccess: (data) => {
       toast.success(`Workflow "${data.workflowName}" executed`);
     },
