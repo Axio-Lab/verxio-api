@@ -1,4 +1,5 @@
 import toposort from "toposort";
+import { inngest } from "./index";
 
 /**
  * Sorts workflow nodes in topological order based on their connections
@@ -58,3 +59,4 @@ export const topologicalSort = (nodes: any[], connections: any[]): any[] => {
   // Return sorted connected nodes first, then unconnected nodes
   return [...sortedNodes, ...unconnectedNodes];
 };
+

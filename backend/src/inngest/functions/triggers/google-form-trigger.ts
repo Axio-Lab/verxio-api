@@ -40,7 +40,7 @@ export const googleFormTriggerExecutor: NodeExecutor<GoogleFormTriggerData> = as
                 
                 // Make form data available in context for subsequent nodes
                 // Use the variable name from node data, default to "googleForm"
-                const variableName = (data as any)?.variables || "googleForm";
+                const variableName = "googleForm";
                 
                 return {
                     ...context,

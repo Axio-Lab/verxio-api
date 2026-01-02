@@ -13,6 +13,7 @@ import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
 import { dealRouter } from './routes/deal';
 import { workflowRouter } from './routes/workflow';
+import { googleFormRouter } from './routes/triggers/google-form';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
 import { inngest } from './inngest';
@@ -110,6 +111,7 @@ app.use((req, res, next) => {
 
 // Inngest endpoint (must be before other routes that might catch it)
 app.use('/api/inngest', serve({ client: inngest, functions }));
+app.use('/api/webhooks', googleFormRouter);
 
 // API routes
 // app.use('/health', healthRouter);
