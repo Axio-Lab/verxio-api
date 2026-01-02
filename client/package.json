@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "ngrok:dev": "dotenv -e .env -- sh -c 'ngrok http 8080 --url=\"$NGROK_URL\"'",
     "prisma:generate": "prisma generate --schema=../prisma/schema.prisma",
     "postinstall": "prisma generate --schema=../prisma/schema.prisma"
   },
@@ -16,6 +17,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.1",
     "@hookform/resolvers": "^5.2.2",
+    "@inngest/realtime": "^0.4.5",
     "@paralleldrive/cuid2": "^3.0.6",
     "@prisma/client": "^6.17.1",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -85,6 +87,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/trusted-types": "^2.0.7",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "postcss": "^8",

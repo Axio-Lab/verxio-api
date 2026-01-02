@@ -1,10 +1,9 @@
 "use client";
 
 import type { NodeProps } from "@xyflow/react";
-import { MousePointerIcon } from "lucide-react";
 import { BaseTriggerNode } from "./base-trigger-node";
 import { memo, useState } from "react";
-import { ManualTriggerDialog } from "./dialog";
+import { GoogleFormTriggerDialog } from "./dialog";
 import { useNodeStatus } from "../hooks/use-node-status";
 
 
@@ -20,7 +19,7 @@ export const GoogleFormTriggerNode = memo((props: NodeProps) => {
 
     return (
         <>
-          <ManualTriggerDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+          <GoogleFormTriggerDialog open={dialogOpen} onOpenChange={setDialogOpen} />
             <BaseTriggerNode
                 {...props}
                 icon="/logo/googleform.svg"

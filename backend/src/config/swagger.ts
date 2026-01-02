@@ -72,12 +72,21 @@ Required for all workflow endpoints. This header should contain the authenticate
       name: 'Workflows',
       description: 'create, update, and manage workflows',
     },
+    {
+      name: 'Triggers',
+      description: 'webhook endpoints for triggering workflows from external services',
+    },
   ],
 };
 
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
-  apis: ['./src/routes/*.ts', './src/index.ts'],
+  apis: [
+    './src/routes/*.ts',
+    './src/routes/**/*.ts',
+    './src/routes/triggers/*.ts',
+    './src/index.ts'
+  ],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

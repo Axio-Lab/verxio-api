@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../client/node_modules/.prisma/client"
+  output   = "../../client/node_modules/.prisma/client"
 }
 
 generator backendClient {
