@@ -4,7 +4,7 @@ import { betterAuthMiddleware } from '../middleware/betterAuth';
 import { AppError } from '../middleware/errorHandler';
 import { inngest } from '../inngest';
 import { workflowTriggerRateLimiter } from '../middleware/rateLimiter';
-import { getHttpRequestSubscriptionToken } from '../inngest/utils/realtime';
+import { getNodeStatusSubscriptionTokens } from '../inngest/utils/realtime';
 
 export const workflowRouter: Router = Router();
 
@@ -139,10 +139,13 @@ workflowRouter.post('/create', async (req: Request, res: Response, next: NextFun
 // IMPORTANT: This route must come BEFORE /:id route to avoid route conflicts
 workflowRouter.get('/subscription-token', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = await getHttpRequestSubscriptionToken();
+    const tokens = await getNodeStatusSubscriptionTokens();
     res.status(200).json({ 
       success: true, 
-      token 
+      tokens: {
+        httpRequest: tokens.httpRequestToken,
+        manualTrigger: tokens.manualTriggerToken
+      }
     });
   } catch (error) {
     next(error);

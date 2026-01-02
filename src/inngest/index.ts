@@ -3,7 +3,7 @@ import { realtimeMiddleware } from "@inngest/realtime/middleware";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ 
-  id: "verxio-api",
+  id: "verxio",
   middleware: [ realtimeMiddleware() ],
-  ...(process.env.INNGEST_EVENT_KEY && { eventKey: process.env.INNGEST_EVENT_KEY }),
+  // ...(process.env.INNGEST_EVENT_KEY && { eventKey: process.env.INNGEST_EVENT_KEY }),
 });
