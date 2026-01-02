@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePrivy } from "@privy-io/react-auth";
-import VoucherCard from "@/app/components/VoucherCard";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
+import VoucherCard from "@/app/app-components/VoucherCard";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
 import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 import getSymbolFromCurrency from "currency-symbol-map";
 
 export default function AllVouchersPage() {
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const { data: claimedVouchers = [], isLoading: isLoadingVouchers } = useClaimedVouchers(userEmail);
   const redeemVoucherMutation = useRedeemVoucher();
   

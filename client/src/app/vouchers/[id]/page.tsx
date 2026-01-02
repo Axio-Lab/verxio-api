@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import getSymbolFromCurrency from "currency-symbol-map";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
-import ExplorerLink from "@/app/components/ExplorerLink";
-import { usePrivy } from "@privy-io/react-auth";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
+import ExplorerLink from "@/app/app-components/ExplorerLink";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import { useClaimedVouchers, useRedeemVoucher } from "@/hooks/useDeals";
 
 interface VoucherDisplayData {
@@ -42,8 +42,8 @@ interface VoucherDisplayData {
 export default function VoucherDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const voucherId = params.id as string;
   
   const { data: claimedVouchers = [], isLoading } = useClaimedVouchers(userEmail);

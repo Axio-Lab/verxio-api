@@ -1,15 +1,15 @@
 "use client";
 
-import DealCard from "@/app/components/DealCard";
-import SectionHeader from "@/app/components/SectionHeader";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import DealFilters from "@/app/components/DealFilters";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
-import { useDeals as useDealsContext } from "@/app/context/DealContext"; // Only used for searchQuery
+import DealCard from "@/app/app-components/DealCard";
+import SectionHeader from "@/app/app-components/SectionHeader";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import DealFilters from "@/app/app-components/DealFilters";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
+import { useDealSearch } from "@/hooks/useSearchParams";
 import { useDeals } from "@/hooks/useDeals";
 
 export default function ExplorePage() {
-  const { searchQuery, filters } = useDealsContext();
+  const { searchQuery, filters } = useDealSearch();
   const { data: apiDeals = [], isLoading, error } = useDeals();
   
   // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")

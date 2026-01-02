@@ -1,5 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../client/node_modules/.prisma/client"
+}
+
+generator backendClient {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -17,7 +23,7 @@ model VerxioUser {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  // Relations: Links to transactions this user sent or received
+  // Relations:  Links to transactions this user sent or received
   sentTransactions     VerxioTransaction[] @relation("SentTransactions")
   receivedTransactions VerxioTransaction[] @relation("ReceivedTransactions")
   apiKeys              ApiKey[]
@@ -67,15 +73,15 @@ model ApiKey {
 }
 
 model LoyaltyProgram {
-  id                 String   @id @default(cuid())
+  id                 String             @id @default(cuid())
   creator            String
   programPublicKey   String
   /// @encrypted
   programSecretKey   String
   signature          String
-  metadataUri        String?  // Store the metadata URI for reuse when issuing passes
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  metadataUri        String? // Store the metadata URI for reuse when issuing passes
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   authorityPublicKey String
   /// @encrypted
   authoritySecretKey String
@@ -97,15 +103,15 @@ model LoyaltyProgramClaimStatus {
 }
 
 model LoyaltyPass {
-  id                   String   @id @default(cuid())
+  id                    String   @id @default(cuid())
   loyaltyProgramAddress String
-  recipient            String
-  loyaltyPassPublicKey String
+  recipient             String
+  loyaltyPassPublicKey  String
   /// @encrypted
   loyaltyPassPrivateKey String
-  signature            String
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  signature             String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@index([loyaltyProgramAddress])
   @@index([recipient])
@@ -114,20 +120,20 @@ model LoyaltyPass {
 }
 
 model VoucherCollection {
-  id                 String   @id @default(cuid())
-  creator            String
+  id                  String       @id @default(cuid())
+  creator             String
   collectionPublicKey String
   /// @encrypted
   collectionSecretKey String
-  signature          String
-  metadataUri        String?  // Store the metadata URI for reuse when minting vouchers
-  authorityPublicKey String
+  signature           String
+  metadataUri         String? // Store the metadata URI for reuse when minting vouchers
+  authorityPublicKey  String
   /// @encrypted
-  authoritySecretKey String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  vouchers           Voucher[]
-  rewardLinks        RewardLink[]
+  authoritySecretKey  String
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  vouchers            Voucher[]
+  rewardLinks         RewardLink[]
 
   @@index([creator])
   @@index([collectionPublicKey])
@@ -135,7 +141,7 @@ model VoucherCollection {
 }
 
 model Voucher {
-  id                String   @id @default(cuid())
+  id                String            @id @default(cuid())
   collectionId      String
   recipient         String
   voucherPublicKey  String
@@ -143,8 +149,8 @@ model Voucher {
   voucherPrivateKey String
   signature         String
   worth             Float?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   collection        VoucherCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
 
   @@index([collectionId])
@@ -154,13 +160,13 @@ model Voucher {
 }
 
 model RewardLink {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   creatorEmail      String
   creatorAddress    String
   collectionId      String
   collectionAddress String
-  slug              String?  @unique // Deprecated: use claimCode instead
-  claimCode         String?  @unique
+  slug              String?   @unique // Deprecated: use claimCode instead
+  claimCode         String?   @unique
   voucherType       String
   voucherName       String?
   description       String?
@@ -171,14 +177,14 @@ model RewardLink {
   tokenAddress      String?
   maxUses           Int?
   expiryDate        DateTime?
-  transferable      Boolean  @default(false)
+  transferable      Boolean   @default(false)
   conditions        String?
   metadataUri       String?
   merchantId        String?
-  status            String   @default("active")
+  status            String    @default("active")
   voucherAddress    String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   collection VoucherCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
 
@@ -191,20 +197,20 @@ model RewardLink {
 }
 
 model LoyaltyClaimLink {
-  id                  String   @id @default(cuid())
-  creatorEmail        String
-  creatorAddress      String
-  programId           String
-  programAddress      String
-  claimCode           String   @unique
-  passName            String?
-  organizationName    String?
-  description         String?
-  metadataUri         String?
-  status              String   @default("active")
-  loyaltyPassAddress  String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  creatorEmail       String
+  creatorAddress     String
+  programId          String
+  programAddress     String
+  claimCode          String   @unique
+  passName           String?
+  organizationName   String?
+  description        String?
+  metadataUri        String?
+  status             String   @default("active")
+  loyaltyPassAddress String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
 
@@ -217,25 +223,152 @@ model LoyaltyClaimLink {
 }
 
 model Deal {
-  id                 String    @id @default(cuid())
-  creatorEmail       String
-  collectionName     String
-  category           String?
-  tradeable          Boolean   @default(true)
-  quantity           Int
-  quantityRemaining  Int
-  worth              Float?
-  currency           String?
-  country            String?
-  website            String?
-  expiryDate         DateTime?
-  dealType           String?
-  conditions         String?
-  collectionAddress  String
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  creatorEmail      String
+  collectionName    String
+  category          String?
+  tradeable         Boolean   @default(true)
+  quantity          Int
+  quantityRemaining Int
+  worth             Float?
+  currency          String?
+  country           String?
+  website           String?
+  expiryDate        DateTime?
+  dealType          String?
+  conditions        String?
+  collectionAddress String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([creatorEmail])
   @@index([collectionAddress])
   @@map("deals")
+}
+
+// Better Auth Models
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  workflows     Workflow[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+model Workflow {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  nodes       Node[]
+  connections Connection[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("workflows")
+}
+
+enum NodeType {
+  INITIAL
+  MANUAL_TRIGGER
+  HTTP_REQUEST
+  WEBHOOK
+}
+
+model Node {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  name     String
+  type     NodeType
+  position Json
+  data     Json     @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outputConnections Connection[] @relation("FromNode")
+  inputConnections  Connection[] @relation("ToNode")
+
+  @@index([workflowId])
+  @@map("nodes")
+}
+
+model Connection {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  fromNodeId String
+  fromNode   Node   @relation("FromNode", fields: [fromNodeId], references: [id], onDelete: Cascade)
+
+  toNodeId String
+  toNode   Node   @relation("ToNode", fields: [toNodeId], references: [id], onDelete: Cascade)
+
+  fromOutput String @default("main")
+  toInput    String @default("main")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fromNodeId, toNodeId, fromOutput, toInput])
+  @@index([workflowId])
+  @@index([fromNodeId])
+  @@index([toNodeId])
+  @@map("connections")
 }

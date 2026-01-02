@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePrivy } from "@privy-io/react-auth";
-import CollectionCard from "@/app/components/CollectionCard";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { VerxioLoader } from "@/app/components/VerxioLoader";
+import { useAuthWithVerxioUser } from "@/hooks/useAuth";
+import CollectionCard from "@/app/app-components/CollectionCard";
+import ProtectedRoute from "@/app/app-components/ProtectedRoute";
+import { VerxioLoader } from "@/app/app-components/VerxioLoader";
 import { useDealsByUser } from "@/hooks/useDeals";
 
 export default function AllDealsPage() {
-  const { user } = usePrivy();
-  const userEmail = user?.email?.address;
+  const { user } = useAuthWithVerxioUser();
+  const userEmail = user?.email;
   const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
   
   // Pagination state

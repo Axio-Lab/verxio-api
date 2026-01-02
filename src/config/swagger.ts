@@ -32,7 +32,16 @@ X-API-Key: your-api-key-here
         
 Only required for POST /user/issue-verxio endpoint.`,
       },
+      BetterAuth: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-User-Email',
+        description: `Better Auth authentication via user email header.
+        
+Required for all workflow endpoints. This header should contain the authenticated user's email address from Better Auth session.`,
+      },
     },
+    schemas: {},
   },
   tags: [
     // {
@@ -58,6 +67,10 @@ Only required for POST /user/issue-verxio endpoint.`,
     {
       name: 'Deals',
       description: 'create and manage deals (voucher collections with batch claim links)',
+    },
+    {
+      name: 'Workflows',
+      description: 'create, update, and manage workflows',
     },
   ],
 };

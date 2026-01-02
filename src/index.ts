@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
+import { serve } from 'inngest/express';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { rateLimiter } from './middleware/rateLimiter';
@@ -11,8 +12,11 @@ import { userRouter } from './routes/user';
 import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
 import { dealRouter } from './routes/deal';
+import { workflowRouter } from './routes/workflow';
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from './config/swagger';
+import { inngest } from './inngest';
+import { functions } from './inngest/functions';
 
 // Load environment variables
 dotenv.config();
@@ -79,6 +83,7 @@ app.use(cors({
     'Authorization', 
     'X-Requested-With',
     'X-API-Key',
+    'X-User-Email', 
     'Accept'
   ]
 }));
@@ -97,12 +102,16 @@ if (process.env.NODE_ENV !== 'production') {
 // Rate limiting
 app.use(rateLimiter);
 
+// Inngest endpoint (must be before other routes that might catch it)
+app.use('/api/inngest', serve({ client: inngest, functions }));
+
 // API routes
 // app.use('/health', healthRouter);
 app.use('/user', userRouter);
 app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
 app.use('/deal', dealRouter);
+app.use('/workflow', workflowRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)
