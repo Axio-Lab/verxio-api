@@ -1,7 +1,7 @@
 import { NodeTypes } from "@xyflow/react";
 import { useState } from "react";
 import { InitialNode } from "@/app/app-components/features/editor/initial-node";
-import { ManualTriggerNode } from "@/app/app-components/features/executions/trigger/node";
+import { ManualTriggerNode } from "@/app/app-components/features/executions/manual-trigger/node";
 import { HttpRequestNode } from "@/app/app-components/features/executions/https-request/node";
 import { WebhookNode } from "@/app/app-components/features/executions/webhook/node";
 import { Button } from "@/components/ui/button";
