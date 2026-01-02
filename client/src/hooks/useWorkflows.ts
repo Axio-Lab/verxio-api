@@ -174,9 +174,9 @@ export function useTriggerWorkflow() {
       }
       return failureCount < 2; // Retry up to 2 times for other errors
     },
-    onSuccess: (data) => {
-      toast.success(`Workflow "${data.workflowName}" executed`);
-    },
+    // onSuccess: (data) => {
+    //   toast.success(`Workflow "${data.workflowName}" executed`);
+    // },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to execute workflow";
       toast.error(errorMessage);

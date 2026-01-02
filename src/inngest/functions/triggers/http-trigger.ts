@@ -2,6 +2,7 @@ import Handlebars from "handlebars";
 import { NonRetriableError } from "inngest";
 import type { NodeExecutor } from "../types";
 import ky, { type Options as KyOptions } from "ky";
+import { httpRequestChannel } from "@/inngest/channels/http-request";
 
 Handlebars.registerHelper("json", (context) => JSON.stringify(context, null, 2));
 
@@ -57,52 +58,109 @@ const handleHttpError = async (error: any): Promise<never> => {
     throw new NonRetriableError(`HTTP Request failed: ${error.message || 'Unknown error'}`);
 };
 
+// Helper to publish status updates
+const publishStatus = async (
+    publish: any,
+    nodeId: string,
+    status: "loading" | "error" | "success"
+) => {
+    await publish(
+        httpRequestChannel().status({
+            nodeId,
+            status,
+        })
+    );
+};
+
+// Helper to validate and publish error if invalid
+const validateAndPublishError = async (
+    publish: any,
+    nodeId: string,
+    condition: boolean,
+    errorMessage: string
+) => {
+    if (condition) {
+        await publishStatus(publish, nodeId, "error");
+        throw new NonRetriableError(errorMessage);
+    }
+};
+
 export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async ({
     data,
     nodeId,
     context,
     step,
+    publish,
 }) => {
-    // Validate required fields
-    if (!data.endpoint) throw new NonRetriableError("HTTP Endpoint is not configured");
-    if (!data.variables) throw new NonRetriableError("Variable name is required");
-    if (!data.method) throw new NonRetriableError("HTTP Method is not configured");
-
-    return await step.run(`http-request-${nodeId}`, async () => {
-        const endpoint = Handlebars.compile(data.endpoint)(context);
-        const method = data.method || "GET";
+    try {
+        // Publish loading status
+        await publishStatus(publish, nodeId, "loading");
         
-        const options: KyOptions = {
-            method,
-            timeout: 30000,
-        };
+        // Validate required fields
+        await validateAndPublishError(
+            publish,
+            nodeId,
+            !data.endpoint,
+            "HTTP Endpoint is not configured"
+        );
+        await validateAndPublishError(
+            publish,
+            nodeId,
+            !data.variables,
+            "Variable name is required"
+        );
+        await validateAndPublishError(
+            publish,
+            nodeId,
+            !data.method,
+            "HTTP Method is not configured"
+        );
 
-        // Add body and headers for POST, PUT, PATCH requests
-        if (["POST", "PUT", "PATCH"].includes(method)) {
-            options.headers = { "Content-Type": "application/json" };
+        return await step.run(`http-request-${nodeId}`, async () => {
+            const endpoint = Handlebars.compile(data.endpoint)(context);
+            const method = data.method || "GET";
             
-            if (data.body) {
-                const bodyOptions = processRequestBody(data.body, context);
-                Object.assign(options, bodyOptions);
-            }
-        }
-
-        try {
-            const response = await ky(endpoint, options);
-            const responseData = await extractResponseData(response);
-
-            return {
-                ...context,
-                [data.variables]: {
-                    httpResponse: {
-                        status: response.status,
-                        statusText: response.statusText,
-                        data: responseData,
-                    }
-                }
+            const options: KyOptions = {
+                method,
+                timeout: 30000,
             };
-        } catch (error: any) {
-            return handleHttpError(error);
-        }
-    });
+
+            // Add body and headers for POST, PUT, PATCH requests
+            if (["POST", "PUT", "PATCH"].includes(method)) {
+                options.headers = { "Content-Type": "application/json" };
+                
+                if (data.body) {
+                    const bodyOptions = processRequestBody(data.body, context);
+                    Object.assign(options, bodyOptions);
+                }
+            }
+
+            try {
+                const response = await ky(endpoint, options);
+                const responseData = await extractResponseData(response);
+
+                const result = {
+                    ...context,
+                    [data.variables]: {
+                        httpResponse: {
+                            status: response.status,
+                            statusText: response.statusText,
+                            data: responseData,
+                        }
+                    }
+                };
+
+                // Publish success status before returning
+                await publishStatus(publish, nodeId, "success");
+                
+                return result;
+            } catch (error: any) {
+                await publishStatus(publish, nodeId, "error");
+                return handleHttpError(error);
+            }
+        });
+    } catch (error) {
+        // If validation fails, error status is already published
+        throw error;
+    }
 };

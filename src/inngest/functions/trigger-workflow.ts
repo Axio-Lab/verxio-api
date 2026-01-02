@@ -3,6 +3,7 @@ import { getWorkflow } from "../../services/workflowService";
 import { NonRetriableError } from "inngest";
 import { topologicalSort } from "../utils";
 import { getExecutor } from "./executor-registry";
+import { httpRequestChannel } from "../channels/http-request";
 
 /**
  * Inngest function to trigger workflow execution
@@ -19,8 +20,12 @@ import { getExecutor } from "./executor-registry";
  */
 export const triggerWorkflow = inngest.createFunction(
   { id: "trigger-workflow" },
-  { event: "workflow/trigger" },
-  async ({ event, step }) => {
+  { event: "workflow/trigger" ,
+    channels: [
+      httpRequestChannel()
+    ],
+  },
+  async ({ event, step, publish }) => {
     const { workflowId, userId } = event.data;
 
     // Validate required fields
@@ -82,7 +87,8 @@ export const triggerWorkflow = inngest.createFunction(
         data: node.data as Record<string, unknown>,
         nodeId: node.id,
         context,
-        step
+        step,
+        publish,
       });
     }
 
