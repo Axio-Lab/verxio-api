@@ -7,6 +7,7 @@ export const NodeType = {
     HTTP_REQUEST: "HTTP_REQUEST",
     WEBHOOK: "WEBHOOK",
     INITIAL: "INITIAL",
+    GOOGLE_FORM_TRIGGER: "GOOGLE_FORM_TRIGGER",
 } as const;
 
 export type NodeTypeValue = typeof NodeType[keyof typeof NodeType];

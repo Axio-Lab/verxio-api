@@ -2,7 +2,7 @@
 
 import type { Realtime } from "@inngest/realtime";
 import { useInngestSubscription } from "@inngest/realtime/hooks";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { NodeStatus } from "@/components/node-status-indicator";
 import { authenticatedGet } from "@/lib/api-client";
 
@@ -26,97 +26,106 @@ const mapInngestStatusToNodeStatus = (inngestStatus: string): NodeStatus => {
 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     const [status, setStatus] = useState<NodeStatus>("initial");
-    const [tokensCache, setTokensCache] = useState<{
-        httpRequest: Realtime.Subscribe.Token | null;
-        manualTrigger: Realtime.Subscribe.Token | null;
-    }>({ httpRequest: null, manualTrigger: null });
+    const [tokens, setTokens] = useState<Record<string, Realtime.Subscribe.Token>>({});
+    const [channelNames, setChannelNames] = useState<string[]>([]);
 
-    // Fetch subscription tokens from backend (both HTTP request and manual trigger)
-    // Cache them to avoid multiple API calls
+    // Fetch all subscription tokens from backend
     const fetchTokens = async () => {
-        if (tokensCache.httpRequest && tokensCache.manualTrigger) {
-            return tokensCache;
-        }
         const response = await authenticatedGet<{ 
             success: boolean; 
-            tokens: {
-                httpRequest: Realtime.Subscribe.Token;
-                manualTrigger: Realtime.Subscribe.Token;
-            }
-        }>(
-            "/workflow/subscription-token"
-        );
-        setTokensCache(response.tokens);
+            tokens: Record<string, Realtime.Subscribe.Token>;
+            channelNames: Record<string, string>;
+        }>("/workflow/subscription-token");
+        
+        setTokens(response.tokens);
+        setChannelNames(Object.values(response.channelNames));
+        
         return response.tokens;
     };
 
-    const refreshHttpRequestToken = async (): Promise<Realtime.Subscribe.Token> => {
-        const tokens = await fetchTokens();
-        if (!tokens.httpRequest) {
-            throw new Error("Failed to fetch HTTP request subscription token");
+    // Create refresh token function for a specific channel
+    const createRefreshToken = (channelKey: string) => async (): Promise<Realtime.Subscribe.Token> => {
+        const response = await authenticatedGet<{ 
+            success: boolean; 
+            tokens: Record<string, Realtime.Subscribe.Token>;
+            channelNames: Record<string, string>;
+        }>("/workflow/subscription-token");
+        
+        const token = response.tokens[channelKey];
+        if (!token) {
+            throw new Error(`Token not found for channel: ${channelKey}`);
         }
-        return tokens.httpRequest;
+        return token;
     };
 
-    const refreshManualTriggerToken = async (): Promise<Realtime.Subscribe.Token> => {
-        const tokens = await fetchTokens();
-        if (!tokens.manualTrigger) {
-            throw new Error("Failed to fetch manual trigger subscription token");
-        }
-        return tokens.manualTrigger;
-    };
-
-    // Subscribe to both channels
-    const { data: httpRequestData } = useInngestSubscription({
-        refreshToken: refreshHttpRequestToken,
-        enabled: true
-    });
-
-    const { data: manualTriggerData } = useInngestSubscription({
-        refreshToken: refreshManualTriggerToken,
-        enabled: true
-    });
-
-    // Merge data from both subscriptions
-    const data = [
-        ...(httpRequestData || []),
-        ...(manualTriggerData || [])
-    ];
-
+    // Initialize tokens on mount
     useEffect(() => {
-        if (!data?.length) {
+        fetchTokens();
+    }, []);
+
+    // Subscribe to all 4 known channels
+    // Enable immediately - refreshToken will fetch tokens when needed
+    const httpRequestSub = useInngestSubscription({
+        refreshToken: createRefreshToken("httpRequest"),
+        enabled: true
+    });
+
+    const manualTriggerSub = useInngestSubscription({
+        refreshToken: createRefreshToken("manualTrigger"),
+        enabled: true
+    });
+
+    const webhookSub = useInngestSubscription({
+        refreshToken: createRefreshToken("webhook"),
+        enabled: true
+    });
+
+    const googleFormSub = useInngestSubscription({
+        refreshToken: createRefreshToken("googleFormTrigger"),
+        enabled: true
+    });
+
+    // Merge all messages from all subscriptions
+    const allMessages = useMemo(() => {
+        return [
+            ...(httpRequestSub.data || []),
+            ...(manualTriggerSub.data || []),
+            ...(webhookSub.data || []),
+            ...(googleFormSub.data || [])
+        ];
+    }, [httpRequestSub.data, manualTriggerSub.data, webhookSub.data, googleFormSub.data]);
+
+    // Filter and update status for this specific node
+    useEffect(() => {
+        if (!allMessages.length || !channelNames.length) {
             return;
         }
 
-        // Find messages for this specific node from both HTTP request and manual trigger channels
-        const nodeMessages = data.filter(
-            (msg) => msg.kind === "data" &&
-                (msg.channel === "http-request-execution" || msg.channel === "manual-trigger-execution") &&
-                msg.topic === "status" &&
-                msg.data?.nodeId === nodeId
-        );
+        // Filter messages for this node
+        const nodeMessages = allMessages.filter((msg): msg is Extract<typeof msg, { kind: "data" }> => {
+            if (msg.kind !== "data") return false;
+            if (msg.topic !== "status") return false;
+            if (!channelNames.includes(msg.channel)) return false;
+            if (msg.data?.nodeId !== nodeId) return false;
+            return true;
+        });
 
         if (nodeMessages.length === 0) {
             return;
         }
 
-        // Get the latest message (most recent by createdAt)
-        const latestMessage = nodeMessages.sort((a, b) => {
-            if (a.kind === "data" && b.kind === "data") {
-                return (
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                );
-            }
-            return 0;
-        })[0];
+        // Get latest message
+        const latest = nodeMessages.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
 
-        // Update status only if we have a valid message with status
-        if (latestMessage?.kind === "data" && latestMessage.data?.status) {
-            const mappedStatus = mapInngestStatusToNodeStatus(latestMessage.data.status);
-            setStatus(mappedStatus);
+        if (latest?.data?.status) {
+            const newStatus = mapInngestStatusToNodeStatus(latest.data.status);
+            if (newStatus !== status) {
+                setStatus(newStatus);
+            }
         }
-    }, [data, nodeId]);
+    }, [allMessages, nodeId, channelNames, status]);
 
     return status;
 }
-

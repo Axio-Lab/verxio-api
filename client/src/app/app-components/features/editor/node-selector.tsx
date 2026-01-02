@@ -38,9 +38,15 @@ interface NodeSelectorProps {
 const triggerNodes: NodeTypeOption[] = [
     {
         type: NodeType.MANUAL_TRIGGER,
-        label: "Trigger",
+        label: "Manual Trigger",
         description: "Runs the workflow on clicking a button. Good for getting started quickly.",
         icon: MousePointerIcon,
+    },
+    {
+        type: NodeType.GOOGLE_FORM_TRIGGER,
+        label: "Google Form Trigger",
+        description: "Triggers the workflow when a Google Form is submitted.",
+        icon: "/logo/googleform.svg",
     },
 ];
 
@@ -57,6 +63,7 @@ const executionNodes: NodeTypeOption[] = [
         description: "Receive HTTP requests from external services",
         icon: WebhookIcon,
     },
+    
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
@@ -83,6 +90,28 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
                 id: createId(),
                 data: {},
                 type: NodeType.MANUAL_TRIGGER,
+                position: flowPosition,
+            };
+
+            if (hasInitialTrigger) {
+                setNodes([newNode]);
+            } else {
+                setNodes((nodes) => [...nodes, newNode]);
+            }
+            onOpenChange(false);
+        } else if (selection.type === NodeType.GOOGLE_FORM_TRIGGER) {
+            const hasGoogleFormTrigger = nodes.some((node) => node.type === NodeType.GOOGLE_FORM_TRIGGER)
+            if (hasGoogleFormTrigger) {
+                toast.error("Only one Google Form trigger is allowed per workflow")
+                return;
+            }
+            const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+            const newNode = {
+                id: createId(),
+                data: {
+                    label: "Google Form Trigger",
+                },
+                type: NodeType.GOOGLE_FORM_TRIGGER,
                 position: flowPosition,
             };
 

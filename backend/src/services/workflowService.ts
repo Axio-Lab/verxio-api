@@ -202,7 +202,7 @@ export const getWorkflows = async (
 };
 
 /**
- * Get a single workflow by ID
+ * Get a single workflow by ID (with user validation)
  */
 export const getWorkflow = async (
   id: string,
@@ -220,6 +220,33 @@ export const getWorkflow = async (
     where: {
       id,
       userId, // Ensure user owns the workflow
+    },
+    include: {
+      nodes: true,
+      connections: true,
+    },
+  });
+
+  if (!workflow) {
+    throw new AppError('Workflow not found', 404);
+  }
+
+  return transformWorkflow(workflow);
+};
+
+/**
+ * Get a single workflow by ID (without user validation - for public endpoints like webhooks)
+ */
+export const getWorkflowById = async (
+  id: string
+): Promise<WorkflowResponse> => {
+  if (!id) {
+    throw new AppError('Workflow ID is required', 400);
+  }
+
+  const workflow = await prismaClient.workflow.findFirst({
+    where: {
+      id,
     },
     include: {
       nodes: true,

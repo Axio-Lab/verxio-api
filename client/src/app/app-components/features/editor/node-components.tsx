@@ -9,6 +9,7 @@ import { PlusIcon } from "lucide-react";
 import { memo } from "react";
 import { NodeType } from "./node-types";
 import { NodeSelector } from "./node-selector";
+import { GoogleFormTriggerNode } from "@/app/app-components/features/executions/google-form-trigger/node";
 
 
 export const NodeComponents = {
@@ -16,6 +17,7 @@ export const NodeComponents = {
   [NodeType.MANUAL_TRIGGER]: ManualTriggerNode,
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
+  [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;
