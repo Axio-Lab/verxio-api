@@ -1,15 +1,18 @@
 import { NodeExecutor } from "./types";
 import { manualTriggerExecutor } from "./triggers/manual-trigger";
 import { httpTriggerExecutor } from "./triggers/http-trigger";
+import { webhookTriggerExecutor } from "./triggers/webhook-trigger";
+import { googleFormTriggerExecutor } from "./triggers/google-form-trigger";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
 // Note: We cast specific executors to base NodeExecutor type to allow different generic types
 export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.MANUAL_TRIGGER]: manualTriggerExecutor,
+  [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
   [NodeType.INITIAL]: async () => ({}),
   [NodeType.HTTP_REQUEST]: httpTriggerExecutor as NodeExecutor,
-  [NodeType.WEBHOOK]: httpTriggerExecutor as NodeExecutor,
+  [NodeType.WEBHOOK]: webhookTriggerExecutor as NodeExecutor,
 };
 
 /**

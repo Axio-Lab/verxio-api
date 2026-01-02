@@ -5,6 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import { inngest } from '../inngest';
 import { workflowTriggerRateLimiter } from '../middleware/rateLimiter';
 import { getNodeStatusSubscriptionTokens } from '../inngest/utils/realtime';
+import { channelNameMap } from '../inngest/channels';
 
 export const workflowRouter: Router = Router();
 
@@ -136,16 +137,116 @@ workflowRouter.post('/create', async (req: Request, res: Response, next: NextFun
  *       401:
  *         description: Unauthorized
  */
+/**
+ * @swagger
+ * /workflow/webhook/{workflowId}/{nodeId}:
+ *   post:
+ *     summary: Trigger workflow execution via webhook (public endpoint)
+ *     tags: [Workflows]
+ *     parameters:
+ *       - in: path
+ *         name: workflowId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Workflow ID
+ *       - in: path
+ *         name: nodeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Webhook node ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Webhook payload data
+ *     responses:
+ *       200:
+ *         description: Webhook received and workflow triggered
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Invalid webhook secret
+ *       404:
+ *         description: Workflow or node not found
+ */
+// Webhook endpoint - public endpoint that external services can call
+// IMPORTANT: This route must come BEFORE /:id route to avoid route conflicts
+workflowRouter.post('/webhook/:workflowId/:nodeId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { workflowId, nodeId } = req.params;
+    const webhookPayload = req.body;
+    const webhookHeaders = req.headers;
+
+    if (!workflowId) {
+      return res.status(400).json({ error: 'workflowId is required' });
+    }
+
+    if (!nodeId) {
+      return res.status(400).json({ error: 'nodeId is required' });
+    }
+
+    // Get workflow without user validation (webhooks are public)
+    const workflow = await workflowService.getWorkflowById(workflowId);
+    
+    // Verify the node exists and is a webhook node
+    const webhookNode = workflow.nodes.find((node: any) => node.id === nodeId && node.type === 'WEBHOOK');
+    if (!webhookNode) {
+      return res.status(404).json({ error: 'Webhook node not found' });
+    }
+
+    // Optional: Verify webhook secret if configured
+    const nodeData = webhookNode.data || {};
+    if (nodeData.secret) {
+      const providedSecret = req.headers['x-webhook-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+      if (providedSecret !== nodeData.secret) {
+        return res.status(401).json({ error: 'Invalid webhook secret' });
+      }
+    }
+
+    // Send event to Inngest to trigger workflow execution with webhook data
+    await inngest.send({
+      name: "workflow/trigger",
+      data: {
+        workflowId,
+        userId: workflow.userId,
+        data: {
+          webhookPayload,
+          webhookHeaders: {
+            'content-type': webhookHeaders['content-type'],
+            'user-agent': webhookHeaders['user-agent'],
+            'x-forwarded-for': webhookHeaders['x-forwarded-for'],
+          },
+          webhookNodeId: nodeId,
+        },
+      },
+    });
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Webhook received and workflow triggered',
+      workflowId,
+    });
+  } catch (error: any) {
+    if (error.statusCode === 404 || error.message?.includes('not found')) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+    next(error);
+  }
+});
+
 // IMPORTANT: This route must come BEFORE /:id route to avoid route conflicts
 workflowRouter.get('/subscription-token', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tokens = await getNodeStatusSubscriptionTokens();
+    // Return tokens with channel name mapping for client-side filtering
     res.status(200).json({ 
       success: true, 
-      tokens: {
-        httpRequest: tokens.httpRequestToken,
-        manualTrigger: tokens.manualTriggerToken
-      }
+      tokens,
+      channelNames: channelNameMap
     });
   } catch (error) {
     next(error);

@@ -4,11 +4,12 @@ import type { NodeProps } from "@xyflow/react";
 import { WebhookIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { BaseExecutionNode } from "../https-request/base-execution-node";
-import { WebhookDialog } from "./dialog";
+import { WebhookDialog, WebhookFormValues } from "./dialog";
+import { useReactFlow } from "@xyflow/react";
+import { useNodeStatus } from "../hooks/use-node-status";
 
 type WebhookNodeData = {
-    endpoint?: string;
-    method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+    variables?: string;
     secret?: string;
     label?: string;
     [key: string]: unknown;
@@ -17,19 +18,47 @@ type WebhookNodeData = {
 export const WebhookNode = memo((props: NodeProps) => {
     const { data } = props;
     const [dialogOpen, setDialogOpen] = useState(false);
+    const { setNodes } = useReactFlow();
+    const nodeStatus = useNodeStatus({
+        nodeId: props.id,
+    });
     const nodeData = (data || {}) as WebhookNodeData;
-    const nodeStatus = "initial";
-    const description = nodeData?.endpoint 
-        ? `${nodeData.method || "POST"} ${nodeData.endpoint}`
+    
+    // Webhook description shows if it's configured (has secret) or not
+    const description = nodeData?.secret
+        ? "Webhook configured"
         : "Not configured";
     
     const handleOpenSettings = () => {
         setDialogOpen(true);
     }
 
+    const handleSubmit = (values: WebhookFormValues) => {
+        setNodes((nodes) => nodes.map((node) => {
+            if (node.id === props.id) {
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        ...values,
+                    }
+                };
+            }
+            return node;
+        }));
+        // Note: Change detection will pick up this update automatically via the interval check
+        // The save button will become active once changes are detected
+    };
+
     return (
         <>
-            <WebhookDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+            <WebhookDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                onSubmit={handleSubmit}
+                defaultValues={nodeData}
+                nodeId={props.id}
+            />
             <BaseExecutionNode
                 {...props}
                 icon={WebhookIcon}

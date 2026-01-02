@@ -3,8 +3,7 @@ import { getWorkflow } from "../../services/workflowService";
 import { NonRetriableError } from "inngest";
 import { topologicalSort } from "../utils";
 import { getExecutor } from "./executor-registry";
-import { httpRequestChannel } from "../channels/http-request";
-import { manualTriggerChannel } from "../channels/manual-trigger";
+import { nodeStatusChannels } from "../channels";
 
 /**
  * Inngest function to trigger workflow execution
@@ -22,10 +21,7 @@ import { manualTriggerChannel } from "../channels/manual-trigger";
 export const triggerWorkflow = inngest.createFunction(
   { id: "trigger-workflow" },
   { event: "workflow/trigger" ,
-    channels: [
-      httpRequestChannel(),
-      manualTriggerChannel()
-    ],
+    channels: Object.values(nodeStatusChannels).map(channel => channel()),
   },
   async ({ event, step, publish }) => {
     const { workflowId, userId } = event.data;
