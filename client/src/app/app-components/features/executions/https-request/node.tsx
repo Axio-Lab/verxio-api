@@ -6,6 +6,7 @@ import { memo, useState } from "react";
 import { BaseExecutionNode } from "./base-execution-node";
 import { HttpRequestFormValues, HttpRequestDialog } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
+import { useNodeStatus } from "../hooks/use-node-status";
 
 type HTTPSRequestNodeData = {
     variables?: string;
@@ -21,8 +22,10 @@ export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => 
     const { data } = props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const { setNodes } = useReactFlow();
+    const nodeStatus = useNodeStatus({
+        nodeId: props.id,
+    });
     const nodeData = data;
-    const nodeStatus = "initial";
     const description = nodeData?.endpoint
         ? `${nodeData.method || "GET"}: ${nodeData.endpoint}`
         : "Not configured";

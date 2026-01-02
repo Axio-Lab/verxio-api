@@ -4,6 +4,7 @@ import { betterAuthMiddleware } from '../middleware/betterAuth';
 import { AppError } from '../middleware/errorHandler';
 import { inngest } from '../inngest';
 import { workflowTriggerRateLimiter } from '../middleware/rateLimiter';
+import { getHttpRequestSubscriptionToken } from '../inngest/utils/realtime';
 
 export const workflowRouter: Router = Router();
 
@@ -116,6 +117,33 @@ workflowRouter.post('/create', async (req: Request, res: Response, next: NextFun
     });
 
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /workflow/subscription-token:
+ *   get:
+ *     summary: Get Inngest realtime subscription token for node status updates
+ *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription token generated successfully
+ *       401:
+ *         description: Unauthorized
+ */
+// IMPORTANT: This route must come BEFORE /:id route to avoid route conflicts
+workflowRouter.get('/subscription-token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = await getHttpRequestSubscriptionToken();
+    res.status(200).json({ 
+      success: true, 
+      token 
+    });
   } catch (error) {
     next(error);
   }
@@ -393,6 +421,41 @@ workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: N
  *                 description: Optional data to pass to the workflow execution
  *                 example:
  *                   payload: "example data"
+ *     responses:
+ *       200:
+ *         description: Workflow trigger event sent successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Workflow not found
+ *       401:
+ *         description: Unauthorized
+ */
+/**
+ * @swagger
+ * /workflow/trigger/{id}:
+ *   post:
+ *     summary: Trigger workflow execution
+ *     tags: [Workflows]
+ *     security:
+ *       - BetterAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Workflow ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 description: Optional initial data to pass to workflow
  *     responses:
  *       200:
  *         description: Workflow trigger event sent successfully
