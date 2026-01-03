@@ -328,6 +328,7 @@ enum NodeType {
   HTTP_REQUEST
   WEBHOOK
   GOOGLE_FORM_TRIGGER
+  STRIPE_TRIGGER
 }
 
 model Node {

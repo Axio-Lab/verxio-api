@@ -10,6 +10,7 @@ import { memo } from "react";
 import { NodeType } from "./node-types";
 import { NodeSelector } from "./node-selector";
 import { GoogleFormTriggerNode } from "@/app/app-components/features/executions/google-form-trigger/node";
+import { StripeTriggerNode } from "@/app/app-components/features/executions/stripe-trigger/node";
 
 
 export const NodeComponents = {
@@ -18,6 +19,7 @@ export const NodeComponents = {
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
   [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
+  [NodeType.STRIPE_TRIGGER]: StripeTriggerNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;
