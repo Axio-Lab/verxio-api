@@ -329,6 +329,9 @@ enum NodeType {
   WEBHOOK
   GOOGLE_FORM_TRIGGER
   STRIPE_TRIGGER
+  ANTHROPIC
+  GEMINI
+  OPENAI
 }
 
 model Node {

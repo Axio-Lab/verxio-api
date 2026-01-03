@@ -7,6 +7,9 @@ import { manualTriggerChannel } from "./manual-trigger";
 import { webhookChannel } from "./webhook";
 import { googleFormTriggerChannel } from "./google-form-trigger";
 import { stripeTriggerChannel } from "./stripe-trigger";
+import { openaiChannel } from "./openai";
+import { anthropicChannel } from "./anthropic";
+import { geminiChannel } from "./gemini";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -14,6 +17,9 @@ export const nodeStatusChannels = {
   webhook: webhookChannel,
   googleFormTrigger: googleFormTriggerChannel,
   stripeTrigger: stripeTriggerChannel,
+  openai: openaiChannel,
+  anthropic: anthropicChannel,
+  gemini: geminiChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -25,5 +31,8 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   webhook: "webhook-execution",
   googleFormTrigger: "google-form-trigger-execution",
   stripeTrigger: "stripe-trigger-execution",
+  openai: "openai-execution",
+  anthropic: "anthropic-execution",
+  gemini: "gemini-execution",
 };
 
