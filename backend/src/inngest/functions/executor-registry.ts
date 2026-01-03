@@ -3,6 +3,7 @@ import { manualTriggerExecutor } from "./triggers/manual-trigger";
 import { httpTriggerExecutor } from "./triggers/http-trigger";
 import { webhookTriggerExecutor } from "./triggers/webhook-trigger";
 import { googleFormTriggerExecutor } from "./triggers/google-form-trigger";
+import { stripeTriggerExecutor } from "./triggers/stripe-trigger";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -10,6 +11,7 @@ import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.MANUAL_TRIGGER]: manualTriggerExecutor,
   [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
+  [NodeType.STRIPE_TRIGGER]: stripeTriggerExecutor as NodeExecutor,
   [NodeType.INITIAL]: async () => ({}),
   [NodeType.HTTP_REQUEST]: httpTriggerExecutor as NodeExecutor,
   [NodeType.WEBHOOK]: webhookTriggerExecutor as NodeExecutor,

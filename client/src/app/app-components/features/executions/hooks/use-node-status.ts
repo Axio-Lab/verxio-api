@@ -26,8 +26,6 @@ const mapInngestStatusToNodeStatus = (inngestStatus: string): NodeStatus => {
 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     const [status, setStatus] = useState<NodeStatus>("initial");
-    const [tokens, setTokens] = useState<Record<string, Realtime.Subscribe.Token>>({});
-    const [channelNames, setChannelNames] = useState<string[]>([]);
 
     // Fetch all subscription tokens from backend
     const fetchTokens = async () => {
@@ -36,9 +34,6 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
             tokens: Record<string, Realtime.Subscribe.Token>;
             channelNames: Record<string, string>;
         }>("/workflow/subscription-token");
-        
-        setTokens(response.tokens);
-        setChannelNames(Object.values(response.channelNames));
         
         return response.tokens;
     };
@@ -85,27 +80,35 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
         enabled: true
     });
 
+    const stripeTriggerSub = useInngestSubscription({
+        refreshToken: createRefreshToken("stripeTrigger"),
+        enabled: true
+    });
+
     // Merge all messages from all subscriptions
     const allMessages = useMemo(() => {
         return [
             ...(httpRequestSub.data || []),
             ...(manualTriggerSub.data || []),
             ...(webhookSub.data || []),
-            ...(googleFormSub.data || [])
+            ...(googleFormSub.data || []),
+            ...(stripeTriggerSub.data || [])
         ];
-    }, [httpRequestSub.data, manualTriggerSub.data, webhookSub.data, googleFormSub.data]);
+    }, [httpRequestSub.data, manualTriggerSub.data, webhookSub.data, googleFormSub.data, stripeTriggerSub.data]);
 
     // Filter and update status for this specific node
     useEffect(() => {
-        if (!allMessages.length || !channelNames.length) {
+        if (!allMessages.length) {
             return;
         }
 
         // Filter messages for this node
+        // We check nodeId first, then verify it's a status message
+        // This ensures we catch all messages for this node regardless of channel
         const nodeMessages = allMessages.filter((msg): msg is Extract<typeof msg, { kind: "data" }> => {
             if (msg.kind !== "data") return false;
             if (msg.topic !== "status") return false;
-            if (!channelNames.includes(msg.channel)) return false;
+            // Check if this message is for our node
             if (msg.data?.nodeId !== nodeId) return false;
             return true;
         });
@@ -114,18 +117,17 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
             return;
         }
 
-        // Get latest message
+        // Get latest message (most recent first)
         const latest = nodeMessages.sort((a, b) => 
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )[0];
 
         if (latest?.data?.status) {
             const newStatus = mapInngestStatusToNodeStatus(latest.data.status);
-            if (newStatus !== status) {
-                setStatus(newStatus);
-            }
+            // Always update status, even if it's the same (to handle rapid updates)
+            setStatus(newStatus);
         }
-    }, [allMessages, nodeId, channelNames, status]);
+    }, [allMessages, nodeId]);
 
     return status;
 }

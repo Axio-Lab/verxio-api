@@ -6,12 +6,14 @@ import { httpRequestChannel } from "./http-request";
 import { manualTriggerChannel } from "./manual-trigger";
 import { webhookChannel } from "./webhook";
 import { googleFormTriggerChannel } from "./google-form-trigger";
+import { stripeTriggerChannel } from "./stripe-trigger";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
   manualTrigger: manualTriggerChannel,
   webhook: webhookChannel,
   googleFormTrigger: googleFormTriggerChannel,
+  stripeTrigger: stripeTriggerChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -22,5 +24,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   manualTrigger: "manual-trigger-execution",
   webhook: "webhook-execution",
   googleFormTrigger: "google-form-trigger-execution",
+  stripeTrigger: "stripe-trigger-execution",
 };
 

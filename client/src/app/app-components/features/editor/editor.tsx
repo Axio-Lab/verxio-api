@@ -89,6 +89,9 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
       target: conn.target,
       sourceHandle: conn.sourceHandle,
       targetHandle: conn.targetHandle,
+      // Keep edges deletable and selectable but use default styling
+      deletable: true,
+      selectable: true,
     }));
   }, [workflow?.connections]);
 
@@ -182,13 +185,26 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     [],
   );
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
+    (changes: EdgeChange[]) => {
+      setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot));
+    },
     [],
   );
+  
   const onConnect = useCallback(
-    (params: Connection) => setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
+    (params: Connection) => {
+      // Create edge with default ReactFlow styling but keep it deletable
+      const newEdge: Edge = {
+        ...params,
+        id: `edge-${params.source}-${params.target}-${Date.now()}`,
+        deletable: true,
+        selectable: true,
+      };
+      setEdges((edgesSnapshot) => addEdge(newEdge as Connection, edgesSnapshot));
+    },
     [],
   );
+  
 
   // Check if we have a manual trigger node (must be before early returns to follow Rules of Hooks)
   const hasManualTriggerNode = useMemo(() => {
@@ -224,6 +240,11 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         selectionOnDrag
         panOnDrag={false}
         proOptions={{ hideAttribution: true }}
+        // Default edge options - only set deletable/selectable, keep default styling
+        defaultEdgeOptions={{
+          deletable: true,
+          selectable: true,
+        }}
         >
           <Background />
           <Controls />

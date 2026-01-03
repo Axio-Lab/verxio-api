@@ -48,6 +48,12 @@ const triggerNodes: NodeTypeOption[] = [
         description: "Triggers the workflow when a Google Form is submitted.",
         icon: "/logo/googleform.svg",
     },
+    {
+        type: NodeType.STRIPE_TRIGGER,
+        label: "Stripe Trigger",
+        description: "Triggers the workflow when a Stripe webhook event occurs (e.g., payment_intent.succeeded).",
+        icon: "/logo/stripe.svg",
+    },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -112,6 +118,28 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
                     label: "Google Form Trigger",
                 },
                 type: NodeType.GOOGLE_FORM_TRIGGER,
+                position: flowPosition,
+            };
+
+            if (hasInitialTrigger) {
+                setNodes([newNode]);
+            } else {
+                setNodes((nodes) => [...nodes, newNode]);
+            }
+            onOpenChange(false);
+        } else if (selection.type === NodeType.STRIPE_TRIGGER) {
+            const hasStripeTrigger = nodes.some((node) => node.type === NodeType.STRIPE_TRIGGER)
+            if (hasStripeTrigger) {
+                toast.error("Only one Stripe trigger is allowed per workflow")
+                return;
+            }
+            const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+            const newNode = {
+                id: createId(),
+                data: {
+                    label: "Stripe Trigger",
+                },
+                type: NodeType.STRIPE_TRIGGER,
                 position: flowPosition,
             };
 

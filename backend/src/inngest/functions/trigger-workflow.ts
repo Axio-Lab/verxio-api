@@ -38,8 +38,67 @@ export const triggerWorkflow = inngest.createFunction(
     // Fetch workflow with nodes and connections, then sort nodes in topological order
     const workflow = await step.run("prepare-workflow", async () => {
       const workflow = await getWorkflow(workflowId, userId);
-      // Sort nodes in topological order (dependencies first)
-      const sortedNodes = topologicalSort(workflow.nodes, workflow.connections);
+      
+      // Find the trigger node (the node that starts the workflow execution)
+      // This is the node specified in the event data, or the first trigger node found
+      const triggerNodeId = event.data.data?.googleFormNodeId || 
+                           event.data.data?.stripeNodeId || 
+                           event.data.data?.webhookNodeId ||
+                           null;
+      
+      let triggerNode = null;
+      if (triggerNodeId) {
+        triggerNode = workflow.nodes.find((n: any) => n.id === triggerNodeId);
+      }
+      
+      // If no specific trigger node, find the first trigger node (MANUAL_TRIGGER, GOOGLE_FORM_TRIGGER, STRIPE_TRIGGER, WEBHOOK)
+      if (!triggerNode) {
+        triggerNode = workflow.nodes.find((n: any) => 
+          n.type === 'MANUAL_TRIGGER' || 
+          n.type === 'GOOGLE_FORM_TRIGGER' || 
+          n.type === 'STRIPE_TRIGGER' ||
+          n.type === 'WEBHOOK'
+        );
+      }
+      
+      if (!triggerNode) {
+        throw new NonRetriableError("No trigger node found in workflow");
+      }
+      
+      // Find all nodes reachable from the trigger node (only connected nodes)
+      const reachableNodeIds = new Set<string>([triggerNode.id]);
+      const connections = workflow.connections || [];
+      
+      // Build adjacency list for graph traversal
+      const adjacencyList = new Map<string, string[]>();
+      for (const conn of connections) {
+        if (!adjacencyList.has(conn.source)) {
+          adjacencyList.set(conn.source, []);
+        }
+        adjacencyList.get(conn.source)!.push(conn.target);
+      }
+      
+      // BFS to find all reachable nodes from trigger
+      const queue = [triggerNode.id];
+      while (queue.length > 0) {
+        const currentNodeId = queue.shift()!;
+        const neighbors = adjacencyList.get(currentNodeId) || [];
+        for (const neighborId of neighbors) {
+          if (!reachableNodeIds.has(neighborId)) {
+            reachableNodeIds.add(neighborId);
+            queue.push(neighborId);
+          }
+        }
+      }
+      
+      // Filter nodes to only include reachable ones
+      const connectedNodes = workflow.nodes.filter((node: any) => 
+        reachableNodeIds.has(node.id)
+      );
+      
+      // Sort connected nodes in topological order (dependencies first)
+      const sortedNodes = topologicalSort(connectedNodes, connections);
+      
       return {
         ...workflow,
         nodes: sortedNodes,
