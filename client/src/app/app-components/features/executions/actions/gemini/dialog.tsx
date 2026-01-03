@@ -131,8 +131,9 @@ export const GeminiDialog = ({
                                             />
                                         </FormControl>
                                         <FormDescription>
-                                            Use this name to reference the result: {" "}
-                                            {`{"{{${watchVariables}.response}}"}`}
+                                            Use this name to reference the result in other nodes:
+                                            <br />
+                                            <code>{`{"{{${watchVariables}.text}}"}`}</code>
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -182,7 +183,8 @@ export const GeminiDialog = ({
                                             />
                                         </FormControl>
                                         <FormDescription>
-                                            Sets the behavior of the assistant. Use {"{{variables}}"} for simple values or 
+                                            Sets the behavior of the assistant. 
+                                            Use {"{{variables}}"} for simple values or 
                                             {`{"{{{jsonVariables}.response}}"}`} to stringify objects.
                                         </FormDescription>
                                         <FormMessage />

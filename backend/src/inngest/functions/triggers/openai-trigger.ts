@@ -91,7 +91,7 @@ export const openaiTriggerExecutor: NodeExecutor<OpenAITriggerData> = async (
             return {
                 ...context,
                 [data.variablesName]: {
-                    aiResponse: text,
+                    text,
                 },
             };
         } catch (error) {

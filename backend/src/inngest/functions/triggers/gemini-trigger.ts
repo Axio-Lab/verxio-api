@@ -88,7 +88,7 @@ export const geminiTriggerExecutor: NodeExecutor<GeminiTriggerData> = async (
             return {
                 ...context,
                 [variablesName]: {
-                    aiResponse: text,
+                    text,
                 },
             };
         } catch (error) {
