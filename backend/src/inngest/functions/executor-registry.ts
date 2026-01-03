@@ -4,6 +4,9 @@ import { httpTriggerExecutor } from "./triggers/http-trigger";
 import { webhookTriggerExecutor } from "./triggers/webhook-trigger";
 import { googleFormTriggerExecutor } from "./triggers/google-form-trigger";
 import { stripeTriggerExecutor } from "./triggers/stripe-trigger";
+import { openaiTriggerExecutor } from "./triggers/openai-trigger";
+import { anthropicTriggerExecutor } from "./triggers/anthropic-trigger";
+import { geminiTriggerExecutor } from "./triggers/gemini-trigger";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -15,6 +18,9 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.INITIAL]: async () => ({}),
   [NodeType.HTTP_REQUEST]: httpTriggerExecutor as NodeExecutor,
   [NodeType.WEBHOOK]: webhookTriggerExecutor as NodeExecutor,
+  [NodeType.OPENAI]: openaiTriggerExecutor as NodeExecutor,
+  [NodeType.ANTHROPIC]: anthropicTriggerExecutor as NodeExecutor,
+  [NodeType.GEMINI]: geminiTriggerExecutor as NodeExecutor,
 };
 
 /**

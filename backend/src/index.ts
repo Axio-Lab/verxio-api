@@ -101,10 +101,14 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('combined'));
 }
 
-// Rate limiting (exclude Inngest endpoints as they have their own rate limiting)
+// Rate limiting (exclude Inngest endpoints and subscription token endpoint as they have their own rate limiting)
 app.use((req, res, next) => {
   // Skip rate limiting for Inngest endpoints
   if (req.path.startsWith('/api/inngest')) {
+    return next();
+  }
+  // Skip rate limiting for subscription token endpoint (needed for real-time updates, lightweight read operation)
+  if (req.path === '/workflow/subscription-token') {
     return next();
   }
   return rateLimiter(req, res, next);

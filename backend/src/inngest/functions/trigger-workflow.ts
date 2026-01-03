@@ -61,6 +61,9 @@ export const triggerWorkflow = inngest.createFunction(
         );
       }
       
+      // AI nodes (OPENAI, ANTHROPIC, GEMINI) are execution nodes, not triggers
+      // They should not be used as workflow triggers
+      
       if (!triggerNode) {
         throw new NonRetriableError("No trigger node found in workflow");
       }
