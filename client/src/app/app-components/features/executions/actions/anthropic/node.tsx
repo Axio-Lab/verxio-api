@@ -1,39 +1,40 @@
 "use client";
 
 import type { NodeProps } from "@xyflow/react";
-import { WebhookIcon } from "lucide-react";
 import { memo, useState } from "react";
-import { BaseExecutionNode } from "../actions/https-request/base-execution-node";
-import { WebhookDialog, WebhookFormValues } from "./dialog";
+import { BaseExecutionNode } from "./base-execution-node";
+import { AnthropicFormValues, AnthropicDialog } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
-import { useNodeStatus } from "../hooks/use-node-status";
+import { useNodeStatus } from "@/app/app-components/features/executions/hooks/use-node-status";
+import { ANTHROPIC_MODEL_VALUES } from "./dialog";
 
-type WebhookNodeData = {
+type AnthropicNodeData = {
     variables?: string;
-    secret?: string;
+    model?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
     label?: string;
     [key: string]: unknown;
-}
+};
 
-export const WebhookNode = memo((props: NodeProps) => {
+export const AnthropicNode = memo((props: NodeProps) => {
     const { data } = props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const { setNodes } = useReactFlow();
     const nodeStatus = useNodeStatus({
         nodeId: props.id,
     });
-    const nodeData = (data || {}) as WebhookNodeData;
+    const nodeData = (data || {}) as AnthropicNodeData;
     
-    // Webhook description shows if it's configured (has secret) or not
-    const description = nodeData?.secret
-        ? "Webhook configured"
+    const description = nodeData?.userPrompt
+        ? `${nodeData.model || ANTHROPIC_MODEL_VALUES[0]}: ${nodeData.userPrompt.substring(0, 50)}...`
         : "Not configured";
-    
+
     const handleOpenSettings = () => {
         setDialogOpen(true);
-    }
+    };
 
-    const handleSubmit = (values: WebhookFormValues) => {
+    const handleSubmit = (values: AnthropicFormValues) => {
         setNodes((nodes) => nodes.map((node) => {
             if (node.id === props.id) {
                 return {
@@ -41,38 +42,34 @@ export const WebhookNode = memo((props: NodeProps) => {
                     data: {
                         ...node.data,
                         ...values,
-                    }
+                    },
                 };
             }
             return node;
         }));
-        // Note: Change detection will pick up this update automatically via the interval check
-        // The save button will become active once changes are detected
     };
 
     return (
         <>
-            <WebhookDialog
+            <AnthropicDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 onSubmit={handleSubmit}
                 defaultValues={nodeData}
-                nodeId={props.id}
             />
             <BaseExecutionNode
                 {...props}
-                icon={WebhookIcon}
-                name="Webhook"
+                icon="/logo/anthropic.svg"
+                name="Anthropic"
                 description={description}
                 status={nodeStatus}
                 onSettings={handleOpenSettings}
                 onDoubleClick={handleOpenSettings}
-                iconColor="!text-purple-600 dark:!text-purple-400"
-                handleColor="!border-purple-500 !bg-purple-500"
+                iconColor="!text-green-600 dark:!text-green-400"
+                handleColor="!border-green-500 !bg-green-500"
             />
         </>
     );
 });
 
-WebhookNode.displayName = "WebhookNode";
-
+AnthropicNode.displayName = "AnthropicNode";

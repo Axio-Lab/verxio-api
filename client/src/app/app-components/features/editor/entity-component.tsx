@@ -206,110 +206,47 @@ export const EntityPagination = ({
         return null;
     }
 
-    // Calculate page range to show
-    const getPageNumbers = () => {
-        const pages: (number | "ellipsis")[] = [];
-        const maxVisible = 5; // Show max 5 page numbers
-
-        if (totalPages <= maxVisible) {
-            // Show all pages if total is less than max
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
-        } else {
-            // Always show first page
-            pages.push(1);
-
-            if (currentPage <= 3) {
-                // Show first 4 pages and ellipsis
-                for (let i = 2; i <= 4; i++) {
-                    pages.push(i);
-                }
-                pages.push("ellipsis");
-                pages.push(totalPages);
-            } else if (currentPage >= totalPages - 2) {
-                // Show ellipsis and last 4 pages
-                pages.push("ellipsis");
-                for (let i = totalPages - 3; i <= totalPages; i++) {
-                    pages.push(i);
-                }
-            } else {
-                // Show ellipsis, current page range, and ellipsis
-                pages.push("ellipsis");
-                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                    pages.push(i);
-                }
-                pages.push("ellipsis");
-                pages.push(totalPages);
-            }
-        }
-
-        return pages;
-    };
-
-    const pageNumbers = getPageNumbers();
-
     return (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-            {showInfo && (
-                <div className="text-sm text-textSecondary">
-                    Page <span className="font-semibold text-textPrimary">{currentPage}</span> of{" "}
-                    <span className="font-semibold text-textPrimary">{totalPages}</span>
-                </div>
-            )}
-            <div className="flex items-center justify-center gap-2">
-                <button
-                    onClick={() => {
-                        if (currentPage > 1) {
-                            onPageChange(currentPage - 1);
-                        }
-                    }}
-                    disabled={currentPage === 1}
-                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                    {pageNumbers.map((page, index) => {
-                        if (page === "ellipsis") {
-                            return (
-                                <span
-                                    key={`ellipsis-${index}`}
-                                    className="flex h-9 w-9 items-center justify-center text-textSecondary"
-                                >
-                                    ...
-                                </span>
-                            );
-                        }
-
-                        return (
-                            <button
-                                key={page}
-                                onClick={() => onPageChange(page)}
-                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${currentPage === page
-                                    ? "bg-primary text-white"
-                                    : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
-                                    }`}
-                            >
-                                {page}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <button
-                    onClick={() => {
-                        if (currentPage < totalPages) {
-                            onPageChange(currentPage + 1);
-                        }
-                    }}
-                    disabled={currentPage === totalPages}
-                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    Next
-                </button>
+        <div className="flex items-center justify-center gap-2 mt-6">
+            <button
+                onClick={() => {
+                    if (currentPage > 1) {
+                        onPageChange(currentPage - 1);
+                    }
+                }}
+                disabled={currentPage === 1}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                        key={page}
+                        onClick={() => onPageChange(page)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                            currentPage === page
+                                ? "bg-primary text-white"
+                                : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+                        }`}
+                    >
+                        {page}
+                    </button>
+                ))}
             </div>
+            
+            <button
+                onClick={() => {
+                    if (currentPage < totalPages) {
+                        onPageChange(currentPage + 1);
+                    }
+                }}
+                disabled={currentPage === totalPages}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                Next
+            </button>
         </div>
     );
 };
