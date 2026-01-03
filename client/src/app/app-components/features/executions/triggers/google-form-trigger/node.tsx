@@ -4,7 +4,7 @@ import type { NodeProps } from "@xyflow/react";
 import { BaseTriggerNode } from "./base-trigger-node";
 import { memo, useState } from "react";
 import { GoogleFormTriggerDialog } from "./dialog";
-import { useNodeStatus } from "../hooks/use-node-status";
+import { useNodeStatus } from "../../hooks/use-node-status";
 
 
 export const GoogleFormTriggerNode = memo((props: NodeProps) => {

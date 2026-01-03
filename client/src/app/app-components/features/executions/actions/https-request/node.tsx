@@ -1,39 +1,39 @@
 "use client";
 
-import type { NodeProps } from "@xyflow/react";
-import { WebhookIcon } from "lucide-react";
+import type { NodeProps, Node } from "@xyflow/react";
+import { GlobeIcon } from "lucide-react";
 import { memo, useState } from "react";
-import { BaseExecutionNode } from "../actions/https-request/base-execution-node";
-import { WebhookDialog, WebhookFormValues } from "./dialog";
+import { BaseExecutionNode } from "./base-execution-node";
+import { HttpRequestFormValues, HttpRequestDialog } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
-import { useNodeStatus } from "../hooks/use-node-status";
+import { useNodeStatus } from "../../hooks/use-node-status";
 
-type WebhookNodeData = {
+type HTTPSRequestNodeData = {
     variables?: string;
-    secret?: string;
+    endpoint?: string;
+    method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS";
+    body?: string;
     label?: string;
-    [key: string]: unknown;
 }
 
-export const WebhookNode = memo((props: NodeProps) => {
+type HTTPSRequestNodeType = Node<HTTPSRequestNodeData>;
+
+export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => {
     const { data } = props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const { setNodes } = useReactFlow();
     const nodeStatus = useNodeStatus({
         nodeId: props.id,
     });
-    const nodeData = (data || {}) as WebhookNodeData;
-    
-    // Webhook description shows if it's configured (has secret) or not
-    const description = nodeData?.secret
-        ? "Webhook configured"
+    const nodeData = data;
+    const description = nodeData?.endpoint
+        ? `${nodeData.method || "GET"}: ${nodeData.endpoint}`
         : "Not configured";
-    
+
     const handleOpenSettings = () => {
         setDialogOpen(true);
     }
-
-    const handleSubmit = (values: WebhookFormValues) => {
+    const handleSubmit = (values: HttpRequestFormValues) => {
         setNodes((nodes) => nodes.map((node) => {
             if (node.id === props.id) {
                 return {
@@ -52,27 +52,25 @@ export const WebhookNode = memo((props: NodeProps) => {
 
     return (
         <>
-            <WebhookDialog
+            <HttpRequestDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 onSubmit={handleSubmit}
                 defaultValues={nodeData}
-                nodeId={props.id}
             />
             <BaseExecutionNode
                 {...props}
-                icon={WebhookIcon}
-                name="Webhook"
+                icon={GlobeIcon}
+                name={"HTTP Request"}
                 description={description}
-                status={nodeStatus}
                 onSettings={handleOpenSettings}
+                status={nodeStatus}
                 onDoubleClick={handleOpenSettings}
-                iconColor="!text-purple-600 dark:!text-purple-400"
-                handleColor="!border-purple-500 !bg-purple-500"
+                iconColor="!text-green-600 dark:!text-green-400"
+                handleColor="!border-green-500 !bg-green-500"
             />
         </>
     );
 });
 
-WebhookNode.displayName = "WebhookNode";
-
+HttpRequestNode.displayName = "HttpRequestNode";

@@ -6,6 +6,9 @@ export const NodeType = {
   WEBHOOK: 'WEBHOOK',
   GOOGLE_FORM_TRIGGER: 'GOOGLE_FORM_TRIGGER',
   STRIPE_TRIGGER: 'STRIPE_TRIGGER',
+  ANTHROPIC: 'ANTHROPIC',
+  GEMINI: 'GEMINI',
+  OPENAI: 'OPENAI',
 } as const;
 
 export type NodeTypeValue = typeof NodeType[keyof typeof NodeType];

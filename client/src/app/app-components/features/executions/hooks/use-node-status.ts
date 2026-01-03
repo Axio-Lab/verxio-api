@@ -24,39 +24,53 @@ const mapInngestStatusToNodeStatus = (inngestStatus: string): NodeStatus => {
     }
 };
 
+// Shared token cache to avoid redundant requests
+let tokenCache: {
+    tokens: Record<string, Realtime.Subscribe.Token> | null;
+    timestamp: number;
+} = {
+    tokens: null,
+    timestamp: 0,
+};
+
+const TOKEN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Fetch all subscription tokens from backend (with caching)
+const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> => {
+    const now = Date.now();
+    
+    // Return cached tokens if still valid
+    if (tokenCache.tokens && (now - tokenCache.timestamp) < TOKEN_CACHE_TTL) {
+        return tokenCache.tokens;
+    }
+    
+    const response = await authenticatedGet<{ 
+        success: boolean; 
+        tokens: Record<string, Realtime.Subscribe.Token>;
+        channelNames: Record<string, string>;
+    }>("/workflow/subscription-token");
+    
+    // Update cache
+    tokenCache = {
+        tokens: response.tokens,
+        timestamp: now,
+    };
+    
+    return response.tokens;
+};
+
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     const [status, setStatus] = useState<NodeStatus>("initial");
 
-    // Fetch all subscription tokens from backend
-    const fetchTokens = async () => {
-        const response = await authenticatedGet<{ 
-            success: boolean; 
-            tokens: Record<string, Realtime.Subscribe.Token>;
-            channelNames: Record<string, string>;
-        }>("/workflow/subscription-token");
-        
-        return response.tokens;
-    };
-
-    // Create refresh token function for a specific channel
+    // Create refresh token function for a specific channel (uses shared cache)
     const createRefreshToken = (channelKey: string) => async (): Promise<Realtime.Subscribe.Token> => {
-        const response = await authenticatedGet<{ 
-            success: boolean; 
-            tokens: Record<string, Realtime.Subscribe.Token>;
-            channelNames: Record<string, string>;
-        }>("/workflow/subscription-token");
-        
-        const token = response.tokens[channelKey];
+        const tokens = await fetchTokens();
+        const token = tokens[channelKey];
         if (!token) {
             throw new Error(`Token not found for channel: ${channelKey}`);
         }
         return token;
     };
-
-    // Initialize tokens on mount
-    useEffect(() => {
-        fetchTokens();
-    }, []);
 
     // Subscribe to all 4 known channels
     // Enable immediately - refreshToken will fetch tokens when needed
@@ -85,6 +99,21 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
         enabled: true
     });
 
+    const openaiSub = useInngestSubscription({
+        refreshToken: createRefreshToken("openai"),
+        enabled: true
+    });
+
+    const anthropicSub = useInngestSubscription({
+        refreshToken: createRefreshToken("anthropic"),
+        enabled: true
+    });
+
+    const geminiSub = useInngestSubscription({
+        refreshToken: createRefreshToken("gemini"),
+        enabled: true
+    });
+
     // Merge all messages from all subscriptions
     const allMessages = useMemo(() => {
         return [
@@ -92,9 +121,12 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
             ...(manualTriggerSub.data || []),
             ...(webhookSub.data || []),
             ...(googleFormSub.data || []),
-            ...(stripeTriggerSub.data || [])
+            ...(stripeTriggerSub.data || []),
+            ...(openaiSub.data || []),
+            ...(anthropicSub.data || []),
+            ...(geminiSub.data || [])
         ];
-    }, [httpRequestSub.data, manualTriggerSub.data, webhookSub.data, googleFormSub.data, stripeTriggerSub.data]);
+    }, [httpRequestSub.data, manualTriggerSub.data, webhookSub.data, googleFormSub.data, stripeTriggerSub.data, openaiSub.data, anthropicSub.data, geminiSub.data]);
 
     // Filter and update status for this specific node
     useEffect(() => {
