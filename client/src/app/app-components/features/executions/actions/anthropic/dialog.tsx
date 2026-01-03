@@ -125,8 +125,9 @@ export const AnthropicDialog = ({
                                             />
                                         </FormControl>
                                         <FormDescription>
-                                            Use this name to reference the result: {" "}
-                                            {`{"{{${watchVariables}.response}}"}`}
+                                            Use this name to reference the result in other nodes:
+                                            <br />
+                                            <code>{`{"{{${watchVariables}.text}}"}`}</code>
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

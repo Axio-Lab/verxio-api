@@ -91,7 +91,7 @@ export const anthropicTriggerExecutor: NodeExecutor<AnthropicTriggerData> = asyn
             return {
                 ...context,
                 [data.variablesName]: {
-                    aiResponse: text,
+                    text,
                 },
             };
         } catch (error) {

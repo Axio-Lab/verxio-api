@@ -36,7 +36,34 @@ import { useEffect } from "react";
 const formSchema = z.object({
     variables: z.string().min(1, { message: "Variable name is required" })
     .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, { message: "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores" }),
-    endpoint: z.string().url({ message: "Please enter a valid URL" }),
+    endpoint: z.string()
+        .min(1, { message: "Endpoint URL is required" })
+        .refine((val) => {
+            // Allow Handlebars templates - check if it contains {{ or }}
+            if (val.includes("{{") || val.includes("}}")) {
+                // If the entire value is a template (starts with {{), allow it
+                if (val.trim().startsWith("{{")) {
+                    return true;
+                }
+                // If it has templates, validate the base URL part (before first {)
+                const baseUrl = val.split("{{")[0].trim();
+                if (!baseUrl) return false; // Must have at least some base URL
+                try {
+                    new URL(baseUrl);
+                    return true;
+                } catch {
+                    // If base URL is not complete, check if it starts with http:// or https://
+                    return baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+                }
+            }
+            // If no templates, validate as normal URL
+            try {
+                new URL(val);
+                return true;
+            } catch {
+                return false;
+            }
+        }, { message: "Please enter a valid URL (templates like {{variable}} are allowed)" }),
     method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]),
     body: z.string().optional()
     // .refine(),
