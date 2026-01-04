@@ -27,20 +27,15 @@ export function UnsavedChangesDialog({
         <DialogHeader>
           <DialogTitle>Unsaved Changes</DialogTitle>
           <DialogDescription>
-            You have unsaved changes to your workflow. If you leave now, you will lose all unsaved progress.
+            You have unsaved changes to your workflow. If you leave now, you will lose all unsaved
+            progress.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={onContinue}
-            variant="default"
-          >
+          <Button onClick={onContinue} variant="default">
             Continue
           </Button>
         </DialogFooter>
@@ -48,4 +43,3 @@ export function UnsavedChangesDialog({
     </Dialog>
   );
 }
-

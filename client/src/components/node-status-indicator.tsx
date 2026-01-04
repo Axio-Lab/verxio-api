@@ -14,11 +14,7 @@ export type NodeStatusIndicatorProps = {
   className?: string;
 };
 
-export const SpinnerLoadingIndicator = ({
-  children,
-}: {
-  children: ReactNode;
-}) => {
+export const SpinnerLoadingIndicator = ({ children }: { children: ReactNode }) => {
   return (
     <div className="relative">
       <StatusBorder className="border-blue-700/40">{children}</StatusBorder>
@@ -69,19 +65,13 @@ export const BorderLoadingIndicator = ({
   );
 };
 
-const StatusBorder = ({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) => {
+const StatusBorder = ({ children, className }: { children: ReactNode; className?: string }) => {
   return (
     <div className="relative">
-      <div 
+      <div
         className={cn(
           "absolute -top-[1px] -left-[1px] h-[calc(100%+2px)] w-[calc(100%+2px)] rounded-sm border",
-          className,
+          className
         )}
       />
       {children}
@@ -110,7 +100,9 @@ export const NodeStatusIndicator = ({
         <StatusBorder className={cn("!border-green-700/50", className)}>{children}</StatusBorder>
       );
     case "error":
-      return <StatusBorder className={cn("!border-red-700/50", className)}>{children}</StatusBorder>;
+      return (
+        <StatusBorder className={cn("!border-red-700/50", className)}>{children}</StatusBorder>
+      );
     default:
       return <>{children}</>;
   }

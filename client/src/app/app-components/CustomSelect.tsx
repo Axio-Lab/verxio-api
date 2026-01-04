@@ -86,10 +86,7 @@ export default function CustomSelect({
               autoFocus
             />
           </div>
-          <div
-            className="overflow-y-auto"
-            style={{ maxHeight }}
-          >
+          <div className="overflow-y-auto" style={{ maxHeight }}>
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <button

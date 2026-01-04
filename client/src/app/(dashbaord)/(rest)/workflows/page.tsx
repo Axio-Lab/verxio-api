@@ -6,9 +6,7 @@ import { WorkflowsContent } from "./workflows-content-client";
 
 const WorkflowsPage = () => {
   return (
-    <ErrorBoundary
-      FallbackComponent={WorkflowsErrorBoundaryFallback}
-    >
+    <ErrorBoundary FallbackComponent={WorkflowsErrorBoundaryFallback}>
       <Suspense fallback={<WorkflowsLoadingView />}>
         <WorkflowsContent />
       </Suspense>

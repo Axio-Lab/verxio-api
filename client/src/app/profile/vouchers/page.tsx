@@ -12,9 +12,10 @@ import getSymbolFromCurrency from "currency-symbol-map";
 export default function AllVouchersPage() {
   const { user } = useAuthWithVerxioUser();
   const userEmail = user?.email;
-  const { data: claimedVouchers = [], isLoading: isLoadingVouchers } = useClaimedVouchers(userEmail);
+  const { data: claimedVouchers = [], isLoading: isLoadingVouchers } =
+    useClaimedVouchers(userEmail);
   const redeemVoucherMutation = useRedeemVoucher();
-  
+
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [redemptionAmount, setRedemptionAmount] = useState<number>(0);
   const [selectedVoucher, setSelectedVoucher] = useState<{
@@ -23,62 +24,68 @@ export default function AllVouchersPage() {
     currency?: string;
     merchantId?: string;
   } | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const vouchersPerPage = 12;
 
   // Map API vouchers to VoucherCard format and sort by most recent claim (only when not loading)
-  const allVouchers = !isLoadingVouchers ? claimedVouchers
-    .map((voucher) => {
-      const voucherDetails = voucher.voucherDetails as {
-        merchantId?: string;
-        name?: string;
-        expiryDate?: number;
-        remainingWorth?: number | null;
-        status?: string;
-        currentUses?: number | null;
-        maxUses?: number | null;
-        canRedeem?: boolean;
-      } | undefined;
-      const merchantId = voucherDetails?.merchantId;
-      const voucherName = voucherDetails?.name || voucher.collectionName || "Unknown Voucher";
-      return {
-        voucherName: typeof voucherName === 'string' ? voucherName : "Unknown Voucher",
-        merchantId: typeof merchantId === 'string' ? merchantId : "Unknown Merchant",
-        category: voucher.category || "Voucher",
-        expiry: voucherDetails?.expiryDate
-          ? new Date(voucherDetails.expiryDate).toLocaleDateString()
-          : "N/A",
-        country: voucher.country,
-        remainingWorth: typeof voucherDetails?.remainingWorth === 'number' 
-          ? voucherDetails.remainingWorth 
-          : (voucherDetails?.remainingWorth === null ? null : undefined),
-        currency: voucher.currency,
-        tradeable: voucher.tradeable,
-        status: voucherDetails?.status,
-        currentUses: voucherDetails?.currentUses,
-        maxUses: voucherDetails?.maxUses,
-        canRedeem: voucherDetails?.canRedeem,
-        voucherId: voucher.voucherAddress, // For navigation
-        voucherAddress: voucher.voucherAddress, // For explorer link
-        claimedAt: voucher.claimedAt, // Keep for sorting
-      };
-    })
-    .sort((a, b) => {
-      // Sort by most recent claim first (newest first)
-      const dateA = new Date(a.claimedAt).getTime();
-      const dateB = new Date(b.claimedAt).getTime();
-      return dateB - dateA; // Descending order (newest first)
-    })
-    .map((voucher) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { claimedAt, ...rest } = voucher;
-      return rest;
-    }) // Remove claimedAt from final objects
+  const allVouchers = !isLoadingVouchers
+    ? claimedVouchers
+        .map((voucher) => {
+          const voucherDetails = voucher.voucherDetails as
+            | {
+                merchantId?: string;
+                name?: string;
+                expiryDate?: number;
+                remainingWorth?: number | null;
+                status?: string;
+                currentUses?: number | null;
+                maxUses?: number | null;
+                canRedeem?: boolean;
+              }
+            | undefined;
+          const merchantId = voucherDetails?.merchantId;
+          const voucherName = voucherDetails?.name || voucher.collectionName || "Unknown Voucher";
+          return {
+            voucherName: typeof voucherName === "string" ? voucherName : "Unknown Voucher",
+            merchantId: typeof merchantId === "string" ? merchantId : "Unknown Merchant",
+            category: voucher.category || "Voucher",
+            expiry: voucherDetails?.expiryDate
+              ? new Date(voucherDetails.expiryDate).toLocaleDateString()
+              : "N/A",
+            country: voucher.country,
+            remainingWorth:
+              typeof voucherDetails?.remainingWorth === "number"
+                ? voucherDetails.remainingWorth
+                : voucherDetails?.remainingWorth === null
+                  ? null
+                  : undefined,
+            currency: voucher.currency,
+            tradeable: voucher.tradeable,
+            status: voucherDetails?.status,
+            currentUses: voucherDetails?.currentUses,
+            maxUses: voucherDetails?.maxUses,
+            canRedeem: voucherDetails?.canRedeem,
+            voucherId: voucher.voucherAddress, // For navigation
+            voucherAddress: voucher.voucherAddress, // For explorer link
+            claimedAt: voucher.claimedAt, // Keep for sorting
+          };
+        })
+        .sort((a, b) => {
+          // Sort by most recent claim first (newest first)
+          const dateA = new Date(a.claimedAt).getTime();
+          const dateB = new Date(b.claimedAt).getTime();
+          return dateB - dateA; // Descending order (newest first)
+        })
+        .map((voucher) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { claimedAt, ...rest } = voucher;
+          return rest;
+        }) // Remove claimedAt from final objects
     : [];
-  
+
   // Pagination calculations
   const totalPages = Math.ceil(allVouchers.length / vouchersPerPage);
   const startIndex = (currentPage - 1) * vouchersPerPage;
@@ -102,7 +109,7 @@ export default function AllVouchersPage() {
     if (currency === "SOL") return "SOL 0";
     if (currency === "USDC") return "$0";
     const symbol = getSymbolFromCurrency(currency);
-    const formattedNumber = Number(amount).toLocaleString('en-US', {
+    const formattedNumber = Number(amount).toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
@@ -113,9 +120,9 @@ export default function AllVouchersPage() {
     return `${formattedNumber} ${symbol}`;
   };
 
-  const handleRedeemClick = (voucher: typeof allVouchers[0]) => {
+  const handleRedeemClick = (voucher: (typeof allVouchers)[0]) => {
     if (!userEmail || !voucher.voucherId) {
-      setMessage({ type: 'error', text: 'Please log in to redeem vouchers' });
+      setMessage({ type: "error", text: "Please log in to redeem vouchers" });
       return;
     }
     setSelectedVoucher({
@@ -129,7 +136,7 @@ export default function AllVouchersPage() {
 
   const handleRedeemConfirm = async () => {
     if (!userEmail || !selectedVoucher || redemptionAmount <= 0) {
-      setMessage({ type: 'error', text: 'Please enter a valid redemption amount' });
+      setMessage({ type: "error", text: "Please enter a valid redemption amount" });
       return;
     }
 
@@ -142,16 +149,16 @@ export default function AllVouchersPage() {
       });
 
       if (result.success) {
-        setMessage({ type: 'success', text: result.message || 'Voucher redeemed successfully!' });
+        setMessage({ type: "success", text: result.message || "Voucher redeemed successfully!" });
         setShowRedeemModal(false);
         setRedemptionAmount(0);
         setSelectedVoucher(null);
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
+        setMessage({ type: "error", text: result.error || "Failed to redeem voucher" });
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
-      setMessage({ type: 'error', text: errorMessage });
+      const errorMessage = error instanceof Error ? error.message : "Failed to redeem voucher";
+      setMessage({ type: "error", text: errorMessage });
     }
   };
 
@@ -194,18 +201,18 @@ export default function AllVouchersPage() {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                   <div className="mt-6 flex items-center justify-center gap-2">
                     <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                       className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
-                    
+
                     <div className="flex items-center gap-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                         <button
@@ -221,9 +228,9 @@ export default function AllVouchersPage() {
                         </button>
                       ))}
                     </div>
-                    
+
                     <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
                       className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -262,9 +269,7 @@ export default function AllVouchersPage() {
             />
             <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
               <div className="flex items-center justify-between">
-                <h4 className="text-lg font-semibold text-textPrimary">
-                  Redeem Voucher
-                </h4>
+                <h4 className="text-lg font-semibold text-textPrimary">Redeem Voucher</h4>
                 <button
                   onClick={() => {
                     setShowRedeemModal(false);
@@ -281,9 +286,9 @@ export default function AllVouchersPage() {
                 {message && (
                   <div
                     className={`rounded-lg px-4 py-3 text-sm font-semibold ${
-                      message.type === 'success'
-                        ? 'bg-green-50 text-green-800'
-                        : 'bg-red-50 text-red-800'
+                      message.type === "success"
+                        ? "bg-green-50 text-green-800"
+                        : "bg-red-50 text-red-800"
                     }`}
                   >
                     {message.text}
@@ -296,16 +301,17 @@ export default function AllVouchersPage() {
                   type="number"
                   min={0}
                   step="0.01"
-                  value={redemptionAmount || ''}
+                  value={redemptionAmount || ""}
                   onChange={(e) => setRedemptionAmount(Number(e.target.value))}
                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  placeholder={`e.g. ${selectedVoucher.remainingWorth ? formatAmount(selectedVoucher.remainingWorth) : '0'}`}
+                  placeholder={`e.g. ${selectedVoucher.remainingWorth ? formatAmount(selectedVoucher.remainingWorth) : "0"}`}
                 />
-                {selectedVoucher.remainingWorth !== undefined && selectedVoucher.remainingWorth !== null && (
-                  <p className="text-xs text-textSecondary">
-                    Remaining balance: {formatAmount(selectedVoucher.remainingWorth)}
-                  </p>
-                )}
+                {selectedVoucher.remainingWorth !== undefined &&
+                  selectedVoucher.remainingWorth !== null && (
+                    <p className="text-xs text-textSecondary">
+                      Remaining balance: {formatAmount(selectedVoucher.remainingWorth)}
+                    </p>
+                  )}
                 <button
                   onClick={handleRedeemConfirm}
                   disabled={redeemVoucherMutation.isPending || redemptionAmount <= 0}

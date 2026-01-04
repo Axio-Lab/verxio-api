@@ -8,7 +8,11 @@ type ExplorerLinkProps = {
   className?: string;
 };
 
-export default function ExplorerLink({ address, label = "View on explorer", className = "" }: ExplorerLinkProps) {
+export default function ExplorerLink({
+  address,
+  label = "View on explorer",
+  className = "",
+}: ExplorerLinkProps) {
   if (!address) return null;
 
   const explorerUrl = process.env.NEXT_PUBLIC_EXPLORER_URL;

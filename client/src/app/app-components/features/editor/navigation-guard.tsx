@@ -40,11 +40,11 @@ export function NavigationGuard() {
 
       const target = e.target as HTMLElement;
       const link = target.closest("a");
-      
+
       if (link && link.href) {
         const url = new URL(link.href);
         const currentUrl = new URL(window.location.href);
-        
+
         // If clicking a link to a different route
         if (url.pathname !== currentUrl.pathname) {
           e.preventDefault();
@@ -56,7 +56,7 @@ export function NavigationGuard() {
     };
 
     document.addEventListener("click", handleLinkClick, true);
-    
+
     return () => {
       document.removeEventListener("click", handleLinkClick, true);
     };
@@ -65,7 +65,7 @@ export function NavigationGuard() {
   const handleContinue = () => {
     allowNavigationRef.current = true;
     setShowDialog(false);
-    
+
     if (pendingNavigation) {
       // Use setTimeout to ensure the navigation happens after state updates
       setTimeout(() => {
@@ -101,4 +101,3 @@ export function NavigationGuard() {
     />
   );
 }
-

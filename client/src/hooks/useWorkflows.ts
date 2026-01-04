@@ -1,7 +1,11 @@
-
 import { useQueryClient } from "@tanstack/react-query";
 import { useProtectedQuery, useProtectedMutation } from "@/hooks/useProtectedApi";
-import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/lib/api-client";
+import {
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedPut,
+  authenticatedDelete,
+} from "@/lib/api-client";
 import { toast } from "sonner";
 
 export interface WorkflowNode {
@@ -84,19 +88,20 @@ export function useCreateWorkflow() {
   });
 }
 
-
 export function useUpdateWorkflowName() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<Workflow, Error, { id: string; name: string }>({
-    mutationFn: ({ id, ...data }) => authenticatedPut<Workflow>(`/workflow/update/name/${id}`, data),
+    mutationFn: ({ id, ...data }) =>
+      authenticatedPut<Workflow>(`/workflow/update/name/${id}`, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       queryClient.invalidateQueries({ queryKey: ["workflow", data.id] });
       toast.success(`Workflow "${data.name}" updated`);
     },
     onError: (error) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update workflow name";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update workflow name";
       toast.error(errorMessage);
     },
   });
@@ -161,7 +166,11 @@ export interface TriggerWorkflowResponse {
 }
 
 export function useTriggerWorkflow() {
-  return useProtectedMutation<TriggerWorkflowResponse, Error, { id: string; data?: Record<string, any> }>({
+  return useProtectedMutation<
+    TriggerWorkflowResponse,
+    Error,
+    { id: string; data?: Record<string, any> }
+  >({
     mutationFn: ({ id, data }) => {
       // Send data in the format expected by the backend: { data: {...} }
       const body = data ? { data } : {};
@@ -169,7 +178,10 @@ export function useTriggerWorkflow() {
     },
     // Don't retry on 429 (Too Many Requests) errors
     retry: (failureCount, error) => {
-      if (error instanceof Error && error.message.includes('429') || error.message.includes('Too many requests')) {
+      if (
+        (error instanceof Error && error.message.includes("429")) ||
+        error.message.includes("Too many requests")
+      ) {
         return false;
       }
       return failureCount < 2; // Retry up to 2 times for other errors
@@ -183,4 +195,3 @@ export function useTriggerWorkflow() {
     },
   });
 }
-

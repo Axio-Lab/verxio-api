@@ -49,7 +49,7 @@ export default function VoucherCard({
       return currency === "SOL" ? "SOL 0" : `${symbol}0`;
     }
     const symbol = getCurrencySymbol(currency);
-    const formattedNumber = Number(amount).toLocaleString('en-US', {
+    const formattedNumber = Number(amount).toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
@@ -62,9 +62,13 @@ export default function VoucherCard({
 
   // Check if voucher is used/claimed
   const isUsed = (): boolean => {
-    if (status === 'used' || status === 'Used') return true;
-    if (maxUses !== undefined && maxUses !== null && 
-        currentUses !== undefined && currentUses !== null) {
+    if (status === "used" || status === "Used") return true;
+    if (
+      maxUses !== undefined &&
+      maxUses !== null &&
+      currentUses !== undefined &&
+      currentUses !== null
+    ) {
       return currentUses >= maxUses;
     }
     if (canRedeem === false) return true;
@@ -75,7 +79,10 @@ export default function VoucherCard({
 
   const formatCountry = (country?: string): string => {
     if (!country) return "";
-    if (country.toLowerCase().startsWith("united states") || country === "United States of America") {
+    if (
+      country.toLowerCase().startsWith("united states") ||
+      country === "United States of America"
+    ) {
       return "USA";
     }
     return country;
@@ -108,11 +115,9 @@ export default function VoucherCard({
         </div>
       </div>
       <div className="mt-2 flex gap-2">
-        <button 
+        <button
           className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold shadow-md shadow-gray-900/10 ${
-            used 
-              ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
-              : 'bg-primary text-white'
+            used ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-primary text-white"
           }`}
           disabled={used}
           onClick={(e) => {
@@ -123,13 +128,13 @@ export default function VoucherCard({
             }
           }}
         >
-          {used ? 'Voucher Used' : 'Redeem'}
+          {used ? "Voucher Used" : "Redeem"}
         </button>
-        <button 
+        <button
           className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${
             used || !tradeable
-              ? 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200'
-              : 'border border-gray-200 text-textPrimary hover:border-primary hover:text-primary'
+              ? "bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200"
+              : "border border-gray-200 text-textPrimary hover:border-primary hover:text-primary"
           }`}
           disabled={used || !tradeable}
           onClick={(e) => {
@@ -137,7 +142,7 @@ export default function VoucherCard({
             e.stopPropagation();
           }}
         >
-          {used || !tradeable ? 'Can\'t Trade' : 'Trade'}
+          {used || !tradeable ? "Can't Trade" : "Trade"}
         </button>
       </div>
     </div>

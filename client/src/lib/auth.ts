@@ -7,13 +7,13 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  
+
   // Email/Password authentication
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Set to true in production if needed
   },
-  
+
   // Social authentication providers
   socialProviders: {
     google: {
@@ -32,26 +32,23 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
-  
+
   // Base URL for the auth server
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  
+  baseURL:
+    process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+
   // API route path (default: /api/auth)
   basePath: "/api/auth",
-  
+
   // Secret key for encryption and hashing (required, min 32 chars)
   secret: process.env.BETTER_AUTH_SECRET!,
-  
+
   // Trusted origins for CORS
-  trustedOrigins: [
-    process.env.NEXT_PUBLIC_APP_URL!,
-    process.env.NEXT_PUBLIC_API_URL!,
-  ],
-  
+  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL!, process.env.NEXT_PUBLIC_API_URL!],
+
   // Session configuration
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
   },
 });
-

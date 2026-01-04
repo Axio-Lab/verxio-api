@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -140,7 +140,9 @@ export default function Home() {
                     className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
                   >
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-textSecondary">{deal.category || "Deal"}</p>
+                      <p className="text-xs uppercase tracking-wide text-textSecondary">
+                        {deal.category || "Deal"}
+                      </p>
                       <p className="text-base font-semibold text-textPrimary">{deal.title}</p>
                       <p className="text-sm text-textSecondary">{deal.merchant}</p>
                     </div>
@@ -151,7 +153,9 @@ export default function Home() {
                   </div>
                 ))
               ) : (
-                <p className="py-8 text-center text-sm text-textSecondary">No featured deals available</p>
+                <p className="py-8 text-center text-sm text-textSecondary">
+                  No featured deals available
+                </p>
               )}
             </div>
           </div>
@@ -197,10 +201,7 @@ export default function Home() {
                 {Array.from({ length: totalSlides }).map((_, slideIndex) => {
                   const slideDeals = getDealsForSlide(slideIndex);
                   return (
-                    <div
-                      key={slideIndex}
-                      className="min-w-full flex-shrink-0"
-                    >
+                    <div key={slideIndex} className="min-w-full flex-shrink-0">
                       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         {slideDeals.map((deal, dealIndex) => (
                           <DealCard key={`${deal.id}-${slideIndex}-${dealIndex}`} {...deal} />

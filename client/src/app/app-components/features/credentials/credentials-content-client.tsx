@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  CredentialsContainer, 
-  CredentialsLoadingView, 
-  CredentialsErrorView, 
+import {
+  CredentialsContainer,
+  CredentialsLoadingView,
+  CredentialsErrorView,
   CredentialsEmptyView,
-  CredentialsList
+  CredentialsList,
 } from "@/app/app-components/features/credentials/credential";
 import { useCredentials } from "@/hooks/useCredentials";
 
@@ -25,14 +25,15 @@ export function CredentialsContent() {
   };
 
   // Filter credentials by search query on client side
-  const filteredCredentials = apiData?.credentials.filter(credential => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      credential.name.toLowerCase().includes(query) ||
-      credential.type.toLowerCase().includes(query)
-    );
-  }) || [];
+  const filteredCredentials =
+    apiData?.credentials.filter((credential) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        credential.name.toLowerCase().includes(query) ||
+        credential.type.toLowerCase().includes(query)
+      );
+    }) || [];
 
   // Calculate pagination for filtered results
   const filteredTotal = filteredCredentials.length;
@@ -71,14 +72,10 @@ export function CredentialsContent() {
   // Always show the container with header and search, even when empty
   const hasCredentials = filteredCredentials.length > 0;
   const isEmpty = !apiData || apiData.credentials.length === 0;
-  
+
   // If there's no data at all (not just empty search results), show empty view outside container
   if (isEmpty && !searchQuery && currentPage === 1) {
-    return (
-      <CredentialsEmptyView 
-        onCreateCredential={handleCreateCredential}
-      />
-    );
+    return <CredentialsEmptyView onCreateCredential={handleCreateCredential} />;
   }
 
   // Render credentials container with header and search always visible
@@ -87,20 +84,15 @@ export function CredentialsContent() {
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
       currentPage={searchQuery ? 1 : currentPage}
-      totalPages={searchQuery ? filteredTotalPages : (apiData?.totalPages || 0)}
+      totalPages={searchQuery ? filteredTotalPages : apiData?.totalPages || 0}
       onPageChange={setCurrentPage}
     >
       {hasCredentials ? (
-        <CredentialsList 
-          credentials={filteredCredentials}
-        />
+        <CredentialsList credentials={filteredCredentials} />
       ) : (
         // Show empty view inside container when search returns no results
-        <CredentialsEmptyView 
-          onCreateCredential={handleCreateCredential}
-        />
+        <CredentialsEmptyView onCreateCredential={handleCreateCredential} />
       )}
     </CredentialsContainer>
   );
 }
-

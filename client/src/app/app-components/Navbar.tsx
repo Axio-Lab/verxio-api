@@ -22,7 +22,6 @@ export default function Navbar() {
   const { isAuthenticated, user, isLoading, signOut } = useAuthWithVerxioUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { searchQuery, setSearchQuery } = useSearchQuery();
-  
 
   const handleLogin = () => {
     // Navigate to login page
@@ -48,7 +47,7 @@ export default function Navbar() {
     }
   };
 
-  // Don't render auth-dependent UI until auth is loaded  
+  // Don't render auth-dependent UI until auth is loaded
   if (isLoading) {
     return (
       <header className="sticky top-0 z-40 w-full backdrop-blur bg-white/75 border-b border-gray-100">
@@ -171,12 +170,7 @@ export default function Navbar() {
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -185,12 +179,7 @@ export default function Navbar() {
                     />
                   </svg>
                 ) : (
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"

@@ -1,24 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { 
-  WorkflowsContainer, 
-  WorkflowsLoadingView, 
-  WorkflowsErrorView, 
+import {
+  WorkflowsContainer,
+  WorkflowsLoadingView,
+  WorkflowsErrorView,
   WorkflowsEmptyView,
-  WorkflowsList
+  WorkflowsList,
 } from "@/app/app-components/features/workflow/workflows";
 import { useWorkflows, useCreateWorkflow } from "@/hooks/useWorkflows";
 import { WorkflowNameInput } from "@/app/app-components/features/workflow/workflow-name-input";
 import { useWorkflowSearch } from "@/hooks/useSearchParams";
 
-
-
 // Client component that fetches and displays workflows
 export function WorkflowsContent() {
-  const { search: searchQuery, setSearch: setSearchQuery, page: currentPage, setPage: setCurrentPage, limit } = useWorkflowSearch();
+  const {
+    search: searchQuery,
+    setSearch: setSearchQuery,
+    page: currentPage,
+    setPage: setCurrentPage,
+    limit,
+  } = useWorkflowSearch();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
+
   // Local state for search input to prevent focus loss on URL updates
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -31,12 +35,12 @@ export function WorkflowsContent() {
   // Debounced search update to URL
   const handleSearchChange = (value: string) => {
     setLocalSearch(value);
-    
+
     // Clear existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    
+
     // Update URL after 300ms of no typing
     debounceTimerRef.current = setTimeout(() => {
       setSearchQuery(value);
@@ -56,7 +60,11 @@ export function WorkflowsContent() {
     };
   }, []);
 
-  const { data: apiData, isLoading, error } = useWorkflows(currentPage, limit, searchQuery || undefined);
+  const {
+    data: apiData,
+    isLoading,
+    error,
+  } = useWorkflows(currentPage, limit, searchQuery || undefined);
   const createWorkflow = useCreateWorkflow();
 
   const handleCreateWorkflow = (name: string) => {
@@ -114,7 +122,7 @@ export function WorkflowsContent() {
   // Only show empty view outside container when there's no data at all (initial load with no workflows)
   const hasWorkflows = data?.workflows && data.workflows.length > 0;
   const isEmpty = !data || !data.workflows || data.workflows.length === 0;
-  
+
   // If there's no data at all (not just empty search results), show empty view outside container
   if (isEmpty && !searchQuery && currentPage === 1) {
     return (
@@ -125,7 +133,7 @@ export function WorkflowsContent() {
           onSubmit={handleCreateWorkflow}
           isPending={createWorkflow.isPending}
         />
-        <WorkflowsEmptyView 
+        <WorkflowsEmptyView
           isCreating={createWorkflow.isPending}
           onCreateWorkflow={handleOpenCreateDialog}
         />
@@ -153,12 +161,10 @@ export function WorkflowsContent() {
         onCreateWorkflow={handleOpenCreateDialog}
       >
         {hasWorkflows ? (
-          <WorkflowsList 
-            workflows={data.workflows}
-          />
+          <WorkflowsList workflows={data.workflows} />
         ) : (
           // Show empty view inside container when search returns no results
-          <WorkflowsEmptyView 
+          <WorkflowsEmptyView
             isCreating={createWorkflow.isPending}
             onCreateWorkflow={handleOpenCreateDialog}
           />
@@ -167,4 +173,3 @@ export function WorkflowsContent() {
     </>
   );
 }
-

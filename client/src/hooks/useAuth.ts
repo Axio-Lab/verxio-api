@@ -30,9 +30,11 @@ export function useAuth() {
  */
 export function useAuthWithVerxioUser() {
   const auth = useAuth();
-  const { user: verxioUser, isLoading: isLoadingVerxio, createUser } = useEnsureUser(
-    auth.user?.email
-  );
+  const {
+    user: verxioUser,
+    isLoading: isLoadingVerxio,
+    createUser,
+  } = useEnsureUser(auth.user?.email);
 
   // Auto-create VerxioUser when Better Auth user exists but VerxioUser doesn't
   useEffect(() => {
@@ -47,4 +49,3 @@ export function useAuthWithVerxioUser() {
     isLoading: auth.isLoading || isLoadingVerxio,
   };
 }
-

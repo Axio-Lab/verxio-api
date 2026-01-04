@@ -207,9 +207,13 @@ export function useClaimedVouchers(email: string | undefined) {
       if (!email) {
         return [];
       }
-      const response = await fetch(`${API_BASE_URL}/deal/user/${encodeURIComponent(email)}/claimed`);
+      const response = await fetch(
+        `${API_BASE_URL}/deal/user/${encodeURIComponent(email)}/claimed`
+      );
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to fetch claimed vouchers" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to fetch claimed vouchers" }));
         throw new Error(error.error || "Failed to fetch claimed vouchers");
       }
       const data = await response.json();
@@ -299,7 +303,9 @@ export function useExtendDealExpiry() {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to extend deal expiry" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to extend deal expiry" }));
         throw new Error(error.error || "Failed to extend deal expiry");
       }
 
@@ -354,7 +360,9 @@ export function useClaimDealVoucher() {
     onSuccess: (data, variables) => {
       // Invalidate and immediately refetch deals and claimed vouchers after claiming
       queryClient.invalidateQueries({ queryKey: ["deals", "all"] });
-      queryClient.invalidateQueries({ queryKey: ["vouchers", "claimed", variables.recipientEmail] });
+      queryClient.invalidateQueries({
+        queryKey: ["vouchers", "claimed", variables.recipientEmail],
+      });
       // Force immediate refetch
       queryClient.refetchQueries({ queryKey: ["deals", "all"] });
       queryClient.refetchQueries({ queryKey: ["vouchers", "claimed", variables.recipientEmail] });
@@ -445,7 +453,9 @@ export function useMerchantStats(email: string | undefined) {
       }
       const response = await fetch(`${API_BASE_URL}/deal/stats/${encodeURIComponent(email)}`);
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to fetch merchant stats" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to fetch merchant stats" }));
         throw new Error(error.error || "Failed to fetch merchant stats");
       }
       return response.json();
@@ -460,7 +470,7 @@ export function useMerchantStats(email: string | undefined) {
  * Recent activity
  */
 export interface RecentActivity {
-  type: 'claim' | 'redemption' | 'deal_created';
+  type: "claim" | "redemption" | "deal_created";
   message: string;
   timestamp: string;
   value?: string;
@@ -485,9 +495,13 @@ export function useMerchantRecentActivity(email: string | undefined, limit: numb
           error: "Email is required",
         };
       }
-      const response = await fetch(`${API_BASE_URL}/deal/recent-activity/${encodeURIComponent(email)}?limit=${limit}`);
+      const response = await fetch(
+        `${API_BASE_URL}/deal/recent-activity/${encodeURIComponent(email)}?limit=${limit}`
+      );
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to fetch recent activity" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to fetch recent activity" }));
         throw new Error(error.error || "Failed to fetch recent activity");
       }
       return response.json();
@@ -511,13 +525,19 @@ export interface VoucherByClaimCodeResponse {
  */
 export function useVoucherByClaimCode() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: async ({ claimCode, userEmail }: { claimCode: string; userEmail: string }): Promise<VoucherByClaimCodeResponse> => {
+    mutationFn: async ({
+      claimCode,
+      userEmail,
+    }: {
+      claimCode: string;
+      userEmail: string;
+    }): Promise<VoucherByClaimCodeResponse> => {
       const response = await fetch(`${API_BASE_URL}/deal/voucher-by-claim-code`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ claimCode, userEmail }),
       });

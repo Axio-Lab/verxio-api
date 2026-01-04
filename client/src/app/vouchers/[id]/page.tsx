@@ -45,45 +45,49 @@ export default function VoucherDetailsPage() {
   const { user } = useAuthWithVerxioUser();
   const userEmail = user?.email;
   const voucherId = params.id as string;
-  
+
   const { data: claimedVouchers = [], isLoading } = useClaimedVouchers(userEmail);
   const redeemVoucherMutation = useRedeemVoucher();
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [redemptionAmount, setRedemptionAmount] = useState<number>(0);
-  
+
   const voucher = useMemo((): VoucherDisplayData | undefined => {
     // Find real voucher from API
     const foundVoucher = claimedVouchers.find((v) => v.voucherAddress === voucherId);
     if (!foundVoucher) return undefined;
-    
-    const voucherDetails = foundVoucher.voucherDetails as { 
-      name?: string;
-      type?: string;
-      expiryDate?: number;
-      description?: string;
-      value?: number;
-      remainingWorth?: number;
-      maxUses?: number;
-      currentUses?: number;
-      status?: string;
-      canRedeem?: boolean;
-      conditions?: string;
-      redemptionHistory?: Array<{
-        total_amount?: number;
-        redemption_value?: number;
-        timestamp?: number;
-        location?: string;
-        [key: string]: unknown;
-      }>;
-    } | undefined;
-    
-    const collectionDetails = foundVoucher.collectionDetails as {
-      description?: string;
-      image?: string;
-      [key: string]: unknown;
-    } | undefined;
-    
+
+    const voucherDetails = foundVoucher.voucherDetails as
+      | {
+          name?: string;
+          type?: string;
+          expiryDate?: number;
+          description?: string;
+          value?: number;
+          remainingWorth?: number;
+          maxUses?: number;
+          currentUses?: number;
+          status?: string;
+          canRedeem?: boolean;
+          conditions?: string;
+          redemptionHistory?: Array<{
+            total_amount?: number;
+            redemption_value?: number;
+            timestamp?: number;
+            location?: string;
+            [key: string]: unknown;
+          }>;
+        }
+      | undefined;
+
+    const collectionDetails = foundVoucher.collectionDetails as
+      | {
+          description?: string;
+          image?: string;
+          [key: string]: unknown;
+        }
+      | undefined;
+
     // Format voucher type (e.g., "FREE_REPAIR" -> "FREE REPAIR")
     const formatVoucherType = (type?: string): string => {
       if (!type) return "Voucher";
@@ -134,7 +138,7 @@ export default function VoucherDetailsPage() {
 
   const handleRedeemClick = () => {
     if (!userEmail || !voucherId || !voucher) {
-      setMessage({ type: 'error', text: 'Please log in to redeem vouchers' });
+      setMessage({ type: "error", text: "Please log in to redeem vouchers" });
       return;
     }
     setShowRedeemModal(true);
@@ -142,7 +146,7 @@ export default function VoucherDetailsPage() {
 
   const handleRedeemConfirm = async () => {
     if (!userEmail || !voucherId || !voucher || redemptionAmount <= 0) {
-      setMessage({ type: 'error', text: 'Please enter a valid redemption amount' });
+      setMessage({ type: "error", text: "Please enter a valid redemption amount" });
       return;
     }
 
@@ -158,15 +162,15 @@ export default function VoucherDetailsPage() {
       });
 
       if (result.success) {
-        setMessage({ type: 'success', text: result.message || 'Voucher redeemed successfully!' });
+        setMessage({ type: "success", text: result.message || "Voucher redeemed successfully!" });
         setShowRedeemModal(false);
         setRedemptionAmount(0);
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to redeem voucher' });
+        setMessage({ type: "error", text: result.error || "Failed to redeem voucher" });
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to redeem voucher';
-      setMessage({ type: 'error', text: errorMessage });
+      const errorMessage = error instanceof Error ? error.message : "Failed to redeem voucher";
+      setMessage({ type: "error", text: errorMessage });
     }
   };
 
@@ -202,7 +206,7 @@ export default function VoucherDetailsPage() {
       return voucher.currency === "SOL" ? "SOL 0" : `${symbol}0`;
     }
     const symbol = getCurrencySymbol(voucher.currency);
-    const formattedNumber = Number(amount).toLocaleString('en-US', {
+    const formattedNumber = Number(amount).toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
@@ -226,27 +230,35 @@ export default function VoucherDetailsPage() {
   // Check if voucher can be redeemed
   const canRedeemVoucher = (): boolean => {
     if (!voucher) return false;
-    
+
     // Check if explicitly marked as cannot redeem
     if (voucher.canRedeem === false) return false;
-    
+
     // Check status
-    if (voucher.status === 'used' || voucher.status === 'Used') return false;
-    
+    if (voucher.status === "used" || voucher.status === "Used") return false;
+
     // Check if max uses reached
-    if (voucher.maxUses !== undefined && voucher.maxUses !== null &&
-        voucher.currentUses !== undefined && voucher.currentUses !== null) {
+    if (
+      voucher.maxUses !== undefined &&
+      voucher.maxUses !== null &&
+      voucher.currentUses !== undefined &&
+      voucher.currentUses !== null
+    ) {
       if (voucher.currentUses >= voucher.maxUses) return false;
     }
-    
+
     // Check if remaining worth is 0 or less
-    if (voucher.remainingWorth !== undefined && voucher.remainingWorth !== null && voucher.remainingWorth <= 0) {
+    if (
+      voucher.remainingWorth !== undefined &&
+      voucher.remainingWorth !== null &&
+      voucher.remainingWorth <= 0
+    ) {
       return false;
     }
-    
+
     // Check if expired
     if (isExpired()) return false;
-    
+
     return true;
   };
 
@@ -261,9 +273,9 @@ export default function VoucherDetailsPage() {
                   const collectionDetails = voucher.collectionDetails;
                   if (
                     collectionDetails &&
-                    typeof collectionDetails === 'object' &&
-                    'image' in collectionDetails &&
-                    typeof (collectionDetails as { image?: string }).image === 'string'
+                    typeof collectionDetails === "object" &&
+                    "image" in collectionDetails &&
+                    typeof (collectionDetails as { image?: string }).image === "string"
                   ) {
                     const imageUrl = (collectionDetails as { image: string }).image;
                     return (
@@ -280,9 +292,11 @@ export default function VoucherDetailsPage() {
                 <div className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                   {voucher.discount}
                 </div>
-                <div className={`absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold text-white ${
-                  isExpired() ? "bg-red-500" : "bg-black/70"
-                }`}>
+                <div
+                  className={`absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                    isExpired() ? "bg-red-500" : "bg-black/70"
+                  }`}
+                >
                   {isExpired() ? "Expired" : `Expires ${voucher.expiry}`}
                 </div>
               </div>
@@ -297,9 +311,7 @@ export default function VoucherDetailsPage() {
                       <p className="text-sm text-textSecondary">{String(voucher.country)}</p>
                     )}
                   </div>
-                  {voucherId && (
-                    <ExplorerLink address={voucherId} />
-                  )}
+                  {voucherId && <ExplorerLink address={voucherId} />}
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -324,14 +336,18 @@ export default function VoucherDetailsPage() {
                     <div className="flex justify-between">
                       <span className="text-textSecondary">Value:</span>
                       <span className="font-semibold text-textPrimary">
-                        {formatAmount(typeof voucher.value === 'number' ? voucher.value : undefined)}
+                        {formatAmount(
+                          typeof voucher.value === "number" ? voucher.value : undefined
+                        )}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span className="text-textSecondary">Remaining:</span>
                     <span className="font-semibold text-textPrimary">
-                      {canRedeemVoucher() && voucher.remainingWorth !== undefined && voucher.remainingWorth !== null
+                      {canRedeemVoucher() &&
+                      voucher.remainingWorth !== undefined &&
+                      voucher.remainingWorth !== null
                         ? formatAmount(voucher.remainingWorth)
                         : formatAmount(0)}
                     </span>
@@ -340,35 +356,41 @@ export default function VoucherDetailsPage() {
                     <div className="flex justify-between">
                       <span className="text-textSecondary">Uses:</span>
                       <span className="font-semibold text-textPrimary">
-                        {typeof voucher.currentUses === 'number' ? voucher.currentUses : 0} / {typeof voucher.maxUses === 'number' ? voucher.maxUses : 0}
+                        {typeof voucher.currentUses === "number" ? voucher.currentUses : 0} /{" "}
+                        {typeof voucher.maxUses === "number" ? voucher.maxUses : 0}
                       </span>
                     </div>
                   )}
                   {voucher.status && (
                     <div className="flex justify-between">
                       <span className="text-textSecondary">Status:</span>
-                      <span className={`font-semibold ${
-                        voucher.status.toLowerCase() === 'used' 
-                          ? 'text-red-600' 
-                          : voucher.status.toLowerCase() === 'active'
-                          ? 'text-green-600'
-                          : 'text-textPrimary'
-                      }`}>
-                        {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1).toLowerCase()}
+                      <span
+                        className={`font-semibold ${
+                          voucher.status.toLowerCase() === "used"
+                            ? "text-red-600"
+                            : voucher.status.toLowerCase() === "active"
+                              ? "text-green-600"
+                              : "text-textPrimary"
+                        }`}
+                      >
+                        {voucher.status.charAt(0).toUpperCase() +
+                          voucher.status.slice(1).toLowerCase()}
                       </span>
                     </div>
                   )}
                   {voucher.claimCode && (
                     <div className="flex justify-between">
                       <span className="text-textSecondary">Claim Code:</span>
-                      <span className="font-semibold text-textPrimary font-mono">{voucher.claimCode}</span>
+                      <span className="font-semibold text-textPrimary font-mono">
+                        {voucher.claimCode}
+                      </span>
                     </div>
                   )}
                   {voucher.claimedAt && (
                     <div className="flex justify-between">
                       <span className="text-textSecondary">Claimed:</span>
                       <span className="font-semibold text-textPrimary">
-                        {typeof voucher.claimedAt === 'string' 
+                        {typeof voucher.claimedAt === "string"
                           ? new Date(voucher.claimedAt).toLocaleDateString()
                           : String(voucher.claimedAt)}
                       </span>
@@ -381,9 +403,9 @@ export default function VoucherDetailsPage() {
                 {message && (
                   <div
                     className={`rounded-lg px-4 py-3 text-sm font-semibold ${
-                      message.type === 'success'
-                        ? 'bg-green-50 text-green-800'
-                        : 'bg-red-50 text-red-800'
+                      message.type === "success"
+                        ? "bg-green-50 text-green-800"
+                        : "bg-red-50 text-red-800"
                     }`}
                   >
                     {message.text}
@@ -395,21 +417,28 @@ export default function VoucherDetailsPage() {
                   className="w-full rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
                   {(() => {
-                    if (!canRedeemVoucher() && voucher?.status === 'used') {
-                      return 'Voucher Already Used';
+                    if (!canRedeemVoucher() && voucher?.status === "used") {
+                      return "Voucher Already Used";
                     }
-                    if (!canRedeemVoucher() && 
-                        voucher?.currentUses !== undefined && voucher?.currentUses !== null && 
-                        voucher?.maxUses !== undefined && voucher?.maxUses !== null && 
-                        voucher.currentUses >= voucher.maxUses) {
-                      return 'Max Uses Reached';
+                    if (
+                      !canRedeemVoucher() &&
+                      voucher?.currentUses !== undefined &&
+                      voucher?.currentUses !== null &&
+                      voucher?.maxUses !== undefined &&
+                      voucher?.maxUses !== null &&
+                      voucher.currentUses >= voucher.maxUses
+                    ) {
+                      return "Max Uses Reached";
                     }
-                    if (!canRedeemVoucher() && 
-                        voucher?.remainingWorth !== undefined && voucher?.remainingWorth !== null && 
-                        voucher.remainingWorth <= 0) {
-                      return 'No Value Remaining';
+                    if (
+                      !canRedeemVoucher() &&
+                      voucher?.remainingWorth !== undefined &&
+                      voucher?.remainingWorth !== null &&
+                      voucher.remainingWorth <= 0
+                    ) {
+                      return "No Value Remaining";
                     }
-                    return 'Redeem Voucher';
+                    return "Redeem Voucher";
                   })()}
                 </button>
                 {voucher.tradeable && (
@@ -435,21 +464,21 @@ export default function VoucherDetailsPage() {
             <div className="space-y-3">
               {voucher.redemptionHistory.map((redemption, index) => {
                 const redemptionDate = redemption.timestamp
-                  ? new Date(redemption.timestamp).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
+                  ? new Date(redemption.timestamp).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })
-                  : 'Unknown date';
-                
-                const totalAmount = typeof redemption.total_amount === 'number' 
-                  ? redemption.total_amount 
-                  : undefined;
-                const formattedAmount = totalAmount !== undefined && totalAmount !== null
-                  ? formatAmount(totalAmount)
-                  : 'N/A';
+                  : "Unknown date";
+
+                const totalAmount =
+                  typeof redemption.total_amount === "number" ? redemption.total_amount : undefined;
+                const formattedAmount =
+                  totalAmount !== undefined && totalAmount !== null
+                    ? formatAmount(totalAmount)
+                    : "N/A";
 
                 return (
                   <div
@@ -457,9 +486,7 @@ export default function VoucherDetailsPage() {
                     className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
                   >
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-textPrimary">
-                        {'Redemption'}
-                      </p>
+                      <p className="text-sm font-semibold text-textPrimary">{"Redemption"}</p>
                       <p className="text-xs text-textSecondary">{redemptionDate}</p>
                     </div>
                     {totalAmount !== undefined && (
@@ -493,9 +520,7 @@ export default function VoucherDetailsPage() {
             />
             <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
               <div className="flex items-center justify-between">
-                <h4 className="text-lg font-semibold text-textPrimary">
-                  Redeem Voucher
-                </h4>
+                <h4 className="text-lg font-semibold text-textPrimary">Redeem Voucher</h4>
                 <button
                   onClick={() => {
                     setShowRedeemModal(false);
@@ -515,10 +540,10 @@ export default function VoucherDetailsPage() {
                   type="number"
                   min={0}
                   step="0.01"
-                  value={redemptionAmount || ''}
+                  value={redemptionAmount || ""}
                   onChange={(e) => setRedemptionAmount(Number(e.target.value))}
                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  placeholder={`e.g. ${voucher.remainingWorth ? formatAmount(voucher.remainingWorth) : '0'}`}
+                  placeholder={`e.g. ${voucher.remainingWorth ? formatAmount(voucher.remainingWorth) : "0"}`}
                 />
                 {voucher.remainingWorth !== undefined && voucher.remainingWorth !== null && (
                   <p className="text-xs text-textSecondary">

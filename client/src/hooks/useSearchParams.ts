@@ -1,6 +1,6 @@
 /**
  * Nuqs hooks for URL state management
- * 
+ *
  * These hooks replace React Context with URL-based state,
  * providing type-safe search parameters that persist in the URL.
  */
@@ -69,4 +69,3 @@ export function useWorkflowSearch() {
     setLimit: (value: number) => setParams({ limit: value }),
   };
 }
-

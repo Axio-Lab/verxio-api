@@ -3,12 +3,10 @@ import { AppSidebar } from "@/app/app-components/app-sidebar";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-  <SidebarProvider>
-    <AppSidebar />
-    <SidebarInset className="bg-accent/20 text-foreground">
-      {children}
-    </SidebarInset>
-  </SidebarProvider>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="bg-accent/20 text-foreground">{children}</SidebarInset>
+    </SidebarProvider>
   );
 };
 

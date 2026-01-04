@@ -1,6 +1,4 @@
-export const generateGoogleFormScript = (
-    webhookUrl: string,
-  ) => `function onFormSubmit(e) {
+export const generateGoogleFormScript = (webhookUrl: string) => `function onFormSubmit(e) {
     var formResponse = e.response;
     var itemResponses = formResponse.getItemResponses();
   
@@ -36,5 +34,3 @@ export const generateGoogleFormScript = (
       console.error('Webhook failed:', error);
     }
   }`;
-
-  

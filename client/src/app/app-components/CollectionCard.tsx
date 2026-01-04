@@ -41,7 +41,10 @@ export default function CollectionCard({
   // Format country name - show "USA" for United States
   const formatCountry = (country?: string): string => {
     if (!country) return "";
-    if (country.toLowerCase().startsWith("united states") || country === "United States of America") {
+    if (
+      country.toLowerCase().startsWith("united states") ||
+      country === "United States of America"
+    ) {
       return "USA";
     }
     return country;
@@ -77,7 +80,11 @@ export default function CollectionCard({
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm text-textSecondary">
-        {country && <span className="rounded-full bg-gray-50 px-3 py-1">Country: {formatCountry(country)}</span>}
+        {country && (
+          <span className="rounded-full bg-gray-50 px-3 py-1">
+            Country: {formatCountry(country)}
+          </span>
+        )}
         <span className="rounded-full bg-gray-50 px-3 py-1 flex items-center gap-1">
           <span className={`h-2 w-2 rounded-full ${isExpired() ? "bg-red-500" : "bg-amber-400"}`} />
           {isExpired() ? "Expired" : `Expires: ${expiry}`}

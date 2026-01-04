@@ -21,18 +21,12 @@ export async function POST(request: NextRequest) {
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File size exceeds 10MB limit." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "File size exceeds 10MB limit." }, { status: 400 });
     }
 
     const pinataJwt = process.env.PINATA_JWT;
     if (!pinataJwt) {
-      return NextResponse.json(
-        { error: "Pinata JWT not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Pinata JWT not configured" }, { status: 500 });
     }
 
     // Convert file to FormData for Pinata
@@ -75,9 +69,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error uploading file:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to upload file";
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

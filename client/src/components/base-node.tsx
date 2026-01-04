@@ -4,29 +4,30 @@ import { NodeStatus } from "./node-status-indicator";
 import { cn } from "@/lib/utils";
 import { CheckCircleIcon, Loader2Icon, XCircleIcon } from "lucide-react";
 
-export function BaseNode({ className, status, ...props }: ComponentProps<"div"> & { status: NodeStatus }) {  
+export function BaseNode({
+  className,
+  status,
+  ...props
+}: ComponentProps<"div"> & { status: NodeStatus }) {
   return (
     <div
       className={cn(
         "bg-card text-card-foreground relative rounded-sm border border-muted-foreground hover:bg-accent",
-        className,
+        className
       )}
       tabIndex={0}
       {...props}
     >
       {props.children}
       {status === "error" && (
-          <XCircleIcon 
-          className="size-2 !text-red-700 absolute bottom-0.5 right-0.5 stroke-3" />
+        <XCircleIcon className="size-2 !text-red-700 absolute bottom-0.5 right-0.5 stroke-3" />
       )}
       {status === "success" && (
-          <CheckCircleIcon 
-          className="size-2 !text-green-700 absolute bottom-0.5 right-0.5 stroke-3" />
+        <CheckCircleIcon className="size-2 !text-green-700 absolute bottom-0.5 right-0.5 stroke-3" />
       )}
       {status === "loading" && (
-        <Loader2Icon 
-        className="size-2 !text-blue-700 absolute -bottom-0.5 -right-0.5 stroke-3 animate-spin" />
-    )}
+        <Loader2Icon className="size-2 !text-blue-700 absolute -bottom-0.5 -right-0.5 stroke-3 animate-spin" />
+      )}
     </div>
   );
 }
@@ -35,10 +36,7 @@ export function BaseNode({ className, status, ...props }: ComponentProps<"div"> 
  * A container for a consistent header layout intended to be used inside the
  * `<BaseNode />` component.
  */
-export function BaseNodeHeader({
-  className,
-  ...props
-}: ComponentProps<"header">) {
+export function BaseNodeHeader({ className, ...props }: ComponentProps<"header">) {
   return (
     <header
       {...props}
@@ -46,7 +44,7 @@ export function BaseNodeHeader({
         "mx-0 my-0 -mb-1 flex flex-row items-center justify-between gap-2 px-3 py-2",
         // Remove or modify these classes if you modify the padding in the
         // `<BaseNode />` component.
-        className,
+        className
       )}
     />
   );
@@ -56,10 +54,7 @@ export function BaseNodeHeader({
  * The title text for the node. To maintain a native application feel, the title
  * text is not selectable.
  */
-export function BaseNodeHeaderTitle({
-  className,
-  ...props
-}: ComponentProps<"h3">) {
+export function BaseNodeHeaderTitle({ className, ...props }: ComponentProps<"h3">) {
   return (
     <h3
       data-slot="base-node-title"
@@ -69,10 +64,7 @@ export function BaseNodeHeaderTitle({
   );
 }
 
-export function BaseNodeContent({
-  className,
-  ...props
-}: ComponentProps<"div">) {
+export function BaseNodeContent({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="base-node-content"
@@ -86,10 +78,7 @@ export function BaseNodeFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="base-node-footer"
-      className={cn(
-        "flex flex-col items-center gap-y-2 border-t px-3 pt-2 pb-3",
-        className,
-      )}
+      className={cn("flex flex-col items-center gap-y-2 border-t px-3 pt-2 pb-3", className)}
       {...props}
     />
   );

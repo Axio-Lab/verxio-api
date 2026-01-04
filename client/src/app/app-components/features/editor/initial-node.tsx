@@ -12,16 +12,13 @@ export const InitialNode = memo((props: NodeProps) => {
 
   return (
     <NodeSelector open={selectorOpen} onOpenChange={setSelectorOpen}>
-        <WorkflowNode showToolbar={false}>
-            <PlaceholderNode
-            {...props}
-            onClick={() => setSelectorOpen(true)}
-            >
-                <div className="cursor-pointer flex items-center justify-center">
-                    <PlusIcon className="size-4" />
-                </div>
-            </PlaceholderNode>
-        </WorkflowNode>
+      <WorkflowNode showToolbar={false}>
+        <PlaceholderNode {...props} onClick={() => setSelectorOpen(true)}>
+          <div className="cursor-pointer flex items-center justify-center">
+            <PlusIcon className="size-4" />
+          </div>
+        </PlaceholderNode>
+      </WorkflowNode>
     </NodeSelector>
   );
 });

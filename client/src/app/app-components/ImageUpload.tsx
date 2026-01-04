@@ -73,11 +73,7 @@ export default function ImageUpload({
         {preview ? (
           <div className="relative w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="Preview"
-              className="h-48 w-full rounded-lg object-cover"
-            />
+            <img src={preview} alt="Preview" className="h-48 w-full rounded-lg object-cover" />
             <button
               type="button"
               onClick={(e) => {
@@ -87,12 +83,7 @@ export default function ImageUpload({
               }}
               className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg transition-colors hover:bg-red-600"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -122,9 +113,7 @@ export default function ImageUpload({
           </div>
         )}
       </label>
-      {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
       {selectedFile && (
         <p className="mt-2 text-xs text-textSecondary">
           {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)

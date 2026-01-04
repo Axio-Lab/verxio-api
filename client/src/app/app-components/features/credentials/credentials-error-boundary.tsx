@@ -9,4 +9,3 @@ import { CredentialsErrorView } from "./credential";
 export function CredentialsErrorBoundaryFallback({ error, resetErrorBoundary }: FallbackProps) {
   return <CredentialsErrorView />;
 }
-

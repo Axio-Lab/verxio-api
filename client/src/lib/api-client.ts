@@ -1,7 +1,7 @@
 /**
  * Authenticated API client utilities
  * Automatically includes Better Auth session in requests
- * 
+ *
  * These functions should be used for all protected API routes.
  * They automatically include the session cookie and user email header.
  */
@@ -18,7 +18,7 @@ export async function authenticatedFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const session = await getSession();
-  
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -55,7 +55,7 @@ export async function authenticatedGet<T>(url: string): Promise<T> {
     if (response.status === 403) {
       throw new Error("Access forbidden. You don't have permission to access this resource.");
     }
-    
+
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
   }
@@ -66,10 +66,7 @@ export async function authenticatedGet<T>(url: string): Promise<T> {
 /**
  * Helper for POST requests
  */
-export async function authenticatedPost<T>(
-  url: string,
-  data?: unknown
-): Promise<T> {
+export async function authenticatedPost<T>(url: string, data?: unknown): Promise<T> {
   const response = await authenticatedFetch(url, {
     method: "POST",
     body: data ? JSON.stringify(data) : undefined,
@@ -83,7 +80,7 @@ export async function authenticatedPost<T>(
     if (response.status === 403) {
       throw new Error("Access forbidden. You don't have permission to access this resource.");
     }
-    
+
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
   }
@@ -94,10 +91,7 @@ export async function authenticatedPost<T>(
 /**
  * Helper for PUT requests
  */
-export async function authenticatedPut<T>(
-  url: string,
-  data?: unknown
-): Promise<T> {
+export async function authenticatedPut<T>(url: string, data?: unknown): Promise<T> {
   const response = await authenticatedFetch(url, {
     method: "PUT",
     body: data ? JSON.stringify(data) : undefined,
@@ -111,7 +105,7 @@ export async function authenticatedPut<T>(
     if (response.status === 403) {
       throw new Error("Access forbidden. You don't have permission to access this resource.");
     }
-    
+
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
   }
@@ -135,11 +129,10 @@ export async function authenticatedDelete<T>(url: string): Promise<T> {
     if (response.status === 403) {
       throw new Error("Access forbidden. You don't have permission to access this resource.");
     }
-    
+
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
   }
 
   return response.json();
 }
-

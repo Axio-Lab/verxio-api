@@ -9,4 +9,3 @@ import { EditorError } from "@/app/app-components/features/editor/editor";
 export function EditorErrorBoundaryFallback({ error, resetErrorBoundary }: FallbackProps) {
   return <EditorError />;
 }
-

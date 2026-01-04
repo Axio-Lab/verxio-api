@@ -7,12 +7,12 @@ import { useEffect } from "react";
 
 /**
  * Protected Query Hook - Similar to tRPC's protected procedure
- * 
+ *
  * This hook ensures that:
  * 1. User is authenticated before making the query
  * 2. Query is disabled if user is not authenticated
  * 3. Automatically redirects to login if not authenticated
- * 
+ *
  * Usage:
  * ```ts
  * const { data, isLoading } = useProtectedQuery({
@@ -42,4 +42,3 @@ export function useProtectedQuery<TData = unknown, TError = Error>(
     enabled: enabled && isAuthenticated && !isAuthLoading,
   });
 }
-

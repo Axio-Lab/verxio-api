@@ -1,6 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useProtectedQuery, useProtectedMutation } from "@/hooks/useProtectedApi";
-import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from "@/lib/api-client";
+import {
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedPut,
+  authenticatedDelete,
+} from "@/lib/api-client";
 import { toast } from "sonner";
 
 export enum CredentialType {
@@ -15,7 +20,7 @@ export interface Credential {
   type: CredentialType;
   createdAt: Date;
   updatedAt: Date;
-  value?: string; 
+  value?: string;
 }
 
 export interface CredentialsResponse {
@@ -41,11 +46,7 @@ export interface UpdateCredentialData {
 /**
  * Get credentials with pagination and optional type filter
  */
-export function useCredentials(
-  page: number = 1,
-  limit: number = 10,
-  type?: CredentialType
-) {
+export function useCredentials(page: number = 1, limit: number = 10, type?: CredentialType) {
   return useProtectedQuery<CredentialsResponse>({
     queryKey: ["credentials", page, limit, type],
     queryFn: async () => {
@@ -67,7 +68,7 @@ export function useCredentials(
  */
 export function useCredential(id: string) {
   const queryClient = useQueryClient();
-  
+
   return useProtectedQuery<Credential>({
     queryKey: ["credential", id],
     queryFn: () => authenticatedGet<Credential>(`/credential/${id}`),
@@ -78,7 +79,7 @@ export function useCredential(id: string) {
       const queries = queryClient.getQueriesData<CredentialsResponse>({
         queryKey: ["credentials"],
       });
-      
+
       // Find the credential in any of the cached credentials lists
       for (const [, data] of queries) {
         if (data?.credentials) {
@@ -88,7 +89,7 @@ export function useCredential(id: string) {
           }
         }
       }
-      
+
       return undefined;
     },
   });
@@ -147,14 +148,15 @@ export function useDeleteCredential() {
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete credential";
-      
+
       // Check if error is about credential being in use
       if (errorMessage.includes("being used")) {
-        toast.error("Cannot delete credential. It is currently being used by one or more workflow nodes.");
+        toast.error(
+          "Cannot delete credential. It is currently being used by one or more workflow nodes."
+        );
       } else {
         toast.error(errorMessage);
       }
     },
   });
 }
-

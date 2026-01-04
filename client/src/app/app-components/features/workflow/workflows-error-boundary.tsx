@@ -9,4 +9,3 @@ import { WorkflowsErrorView } from "./workflows";
 export function WorkflowsErrorBoundaryFallback({ error, resetErrorBoundary }: FallbackProps) {
   return <WorkflowsErrorView />;
 }
-

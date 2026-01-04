@@ -83,17 +83,10 @@ export function WorkflowNameInput({
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={isPending}
-          >
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!workflowName.trim() || isPending}
-          >
+          <Button onClick={handleSubmit} disabled={!workflowName.trim() || isPending}>
             {isPending ? "Saving..." : submitLabel}
           </Button>
         </DialogFooter>
@@ -101,4 +94,3 @@ export function WorkflowNameInput({
     </Dialog>
   );
 }
-

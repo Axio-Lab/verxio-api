@@ -15,7 +15,6 @@ import { OpenAINode } from "@/app/app-components/features/executions/actions/ope
 import { AnthropicNode } from "@/app/app-components/features/executions/actions/anthropic/node";
 import { GeminiNode } from "@/app/app-components/features/executions/actions/gemini/node";
 
-
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
   [NodeType.MANUAL_TRIGGER]: ManualTriggerNode,
@@ -35,10 +34,7 @@ export const AddNodeButton = memo(() => {
 
   return (
     <NodeSelector open={selectorOpen} onOpenChange={setSelectorOpen}>
-      <Button 
-        variant="outline" 
-        size="icon"
-      >
+      <Button variant="outline" size="icon">
         <PlusIcon className="size-4" />
       </Button>
     </NodeSelector>

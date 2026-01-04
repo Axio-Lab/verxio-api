@@ -63,10 +63,7 @@ export default function DealFilters({ deals = [] }: DealFiltersProps) {
     ...merchants.map((merchant) => ({ value: merchant, label: merchant })),
   ];
 
-  const countryOptions = [
-    { value: "", label: "All Countries" },
-    ...sortedCountries,
-  ];
+  const countryOptions = [{ value: "", label: "All Countries" }, ...sortedCountries];
 
   return (
     <div className="space-y-4">
@@ -101,9 +98,7 @@ export default function DealFilters({ deals = [] }: DealFiltersProps) {
           <input
             type="checkbox"
             checked={filters.expiringSoon}
-            onChange={(e) =>
-              setFilters({ expiringSoon: e.target.checked })
-            }
+            onChange={(e) => setFilters({ expiringSoon: e.target.checked })}
             className="h-4 w-4 accent-primary"
           />
           <span className="text-sm font-medium text-textPrimary">

@@ -9,9 +9,15 @@ import ProtectedRoute from "@/app/app-components/ProtectedRoute";
 import CreateDealForm from "@/app/app-components/CreateDealForm";
 import CollectionCard from "@/app/app-components/CollectionCard";
 import { VerxioLoader } from "@/app/app-components/VerxioLoader";
-import { useDealsByUser, useAddDealQuantity, useExtendDealExpiry, useMerchantStats, useMerchantRecentActivity, useVoucherByClaimCode } from "@/hooks/useDeals";
+import {
+  useDealsByUser,
+  useAddDealQuantity,
+  useExtendDealExpiry,
+  useMerchantStats,
+  useMerchantRecentActivity,
+  useVoucherByClaimCode,
+} from "@/hooks/useDeals";
 import VoucherDetailsModal from "@/app/app-components/VoucherDetailsModal";
-
 
 export default function MerchantDashboard() {
   const { user } = useAuthWithVerxioUser();
@@ -20,7 +26,7 @@ export default function MerchantDashboard() {
   const { data: statsData, isLoading: isLoadingStats } = useMerchantStats(userEmail);
   const addDealQuantityMutation = useAddDealQuantity();
   const extendDealExpiryMutation = useExtendDealExpiry();
-  
+
   const [selectedForAdd, setSelectedForAdd] = useState<string | null>(null);
   const [selectedForExtend, setSelectedForExtend] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState<number>(0);
@@ -28,14 +34,17 @@ export default function MerchantDashboard() {
   const [claimCodeInput, setClaimCodeInput] = useState<string>("");
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  
-  const { data: recentActivityData, isLoading: isLoadingActivity } = useMerchantRecentActivity(userEmail, 5);
+
+  const { data: recentActivityData, isLoading: isLoadingActivity } = useMerchantRecentActivity(
+    userEmail,
+    5
+  );
   const voucherByClaimCodeMutation = useVoucherByClaimCode();
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const collectionsPerPage = 4;
-  
+
   // Helper function to format deal type (e.g., "FREE_ITEM" -> "FREE ITEM")
   const formatDealType = (dealType?: string): string => {
     if (!dealType) return "Deal";
@@ -45,9 +54,9 @@ export default function MerchantDashboard() {
   // Handle voucher lookup
   const handleVoucherLookup = () => {
     if (!claimCodeInput.trim() || !userEmail) return;
-    
+
     setLookupError(null); // Clear previous errors
-    
+
     voucherByClaimCodeMutation.mutate(
       { claimCode: claimCodeInput.trim(), userEmail },
       {
@@ -67,31 +76,33 @@ export default function MerchantDashboard() {
   };
 
   // Map API deals to CollectionCard format (only when not loading)
-  const mappedUserDeals = !isLoadingDeals ? userDeals.map((deal) => ({
-    id: deal.id,
-    title: deal.collectionName,
-    merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
-    discount: formatDealType(deal.dealType),
-    expiry: deal.expiryDate 
-      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : "N/A",
-    country: deal.country,
-    category: deal.category,
-    tradeable: deal.tradeable,
-    worth: deal.worth || 0,
-    worthSymbol: deal.currency || "USD",
-    quantityTotal: deal.quantity,
-    quantityRemaining: deal.quantityRemaining,
-    collectionAddress: deal.collectionAddress,
-  })) : [];
-  
+  const mappedUserDeals = !isLoadingDeals
+    ? userDeals.map((deal) => ({
+        id: deal.id,
+        title: deal.collectionName,
+        merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
+        discount: formatDealType(deal.dealType),
+        expiry: deal.expiryDate
+          ? new Date(deal.expiryDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "N/A",
+        country: deal.country,
+        category: deal.category,
+        tradeable: deal.tradeable,
+        worth: deal.worth || 0,
+        worthSymbol: deal.currency || "USD",
+        quantityTotal: deal.quantity,
+        quantityRemaining: deal.quantityRemaining,
+        collectionAddress: deal.collectionAddress,
+      }))
+    : [];
+
   // Use only API deals (no mock data)
   const allCollections = !isLoadingDeals ? mappedUserDeals : [];
-  
+
   // Pagination calculations
   const totalPages = Math.ceil(allCollections.length / collectionsPerPage);
   const startIndex = (currentPage - 1) * collectionsPerPage;
@@ -102,11 +113,11 @@ export default function MerchantDashboard() {
     <ProtectedRoute>
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex items-start justify-between">
-        <SectionHeader
-          eyebrow="Merchant Dashboard"
-          title="Create and manage your voucher collections"
-          description="Publish deals, manage inventory, and monitor claims and trade volume."
-        />
+          <SectionHeader
+            eyebrow="Merchant Dashboard"
+            title="Create and manage your voucher collections"
+            description="Publish deals, manage inventory, and monitor claims and trade volume."
+          />
           <Link
             href="/workflows"
             className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
@@ -116,75 +127,74 @@ export default function MerchantDashboard() {
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {isLoadingStats ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="card-surface p-5">
-                <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
-                <div className="mt-2 h-8 w-32 animate-pulse rounded bg-gray-200" />
-              </div>
-            ))
-          ) : statsData?.stats ? (
-            [
-              { 
-                label: "Total Vouchers Issued", 
-                value: statsData.stats.vouchersIssued.toLocaleString(),
-                trend: statsData.stats.vouchersIssuedTrend !== undefined 
-                  ? `${statsData.stats.vouchersIssuedTrend >= 0 ? '+' : ''}${statsData.stats.vouchersIssuedTrend}% MoM`
-                  : undefined
-              },
-              { 
-                label: "Total Claims", 
-                value: statsData.stats.dealsClaimed.toLocaleString(),
-                trend: statsData.stats.dealsClaimedTrend !== undefined
-                  ? `${statsData.stats.dealsClaimedTrend >= 0 ? '+' : ''}${statsData.stats.dealsClaimedTrend}% MoM`
-                  : undefined
-              },
-              { 
-                label: "Total Redemptions", 
-                value: statsData.stats.totalRedemptions.toLocaleString(),
-                trend: statsData.stats.totalRedemptionsTrend !== undefined
-                  ? `${statsData.stats.totalRedemptionsTrend >= 0 ? '+' : ''}${statsData.stats.totalRedemptionsTrend}% MoM`
-                  : undefined
-              },
-              { 
-                label: "Total Trades", 
-                value: statsData.stats.totalTrades.toLocaleString(),
-                trend: statsData.stats.totalTradesTrend !== undefined
-                  ? `${statsData.stats.totalTradesTrend >= 0 ? '+' : ''}${statsData.stats.totalTradesTrend}% MoM`
-                  : undefined
-              },
-            ].map((stat) => (
-              <StatCard key={stat.label} label={stat.label} value={stat.value} trend={stat.trend} />
-            ))
-          ) : (
-            [
-              { label: "Total Vouchers Issued", value: "0" },
-              { label: "Total Claims", value: "0" },
-              { label: "Total Redemptions", value: "0" },
-              { label: "Total Trades", value: "0" },
-            ].map((stat) => (
-              <StatCard key={stat.label} label={stat.label} value={stat.value} />
-            ))
-          )}
+          {isLoadingStats
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="card-surface p-5">
+                  <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
+                  <div className="mt-2 h-8 w-32 animate-pulse rounded bg-gray-200" />
+                </div>
+              ))
+            : statsData?.stats
+              ? [
+                  {
+                    label: "Total Vouchers Issued",
+                    value: statsData.stats.vouchersIssued.toLocaleString(),
+                    trend:
+                      statsData.stats.vouchersIssuedTrend !== undefined
+                        ? `${statsData.stats.vouchersIssuedTrend >= 0 ? "+" : ""}${statsData.stats.vouchersIssuedTrend}% MoM`
+                        : undefined,
+                  },
+                  {
+                    label: "Total Claims",
+                    value: statsData.stats.dealsClaimed.toLocaleString(),
+                    trend:
+                      statsData.stats.dealsClaimedTrend !== undefined
+                        ? `${statsData.stats.dealsClaimedTrend >= 0 ? "+" : ""}${statsData.stats.dealsClaimedTrend}% MoM`
+                        : undefined,
+                  },
+                  {
+                    label: "Total Redemptions",
+                    value: statsData.stats.totalRedemptions.toLocaleString(),
+                    trend:
+                      statsData.stats.totalRedemptionsTrend !== undefined
+                        ? `${statsData.stats.totalRedemptionsTrend >= 0 ? "+" : ""}${statsData.stats.totalRedemptionsTrend}% MoM`
+                        : undefined,
+                  },
+                  {
+                    label: "Total Trades",
+                    value: statsData.stats.totalTrades.toLocaleString(),
+                    trend:
+                      statsData.stats.totalTradesTrend !== undefined
+                        ? `${statsData.stats.totalTradesTrend >= 0 ? "+" : ""}${statsData.stats.totalTradesTrend}% MoM`
+                        : undefined,
+                  },
+                ].map((stat) => (
+                  <StatCard
+                    key={stat.label}
+                    label={stat.label}
+                    value={stat.value}
+                    trend={stat.trend}
+                  />
+                ))
+              : [
+                  { label: "Total Vouchers Issued", value: "0" },
+                  { label: "Total Claims", value: "0" },
+                  { label: "Total Redemptions", value: "0" },
+                  { label: "Total Trades", value: "0" },
+                ].map((stat) => (
+                  <StatCard key={stat.label} label={stat.label} value={stat.value} />
+                ))}
         </div>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <CreateDealForm />
 
-
-
           <div className="card-surface p-6">
-
             <Link
               href="/profile"
               className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -195,8 +205,7 @@ export default function MerchantDashboard() {
               View Profile
             </Link>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200"></div>
 
             <h3 className="text-xl font-semibold text-textPrimary">Lookup Voucher</h3>
             <div className="mt-4 space-y-3">
@@ -209,7 +218,7 @@ export default function MerchantDashboard() {
                     setLookupError(null); // Clear error when user types
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && claimCodeInput.trim() && userEmail) {
+                    if (e.key === "Enter" && claimCodeInput.trim() && userEmail) {
                       handleVoucherLookup();
                     }
                   }}
@@ -218,7 +227,9 @@ export default function MerchantDashboard() {
                 />
                 <button
                   onClick={handleVoucherLookup}
-                  disabled={!claimCodeInput.trim() || !userEmail || voucherByClaimCodeMutation.isPending}
+                  disabled={
+                    !claimCodeInput.trim() || !userEmail || voucherByClaimCodeMutation.isPending
+                  }
                   className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {voucherByClaimCodeMutation.isPending ? "Loading..." : "Lookup"}
@@ -231,8 +242,7 @@ export default function MerchantDashboard() {
               )}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-200">
-            </div>
+            <div className="mt-6 pt-4 border-t border-gray-200"></div>
 
             <h3 className="text-xl font-semibold text-textPrimary">Recent Activity</h3>
             {isLoadingActivity ? (
@@ -242,7 +252,10 @@ export default function MerchantDashboard() {
             ) : recentActivityData?.activities && recentActivityData.activities.length > 0 ? (
               <ul className="mt-4 space-y-3 text-sm text-textSecondary">
                 {recentActivityData.activities.map((activity, index) => (
-                  <li key={index} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+                  <li
+                    key={index}
+                    className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2"
+                  >
                     <span>{activity.message}</span>
                     <span className="text-textPrimary">
                       {activity.value || new Date(activity.timestamp).toLocaleDateString()}
@@ -285,18 +298,18 @@ export default function MerchantDashboard() {
                   />
                 ))}
               </div>
-              
+
               {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="mt-6 flex items-center justify-center gap-2">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
                     className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
-                  
+
                   <div className="flex items-center gap-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                       <button
@@ -312,9 +325,9 @@ export default function MerchantDashboard() {
                       </button>
                     ))}
                   </div>
-                  
+
                   <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
                     className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >

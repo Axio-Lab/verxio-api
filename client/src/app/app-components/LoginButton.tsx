@@ -42,7 +42,7 @@ export function LoginButton() {
       >
         {isLoading ? "Loading..." : "Continue with Google"}
       </button>
-      
+
       <form onSubmit={handleEmailLogin} className="space-y-3">
         <input
           type="email"
@@ -69,4 +69,3 @@ export function LoginButton() {
     </div>
   );
 }
-

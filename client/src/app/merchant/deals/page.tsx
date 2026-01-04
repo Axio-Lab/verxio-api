@@ -12,7 +12,7 @@ export default function AllDealsPage() {
   const { user } = useAuthWithVerxioUser();
   const userEmail = user?.email;
   const { data: userDeals = [], isLoading: isLoadingDeals } = useDealsByUser(userEmail);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const collectionsPerPage = 6;
@@ -24,28 +24,30 @@ export default function AllDealsPage() {
   };
 
   // Map API deals to CollectionCard format (only when not loading)
-  const allCollections = !isLoadingDeals ? userDeals.map((deal) => ({
-    id: deal.id,
-    title: deal.collectionName,
-    merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
-    discount: formatDealType(deal.dealType),
-    expiry: deal.expiryDate 
-      ? new Date(deal.expiryDate).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : "N/A",
-    country: deal.country,
-    category: deal.category,
-    tradeable: deal.tradeable,
-    worth: deal.worth || 0,
-    worthSymbol: deal.currency || "USD",
-    quantityTotal: deal.quantity,
-    quantityRemaining: deal.quantityRemaining,
-    collectionAddress: deal.collectionAddress,
-  })) : [];
-  
+  const allCollections = !isLoadingDeals
+    ? userDeals.map((deal) => ({
+        id: deal.id,
+        title: deal.collectionName,
+        merchant: deal.collectionDetails?.metadata?.merchantName || "Your Merchant",
+        discount: formatDealType(deal.dealType),
+        expiry: deal.expiryDate
+          ? new Date(deal.expiryDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "N/A",
+        country: deal.country,
+        category: deal.category,
+        tradeable: deal.tradeable,
+        worth: deal.worth || 0,
+        worthSymbol: deal.currency || "USD",
+        quantityTotal: deal.quantity,
+        quantityRemaining: deal.quantityRemaining,
+        collectionAddress: deal.collectionAddress,
+      }))
+    : [];
+
   // Pagination calculations
   const totalPages = Math.ceil(allCollections.length / collectionsPerPage);
   const startIndex = (currentPage - 1) * collectionsPerPage;
@@ -59,9 +61,7 @@ export default function AllDealsPage() {
           <div>
             <p className="text-sm uppercase tracking-wide text-textSecondary">My Collections</p>
             <h1 className="mt-1 text-3xl font-semibold text-textPrimary">All Deal Collections</h1>
-            <p className="mt-2 text-sm text-textSecondary">
-              View and manage all your deal
-            </p>
+            <p className="mt-2 text-sm text-textSecondary">View and manage all your deal</p>
           </div>
           <Link
             href="/merchant"
@@ -90,18 +90,18 @@ export default function AllDealsPage() {
                     />
                   ))}
                 </div>
-                
+
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
                   <div className="mt-6 flex items-center justify-center gap-2">
                     <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                       className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
-                    
+
                     <div className="flex items-center gap-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                         <button
@@ -117,9 +117,9 @@ export default function AllDealsPage() {
                         </button>
                       ))}
                     </div>
-                    
+
                     <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
                       className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >

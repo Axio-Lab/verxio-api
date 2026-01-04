@@ -6,7 +6,7 @@ import { RouteGuard } from "./app-components/RouteGuard";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
 import { NuqsProvider } from "@/lib/nuqs-adapter";
-import { Provider as JotaiProvider } from 'jotai';
+import { Provider as JotaiProvider } from "jotai";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -38,14 +38,12 @@ export default function RootLayout({
       >
         <Providers>
           <NuqsProvider>
-              <RouteGuard>
-                <ConditionalNavbar />
-                <JotaiProvider>
-                {children}
-                </JotaiProvider>
-                <ConditionalFooter />
-              </RouteGuard>
-              <Toaster />
+            <RouteGuard>
+              <ConditionalNavbar />
+              <JotaiProvider>{children}</JotaiProvider>
+              <ConditionalFooter />
+            </RouteGuard>
+            <Toaster />
           </NuqsProvider>
         </Providers>
       </body>

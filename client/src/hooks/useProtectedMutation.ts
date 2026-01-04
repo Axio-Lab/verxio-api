@@ -7,11 +7,11 @@ import { useEffect } from "react";
 
 /**
  * Protected Mutation Hook - Similar to tRPC's protected procedure
- * 
+ *
  * This hook ensures that:
  * 1. User is authenticated before executing the mutation
  * 2. Automatically redirects to login if not authenticated
- * 
+ *
  * Usage:
  * ```ts
  * const { mutate, isLoading } = useProtectedMutation({
@@ -23,7 +23,7 @@ export function useProtectedMutation<
   TData = unknown,
   TError = Error,
   TVariables = void,
-  TContext = unknown
+  TContext = unknown,
 >(
   options: UseMutationOptions<TData, TError, TVariables, TContext> & {
     redirectToLogin?: boolean; // Whether to redirect to login if not authenticated (default: true)
@@ -57,4 +57,3 @@ export function useProtectedMutation<
     mutationFn: wrappedMutationFn,
   });
 }
-

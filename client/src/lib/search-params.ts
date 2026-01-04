@@ -1,4 +1,9 @@
-import { parseAsString, parseAsBoolean, parseAsInteger, createSearchParamsCache } from "nuqs/server";
+import {
+  parseAsString,
+  parseAsBoolean,
+  parseAsInteger,
+  createSearchParamsCache,
+} from "nuqs/server";
 
 /**
  * Search parameters for the explore/deals page
@@ -6,18 +11,18 @@ import { parseAsString, parseAsBoolean, parseAsInteger, createSearchParamsCache 
 export const searchParams = {
   // Search query
   q: parseAsString.withDefault(""),
-  
+
   // Filters
   country: parseAsString.withDefault(""),
   category: parseAsString.withDefault(""),
   merchant: parseAsString.withDefault(""),
   dealType: parseAsString.withDefault(""),
   expiringSoon: parseAsBoolean.withDefault(false),
-  
+
   // Pagination
   page: parseAsString.withDefault("1"),
   limit: parseAsString.withDefault("20"),
-  
+
   // Sorting
   sortBy: parseAsString.withDefault(""),
   sortOrder: parseAsString.withDefault("asc"),
@@ -29,7 +34,7 @@ export const searchParams = {
 export const workflowSearchParams = {
   // Search query
   search: parseAsString.withDefault(""),
-  
+
   // Pagination
   page: parseAsInteger.withDefault(1),
   limit: parseAsInteger.withDefault(5),
@@ -37,4 +42,3 @@ export const workflowSearchParams = {
 
 export const searchParamsCache = createSearchParamsCache(searchParams);
 export const workflowSearchParamsCache = createSearchParamsCache(workflowSearchParams);
-

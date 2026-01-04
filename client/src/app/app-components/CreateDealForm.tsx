@@ -13,7 +13,7 @@ import { useCreateDeal, type CreateDealData } from "../../hooks/useDeals";
 export default function CreateDealForm() {
   const { user } = useAuthWithVerxioUser();
   const createDeal = useCreateDeal();
-  
+
   const [collectionName, setCollectionName] = useState<string>("");
   const [category, setCategory] = useState<string>("");
   const [merchantName, setMerchantName] = useState<string>("");
@@ -72,10 +72,24 @@ export default function CreateDealForm() {
       }
 
       // Validate required fields
-      if (!collectionName || !category || !merchantName || !merchantAddress || !contactEmail || 
-          !description || !voucherType || voucherWorth === undefined || voucherWorth === null || 
-          !currencyCode || !country || !quantity || !expiryDate || !maxUses || !conditions || 
-          (!imageFile && !imageUrl)) {
+      if (
+        !collectionName ||
+        !category ||
+        !merchantName ||
+        !merchantAddress ||
+        !contactEmail ||
+        !description ||
+        !voucherType ||
+        voucherWorth === undefined ||
+        voucherWorth === null ||
+        !currencyCode ||
+        !country ||
+        !quantity ||
+        !expiryDate ||
+        !maxUses ||
+        !conditions ||
+        (!imageFile && !imageUrl)
+      ) {
         throw new Error("Please fill in all required fields");
       }
 
@@ -122,7 +136,7 @@ export default function CreateDealForm() {
         maxUses,
         tradeable,
         transferable,
-        conditions: conditions
+        conditions: conditions,
       };
 
       // Create deal using TanStack Query mutation
@@ -131,7 +145,7 @@ export default function CreateDealForm() {
       if (result.success) {
         setSuccess("Deal created successfully!");
         setCollectionAddress(result.deal?.collectionAddress || null);
-        
+
         // Reset form after successful publish
         setCollectionName("");
         setCategory("");
@@ -204,9 +218,7 @@ export default function CreateDealForm() {
             rows={3}
             required
           />
-          <p className="mt-1 text-xs text-textSecondary">
-            {description.length}/75 characters
-          </p>
+          <p className="mt-1 text-xs text-textSecondary">{description.length}/75 characters</p>
         </div>
         <div className="min-w-0 sm:col-span-2">
           <input
@@ -222,9 +234,7 @@ export default function CreateDealForm() {
             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             required
           />
-          <p className="mt-1 text-xs text-textSecondary">
-            {merchantName.length}/75 characters
-          </p>
+          <p className="mt-1 text-xs text-textSecondary">{merchantName.length}/75 characters</p>
         </div>
         <div className="min-w-0">
           <input
@@ -240,9 +250,7 @@ export default function CreateDealForm() {
             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             required
           />
-          <p className="mt-1 text-xs text-textSecondary">
-            {merchantAddress.length}/75 characters
-          </p>
+          <p className="mt-1 text-xs text-textSecondary">{merchantAddress.length}/75 characters</p>
         </div>
         <div className="min-w-0">
           <input
@@ -376,9 +384,7 @@ export default function CreateDealForm() {
           rows={3}
           required
         />
-        <p className="mt-1 text-xs text-textSecondary">
-          {conditions.length}/75 characters
-        </p>
+        <p className="mt-1 text-xs text-textSecondary">{conditions.length}/75 characters</p>
       </div>
       {error && (
         <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
@@ -424,7 +430,7 @@ export default function CreateDealForm() {
         disabled={uploading || createDeal.isPending}
         className="mt-5 w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-soft transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
       >
-        {(uploading || createDeal.isPending) ? "Publishing..." : "Publish Deal"}
+        {uploading || createDeal.isPending ? "Publishing..." : "Publish Deal"}
       </button>
     </div>
   );

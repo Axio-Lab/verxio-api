@@ -8,9 +8,7 @@ import { EditorErrorBoundaryFallback } from "./editor-error-boundary";
 // Server component wrapper
 function WorkflowEditorPageContent({ workflowId }: { workflowId: string }) {
   return (
-    <ErrorBoundary
-      FallbackComponent={EditorErrorBoundaryFallback}
-    >
+    <ErrorBoundary FallbackComponent={EditorErrorBoundaryFallback}>
       <NavigationGuard />
       <Suspense fallback={<EditorLoader />}>
         <EditorHeader workflowId={workflowId} />
@@ -22,13 +20,11 @@ function WorkflowEditorPageContent({ workflowId }: { workflowId: string }) {
   );
 }
 
-export default async function WorkflowEditorPage({ 
-  params 
-}: { 
-  params: Promise<{ workflow: string }> 
+export default async function WorkflowEditorPage({
+  params,
+}: {
+  params: Promise<{ workflow: string }>;
 }) {
   const { workflow } = await params;
   return <WorkflowEditorPageContent workflowId={workflow} />;
 }
-
-

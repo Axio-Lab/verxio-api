@@ -38,7 +38,7 @@ export default function DealCard({
     // Special cases for crypto currencies
     if (code === "SOL") return "SOL";
     if (code === "USDC") return "$";
-    
+
     // Get symbol from library, fallback to code if not found
     const symbol = getSymbolFromCurrency(code);
     return symbol || code;
@@ -47,21 +47,21 @@ export default function DealCard({
   const formatAmount = (): string => {
     if (worth === undefined) return "";
     if (worth === 0) return "Free";
-    
+
     const symbol = getCurrencySymbol(worthSymbol);
-    
+
     // Format number with thousand separators
-    const formattedNumber = worth.toLocaleString('en-US', {
+    const formattedNumber = worth.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
-    
+
     // Currencies with symbol before amount
     const prefixSymbols = ["USD", "USDC", "NGN"];
     if (prefixSymbols.includes(worthSymbol)) {
       return `${symbol}${formattedNumber}`;
     }
-    
+
     // All other currencies: symbol after amount
     return `${formattedNumber} ${symbol}`;
   };
@@ -81,7 +81,10 @@ export default function DealCard({
   // Format country name - show "USA" for United States
   const formatCountry = (country?: string): string => {
     if (!country) return "";
-    if (country.toLowerCase().startsWith("united states") || country === "United States of America") {
+    if (
+      country.toLowerCase().startsWith("united states") ||
+      country === "United States of America"
+    ) {
       return "USA";
     }
     return country;
@@ -116,9 +119,7 @@ export default function DealCard({
           </div>
           <div className="flex flex-col items-end gap-2">
             {worth !== undefined && (
-              <p className="text-sm font-semibold text-primary">
-                {formatAmount()}
-              </p>
+              <p className="text-sm font-semibold text-primary">{formatAmount()}</p>
             )}
             {tradeable ? (
               <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
@@ -142,9 +143,7 @@ export default function DealCard({
             {hasQuantity ? (
               <span
                 className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
-                  soldOut
-                    ? "bg-gray-100 text-gray-500"
-                    : "bg-blue-50 text-blue-700"
+                  soldOut ? "bg-gray-100 text-gray-500" : "bg-blue-50 text-blue-700"
                 }`}
               >
                 {soldOut ? "Sold out" : `${quantityRemaining}/${quantityTotal} left`}

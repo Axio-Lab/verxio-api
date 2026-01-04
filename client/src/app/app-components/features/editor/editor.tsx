@@ -17,22 +17,22 @@ import {
   Background,
   Controls,
   Panel,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css';
-import { NodeComponents } from '@/app/app-components/features/editor/node-components';
-import { AddNodeButton } from '@/app/app-components/features/editor/node-components';
-import { NodeType } from '@/app/app-components/features/editor/node-types';
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { NodeComponents } from "@/app/app-components/features/editor/node-components";
+import { AddNodeButton } from "@/app/app-components/features/editor/node-components";
+import { NodeType } from "@/app/app-components/features/editor/node-types";
 import { useSetAtom } from "jotai";
 import { editorAtom } from "./atoms";
 import { ExecuteWorkflowButton } from "../executions/execute-workflow-button";
 
 export const EditorLoader = () => {
   return <LoadingView message="Loading editor..." />;
-}
+};
 
 export const EditorError = () => {
   return <ErrorView message="Error loading editor..." />;
-}
+};
 
 export const Editor = ({ workflowId }: { workflowId: string }) => {
   const { data: workflow, isLoading, error } = useWorkflow(workflowId);
@@ -40,19 +40,19 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
 
   // Use ref to store the latest delete handler to avoid recreating nodes
   const deleteHandlerRef = useRef<(nodeId: string) => void>();
-  
+
   // Handle node deletion - only removes from local state
   // Database is updated when user clicks save button
   const handleDeleteNode = useCallback((nodeId: string) => {
     // Remove node from local state immediately
-    setNodes((currentNodes) => currentNodes.filter(node => node.id !== nodeId));
+    setNodes((currentNodes) => currentNodes.filter((node) => node.id !== nodeId));
     // Also remove any edges connected to this node
-    setEdges((currentEdges) => 
-      currentEdges.filter(edge => edge.source !== nodeId && edge.target !== nodeId)
+    setEdges((currentEdges) =>
+      currentEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
     );
     // Changes will be saved to database when user clicks save button
   }, []);
-  
+
   // Update ref whenever handler changes
   useEffect(() => {
     deleteHandlerRef.current = handleDeleteNode;
@@ -99,24 +99,24 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const hasInitializedRef = useRef(false);
-  const lastSavedWorkflowRef = useRef<string>('');
-  const workflowIdRef = useRef<string>('');
+  const lastSavedWorkflowRef = useRef<string>("");
+  const workflowIdRef = useRef<string>("");
 
   // Only sync from saved workflow on initial load or when workflow ID changes
   useEffect(() => {
     if (!workflow) return;
-    
+
     // Reset if workflow ID changed (switched to different workflow)
     if (workflowIdRef.current !== workflow.id) {
       hasInitializedRef.current = false;
-      lastSavedWorkflowRef.current = '';
+      lastSavedWorkflowRef.current = "";
       workflowIdRef.current = workflow.id;
     }
-    
+
     // Create a unique key for the saved workflow state
     const workflowKey = JSON.stringify({
-      nodeIds: (workflow.nodes || []).map(n => n.id).sort(),
-      edgeIds: (workflow.connections || []).map(c => c.id).sort(),
+      nodeIds: (workflow.nodes || []).map((n) => n.id).sort(),
+      edgeIds: (workflow.connections || []).map((c) => c.id).sort(),
     });
 
     // Only sync on initial load (when not yet initialized)
@@ -124,7 +124,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
       lastSavedWorkflowRef.current = workflowKey;
-      
+
       // Transform and set nodes from saved workflow
       setNodes(workflowNodes);
       setEdges(workflowEdges);
@@ -138,77 +138,67 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
 
   // Check if we should show the initial node (only when there are no other nodes)
   const hasNonInitialNodes = useMemo(() => {
-    return nodes.some(node => node.type !== NodeType.INITIAL);
+    return nodes.some((node) => node.type !== NodeType.INITIAL);
   }, [nodes]);
 
   // Filter out INITIAL node if there are other nodes
   const displayNodes = useMemo(() => {
     if (hasNonInitialNodes) {
-      return nodes.filter(node => node.type !== NodeType.INITIAL);
+      return nodes.filter((node) => node.type !== NodeType.INITIAL);
     }
     return nodes;
   }, [nodes, hasNonInitialNodes]);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      setNodes((nodesSnapshot) => {
-        // Apply changes to the full nodes array (including INITIAL if present)
-        let updatedNodes = applyNodeChanges(changes, nodesSnapshot);
-        
-        // Ensure all nodes have the onDelete handler (for unsaved nodes)
-        updatedNodes = updatedNodes.map((node) => {
-          // If node doesn't have onDelete handler, add it
-          if (!node.data?.onDelete) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                onDelete: () => {
-                  if (deleteHandlerRef.current) {
-                    deleteHandlerRef.current(node.id);
-                  }
-                },
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((nodesSnapshot) => {
+      // Apply changes to the full nodes array (including INITIAL if present)
+      let updatedNodes = applyNodeChanges(changes, nodesSnapshot);
+
+      // Ensure all nodes have the onDelete handler (for unsaved nodes)
+      updatedNodes = updatedNodes.map((node) => {
+        // If node doesn't have onDelete handler, add it
+        if (!node.data?.onDelete) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onDelete: () => {
+                if (deleteHandlerRef.current) {
+                  deleteHandlerRef.current(node.id);
+                }
               },
-            };
-          }
-          return node;
-        });
-        
-        // If we have non-INITIAL nodes, automatically remove INITIAL nodes
-        const hasNonInitial = updatedNodes.some(node => node.type !== NodeType.INITIAL);
-        if (hasNonInitial) {
-          return updatedNodes.filter(node => node.type !== NodeType.INITIAL);
+            },
+          };
         }
-        return updatedNodes;
+        return node;
       });
-    },
-    [],
-  );
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => {
-      setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot));
-    },
-    [],
-  );
-  
-  const onConnect = useCallback(
-    (params: Connection) => {
-      // Create edge with default ReactFlow styling but keep it deletable
-      const newEdge: Edge = {
-        ...params,
-        id: `edge-${params.source}-${params.target}-${Date.now()}`,
-        deletable: true,
-        selectable: true,
-      };
-      setEdges((edgesSnapshot) => addEdge(newEdge as Connection, edgesSnapshot));
-    },
-    [],
-  );
-  
+
+      // If we have non-INITIAL nodes, automatically remove INITIAL nodes
+      const hasNonInitial = updatedNodes.some((node) => node.type !== NodeType.INITIAL);
+      if (hasNonInitial) {
+        return updatedNodes.filter((node) => node.type !== NodeType.INITIAL);
+      }
+      return updatedNodes;
+    });
+  }, []);
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot));
+  }, []);
+
+  const onConnect = useCallback((params: Connection) => {
+    // Create edge with default ReactFlow styling but keep it deletable
+    const newEdge: Edge = {
+      ...params,
+      id: `edge-${params.source}-${params.target}-${Date.now()}`,
+      deletable: true,
+      selectable: true,
+    };
+    setEdges((edgesSnapshot) => addEdge(newEdge as Connection, edgesSnapshot));
+  }, []);
 
   // Check if we have a manual trigger node (must be before early returns to follow Rules of Hooks)
   const hasManualTriggerNode = useMemo(() => {
-    return nodes.some(node => node.type === NodeType.MANUAL_TRIGGER);
+    return nodes.some((node) => node.type === NodeType.MANUAL_TRIGGER);
   }, [nodes]);
 
   if (isLoading) {
@@ -222,7 +212,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   if (!workflow) {
     return <EditorError />;
   }
-  
+
   return (
     <div className="size-full">
       <ReactFlow
@@ -245,20 +235,19 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           deletable: true,
           selectable: true,
         }}
-        >
-          <Background />
-          <Controls />
-          <MiniMap />
-            <Panel position="top-right">
-              <AddNodeButton />
-            </Panel>
-            {hasManualTriggerNode && (
-              <Panel position="bottom-center">
-                <ExecuteWorkflowButton workflowId={workflowId} />
-              </Panel>
-            )}
-        </ReactFlow>
-
+      >
+        <Background />
+        <Controls />
+        <MiniMap />
+        <Panel position="top-right">
+          <AddNodeButton />
+        </Panel>
+        {hasManualTriggerNode && (
+          <Panel position="bottom-center">
+            <ExecuteWorkflowButton workflowId={workflowId} />
+          </Panel>
+        )}
+      </ReactFlow>
     </div>
   );
 };
