@@ -1,5 +1,5 @@
-import { PrismaClient as BackendPrismaClient } from '../../node_modules/.prisma/client';
-import { fieldEncryptionExtension } from 'prisma-field-encryption';
+import { PrismaClient as BackendPrismaClient } from "../../node_modules/.prisma/client";
+import { fieldEncryptionExtension } from "prisma-field-encryption";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: BackendPrismaClient | undefined;
@@ -12,16 +12,15 @@ const basePrisma: BackendPrismaClient = globalForPrisma.prisma ?? new BackendPri
 export const basePrismaClient: BackendPrismaClient = basePrisma;
 
 export const prisma: BackendPrismaClient = process.env.PRISMA_FIELD_ENCRYPTION_KEY
-  ? basePrisma.$extends(
+  ? (basePrisma.$extends(
       fieldEncryptionExtension({
         encryptionKey: process.env.PRISMA_FIELD_ENCRYPTION_KEY,
       })
-    ) as BackendPrismaClient
+    ) as BackendPrismaClient)
   : basePrisma;
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 } else {
   globalForPrisma.prisma = prisma;
 }
-

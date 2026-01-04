@@ -1,4 +1,4 @@
-import { storeMetadata } from './storeMetadata';
+import { storeMetadata } from "./storeMetadata";
 
 interface VoucherMetadataInput {
   voucherName: string;
@@ -22,9 +22,7 @@ interface VoucherMetadataInput {
 /**
  * Generate NFT metadata for an individual voucher
  */
-export async function generateVoucherMetadata(
-  data: VoucherMetadataInput
-): Promise<string> {
+export async function generateVoucherMetadata(data: VoucherMetadataInput): Promise<string> {
   try {
     const {
       voucherName,
@@ -46,27 +44,28 @@ export async function generateVoucherMetadata(
     } = data;
 
     if (!voucherName || !imageUri || !creatorAddress) {
-      throw new Error('Missing required data for metadata generation');
+      throw new Error("Missing required data for metadata generation");
     }
 
     // Ensure imageUri has https:// prefix
-    const normalizedImageUri = imageUri.startsWith('http://') || imageUri.startsWith('https://')
-      ? imageUri
-      : `https://${imageUri}`;
+    const normalizedImageUri =
+      imageUri.startsWith("http://") || imageUri.startsWith("https://")
+        ? imageUri
+        : `https://${imageUri}`;
 
     const metadataObject = {
       name: voucherName,
-      symbol: 'VERXIO-VOUCHER',
+      symbol: "VERXIO-VOUCHER",
       description: description || `Voucher: ${voucherType} - ${value}`,
       image: normalizedImageUri,
       properties: {
         files: [
           {
             uri: normalizedImageUri,
-            type: mimeType || 'image/png',
+            type: mimeType || "image/png",
           },
         ],
-        category: 'image',
+        category: "image",
         creators: [
           {
             address: creatorAddress,
@@ -76,49 +75,69 @@ export async function generateVoucherMetadata(
       },
       attributes: [
         {
-          trait_type: 'Voucher Type',
+          trait_type: "Voucher Type",
           value: voucherType,
         },
         {
-          trait_type: 'Value',
+          trait_type: "Value",
           value: value.toString(),
         },
-        ...(valueSymbol ? [{
-          trait_type: 'Value Symbol',
-          value: valueSymbol,
-        }] : []),
+        ...(valueSymbol
+          ? [
+              {
+                trait_type: "Value Symbol",
+                value: valueSymbol,
+              },
+            ]
+          : []),
         {
-          trait_type: 'Expiry Date',
+          trait_type: "Expiry Date",
           value: expiryDate.toISOString(),
         },
         {
-          trait_type: 'Max Uses',
+          trait_type: "Max Uses",
           value: maxUses.toString(),
         },
         {
-          trait_type: 'Transferable',
-          value: transferable ? 'Yes' : 'No',
+          trait_type: "Transferable",
+          value: transferable ? "Yes" : "No",
         },
         {
-          trait_type: 'Merchant ID',
+          trait_type: "Merchant ID",
           value: merchantId,
         },
-        ...(assetName ? [{
-          trait_type: 'Asset Name',
-          value: assetName,
-        }] : []),
-        ...(assetSymbol ? [{
-          trait_type: 'Asset Symbol',
-          value: assetSymbol,
-        }] : []),
-        ...(tokenAddress ? [{
-          trait_type: 'Token Address',
-          value: tokenAddress,
-        }] : []),
-        ...(conditions ? [{
-          trait_type: 'Conditions',
-          value: conditions,
-        }] : []),
+        ...(assetName
+          ? [
+              {
+                trait_type: "Asset Name",
+                value: assetName,
+              },
+            ]
+          : []),
+        ...(assetSymbol
+          ? [
+              {
+                trait_type: "Asset Symbol",
+                value: assetSymbol,
+              },
+            ]
+          : []),
+        ...(tokenAddress
+          ? [
+              {
+                trait_type: "Token Address",
+                value: tokenAddress,
+              },
+            ]
+          : []),
+        ...(conditions
+          ? [
+              {
+                trait_type: "Conditions",
+                value: conditions,
+              },
+            ]
+          : []),
       ],
       voucher: {
         type: voucherType,
@@ -128,15 +147,14 @@ export async function generateVoucherMetadata(
         maxUses,
         transferable,
         merchantId,
-        conditions: conditions || '',
+        conditions: conditions || "",
       },
     };
 
     const uri = await storeMetadata(metadataObject);
     return uri;
   } catch (error) {
-    console.error('Error generating voucher metadata:', error);
-    throw new Error('Failed to generate voucher metadata');
+    console.error("Error generating voucher metadata:", error);
+    throw new Error("Failed to generate voucher metadata");
   }
 }
-

@@ -8,20 +8,21 @@ import { nodeStatusChannels } from "../channels";
 /**
  * Inngest function to trigger workflow execution
  * This function is triggered by the event "workflow/trigger"
- * 
+ *
  * Event payload should include:
  * - workflowId: string - The ID of the workflow to execute
  * - userId: string - The ID of the user who owns the workflow
  * - data?: any - Optional data to pass to the workflow execution (used as initial context)
- * 
+ *
  * @returns {Object} Returns an object with workflowId and context
  * - workflowId: string - The ID of the executed workflow
  * - context: Record<string, unknown> - The final context after workflow execution
  */
 export const triggerWorkflow = inngest.createFunction(
   { id: "trigger-workflow" },
-  { event: "workflow/trigger" ,
-    channels: Object.values(nodeStatusChannels).map(channel => channel()),
+  {
+    event: "workflow/trigger",
+    channels: Object.values(nodeStatusChannels).map((channel) => channel()),
   },
   async ({ event, step, publish }) => {
     const { workflowId, userId } = event.data;
@@ -38,40 +39,42 @@ export const triggerWorkflow = inngest.createFunction(
     // Fetch workflow with nodes and connections, then sort nodes in topological order
     const workflow = await step.run("prepare-workflow", async () => {
       const workflow = await getWorkflow(workflowId, userId);
-      
+
       // Find the trigger node (the node that starts the workflow execution)
       // This is the node specified in the event data, or the first trigger node found
-      const triggerNodeId = event.data.data?.googleFormNodeId || 
-                           event.data.data?.stripeNodeId || 
-                           event.data.data?.webhookNodeId ||
-                           null;
-      
+      const triggerNodeId =
+        event.data.data?.googleFormNodeId ||
+        event.data.data?.stripeNodeId ||
+        event.data.data?.webhookNodeId ||
+        null;
+
       let triggerNode = null;
       if (triggerNodeId) {
         triggerNode = workflow.nodes.find((n: any) => n.id === triggerNodeId);
       }
-      
+
       // If no specific trigger node, find the first trigger node (MANUAL_TRIGGER, GOOGLE_FORM_TRIGGER, STRIPE_TRIGGER, WEBHOOK)
       if (!triggerNode) {
-        triggerNode = workflow.nodes.find((n: any) => 
-          n.type === 'MANUAL_TRIGGER' || 
-          n.type === 'GOOGLE_FORM_TRIGGER' || 
-          n.type === 'STRIPE_TRIGGER' ||
-          n.type === 'WEBHOOK'
+        triggerNode = workflow.nodes.find(
+          (n: any) =>
+            n.type === "MANUAL_TRIGGER" ||
+            n.type === "GOOGLE_FORM_TRIGGER" ||
+            n.type === "STRIPE_TRIGGER" ||
+            n.type === "WEBHOOK"
         );
       }
-      
+
       // AI nodes (OPENAI, ANTHROPIC, GEMINI) are execution nodes, not triggers
       // They should not be used as workflow triggers
-      
+
       if (!triggerNode) {
         throw new NonRetriableError("No trigger node found in workflow");
       }
-      
+
       // Find all nodes reachable from the trigger node (only connected nodes)
       const reachableNodeIds = new Set<string>([triggerNode.id]);
       const connections = workflow.connections || [];
-      
+
       // Build adjacency list for graph traversal
       const adjacencyList = new Map<string, string[]>();
       for (const conn of connections) {
@@ -80,7 +83,7 @@ export const triggerWorkflow = inngest.createFunction(
         }
         adjacencyList.get(conn.source)!.push(conn.target);
       }
-      
+
       // BFS to find all reachable nodes from trigger
       const queue = [triggerNode.id];
       while (queue.length > 0) {
@@ -93,15 +96,13 @@ export const triggerWorkflow = inngest.createFunction(
           }
         }
       }
-      
+
       // Filter nodes to only include reachable ones
-      const connectedNodes = workflow.nodes.filter((node: any) => 
-        reachableNodeIds.has(node.id)
-      );
-      
+      const connectedNodes = workflow.nodes.filter((node: any) => reachableNodeIds.has(node.id));
+
       // Sort connected nodes in topological order (dependencies first)
       const sortedNodes = topologicalSort(connectedNodes, connections);
-      
+
       return {
         ...workflow,
         nodes: sortedNodes,
@@ -128,7 +129,7 @@ export const triggerWorkflow = inngest.createFunction(
         return false;
       }
       if (!node.type) {
-        console.warn(`Node ${node.id} (${node.name || 'unnamed'}) is missing type, skipping`);
+        console.warn(`Node ${node.id} (${node.name || "unnamed"}) is missing type, skipping`);
         return false;
       }
       return true;
@@ -149,14 +150,13 @@ export const triggerWorkflow = inngest.createFunction(
         context,
         step,
         publish,
-        userId, 
+        userId,
       });
     }
 
     return {
       workflowId,
-      result: context
+      result: context,
     };
   }
 );
-

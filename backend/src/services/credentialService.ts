@@ -1,10 +1,10 @@
-import { basePrismaClient } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
+import { basePrismaClient } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
 
 export enum CredentialType {
-  OPENAI = 'OPENAI',
-  ANTHROPIC = 'ANTHROPIC',
-  GEMINI = 'GEMINI',
+  OPENAI = "OPENAI",
+  ANTHROPIC = "ANTHROPIC",
+  GEMINI = "GEMINI",
 }
 
 // Use basePrismaClient for credential model
@@ -27,7 +27,7 @@ export interface CredentialResponse {
   id: string;
   name: string;
   type: CredentialType;
-  value: string; 
+  value: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,23 +47,21 @@ export interface CredentialsListResponse {
 /**
  * Create a new credential
  */
-export const createCredential = async (
-  data: CreateCredentialData
-): Promise<CredentialResponse> => {
-  if (!data.name || data.name.trim() === '') {
-    throw new AppError('Credential name is required', 400);
+export const createCredential = async (data: CreateCredentialData): Promise<CredentialResponse> => {
+  if (!data.name || data.name.trim() === "") {
+    throw new AppError("Credential name is required", 400);
   }
 
-  if (!data.value || data.value.trim() === '') {
-    throw new AppError('Credential value is required', 400);
+  if (!data.value || data.value.trim() === "") {
+    throw new AppError("Credential value is required", 400);
   }
 
   if (!data.type) {
-    throw new AppError('Credential type is required', 400);
+    throw new AppError("Credential type is required", 400);
   }
 
   if (!data.userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Verify user exists
@@ -72,13 +70,13 @@ export const createCredential = async (
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Validate credential type
   const validTypes = Object.values(CredentialType);
   if (!validTypes.includes(data.type)) {
-    throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(', ')}`, 400);
+    throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
   }
 
   const credential = await prismaClient.credential.create({
@@ -115,7 +113,7 @@ export const getCredentials = async (
   type?: CredentialType
 ): Promise<CredentialsListResponse> => {
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   const skip = (page - 1) * limit;
@@ -127,7 +125,7 @@ export const getCredentials = async (
     // Validate type if provided
     const validTypes = Object.values(CredentialType);
     if (!validTypes.includes(type)) {
-      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(', ')}`, 400);
+      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
     }
     where.type = type;
   }
@@ -149,7 +147,7 @@ export const getCredentials = async (
       updatedAt: true,
     },
     orderBy: {
-      createdAt: 'desc',
+      createdAt: "desc",
     },
   });
 
@@ -173,11 +171,11 @@ export const getCredential = async (
   userId: string
 ): Promise<CredentialWithValueResponse> => {
   if (!id) {
-    throw new AppError('Credential ID is required', 400);
+    throw new AppError("Credential ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   const credential = await prismaClient.credential.findFirst({
@@ -196,7 +194,7 @@ export const getCredential = async (
   });
 
   if (!credential) {
-    throw new AppError('Credential not found', 404);
+    throw new AppError("Credential not found", 404);
   }
 
   return credential;
@@ -211,11 +209,11 @@ export const updateCredential = async (
   data: UpdateCredentialData
 ): Promise<CredentialResponse> => {
   if (!id) {
-    throw new AppError('Credential ID is required', 400);
+    throw new AppError("Credential ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Check if credential exists and belongs to user
@@ -227,28 +225,28 @@ export const updateCredential = async (
   });
 
   if (!existingCredential) {
-    throw new AppError('Credential not found', 404);
+    throw new AppError("Credential not found", 404);
   }
 
   // Validate credential type if provided
   if (data.type) {
     const validTypes = Object.values(CredentialType);
     if (!validTypes.includes(data.type)) {
-      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(', ')}`, 400);
+      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
     }
   }
 
   // Build update data
   const updateData: any = {};
   if (data.name !== undefined) {
-    if (data.name.trim() === '') {
-      throw new AppError('Credential name cannot be empty', 400);
+    if (data.name.trim() === "") {
+      throw new AppError("Credential name cannot be empty", 400);
     }
     updateData.name = data.name.trim();
   }
   if (data.value !== undefined) {
-    if (data.value.trim() === '') {
-      throw new AppError('Credential value cannot be empty', 400);
+    if (data.value.trim() === "") {
+      throw new AppError("Credential value cannot be empty", 400);
     }
     updateData.value = data.value.trim();
   }
@@ -275,16 +273,13 @@ export const updateCredential = async (
 /**
  * Delete a credential
  */
-export const deleteCredential = async (
-  id: string,
-  userId: string
-): Promise<void> => {
+export const deleteCredential = async (id: string, userId: string): Promise<void> => {
   if (!id) {
-    throw new AppError('Credential ID is required', 400);
+    throw new AppError("Credential ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Check if credential exists and belongs to user
@@ -296,7 +291,7 @@ export const deleteCredential = async (
   });
 
   if (!existingCredential) {
-    throw new AppError('Credential not found', 404);
+    throw new AppError("Credential not found", 404);
   }
 
   // Check if credential is being used by any nodes
@@ -309,7 +304,7 @@ export const deleteCredential = async (
 
   if (nodesUsingCredential.length > 0) {
     throw new AppError(
-      'Cannot delete credential. It is currently being used by one or more workflow nodes.',
+      "Cannot delete credential. It is currently being used by one or more workflow nodes.",
       400
     );
   }
@@ -318,4 +313,3 @@ export const deleteCredential = async (
     where: { id },
   });
 };
-

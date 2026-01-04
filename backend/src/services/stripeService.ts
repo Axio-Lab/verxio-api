@@ -1,4 +1,4 @@
-import * as workflowService from './workflowService';
+import * as workflowService from "./workflowService";
 
 /**
  * Validates that a workflow contains a Stripe trigger node
@@ -9,14 +9,14 @@ import * as workflowService from './workflowService';
 export const validateStripeTrigger = async (workflowId: string) => {
   // Get workflow without user validation (webhooks are public)
   const workflow = await workflowService.getWorkflowById(workflowId);
-  
+
   // Find the Stripe trigger node in the workflow
-  const stripeNode = workflow.nodes.find((node: any) => node.type === 'STRIPE_TRIGGER');
-  
+  const stripeNode = workflow.nodes.find((node: any) => node.type === "STRIPE_TRIGGER");
+
   if (!stripeNode) {
-    throw new Error('Stripe trigger node not found in workflow');
+    throw new Error("Stripe trigger node not found in workflow");
   }
-  
+
   return {
     workflow,
     stripeNode,
@@ -41,11 +41,10 @@ export const validateStripeSignature = (
   if (!signature || !secret) {
     return false;
   }
-  
+
   // Basic check - in production, use Stripe's webhook signature verification
   // const stripe = require('stripe')(secret);
   // return stripe.webhooks.constructEvent(payload, signature, secret);
-  
+
   return true; // Placeholder - implement proper Stripe signature verification
 };
-

@@ -1,16 +1,15 @@
-import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { generateSigner } from '@metaplex-foundation/umi';
-import { uint8ArrayToBase58String } from '../lib/utils';
+import { Prisma } from "@prisma/client";
+import { prisma } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { generateSigner } from "@metaplex-foundation/umi";
+import { uint8ArrayToBase58String } from "../lib/utils";
 
 const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KEY}`;
 
 export interface CreateUserData {
   email: string;
 }
-
 
 export interface IssueVerxioData {
   email: string;
@@ -29,13 +28,13 @@ export const createUser = async (data: CreateUserData) => {
   const { email } = data;
 
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    throw new AppError('Invalid email format', 400);
+    throw new AppError("Invalid email format", 400);
   }
 
   // Check if user already exists
@@ -44,20 +43,20 @@ export const createUser = async (data: CreateUserData) => {
   });
 
   if (existingUser) {
-    throw new AppError('User with this email already exists', 409);
+    throw new AppError("User with this email already exists", 409);
   }
 
   // Generate signer for the user
   const umi = createUmi(RPC_ENDPOINT);
   const signer = generateSigner(umi);
-  
+
   // Extract public key and convert secret key to base58 string
   const creatorAddress = signer.publicKey.toString();
   const creatorPrivateKey = uint8ArrayToBase58String(signer.secretKey);
 
   // Create user with initial 1000 Verxio balance
   const INITIAL_VERXIO_BALANCE = 1000;
-  
+
   const user = await prisma.verxioUser.create({
     data: {
       email,
@@ -91,7 +90,7 @@ export const createUser = async (data: CreateUserData) => {
 
 export const getUserByEmail = async (email: string) => {
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   const user = await prisma.verxioUser.findFirst({
@@ -108,16 +107,15 @@ export const getUserByEmail = async (email: string) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   return { success: true, user };
 };
 
-
 export const deleteUser = async (email: string) => {
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   // Check if user exists
@@ -126,16 +124,13 @@ export const deleteUser = async (email: string) => {
   });
 
   if (!existingUser) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Delete related transactions first to avoid foreign key constraint
   await prisma.verxioTransaction.deleteMany({
     where: {
-      OR: [
-        { fromUserId: existingUser.id },
-        { toUserId: existingUser.id },
-      ],
+      OR: [{ fromUserId: existingUser.id }, { toUserId: existingUser.id }],
     },
   });
 
@@ -144,7 +139,7 @@ export const deleteUser = async (email: string) => {
     where: { id: existingUser.id },
   });
 
-  return { success: true, message: 'User deleted successfully' };
+  return { success: true, message: "User deleted successfully" };
 };
 
 /**
@@ -152,7 +147,7 @@ export const deleteUser = async (email: string) => {
  */
 export const getUserCreatorInfo = async (email: string) => {
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   const user = await (prisma as any).verxioUser.findFirst({
@@ -164,11 +159,11 @@ export const getUserCreatorInfo = async (email: string) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   if (!user.creatorAddress || !user.creatorPrivateKey) {
-    throw new AppError('User creator address and private key not found', 404);
+    throw new AppError("User creator address and private key not found", 404);
   }
 
   return {
@@ -182,7 +177,7 @@ export const getUserCreatorInfo = async (email: string) => {
  */
 export const getUserEmailByCreatorAddress = async (creatorAddress: string) => {
   if (!creatorAddress) {
-    throw new AppError('Creator address is required', 400);
+    throw new AppError("Creator address is required", 400);
   }
 
   const user = await (prisma as any).verxioUser.findFirst({
@@ -193,7 +188,7 @@ export const getUserEmailByCreatorAddress = async (creatorAddress: string) => {
   });
 
   if (!user) {
-    throw new AppError('User not found for creator address', 404);
+    throw new AppError("User not found for creator address", 404);
   }
 
   return user.email;
@@ -203,21 +198,21 @@ export const issueVerxio = async (data: IssueVerxioData, adminApiKey: string) =>
   const { email, amount, description } = data;
 
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   if (!amount || amount <= 0) {
-    throw new AppError('Amount must be greater than 0', 400);
+    throw new AppError("Amount must be greater than 0", 400);
   }
 
   // Verify admin API key
-  const validApiKeys = process.env.API_KEYS?.split(',') || [];
+  const validApiKeys = process.env.API_KEYS?.split(",") || [];
   if (process.env.API_KEY) {
     validApiKeys.push(process.env.API_KEY);
   }
 
   if (!validApiKeys.includes(adminApiKey)) {
-    throw new AppError('Unauthorized: Invalid admin API key', 401);
+    throw new AppError("Unauthorized: Invalid admin API key", 401);
   }
 
   // Check if user exists
@@ -226,7 +221,7 @@ export const issueVerxio = async (data: IssueVerxioData, adminApiKey: string) =>
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Update balance and create transaction
@@ -268,15 +263,15 @@ export const transferVerxio = async (data: TransferVerxioData) => {
   const { fromEmail, toEmail, amount, description } = data;
 
   if (!fromEmail || !toEmail) {
-    throw new AppError('Both sender and recipient emails are required', 400);
+    throw new AppError("Both sender and recipient emails are required", 400);
   }
 
   if (fromEmail === toEmail) {
-    throw new AppError('Cannot transfer Verxio to yourself', 400);
+    throw new AppError("Cannot transfer Verxio to yourself", 400);
   }
 
   if (!amount || amount <= 0) {
-    throw new AppError('Amount must be greater than 0', 400);
+    throw new AppError("Amount must be greater than 0", 400);
   }
 
   // Check if both users exist
@@ -305,8 +300,9 @@ export const transferVerxio = async (data: TransferVerxioData) => {
   }
 
   // Perform transfer in a transaction
-  const result = await (prisma.$transaction as <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>)(
-    async (tx: Prisma.TransactionClient) => {
+  const result = await (
+    prisma.$transaction as <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>
+  )(async (tx: Prisma.TransactionClient) => {
     // Deduct from sender
     const updatedFromUser = await (tx as any).verxioUser.update({
       where: { id: fromUser.id },
@@ -354,8 +350,7 @@ export const transferVerxio = async (data: TransferVerxioData) => {
     });
 
     return { fromUser: updatedFromUser, toUser: updatedToUser };
-    }
-  );
+  });
 
   return {
     success: true,
@@ -364,4 +359,3 @@ export const transferVerxio = async (data: TransferVerxioData) => {
     message: `Successfully transferred ${amount} Verxio credits from ${fromEmail} to ${toEmail}`,
   };
 };
-

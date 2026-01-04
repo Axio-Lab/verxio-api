@@ -1,8 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as credentialService from '../services/credentialService';
-import { betterAuthMiddleware } from '../middleware/betterAuth';
-import { AppError } from '../middleware/errorHandler';
-import { CredentialType } from '../services/credentialService';
+import { Router, Request, Response, NextFunction } from "express";
+import * as credentialService from "../services/credentialService";
+import { betterAuthMiddleware } from "../middleware/betterAuth";
+import { AppError } from "../middleware/errorHandler";
+import { CredentialType } from "../services/credentialService";
 
 export const credentialRouter: Router = Router();
 
@@ -76,13 +76,13 @@ credentialRouter.use(betterAuthMiddleware);
  *       401:
  *         description: Unauthorized
  */
-credentialRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
+credentialRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const type = req.query.type as CredentialType | undefined;
-    
+
     const result = await credentialService.getCredentials(user.id, page, limit, type);
     res.json(result);
   } catch (error) {
@@ -144,18 +144,21 @@ credentialRouter.get('/', async (req: Request, res: Response, next: NextFunction
  *       401:
  *         description: Unauthorized
  */
-credentialRouter.post('/', async (req: Request, res: Response, next: NextFunction) => {
+credentialRouter.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { name, value, type } = req.body;
 
     if (!name || !value || !type) {
-      throw new AppError('Name, value, and type are required', 400);
+      throw new AppError("Name, value, and type are required", 400);
     }
 
     // Validate type
     if (!Object.values(CredentialType).includes(type)) {
-      throw new AppError(`Invalid type. Must be one of: ${Object.values(CredentialType).join(', ')}`, 400);
+      throw new AppError(
+        `Invalid type. Must be one of: ${Object.values(CredentialType).join(", ")}`,
+        400
+      );
     }
 
     const credential = await credentialService.createCredential({
@@ -211,7 +214,7 @@ credentialRouter.post('/', async (req: Request, res: Response, next: NextFunctio
  *       401:
  *         description: Unauthorized
  */
-credentialRouter.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+credentialRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -282,7 +285,7 @@ credentialRouter.get('/:id', async (req: Request, res: Response, next: NextFunct
  *       401:
  *         description: Unauthorized
  */
-credentialRouter.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+credentialRouter.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -290,7 +293,10 @@ credentialRouter.put('/:id', async (req: Request, res: Response, next: NextFunct
 
     // Validate type if provided
     if (type && !Object.values(CredentialType).includes(type)) {
-      throw new AppError(`Invalid type. Must be one of: ${Object.values(CredentialType).join(', ')}`, 400);
+      throw new AppError(
+        `Invalid type. Must be one of: ${Object.values(CredentialType).join(", ")}`,
+        400
+      );
     }
 
     const credential = await credentialService.updateCredential(id, user.id, {
@@ -338,15 +344,14 @@ credentialRouter.put('/:id', async (req: Request, res: Response, next: NextFunct
  *       401:
  *         description: Unauthorized
  */
-credentialRouter.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+credentialRouter.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
 
     await credentialService.deleteCredential(id, user.id);
-    res.json({ message: 'Credential deleted successfully' });
+    res.json({ message: "Credential deleted successfully" });
   } catch (error) {
     next(error);
   }
 });
-

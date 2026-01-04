@@ -1,8 +1,6 @@
-import { basePrismaClient } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
-import { NodeType } from '../lib/node-types';
-
-
+import { basePrismaClient } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
+import { NodeType } from "../lib/node-types";
 
 // Use basePrismaClient for workflow model since extended client doesn't expose it
 const prismaClient = basePrismaClient as any;
@@ -104,15 +102,13 @@ export interface WorkflowsListResponse {
 /**
  * Create a new workflow
  */
-export const createWorkflow = async (
-  data: CreateWorkflowData
-): Promise<WorkflowResponse> => {
-  if (!data.name || data.name.trim() === '') {
-    throw new AppError('Workflow name is required', 400);
+export const createWorkflow = async (data: CreateWorkflowData): Promise<WorkflowResponse> => {
+  if (!data.name || data.name.trim() === "") {
+    throw new AppError("Workflow name is required", 400);
   }
 
   if (!data.userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Verify user exists
@@ -121,7 +117,7 @@ export const createWorkflow = async (
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   const workflow = await prismaClient.workflow.create({
@@ -155,7 +151,7 @@ export const getWorkflows = async (
   search?: string
 ): Promise<WorkflowsListResponse> => {
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   const skip = (page - 1) * limit;
@@ -166,10 +162,10 @@ export const getWorkflows = async (
     userId,
   };
 
-  if (search && search.trim() !== '') {
+  if (search && search.trim() !== "") {
     where.name = {
       contains: search.trim(),
-      mode: 'insensitive',
+      mode: "insensitive",
     };
   }
 
@@ -182,7 +178,7 @@ export const getWorkflows = async (
     skip,
     take,
     orderBy: {
-      createdAt: 'desc',
+      createdAt: "desc",
     },
     include: {
       nodes: true,
@@ -204,16 +200,13 @@ export const getWorkflows = async (
 /**
  * Get a single workflow by ID (with user validation)
  */
-export const getWorkflow = async (
-  id: string,
-  userId: string
-): Promise<WorkflowResponse> => {
+export const getWorkflow = async (id: string, userId: string): Promise<WorkflowResponse> => {
   if (!id) {
-    throw new AppError('Workflow ID is required', 400);
+    throw new AppError("Workflow ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   const workflow = await prismaClient.workflow.findFirst({
@@ -228,7 +221,7 @@ export const getWorkflow = async (
   });
 
   if (!workflow) {
-    throw new AppError('Workflow not found', 404);
+    throw new AppError("Workflow not found", 404);
   }
 
   return transformWorkflow(workflow);
@@ -237,11 +230,9 @@ export const getWorkflow = async (
 /**
  * Get a single workflow by ID (without user validation - for public endpoints like webhooks)
  */
-export const getWorkflowById = async (
-  id: string
-): Promise<WorkflowResponse> => {
+export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => {
   if (!id) {
-    throw new AppError('Workflow ID is required', 400);
+    throw new AppError("Workflow ID is required", 400);
   }
 
   const workflow = await prismaClient.workflow.findFirst({
@@ -255,7 +246,7 @@ export const getWorkflowById = async (
   });
 
   if (!workflow) {
-    throw new AppError('Workflow not found', 404);
+    throw new AppError("Workflow not found", 404);
   }
 
   return transformWorkflow(workflow);
@@ -270,15 +261,15 @@ export const updateWorkflowName = async (
   data: UpdateWorkflowData
 ): Promise<WorkflowResponse> => {
   if (!id) {
-    throw new AppError('Workflow ID is required', 400);
+    throw new AppError("Workflow ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
-  if (!data.name || data.name.trim() === '') {
-    throw new AppError('Workflow name is required', 400);
+  if (!data.name || data.name.trim() === "") {
+    throw new AppError("Workflow name is required", 400);
   }
 
   // Verify workflow exists and belongs to user
@@ -290,7 +281,7 @@ export const updateWorkflowName = async (
   });
 
   if (!existingWorkflow) {
-    throw new AppError('Workflow not found', 404);
+    throw new AppError("Workflow not found", 404);
   }
 
   const workflow = await prismaClient.workflow.update({
@@ -317,11 +308,11 @@ export const updateWorkflowData = async (
   data: SaveWorkflowData
 ): Promise<WorkflowResponse> => {
   if (!id) {
-    throw new AppError('Workflow ID is required', 400);
+    throw new AppError("Workflow ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Verify workflow exists and belongs to user
@@ -333,24 +324,24 @@ export const updateWorkflowData = async (
   });
 
   if (!existingWorkflow) {
-    throw new AppError('Workflow not found', 404);
+    throw new AppError("Workflow not found", 404);
   }
 
   // Validate nodes
   if (!Array.isArray(data.nodes)) {
-    throw new AppError('Nodes must be an array', 400);
+    throw new AppError("Nodes must be an array", 400);
   }
 
   // Validate that all nodes have IDs (required for connection references)
   for (const node of data.nodes) {
-    if (!node.id || node.id.trim() === '') {
-      throw new AppError('All nodes must have an ID to maintain connection references', 400);
+    if (!node.id || node.id.trim() === "") {
+      throw new AppError("All nodes must have an ID to maintain connection references", 400);
     }
   }
 
   // Validate connections
   if (!Array.isArray(data.connections)) {
-    throw new AppError('Connections must be an array', 400);
+    throw new AppError("Connections must be an array", 400);
   }
 
   // Use transaction to ensure atomicity
@@ -363,7 +354,7 @@ export const updateWorkflowData = async (
     // Prepare update data
     const updateData: any = {};
 
-    if (data.name && data.name.trim() !== '') {
+    if (data.name && data.name.trim() !== "") {
       updateData.name = data.name.trim();
     }
 
@@ -378,18 +369,18 @@ export const updateWorkflowData = async (
       const nodesToCreate = data.nodes.map((node) => {
         // Access the enum value directly: NodeType[node.type] returns the enum value string
         let nodeType: any = node.type;
-        
+
         // Validate and convert to enum value if it exists
         if (node.type && (NodeType as any)[node.type]) {
           nodeType = (NodeType as any)[node.type];
         } else if (node.type) {
           // If the type doesn't exist in enum, throw an error
           throw new AppError(
-            `Invalid node type: ${node.type}. Valid types are: ${Object.keys(NodeType).join(', ')}`,
+            `Invalid node type: ${node.type}. Valid types are: ${Object.keys(NodeType).join(", ")}`,
             400
           );
         }
-        
+
         // Preserve the node ID from client so connections can reference it
         return {
           id: node.id, // Use client-provided ID
@@ -418,7 +409,7 @@ export const updateWorkflowData = async (
     // Create connections (transform source/target to fromNodeId/toNodeId)
     if (data.connections.length > 0) {
       // Verify all referenced nodes exist
-      
+
       for (const conn of data.connections) {
         if (!nodeIds.has(conn.source) || !nodeIds.has(conn.target)) {
           throw new AppError(
@@ -434,8 +425,8 @@ export const updateWorkflowData = async (
           workflowId: id,
           fromNodeId: conn.source,
           toNodeId: conn.target,
-          fromOutput: conn.sourceHandle || 'main',
-          toInput: conn.targetHandle || 'main',
+          fromOutput: conn.sourceHandle || "main",
+          toInput: conn.targetHandle || "main",
         })),
       });
     }
@@ -456,16 +447,13 @@ export const updateWorkflowData = async (
 /**
  * Delete a workflow
  */
-export const deleteWorkflow = async (
-  id: string,
-  userId: string
-): Promise<void> => {
+export const deleteWorkflow = async (id: string, userId: string): Promise<void> => {
   if (!id) {
-    throw new AppError('Workflow ID is required', 400);
+    throw new AppError("Workflow ID is required", 400);
   }
 
   if (!userId) {
-    throw new AppError('User ID is required', 400);
+    throw new AppError("User ID is required", 400);
   }
 
   // Verify workflow exists and belongs to user
@@ -477,11 +465,10 @@ export const deleteWorkflow = async (
   });
 
   if (!existingWorkflow) {
-    throw new AppError('Workflow not found', 404);
+    throw new AppError("Workflow not found", 404);
   }
 
   await prismaClient.workflow.delete({
     where: { id },
   });
 };
-

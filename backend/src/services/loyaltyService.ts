@@ -1,7 +1,7 @@
-import { prisma } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { publicKey, createSignerFromKeypair, generateSigner } from '@metaplex-foundation/umi';
+import { prisma } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { publicKey, createSignerFromKeypair, generateSigner } from "@metaplex-foundation/umi";
 import {
   VerxioContext,
   getProgramDetails,
@@ -9,9 +9,13 @@ import {
   issueLoyaltyPass,
   revokeLoyaltyPoints,
   giftLoyaltyPoints,
-} from '@verxioprotocol/core';
-import { initializeVerxioContext, convertSecretKeyToKeypair, uint8ArrayToBase58String } from '../lib/utils';
-import { getUserCreatorInfo, getUserEmailByCreatorAddress } from './userService';
+} from "@verxioprotocol/core";
+import {
+  initializeVerxioContext,
+  convertSecretKeyToKeypair,
+  uint8ArrayToBase58String,
+} from "../lib/utils";
+import { getUserCreatorInfo, getUserEmailByCreatorAddress } from "./userService";
 
 const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KEY}`;
 
@@ -33,7 +37,7 @@ const debitVerxioBalance = async (email: string, amount: number, description: st
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.verxioBalance < amount) {
@@ -72,7 +76,7 @@ const creditVerxioBalance = async (email: string, amount: number, description: s
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   await (prisma as any).verxioUser.update({
@@ -160,11 +164,11 @@ export const saveLoyaltyPass = async (data: CreateLoyaltyPassData) => {
 
     return { success: true, data: loyaltyPass };
   } catch (error: any) {
-    console.error('Error saving loyalty pass:', error);
-    if (error.code === 'P2002') {
-      throw new AppError('Loyalty pass with this address already exists', 409);
+    console.error("Error saving loyalty pass:", error);
+    if (error.code === "P2002") {
+      throw new AppError("Loyalty pass with this address already exists", 409);
     }
-    throw new AppError('Failed to save loyalty pass', 500);
+    throw new AppError("Failed to save loyalty pass", 500);
   }
 };
 
@@ -197,11 +201,11 @@ export const saveLoyaltyProgram = async (data: CreateLoyaltyProgramData) => {
 
     return { success: true, data: loyaltyProgram };
   } catch (error: any) {
-    console.error('Error saving loyalty program:', error);
-    if (error.code === 'P2002') {
-      throw new AppError('Loyalty program with this address already exists', 409);
+    console.error("Error saving loyalty program:", error);
+    if (error.code === "P2002") {
+      throw new AppError("Loyalty program with this address already exists", 409);
     }
-    throw new AppError('Failed to save loyalty program', 500);
+    throw new AppError("Failed to save loyalty program", 500);
   }
 };
 
@@ -210,13 +214,13 @@ export const saveLoyaltyProgram = async (data: CreateLoyaltyProgramData) => {
  */
 export const getUserLoyaltyPrograms = async (creatorEmail: string) => {
   if (!creatorEmail) {
-    throw new AppError('Creator email is required', 400);
+    throw new AppError("Creator email is required", 400);
   }
 
   try {
     // Get creator address from user
     const creatorInfo = await getUserCreatorInfo(creatorEmail);
-    
+
     const prismaClient = prisma as any;
     const programs = await prismaClient.loyaltyProgram.findMany({
       where: {
@@ -229,14 +233,14 @@ export const getUserLoyaltyPrograms = async (creatorEmail: string) => {
         createdAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     return { success: true, programs };
   } catch (error) {
-    console.error('Error fetching loyalty programs:', error);
-    throw new AppError('Failed to fetch loyalty programs', 500);
+    console.error("Error fetching loyalty programs:", error);
+    throw new AppError("Failed to fetch loyalty programs", 500);
   }
 };
 
@@ -247,13 +251,13 @@ export const getLoyaltyProgramDetails = async (params: GetLoyaltyProgramDetailsP
   const { creatorEmail, programPublicKey } = params;
 
   if (!creatorEmail || !programPublicKey) {
-    throw new AppError('Creator email and program public key are required', 400);
+    throw new AppError("Creator email and program public key are required", 400);
   }
 
   try {
     // Get creator address from user
     const creatorInfo = await getUserCreatorInfo(creatorEmail);
-    
+
     const umi = createUmi(RPC_ENDPOINT);
     const context: VerxioContext = {
       umi,
@@ -265,8 +269,8 @@ export const getLoyaltyProgramDetails = async (params: GetLoyaltyProgramDetailsP
 
     return { success: true, programDetails };
   } catch (error) {
-    console.error('Error fetching loyalty program details:', error);
-    throw new AppError('Failed to fetch program details', 500);
+    console.error("Error fetching loyalty program details:", error);
+    throw new AppError("Failed to fetch program details", 500);
   }
 };
 
@@ -275,7 +279,7 @@ export const getLoyaltyProgramDetails = async (params: GetLoyaltyProgramDetailsP
  */
 export const getCollectionAuthoritySecretKey = async (collectionAddress: string) => {
   if (!collectionAddress) {
-    throw new AppError('Collection address is required', 400);
+    throw new AppError("Collection address is required", 400);
   }
 
   try {
@@ -291,7 +295,7 @@ export const getCollectionAuthoritySecretKey = async (collectionAddress: string)
     });
 
     if (!loyaltyProgram) {
-      throw new AppError('Loyalty program not found for this collection address', 404);
+      throw new AppError("Loyalty program not found for this collection address", 404);
     }
 
     return {
@@ -303,8 +307,8 @@ export const getCollectionAuthoritySecretKey = async (collectionAddress: string)
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error fetching collection authority secret key:', error);
-    throw new AppError('Failed to fetch authority secret key', 500);
+    console.error("Error fetching collection authority secret key:", error);
+    throw new AppError("Failed to fetch authority secret key", 500);
   }
 };
 
@@ -313,20 +317,20 @@ export const getCollectionAuthoritySecretKey = async (collectionAddress: string)
  */
 export const getLoyaltyProgramUsers = async (collectionAddress: string) => {
   if (!collectionAddress) {
-    throw new AppError('Collection address is required', 400);
+    throw new AppError("Collection address is required", 400);
   }
 
   try {
     const url = RPC_ENDPOINT;
     const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: '1',
-        method: 'getAssetsByGroup',
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAssetsByGroup",
         params: {
-          groupKey: 'collection',
+          groupKey: "collection",
           groupValue: collectionAddress,
         },
       }),
@@ -336,7 +340,7 @@ export const getLoyaltyProgramUsers = async (collectionAddress: string) => {
     const data = (await response.json()) as RpcResponse;
 
     if (data.error) {
-      throw new AppError(data.error.message || 'Failed to fetch program users', 500);
+      throw new AppError(data.error.message || "Failed to fetch program users", 500);
     }
 
     return { success: true, users: data.result || [] };
@@ -344,8 +348,8 @@ export const getLoyaltyProgramUsers = async (collectionAddress: string) => {
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error fetching loyalty program users:', error);
-    throw new AppError('Failed to fetch loyalty program users', 500);
+    console.error("Error fetching loyalty program users:", error);
+    throw new AppError("Failed to fetch loyalty program users", 500);
   }
 };
 
@@ -356,7 +360,7 @@ export const getTotalMembersAcrossPrograms = async (params: GetTotalMembersParam
   const { programAddresses } = params;
 
   if (!programAddresses || !Array.isArray(programAddresses) || programAddresses.length === 0) {
-    throw new AppError('Program addresses array is required', 400);
+    throw new AppError("Program addresses array is required", 400);
   }
 
   try {
@@ -376,8 +380,8 @@ export const getTotalMembersAcrossPrograms = async (params: GetTotalMembersParam
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error counting total members:', error);
-    throw new AppError('Failed to count total members', 500);
+    console.error("Error counting total members:", error);
+    throw new AppError("Failed to count total members", 500);
   }
 };
 
@@ -386,7 +390,7 @@ export const getTotalMembersAcrossPrograms = async (params: GetTotalMembersParam
  */
 export const getUserLoyaltyPasses = async (userEmail: string) => {
   if (!userEmail) {
-    throw new AppError('User email is required', 400);
+    throw new AppError("User email is required", 400);
   }
 
   try {
@@ -397,19 +401,19 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     // Fetch all NFTs owned by the user
     const url = RPC_ENDPOINT;
     const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: '1',
-        method: 'getAssetsByOwner',
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAssetsByOwner",
         params: {
           ownerAddress: userWallet,
           page: 1,
           limit: 1000,
           sortBy: {
-            sortBy: 'created',
-            sortDirection: 'asc',
+            sortBy: "created",
+            sortDirection: "asc",
           },
           options: {
             showUnverifiedCollections: false,
@@ -428,7 +432,7 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     const data = (await response.json()) as RpcResponse;
 
     if (data.error) {
-      throw new AppError(data.error.message || 'Failed to fetch user assets', 500);
+      throw new AppError(data.error.message || "Failed to fetch user assets", 500);
     }
 
     const userAssets = data.result?.items || [];
@@ -439,7 +443,9 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     // Extract all collection addresses from user assets
     const collectionAddresses = userAssets
       .map((asset: any) => {
-        const collectionGroup = asset.grouping?.find((group: any) => group.group_key === 'collection');
+        const collectionGroup = asset.grouping?.find(
+          (group: any) => group.group_key === "collection"
+        );
         return collectionGroup?.group_value;
       })
       .filter(Boolean); // Remove undefined values
@@ -468,7 +474,9 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     // Process assets using the pre-fetched programs
     for (const asset of userAssets) {
       if (asset.grouping && asset.grouping.length > 0) {
-        const collectionGroup = asset.grouping.find((group: any) => group.group_key === 'collection');
+        const collectionGroup = asset.grouping.find(
+          (group: any) => group.group_key === "collection"
+        );
         if (collectionGroup) {
           const collectionAddress = collectionGroup.group_value;
           const loyaltyProgram = loyaltyProgramMap.get(collectionAddress);
@@ -501,8 +509,8 @@ export const getUserLoyaltyPasses = async (userEmail: string) => {
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error fetching user loyalty passes:', error);
-    throw new AppError('Failed to fetch user loyalty passes', 500);
+    console.error("Error fetching user loyalty passes:", error);
+    throw new AppError("Failed to fetch user loyalty passes", 500);
   }
 };
 
@@ -513,14 +521,14 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
   const { userEmail, loyaltyProgramAddress } = params;
 
   if (!userEmail || !loyaltyProgramAddress) {
-    throw new AppError('User email and loyalty program address are required', 400);
+    throw new AppError("User email and loyalty program address are required", 400);
   }
 
   try {
     // Get user wallet address from email
     const userInfo = await getUserCreatorInfo(userEmail);
     const userWallet = userInfo.creatorAddress;
-    
+
     // First, get the loyalty program details from our database to access tiers
     const loyaltyProgram = await (prisma as any).loyaltyProgram.findFirst({
       where: {
@@ -533,25 +541,25 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
     });
 
     if (!loyaltyProgram) {
-      throw new AppError('Loyalty program not found in database', 404);
+      throw new AppError("Loyalty program not found in database", 404);
     }
 
     // Fetch all NFTs owned by the user
     const url = RPC_ENDPOINT;
     const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: '1',
-        method: 'getAssetsByOwner',
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAssetsByOwner",
         params: {
           ownerAddress: userWallet,
           page: 1,
           limit: 1000,
           sortBy: {
-            sortBy: 'created',
-            sortDirection: 'asc',
+            sortBy: "created",
+            sortDirection: "asc",
           },
           options: {
             showUnverifiedCollections: false,
@@ -570,7 +578,7 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
     const data = (await response.json()) as RpcResponse;
 
     if (data.error) {
-      throw new AppError(data.error.message || 'Failed to fetch user assets', 500);
+      throw new AppError(data.error.message || "Failed to fetch user assets", 500);
     }
 
     const userAssets = data.result?.items || [];
@@ -578,7 +586,9 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
     // Check if user has any assets in the specified loyalty program
     for (const asset of userAssets) {
       if (asset.grouping && asset.grouping.length > 0) {
-        const collectionGroup = asset.grouping.find((group: any) => group.group_key === 'collection');
+        const collectionGroup = asset.grouping.find(
+          (group: any) => group.group_key === "collection"
+        );
         if (collectionGroup && collectionGroup.group_value === loyaltyProgramAddress) {
           // User belongs to this loyalty program
           const loyaltyData = asset.external_plugins?.[0]?.data;
@@ -630,7 +640,7 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
             creator: loyaltyProgram.creator,
             tiers: programDetails.programDetails?.tiers || [],
             pointsPerAction: programDetails.programDetails?.pointsPerAction || {},
-            name: programDetails.programDetails?.name || 'Unknown Program',
+            name: programDetails.programDetails?.name || "Unknown Program",
           }
         : null,
     };
@@ -638,8 +648,8 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error checking loyalty program membership:', error);
-    throw new AppError('Failed to check loyalty program membership', 500);
+    console.error("Error checking loyalty program membership:", error);
+    throw new AppError("Failed to check loyalty program membership", 500);
   }
 };
 
@@ -648,7 +658,7 @@ export const checkUserLoyaltyProgramMembership = async (params: CheckMembershipP
  */
 export const getLoyaltyProgramByAddress = async (programAddress: string) => {
   if (!programAddress) {
-    throw new AppError('Program address is required', 400);
+    throw new AppError("Program address is required", 400);
   }
 
   try {
@@ -665,7 +675,7 @@ export const getLoyaltyProgramByAddress = async (programAddress: string) => {
     });
 
     if (!loyaltyProgram) {
-      throw new AppError('Loyalty program not found in database', 404);
+      throw new AppError("Loyalty program not found in database", 404);
     }
 
     // Get the claim status from our database
@@ -685,7 +695,7 @@ export const getLoyaltyProgramByAddress = async (programAddress: string) => {
     });
 
     if (!programDetails.success) {
-      throw new AppError('Failed to fetch program details', 500);
+      throw new AppError("Failed to fetch program details", 500);
     }
 
     // Return formatted program details
@@ -706,8 +716,8 @@ export const getLoyaltyProgramByAddress = async (programAddress: string) => {
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error fetching loyalty program by address:', error);
-    throw new AppError('Failed to fetch loyalty program details', 500);
+    console.error("Error fetching loyalty program by address:", error);
+    throw new AppError("Failed to fetch loyalty program details", 500);
   }
 };
 
@@ -716,7 +726,7 @@ export const getLoyaltyProgramByAddress = async (programAddress: string) => {
  */
 export const getClaimStatus = async (programAddress: string) => {
   if (!programAddress) {
-    throw new AppError('Program address is required', 400);
+    throw new AppError("Program address is required", 400);
   }
 
   try {
@@ -733,8 +743,8 @@ export const getClaimStatus = async (programAddress: string) => {
       claimEnabled: claimStatus?.claimEnabled ?? true,
     };
   } catch (error) {
-    console.error('Error getting claim status:', error);
-    throw new AppError('Failed to get claim status', 500);
+    console.error("Error getting claim status:", error);
+    throw new AppError("Failed to get claim status", 500);
   }
 };
 
@@ -743,19 +753,19 @@ export const getClaimStatus = async (programAddress: string) => {
  */
 export const getLoyaltyPassDetails = async (passAddress: string) => {
   if (!passAddress) {
-    throw new AppError('Pass address is required', 400);
+    throw new AppError("Pass address is required", 400);
   }
 
   try {
     // Fetch the specific loyalty pass by its address
     const url = RPC_ENDPOINT;
     const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: '1',
-        method: 'getAsset',
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAsset",
         params: {
           id: passAddress,
         },
@@ -766,24 +776,24 @@ export const getLoyaltyPassDetails = async (passAddress: string) => {
     const data = (await response.json()) as RpcResponse;
 
     if (data.error) {
-      throw new AppError(data.error.message || 'Failed to fetch loyalty pass', 500);
+      throw new AppError(data.error.message || "Failed to fetch loyalty pass", 500);
     }
 
     const asset = data.result;
     if (!asset) {
-      throw new AppError('Loyalty pass not found', 404);
+      throw new AppError("Loyalty pass not found", 404);
     }
 
     // Extract loyalty data from the asset
     const loyaltyData = asset.external_plugins?.[0]?.data;
     if (!loyaltyData) {
-      throw new AppError('Not a valid loyalty pass', 400);
+      throw new AppError("Not a valid loyalty pass", 400);
     }
 
     // Get collection address from grouping
-    const collectionGroup = asset.grouping?.find((group: any) => group.group_key === 'collection');
+    const collectionGroup = asset.grouping?.find((group: any) => group.group_key === "collection");
     if (!collectionGroup) {
-      throw new AppError('Pass does not belong to a collection', 400);
+      throw new AppError("Pass does not belong to a collection", 400);
     }
 
     // Check if this collection exists in our database
@@ -799,7 +809,7 @@ export const getLoyaltyPassDetails = async (passAddress: string) => {
     });
 
     if (!loyaltyProgram) {
-      throw new AppError('Pass does not belong to a registered loyalty program', 404);
+      throw new AppError("Pass does not belong to a registered loyalty program", 404);
     }
 
     return {
@@ -822,8 +832,8 @@ export const getLoyaltyPassDetails = async (passAddress: string) => {
     if (error instanceof AppError) {
       throw error;
     }
-    console.error('Error fetching loyalty pass details:', error);
-    throw new AppError('Failed to fetch loyalty pass details', 500);
+    console.error("Error fetching loyalty pass details:", error);
+    throw new AppError("Failed to fetch loyalty pass details", 500);
   }
 };
 
@@ -834,11 +844,11 @@ export const toggleClaimEnabled = async (params: ToggleClaimStatusParams) => {
   const { programAddress, enabled } = params;
 
   if (!programAddress) {
-    throw new AppError('Program address is required', 400);
+    throw new AppError("Program address is required", 400);
   }
 
-  if (typeof enabled !== 'boolean') {
-    throw new AppError('Enabled must be a boolean value', 400);
+  if (typeof enabled !== "boolean") {
+    throw new AppError("Enabled must be a boolean value", 400);
   }
 
   try {
@@ -851,14 +861,14 @@ export const toggleClaimEnabled = async (params: ToggleClaimStatusParams) => {
 
     return {
       success: true,
-      message: `Claim ${enabled ? 'enabled' : 'disabled'} successfully`,
+      message: `Claim ${enabled ? "enabled" : "disabled"} successfully`,
     };
   } catch (error: any) {
-    if (error.code === 'P2025') {
-      throw new AppError('Loyalty program claim status not found', 404);
+    if (error.code === "P2025") {
+      throw new AppError("Loyalty program claim status not found", 404);
     }
-    console.error('Error toggling claim enabled:', error);
-    throw new AppError('Failed to toggle claim status', 500);
+    console.error("Error toggling claim enabled:", error);
+    throw new AppError("Failed to toggle claim status", 500);
   }
 };
 
@@ -910,15 +920,23 @@ export interface GiftPointsParams {
  */
 
 export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) => {
-  const { creatorEmail, loyaltyProgramName, metadataUri, imageUri, metadata, tiers, pointsPerAction } = params;
+  const {
+    creatorEmail,
+    loyaltyProgramName,
+    metadataUri,
+    imageUri,
+    metadata,
+    tiers,
+    pointsPerAction,
+  } = params;
 
   if (!creatorEmail || !loyaltyProgramName) {
-    throw new AppError('Missing required parameters for loyalty program creation', 400);
+    throw new AppError("Missing required parameters for loyalty program creation", 400);
   }
 
   // Require imageUri if metadataUri is not provided (imageUri is used to generate metadata)
   if (!metadataUri && !imageUri) {
-    throw new AppError('imageUri is required to generate metadata automatically', 400);
+    throw new AppError("imageUri is required to generate metadata automatically", 400);
   }
 
   try {
@@ -938,11 +956,12 @@ export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) =
     let finalMetadataUri = metadataUri;
     if (!finalMetadataUri) {
       if (!imageUri) {
-        throw new AppError('imageUri is required to generate metadata automatically', 400);
+        throw new AppError("imageUri is required to generate metadata automatically", 400);
       }
-      
+
       try {
-        const { generateLoyaltyProgramMetadata } = await import('../lib/metadata/generateLoyaltyProgramMetadata');
+        const { generateLoyaltyProgramMetadata } =
+          await import("../lib/metadata/generateLoyaltyProgramMetadata");
         finalMetadataUri = await generateLoyaltyProgramMetadata({
           loyaltyProgramName,
           metadata,
@@ -950,18 +969,21 @@ export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) =
           pointsPerAction,
           imageUri,
           creatorAddress,
-          mimeType: 'image/png',
+          mimeType: "image/png",
         });
       } catch (error: any) {
         throw new AppError(`Failed to generate metadata: ${error.message}`, 500);
       }
     }
-    
-    // Initialize context 
+
+    // Initialize context
     const context = initializeVerxioContext(creatorAddress, RPC_ENDPOINT, process.env.PRIVATE_KEY!);
 
     // Create update authority keypair from private key
-    const updateAuthority = createSignerFromKeypair(context.umi, convertSecretKeyToKeypair(creatorPrivateKey));
+    const updateAuthority = createSignerFromKeypair(
+      context.umi,
+      convertSecretKeyToKeypair(creatorPrivateKey)
+    );
 
     // Create loyalty program
     const result = await createLoyaltyProgramCore(context, {
@@ -1002,7 +1024,7 @@ export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) =
       },
     };
   } catch (error: any) {
-    console.error('Loyalty program creation error:', error);
+    console.error("Loyalty program creation error:", error);
     throw new AppError(`Loyalty program creation failed: ${error.message}`, 500);
   }
 };
@@ -1014,10 +1036,11 @@ export const issueLoyaltyPassBlockchain = async (
   params: IssueLoyaltyPassParams,
   skipApiCost: boolean = false // Set to true when called from claim link (authority already paid)
 ) => {
-  const { loyaltyProgramAddress, recipientEmail, passName, organizationName, authorityEmail } = params;
+  const { loyaltyProgramAddress, recipientEmail, passName, organizationName, authorityEmail } =
+    params;
 
   if (!loyaltyProgramAddress || !recipientEmail || !passName || !authorityEmail) {
-    throw new AppError('Missing required parameters for loyalty pass issuance', 400);
+    throw new AppError("Missing required parameters for loyalty pass issuance", 400);
   }
 
   try {
@@ -1037,14 +1060,17 @@ export const issueLoyaltyPassBlockchain = async (
     });
 
     if (!program) {
-      throw new AppError('Loyalty program not found', 404);
+      throw new AppError("Loyalty program not found", 404);
     }
 
     // Use program's stored metadataUri
     if (!program.metadataUri) {
-      throw new AppError('Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.', 400);
+      throw new AppError(
+        "Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.",
+        400
+      );
     }
-    
+
     const finalPassMetadataUri = program.metadataUri;
 
     // Get recipient wallet address from email
@@ -1055,11 +1081,19 @@ export const issueLoyaltyPassBlockchain = async (
     const authorityInfo = await getUserCreatorInfo(authorityEmail);
     const authoritySecretKey = authorityInfo.creatorPrivateKey;
 
-    // Initialize context 
-    const context = initializeVerxioContext(program.creator, RPC_ENDPOINT, process.env.PRIVATE_KEY!, loyaltyProgramAddress);
+    // Initialize context
+    const context = initializeVerxioContext(
+      program.creator,
+      RPC_ENDPOINT,
+      process.env.PRIVATE_KEY!,
+      loyaltyProgramAddress
+    );
 
     // Create asset keypair using authority secret key (update authority)
-    const assetKeypair = createSignerFromKeypair(context.umi, convertSecretKeyToKeypair(authoritySecretKey));
+    const assetKeypair = createSignerFromKeypair(
+      context.umi,
+      convertSecretKeyToKeypair(authoritySecretKey)
+    );
 
     // Generate a new signer for the pass asset, use assetKeypair as update authority
     const assetSigner = generateSigner(context.umi);
@@ -1077,10 +1111,9 @@ export const issueLoyaltyPassBlockchain = async (
     });
 
     // Convert asset public key to string
-    const assetPublicKey = typeof result.asset === 'string'
-      ? result.asset
-      : result.asset.publicKey.toString();
-      
+    const assetPublicKey =
+      typeof result.asset === "string" ? result.asset : result.asset.publicKey.toString();
+
     const assetPrivateKey = uint8ArrayToBase58String(result.asset.secretKey);
 
     // Save loyalty pass to database
@@ -1101,7 +1134,7 @@ export const issueLoyaltyPassBlockchain = async (
       },
     };
   } catch (error: any) {
-    console.error('Error issuing loyalty pass:', error);
+    console.error("Error issuing loyalty pass:", error);
     throw new AppError(`Failed to issue loyalty pass: ${error.message}`, 500);
   }
 };
@@ -1113,7 +1146,7 @@ export const revokeLoyaltyPointsBlockchain = async (params: RevokePointsParams) 
   const { passAddress, pointsToRevoke, collectionAddress, authorityEmail } = params;
 
   if (!passAddress || !pointsToRevoke || !authorityEmail) {
-    throw new AppError('Missing required parameters for revoking points', 400);
+    throw new AppError("Missing required parameters for revoking points", 400);
   }
 
   try {
@@ -1124,7 +1157,7 @@ export const revokeLoyaltyPointsBlockchain = async (params: RevokePointsParams) 
     });
 
     if (!loyaltyPass) {
-      throw new AppError('Loyalty pass not found', 404);
+      throw new AppError("Loyalty pass not found", 404);
     }
 
     // Debit API cost from authority
@@ -1141,18 +1174,26 @@ export const revokeLoyaltyPointsBlockchain = async (params: RevokePointsParams) 
     });
 
     if (!program) {
-      throw new AppError('Loyalty program not found', 404);
+      throw new AppError("Loyalty program not found", 404);
     }
 
     // Get authority secret key from user email
     const authorityInfo = await getUserCreatorInfo(authorityEmail);
     const authoritySecretKey = authorityInfo.creatorPrivateKey;
 
-    // Initialize context 
-    const context = initializeVerxioContext(program.creator, RPC_ENDPOINT, process.env.PRIVATE_KEY!, collectionAddress);
+    // Initialize context
+    const context = initializeVerxioContext(
+      program.creator,
+      RPC_ENDPOINT,
+      process.env.PRIVATE_KEY!,
+      collectionAddress
+    );
 
     // Create signer from secret key
-    const signer = createSignerFromKeypair(context.umi, convertSecretKeyToKeypair(authoritySecretKey));
+    const signer = createSignerFromKeypair(
+      context.umi,
+      convertSecretKeyToKeypair(authoritySecretKey)
+    );
 
     // Revoke points
     const result = await revokeLoyaltyPoints(context, {
@@ -1169,7 +1210,7 @@ export const revokeLoyaltyPointsBlockchain = async (params: RevokePointsParams) 
       },
     };
   } catch (error: any) {
-    console.error('Error revoking loyalty points:', error);
+    console.error("Error revoking loyalty points:", error);
     throw new AppError(`Failed to revoke loyalty points: ${error.message}`, 500);
   }
 };
@@ -1181,7 +1222,7 @@ export const giftLoyaltyPointsBlockchain = async (params: GiftPointsParams) => {
   const { passAddress, pointsToGift, action, collectionAddress, authorityEmail } = params;
 
   if (!passAddress || !pointsToGift || !action || !authorityEmail) {
-    throw new AppError('Missing required parameters for gifting points', 400);
+    throw new AppError("Missing required parameters for gifting points", 400);
   }
 
   try {
@@ -1192,7 +1233,7 @@ export const giftLoyaltyPointsBlockchain = async (params: GiftPointsParams) => {
     });
 
     if (!loyaltyPass) {
-      throw new AppError('Loyalty pass not found', 404);
+      throw new AppError("Loyalty pass not found", 404);
     }
 
     // Recipient is stored as wallet address, convert to email
@@ -1221,18 +1262,26 @@ export const giftLoyaltyPointsBlockchain = async (params: GiftPointsParams) => {
     });
 
     if (!program) {
-      throw new AppError('Loyalty program not found', 404);
+      throw new AppError("Loyalty program not found", 404);
     }
 
     // Get authority secret key from user email
     const authorityInfo = await getUserCreatorInfo(authorityEmail);
     const authoritySecretKey = authorityInfo.creatorPrivateKey;
 
-    // Initialize context 
-    const context = initializeVerxioContext(program.creator, RPC_ENDPOINT, process.env.PRIVATE_KEY!, collectionAddress);
+    // Initialize context
+    const context = initializeVerxioContext(
+      program.creator,
+      RPC_ENDPOINT,
+      process.env.PRIVATE_KEY!,
+      collectionAddress
+    );
 
     // Create signer from secret key
-    const signer = createSignerFromKeypair(context.umi, convertSecretKeyToKeypair(authoritySecretKey));
+    const signer = createSignerFromKeypair(
+      context.umi,
+      convertSecretKeyToKeypair(authoritySecretKey)
+    );
 
     // Gift points
     const result = await giftLoyaltyPoints(context, {
@@ -1250,7 +1299,7 @@ export const giftLoyaltyPointsBlockchain = async (params: GiftPointsParams) => {
       },
     };
   } catch (error: any) {
-    console.error('Error gifting loyalty points:', error);
+    console.error("Error gifting loyalty points:", error);
     throw new AppError(`Failed to gift loyalty points: ${error.message}`, 500);
   }
 };
@@ -1264,7 +1313,7 @@ const checkVerxioBalance = async (email: string, amount: number) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.verxioBalance < amount) {
@@ -1291,14 +1340,14 @@ export const createLoyaltyClaimLink = async (
     const { programAddress, passName, organizationName, description, authorityEmail } = data;
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Validate required fields
     if (!programAddress || !passName || !authorityEmail) {
       return {
         success: false,
-        error: 'programAddress, passName, and authorityEmail are required',
+        error: "programAddress, passName, and authorityEmail are required",
       };
     }
 
@@ -1344,7 +1393,8 @@ export const createLoyaltyClaimLink = async (
     if (!program.metadataUri) {
       return {
         success: false,
-        error: 'Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.',
+        error:
+          "Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.",
       };
     }
 
@@ -1363,7 +1413,7 @@ export const createLoyaltyClaimLink = async (
         organizationName: organizationName || null,
         description: description || null,
         metadataUri: program.metadataUri,
-        status: 'active',
+        status: "active",
       },
     });
 
@@ -1381,8 +1431,8 @@ export const createLoyaltyClaimLink = async (
       claimCode: claimLink.claimCode,
     };
   } catch (error: any) {
-    console.error('Error creating loyalty claim link:', error);
-    return { success: false, error: error.message || 'Failed to create loyalty claim link' };
+    console.error("Error creating loyalty claim link:", error);
+    return { success: false, error: error.message || "Failed to create loyalty claim link" };
   }
 };
 
@@ -1402,15 +1452,19 @@ export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaim
     if (!quantity || quantity < 1) {
       return {
         success: false,
-        error: 'Quantity must be at least 1',
+        error: "Quantity must be at least 1",
       };
     }
 
     // Validate required fields first
-    if (!singleLinkData.programAddress || !singleLinkData.passName || !singleLinkData.authorityEmail) {
+    if (
+      !singleLinkData.programAddress ||
+      !singleLinkData.passName ||
+      !singleLinkData.authorityEmail
+    ) {
       return {
         success: false,
-        error: 'All required fields must be provided',
+        error: "All required fields must be provided",
       };
     }
 
@@ -1451,7 +1505,8 @@ export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaim
     if (!program.metadataUri) {
       return {
         success: false,
-        error: 'Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.',
+        error:
+          "Loyalty program does not have a stored metadataUri. Please ensure the program was created with an imageURL or metadataUri.",
       };
     }
 
@@ -1471,10 +1526,10 @@ export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaim
         if (result.success && result.claimCode) {
           claimCodes.push(result.claimCode);
         } else {
-          errors.push(`Link ${i + 1}: ${result.error || 'Failed to create'}`);
+          errors.push(`Link ${i + 1}: ${result.error || "Failed to create"}`);
         }
       } catch (error: any) {
-        errors.push(`Link ${i + 1}: ${error.message || 'Failed to create'}`);
+        errors.push(`Link ${i + 1}: ${error.message || "Failed to create"}`);
       }
     }
 
@@ -1482,7 +1537,7 @@ export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaim
     if (claimCodes.length === 0) {
       return {
         success: false,
-        error: `Failed to create any claim links. Errors: ${errors.join('; ')}`,
+        error: `Failed to create any claim links. Errors: ${errors.join("; ")}`,
       };
     }
 
@@ -1512,8 +1567,8 @@ export const createBatchLoyaltyClaimLinks = async (data: CreateBatchLoyaltyClaim
       message: `Successfully created ${claimCodes.length} claim links`,
     };
   } catch (error: any) {
-    console.error('Error creating batch loyalty claim links:', error);
-    return { success: false, error: error.message || 'Failed to create batch claim links' };
+    console.error("Error creating batch loyalty claim links:", error);
+    return { success: false, error: error.message || "Failed to create batch claim links" };
   }
 };
 
@@ -1526,13 +1581,13 @@ export const getLoyaltyClaimLink = async (claimCodeOrId: string) => {
     });
 
     if (!claimLink) {
-      return { success: false, error: 'Claim link not found' };
+      return { success: false, error: "Claim link not found" };
     }
 
     return { success: true, claimLink };
   } catch (error: any) {
-    console.error('Error fetching loyalty claim link:', error);
-    return { success: false, error: error.message || 'Failed to fetch claim link' };
+    console.error("Error fetching loyalty claim link:", error);
+    return { success: false, error: error.message || "Failed to fetch claim link" };
   }
 };
 
@@ -1540,28 +1595,28 @@ export const claimLoyaltyPassFromLink = async (claimCodeOrId: string, recipientE
   try {
     const claimRes = await getLoyaltyClaimLink(claimCodeOrId);
     if (!claimRes.success || !claimRes.claimLink) {
-      return { success: false, error: claimRes.error || 'Claim link not found' };
+      return { success: false, error: claimRes.error || "Claim link not found" };
     }
 
     const claimLink = claimRes.claimLink as any;
 
-    if (claimLink.status === 'claimed') {
-      return { success: false, error: 'This claim link has already been used.' };
+    if (claimLink.status === "claimed") {
+      return { success: false, error: "This claim link has already been used." };
     }
 
     // Issue loyalty pass without charging API cost (authority already paid when creating claim link)
     const issueParams: IssueLoyaltyPassParams = {
       loyaltyProgramAddress: claimLink.programAddress,
       recipientEmail,
-      passName: claimLink.passName || 'Loyalty Pass',
+      passName: claimLink.passName || "Loyalty Pass",
       organizationName: claimLink.organizationName || undefined,
       authorityEmail: claimLink.creatorEmail,
     };
 
     const issued = await issueLoyaltyPassBlockchain(issueParams, true); // Skip API cost
-    
+
     if (!issued.success || !issued.result) {
-      return { success: false, error: 'Failed to issue loyalty pass from claim link' };
+      return { success: false, error: "Failed to issue loyalty pass from claim link" };
     }
 
     // Get the loyalty pass from database to get the ID
@@ -1578,7 +1633,7 @@ export const claimLoyaltyPassFromLink = async (claimCodeOrId: string, recipientE
     await (prisma as any).loyaltyClaimLink.update({
       where: { id: claimLink.id },
       data: {
-        status: 'claimed',
+        status: "claimed",
         loyaltyPassAddress: issued.result.loyaltyPassPublicKey,
       },
     });
@@ -1589,8 +1644,7 @@ export const claimLoyaltyPassFromLink = async (claimCodeOrId: string, recipientE
       loyaltyPassId: savedPass?.id || null,
     };
   } catch (error: any) {
-    console.error('Error claiming loyalty pass from link:', error);
-    return { success: false, error: error.message || 'Failed to claim loyalty pass' };
+    console.error("Error claiming loyalty pass from link:", error);
+    return { success: false, error: error.message || "Failed to claim loyalty pass" };
   }
 };
-

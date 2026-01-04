@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as voucherService from '../services/voucherService';
+import { Router, Request, Response, NextFunction } from "express";
+import * as voucherService from "../services/voucherService";
 
 export const voucherRouter: Router = Router();
 
@@ -88,7 +88,7 @@ export const voucherRouter: Router = Router();
  *       400:
  *         description: Invalid input
  */
-voucherRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/create", async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Map imageURL from request to imageUri for service
     const body = { ...req.body };
@@ -221,7 +221,7 @@ voucherRouter.post('/create', async (req: Request, res: Response, next: NextFunc
  *       201:
  *         description: Loyalty card/voucher minted successfully
  */
-voucherRouter.post('/mint', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/mint", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { creatorEmail, ...voucherData } = req.body;
     const result = await voucherService.mintVoucher(voucherData, creatorEmail);
@@ -269,7 +269,7 @@ voucherRouter.post('/mint', async (req: Request, res: Response, next: NextFuncti
  *       200:
  *         description: Loyalty card/voucher validation result
  */
-voucherRouter.post('/validate', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/validate", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress, creatorEmail } = req.body;
     const result = await voucherService.validateVoucher(voucherAddress, creatorEmail);
@@ -311,10 +311,15 @@ voucherRouter.post('/validate', async (req: Request, res: Response, next: NextFu
  *       200:
  *         description: Loyalty card/voucher redeemed successfully
  */
-voucherRouter.post('/redeem', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/redeem", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress, merchantId, creatorEmail, redemptionAmount } = req.body;
-    const result = await voucherService.redeemVoucher(voucherAddress, merchantId, creatorEmail, redemptionAmount);
+    const result = await voucherService.redeemVoucher(
+      voucherAddress,
+      merchantId,
+      creatorEmail,
+      redemptionAmount
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -362,7 +367,7 @@ voucherRouter.post('/redeem', async (req: Request, res: Response, next: NextFunc
  *       200:
  *         description: Loyalty card/voucher cancelled successfully
  */
-voucherRouter.post('/cancel', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/cancel", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress, reason, creatorEmail } = req.body;
     const result = await voucherService.cancelVoucher(voucherAddress, reason, creatorEmail);
@@ -413,10 +418,14 @@ voucherRouter.post('/cancel', async (req: Request, res: Response, next: NextFunc
  *       200:
  *         description: Loyalty card/voucher expiry extended successfully
  */
-voucherRouter.post('/extend-expiry', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.post("/extend-expiry", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress, newExpiryDate, creatorEmail } = req.body;
-    const result = await voucherService.extendVoucherExpiry(voucherAddress, newExpiryDate, creatorEmail);
+    const result = await voucherService.extendVoucherExpiry(
+      voucherAddress,
+      newExpiryDate,
+      creatorEmail
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -450,9 +459,9 @@ voucherRouter.post('/extend-expiry', async (req: Request, res: Response, next: N
  *       200:
  *         description: Loyalty card/voucher collections retrieved successfully
  */
-voucherRouter.get('/collections', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.get("/collections", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { creatorEmail, page = '1', limit = '10' } = req.query;
+    const { creatorEmail, page = "1", limit = "10" } = req.query;
     const result = await voucherService.getUserVoucherCollections(
       creatorEmail as string,
       parseInt(page as string),
@@ -492,19 +501,25 @@ voucherRouter.get('/collections', async (req: Request, res: Response, next: Next
  *       404:
  *         description: Loyalty card/voucher collection not found
  */
-voucherRouter.get('/collection/:collectionAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { collectionAddress } = req.params;
-    const { creatorEmail } = req.query;
-    const result = await voucherService.getVoucherCollectionByPublicKey(collectionAddress, creatorEmail as string);
-    if (!result.success) {
-      return res.status(404).json(result);
+voucherRouter.get(
+  "/collection/:collectionAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { collectionAddress } = req.params;
+      const { creatorEmail } = req.query;
+      const result = await voucherService.getVoucherCollectionByPublicKey(
+        collectionAddress,
+        creatorEmail as string
+      );
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -562,23 +577,23 @@ voucherRouter.get('/collection/:collectionAddress', async (req: Request, res: Re
  *       404:
  *         description: Voucher not found
  */
-voucherRouter.get('/details', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.get("/details", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress } = req.query;
-    
-    if (!voucherAddress || typeof voucherAddress !== 'string') {
+
+    if (!voucherAddress || typeof voucherAddress !== "string") {
       return res.status(400).json({
         success: false,
-        error: 'Voucher address is required',
+        error: "Voucher address is required",
       });
     }
 
     const result = await voucherService.getVoucherDetailsByAddress(voucherAddress);
-    
+
     if (!result.success) {
       return res.status(404).json(result);
     }
-    
+
     res.json(result);
   } catch (error) {
     next(error);
@@ -601,15 +616,18 @@ voucherRouter.get('/details', async (req: Request, res: Response, next: NextFunc
  *       200:
  *         description: Authority secret key retrieved successfully
  */
-voucherRouter.get('/collection/authority/:collectionAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { collectionAddress } = req.params;
-    const result = await voucherService.getVoucherAuthoritySecretKey(collectionAddress);
-    res.json(result);
-  } catch (error) {
-    next(error);
+voucherRouter.get(
+  "/collection/authority/:collectionAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { collectionAddress } = req.params;
+      const result = await voucherService.getVoucherAuthoritySecretKey(collectionAddress);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -637,16 +655,22 @@ voucherRouter.get('/collection/authority/:collectionAddress', async (req: Reques
  *       200:
  *         description: Loyalty card/voucher secret key retrieved successfully
  */
-voucherRouter.get('/secret-key/:voucherAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { voucherAddress } = req.params;
-    const { creatorEmail } = req.query;
-    const result = await voucherService.getVoucherSecretKey(voucherAddress, creatorEmail as string);
-    res.json(result);
-  } catch (error) {
-    next(error);
+voucherRouter.get(
+  "/secret-key/:voucherAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { voucherAddress } = req.params;
+      const { creatorEmail } = req.query;
+      const result = await voucherService.getVoucherSecretKey(
+        voucherAddress,
+        creatorEmail as string
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -673,10 +697,13 @@ voucherRouter.get('/secret-key/:voucherAddress', async (req: Request, res: Respo
  *       200:
  *         description: User loyalty cards/vouchers retrieved successfully
  */
-voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunction) => {
+voucherRouter.get("/user", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userEmail, collectionAddress } = req.query;
-    const result = await voucherService.getUserVouchers(userEmail as string, collectionAddress as string);
+    const result = await voucherService.getUserVouchers(
+      userEmail as string,
+      collectionAddress as string
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -780,17 +807,20 @@ voucherRouter.get('/user', async (req: Request, res: Response, next: NextFunctio
  *       400:
  *         description: Invalid input
  */
-voucherRouter.post('/claim-link/create', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await voucherService.createVoucherClaimLink(req.body);
-    if (!result.success) {
-      return res.status(400).json(result);
+voucherRouter.post(
+  "/claim-link/create",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await voucherService.createVoucherClaimLink(req.body);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
     }
-    res.status(201).json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -906,17 +936,20 @@ voucherRouter.post('/claim-link/create', async (req: Request, res: Response, nex
  *       400:
  *         description: Invalid input
  */
-voucherRouter.post('/claim-link/create/batch', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await voucherService.createBatchVoucherClaimLinks(req.body);
-    if (!result.success) {
-      return res.status(400).json(result);
+voucherRouter.post(
+  "/claim-link/create/batch",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await voucherService.createBatchVoucherClaimLinks(req.body);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
     }
-    res.status(201).json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -937,17 +970,20 @@ voucherRouter.post('/claim-link/create/batch', async (req: Request, res: Respons
  *       404:
  *         description: Claim link not found
  */
-voucherRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await voucherService.getVoucherClaimLink(req.params.claimCode);
-    if (!result.success) {
-      return res.status(404).json(result);
+voucherRouter.get(
+  "/claim-link/:claimCode",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await voucherService.getVoucherClaimLink(req.params.claimCode);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -981,17 +1017,19 @@ voucherRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, 
  *       400:
  *         description: Invalid input or claim link already used/expired
  */
-voucherRouter.post('/claim-link/:claimCode/claim', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { claimCode } = req.params;
-    const { recipientEmail } = req.body;
-    const result = await voucherService.claimVoucherFromLink(claimCode, recipientEmail);
-    if (!result.success) {
-      return res.status(400).json(result);
+voucherRouter.post(
+  "/claim-link/:claimCode/claim",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { claimCode } = req.params;
+      const { recipientEmail } = req.body;
+      const result = await voucherService.claimVoucherFromLink(claimCode, recipientEmail);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
-
+);

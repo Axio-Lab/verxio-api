@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as loyaltyService from '../services/loyaltyService';
+import { Router, Request, Response, NextFunction } from "express";
+import * as loyaltyService from "../services/loyaltyService";
 
 export const loyaltyRouter: Router = Router();
 
@@ -7,7 +7,7 @@ export const loyaltyRouter: Router = Router();
  * @swagger
  * /loyalty/program/create:
  *   post:
- *     summary: Create whitelabel loyalty program 
+ *     summary: Create whitelabel loyalty program
  *     tags: [Loyalty Programs]
  *     requestBody:
  *       required: true
@@ -128,7 +128,7 @@ export const loyaltyRouter: Router = Router();
  *       201:
  *         description: Loyalty program created successfully
  */
-loyaltyRouter.post('/program/create', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.post("/program/create", async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Map imageURL from request to imageUri for service
     const body = { ...req.body };
@@ -191,7 +191,7 @@ loyaltyRouter.post('/program/create', async (req: Request, res: Response, next: 
  *       201:
  *         description: Loyalty pass issued successfully
  */
-loyaltyRouter.post('/pass/issue', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.post("/pass/issue", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await loyaltyService.issueLoyaltyPassBlockchain(req.body);
     res.status(201).json(result);
@@ -235,7 +235,7 @@ loyaltyRouter.post('/pass/issue', async (req: Request, res: Response, next: Next
  *       200:
  *         description: Points gifted successfully
  */
-loyaltyRouter.post('/points/gift', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.post("/points/gift", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await loyaltyService.giftLoyaltyPointsBlockchain(req.body);
     res.json(result);
@@ -276,7 +276,7 @@ loyaltyRouter.post('/points/gift', async (req: Request, res: Response, next: Nex
  *       200:
  *         description: Points revoked successfully
  */
-loyaltyRouter.post('/points/revoke', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.post("/points/revoke", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await loyaltyService.revokeLoyaltyPointsBlockchain(req.body);
     res.json(result);
@@ -284,7 +284,6 @@ loyaltyRouter.post('/points/revoke', async (req: Request, res: Response, next: N
     next(error);
   }
 });
-
 
 /**
  * @swagger
@@ -306,15 +305,18 @@ loyaltyRouter.post('/points/revoke', async (req: Request, res: Response, next: N
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.get('/programs/:creatorEmail', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { creatorEmail } = req.params;
-    const result = await loyaltyService.getUserLoyaltyPrograms(creatorEmail);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/programs/:creatorEmail",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { creatorEmail } = req.params;
+      const result = await loyaltyService.getUserLoyaltyPrograms(creatorEmail);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -342,7 +344,7 @@ loyaltyRouter.get('/programs/:creatorEmail', async (req: Request, res: Response,
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.get('/program/details', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.get("/program/details", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { creatorEmail, programPublicKey } = req.query;
     const result = await loyaltyService.getLoyaltyProgramDetails({
@@ -374,15 +376,18 @@ loyaltyRouter.get('/program/details', async (req: Request, res: Response, next: 
  *       404:
  *         description: Loyalty program not found
  */
-loyaltyRouter.get('/program/authority/:collectionAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { collectionAddress } = req.params;
-    const result = await loyaltyService.getCollectionAuthoritySecretKey(collectionAddress);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/program/authority/:collectionAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { collectionAddress } = req.params;
+      const result = await loyaltyService.getCollectionAuthoritySecretKey(collectionAddress);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -403,15 +408,18 @@ loyaltyRouter.get('/program/authority/:collectionAddress', async (req: Request, 
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.get('/program/users/:collectionAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { collectionAddress } = req.params;
-    const result = await loyaltyService.getLoyaltyProgramUsers(collectionAddress);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/program/users/:collectionAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { collectionAddress } = req.params;
+      const result = await loyaltyService.getLoyaltyProgramUsers(collectionAddress);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -439,14 +447,17 @@ loyaltyRouter.get('/program/users/:collectionAddress', async (req: Request, res:
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.post('/program/members/total', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await loyaltyService.getTotalMembersAcrossPrograms(req.body);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.post(
+  "/program/members/total",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await loyaltyService.getTotalMembersAcrossPrograms(req.body);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -468,7 +479,7 @@ loyaltyRouter.post('/program/members/total', async (req: Request, res: Response,
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.get('/passes/:userEmail', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.get("/passes/:userEmail", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userEmail } = req.params;
     const result = await loyaltyService.getUserLoyaltyPasses(userEmail);
@@ -506,18 +517,21 @@ loyaltyRouter.get('/passes/:userEmail', async (req: Request, res: Response, next
  *       404:
  *         description: Loyalty program not found
  */
-loyaltyRouter.get('/program/membership', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { userEmail, loyaltyProgramAddress } = req.query;
-    const result = await loyaltyService.checkUserLoyaltyProgramMembership({
-      userEmail: userEmail as string,
-      loyaltyProgramAddress: loyaltyProgramAddress as string,
-    });
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/program/membership",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userEmail, loyaltyProgramAddress } = req.query;
+      const result = await loyaltyService.checkUserLoyaltyProgramMembership({
+        userEmail: userEmail as string,
+        loyaltyProgramAddress: loyaltyProgramAddress as string,
+      });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -538,15 +552,18 @@ loyaltyRouter.get('/program/membership', async (req: Request, res: Response, nex
  *       404:
  *         description: Loyalty program not found
  */
-loyaltyRouter.get('/program/:programAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { programAddress } = req.params;
-    const result = await loyaltyService.getLoyaltyProgramByAddress(programAddress);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/program/:programAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { programAddress } = req.params;
+      const result = await loyaltyService.getLoyaltyProgramByAddress(programAddress);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -567,15 +584,18 @@ loyaltyRouter.get('/program/:programAddress', async (req: Request, res: Response
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.get('/program/claim-status/:programAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { programAddress } = req.params;
-    const result = await loyaltyService.getClaimStatus(programAddress);
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.get(
+  "/program/claim-status/:programAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { programAddress } = req.params;
+      const result = await loyaltyService.getClaimStatus(programAddress);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -596,7 +616,7 @@ loyaltyRouter.get('/program/claim-status/:programAddress', async (req: Request, 
  *       404:
  *         description: Loyalty pass not found
  */
-loyaltyRouter.get('/pass/:passAddress', async (req: Request, res: Response, next: NextFunction) => {
+loyaltyRouter.get("/pass/:passAddress", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { passAddress } = req.params;
     const result = await loyaltyService.getLoyaltyPassDetails(passAddress);
@@ -639,19 +659,22 @@ loyaltyRouter.get('/pass/:passAddress', async (req: Request, res: Response, next
  *       404:
  *         description: Loyalty program not found
  */
-loyaltyRouter.put('/program/claim-status/:programAddress', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { programAddress } = req.params;
-    const { enabled } = req.body;
-    const result = await loyaltyService.toggleClaimEnabled({
-      programAddress,
-      enabled,
-    });
-    res.json(result);
-  } catch (error) {
-    next(error);
+loyaltyRouter.put(
+  "/program/claim-status/:programAddress",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { programAddress } = req.params;
+      const { enabled } = req.body;
+      const result = await loyaltyService.toggleClaimEnabled({
+        programAddress,
+        enabled,
+      });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -714,17 +737,20 @@ loyaltyRouter.put('/program/claim-status/:programAddress', async (req: Request, 
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.post('/claim-link/create', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await loyaltyService.createLoyaltyClaimLink(req.body);
-    if (!result.success) {
-      return res.status(400).json(result);
+loyaltyRouter.post(
+  "/claim-link/create",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await loyaltyService.createLoyaltyClaimLink(req.body);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
     }
-    res.status(201).json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -796,17 +822,20 @@ loyaltyRouter.post('/claim-link/create', async (req: Request, res: Response, nex
  *       400:
  *         description: Invalid input
  */
-loyaltyRouter.post('/claim-link/create/batch', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await loyaltyService.createBatchLoyaltyClaimLinks(req.body);
-    if (!result.success) {
-      return res.status(400).json(result);
+loyaltyRouter.post(
+  "/claim-link/create/batch",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await loyaltyService.createBatchLoyaltyClaimLinks(req.body);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
     }
-    res.status(201).json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -827,17 +856,20 @@ loyaltyRouter.post('/claim-link/create/batch', async (req: Request, res: Respons
  *       404:
  *         description: Claim link not found
  */
-loyaltyRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await loyaltyService.getLoyaltyClaimLink(req.params.claimCode);
-    if (!result.success) {
-      return res.status(404).json(result);
+loyaltyRouter.get(
+  "/claim-link/:claimCode",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await loyaltyService.getLoyaltyClaimLink(req.params.claimCode);
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -871,17 +903,19 @@ loyaltyRouter.get('/claim-link/:claimCode', async (req: Request, res: Response, 
  *       400:
  *         description: Invalid input or claim link already used/expired
  */
-loyaltyRouter.post('/claim-link/:claimCode/claim', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { claimCode } = req.params;
-    const { recipientEmail } = req.body;
-    const result = await loyaltyService.claimLoyaltyPassFromLink(claimCode, recipientEmail);
-    if (!result.success) {
-      return res.status(400).json(result);
+loyaltyRouter.post(
+  "/claim-link/:claimCode/claim",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { claimCode } = req.params;
+      const { recipientEmail } = req.body;
+      const result = await loyaltyService.claimLoyaltyPassFromLink(claimCode, recipientEmail);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
-
+);

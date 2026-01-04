@@ -4,7 +4,7 @@ import { inngest } from "./index";
 /**
  * Sorts workflow nodes in topological order based on their connections
  * This ensures nodes are executed in the correct order (dependencies first)
- * 
+ *
  * @param nodes - Array of workflow nodes
  * @param connections - Array of connections between nodes (source -> target)
  * @returns Array of nodes sorted in topological order (dependencies first)
@@ -52,11 +52,8 @@ export const topologicalSort = (nodes: any[], connections: any[]): any[] => {
     .filter((node): node is any => node !== undefined);
 
   // Add nodes with no connections at the end (they can run in any order)
-  const unconnectedNodes = nodes.filter(
-    (node) => !connectedNodeIds.has(node.id)
-  );
+  const unconnectedNodes = nodes.filter((node) => !connectedNodeIds.has(node.id));
 
   // Return sorted connected nodes first, then unconnected nodes
   return [...sortedNodes, ...unconnectedNodes];
 };
-

@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as apiKeyService from '../services/apiKeyService';
+import { Router, Request, Response, NextFunction } from "express";
+import * as apiKeyService from "../services/apiKeyService";
 
 export const apiKeyRouter: Router = Router();
 
@@ -168,4 +168,3 @@ export const apiKeyRouter: Router = Router();
 //     next(error);
 //   }
 // });
-

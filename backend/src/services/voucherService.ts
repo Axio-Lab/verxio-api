@@ -1,8 +1,12 @@
-import { prisma } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
-import { createSignerFromKeypair, generateSigner } from '@metaplex-foundation/umi';
-import { publicKey } from '@metaplex-foundation/umi';
-import { convertSecretKeyToKeypair, uint8ArrayToBase58String, initializeVerxioContext } from '../lib/utils';
+import { prisma } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
+import { createSignerFromKeypair, generateSigner } from "@metaplex-foundation/umi";
+import { publicKey } from "@metaplex-foundation/umi";
+import {
+  convertSecretKeyToKeypair,
+  uint8ArrayToBase58String,
+  initializeVerxioContext,
+} from "../lib/utils";
 import {
   createVoucherCollection as createVoucherCollectionCore,
   mintVoucher as mintVoucherCore,
@@ -11,10 +15,10 @@ import {
   cancelVoucher as cancelVoucherCore,
   extendVoucherExpiry as extendVoucherExpiryCore,
   getUserVouchers as getUserVouchersCore,
-} from '@verxioprotocol/core';
-import { getVoucherCollectionDetails } from '../lib/voucher/getVoucherCollectionDetails';
-import { getVoucherDetails } from '../lib/voucher/getVoucherDetails';
-import { getUserCreatorInfo } from './userService';
+} from "@verxioprotocol/core";
+import { getVoucherCollectionDetails } from "../lib/voucher/getVoucherCollectionDetails";
+import { getVoucherDetails } from "../lib/voucher/getVoucherDetails";
+import { getUserCreatorInfo } from "./userService";
 
 const RPC_ENDPOINT = `${process.env.RPC_URL}?api-key=${process.env.HELIUS_API_KEY}`;
 
@@ -37,7 +41,7 @@ const checkVerxioBalance = async (email: string, amount: number) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.verxioBalance < amount) {
@@ -57,7 +61,7 @@ const debitVerxioBalance = async (email: string, amount: number, description: st
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.verxioBalance < amount) {
@@ -94,7 +98,7 @@ const parseExpiryDateInput = (expiryDate?: string | Date) => {
 
   let expiryDateObj: Date;
 
-  if (typeof expiryDate === 'string') {
+  if (typeof expiryDate === "string") {
     const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
     const match = expiryDate.match(ddmmyyyyPattern);
 
@@ -114,7 +118,7 @@ const parseExpiryDateInput = (expiryDate?: string | Date) => {
     return {
       success: false as const,
       error:
-        'Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+        "Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)",
     };
   }
 
@@ -122,7 +126,7 @@ const parseExpiryDateInput = (expiryDate?: string | Date) => {
   if (expiryDateObj <= now) {
     return {
       success: false as const,
-      error: 'Voucher expiry date must be in the future',
+      error: "Voucher expiry date must be in the future",
     };
   }
 
@@ -169,7 +173,7 @@ export const createVoucherCollection = async (
     } = data;
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Get creator info from email
@@ -181,18 +185,19 @@ export const createVoucherCollection = async (
 
     // Require imageUri if metadataUri is not provided
     if (!metadataUri && !imageUri) {
-      throw new AppError('imageUri is required to generate metadata automatically', 400);
+      throw new AppError("imageUri is required to generate metadata automatically", 400);
     }
 
     // If metadataUri is not provided, generate it from imageUri
     let finalMetadataUri = metadataUri;
     if (!finalMetadataUri) {
       if (!imageUri) {
-        throw new AppError('imageUri is required to generate metadata automatically', 400);
+        throw new AppError("imageUri is required to generate metadata automatically", 400);
       }
-      
+
       try {
-        const { generateVoucherCollectionMetadata } = await import('../lib/metadata/generateVoucherCollectionMetadata');
+        const { generateVoucherCollectionMetadata } =
+          await import("../lib/metadata/generateVoucherCollectionMetadata");
         finalMetadataUri = await generateVoucherCollectionMetadata({
           voucherCollectionName,
           merchantName,
@@ -202,7 +207,7 @@ export const createVoucherCollection = async (
           description,
           imageUri,
           creatorAddress,
-          mimeType: 'image/png',
+          mimeType: "image/png",
         });
       } catch (error: any) {
         throw new AppError(`Failed to generate metadata: ${error.message}`, 500);
@@ -231,13 +236,14 @@ export const createVoucherCollection = async (
     const { collection, signature, updateAuthority } = createResult;
 
     // Convert PublicKey objects to strings
-    const collectionPublicKey = typeof (collection.publicKey as any) === 'string'
-      ? (collection.publicKey as string)
-      : (collection.publicKey as any).toString();
+    const collectionPublicKey =
+      typeof (collection.publicKey as any) === "string"
+        ? (collection.publicKey as string)
+        : (collection.publicKey as any).toString();
     const authorityPublicKey = updateAuthority
-      ? (typeof (updateAuthority.publicKey as any) === 'string'
-          ? (updateAuthority.publicKey as string)
-          : (updateAuthority.publicKey as any).toString())
+      ? typeof (updateAuthority.publicKey as any) === "string"
+        ? (updateAuthority.publicKey as string)
+        : (updateAuthority.publicKey as any).toString()
       : collectionPublicKey;
 
     // Save to database
@@ -245,7 +251,9 @@ export const createVoucherCollection = async (
       data: {
         creator: creatorAddress,
         collectionPublicKey: collectionPublicKey,
-        collectionSecretKey: uint8ArrayToBase58String(collection.secretKey as unknown as Uint8Array),
+        collectionSecretKey: uint8ArrayToBase58String(
+          collection.secretKey as unknown as Uint8Array
+        ),
         signature,
         metadataUri: finalMetadataUri,
         authorityPublicKey: authorityPublicKey,
@@ -271,10 +279,10 @@ export const createVoucherCollection = async (
       },
     };
   } catch (error: any) {
-    console.error('Error creating voucher collection:', error);
+    console.error("Error creating voucher collection:", error);
     return {
       success: false,
-      error: error.message || 'Failed to create voucher collection',
+      error: error.message || "Failed to create voucher collection",
     };
   }
 };
@@ -310,7 +318,7 @@ export const getUserVoucherCollections = async (
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
         skip,
         take,
@@ -333,15 +341,15 @@ export const getUserVoucherCollections = async (
           const details = await getVoucherCollectionDetails(collection.collectionPublicKey);
           return {
             ...collection,
-            collectionName: details.success ? details.data?.name : 'Unknown Collection',
+            collectionName: details.success ? details.data?.name : "Unknown Collection",
             collectionImage: details.success ? details.data?.image : null,
             voucherStats: details.success ? details.data?.voucherStats : null,
           };
         } catch (error) {
-          console.error('Error fetching collection details:', error);
+          console.error("Error fetching collection details:", error);
           return {
             ...collection,
-            collectionName: 'Unknown Collection',
+            collectionName: "Unknown Collection",
             collectionImage: null,
             voucherStats: null,
           };
@@ -367,10 +375,10 @@ export const getUserVoucherCollections = async (
       },
     };
   } catch (error: any) {
-    console.error('Error fetching user voucher collections:', error);
+    console.error("Error fetching user voucher collections:", error);
     return {
       success: false,
-      error: error.message || 'Failed to fetch voucher collections',
+      error: error.message || "Failed to fetch voucher collections",
     };
   }
 };
@@ -389,7 +397,7 @@ export const getVoucherAuthoritySecretKey = async (collectionAddress: string) =>
     });
 
     if (!voucherCollection) {
-      return { success: false, error: 'Voucher collection not found for this collection address' };
+      return { success: false, error: "Voucher collection not found for this collection address" };
     }
 
     return {
@@ -398,8 +406,8 @@ export const getVoucherAuthoritySecretKey = async (collectionAddress: string) =>
       authorityPublicKey: voucherCollection.authorityPublicKey,
     };
   } catch (error) {
-    console.error('Error fetching voucher collection authority secret key:', error);
-    return { success: false, error: 'Failed to fetch authority secret key' };
+    console.error("Error fetching voucher collection authority secret key:", error);
+    return { success: false, error: "Failed to fetch authority secret key" };
   }
 };
 
@@ -424,7 +432,7 @@ export const getVoucherSecretKey = async (voucherAddress: string, creatorEmail: 
     });
 
     if (!voucher) {
-      return { success: false, error: 'Voucher not found' };
+      return { success: false, error: "Voucher not found" };
     }
 
     return {
@@ -433,8 +441,8 @@ export const getVoucherSecretKey = async (voucherAddress: string, creatorEmail: 
       voucherPublicKey: voucher.voucherPublicKey,
     };
   } catch (error) {
-    console.error('Error fetching voucher secret key:', error);
-    return { success: false, error: 'Failed to fetch voucher secret key' };
+    console.error("Error fetching voucher secret key:", error);
+    return { success: false, error: "Failed to fetch voucher secret key" };
   }
 };
 
@@ -463,7 +471,7 @@ export const getVoucherCollectionByPublicKey = async (
             createdAt: true,
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         },
       },
@@ -472,7 +480,7 @@ export const getVoucherCollectionByPublicKey = async (
     if (!collection) {
       return {
         success: false,
-        error: 'Voucher collection not found',
+        error: "Voucher collection not found",
       };
     }
 
@@ -489,18 +497,20 @@ export const getVoucherCollectionByPublicKey = async (
             const vd = voucherDetails.data;
             return {
               ...voucher,
-              voucherName: vd.name || 'Unknown Voucher',
-              voucherType: vd.type || 'Unknown',
+              voucherName: vd.name || "Unknown Voucher",
+              voucherType: vd.type || "Unknown",
               value: vd.value ?? 0,
-              symbol: vd.symbol || 'USDC',
-              description: vd.voucherDescription || vd.description || '',
-              expiryDate: vd.expiryDate ? new Date(vd.expiryDate).toISOString() : '',
+              symbol: vd.symbol || "USDC",
+              description: vd.voucherDescription || vd.description || "",
+              expiryDate: vd.expiryDate ? new Date(vd.expiryDate).toISOString() : "",
               maxUses: vd.maxUses ?? 1,
               currentUses: vd.currentUses ?? 0,
               transferable: vd.transferable ?? true,
-              status: vd.status || 'active',
-              merchantId: vd.merchantId || '',
-              conditions: Array.isArray(vd.conditions) ? vd.conditions.join(', ') : vd.conditions || '',
+              status: vd.status || "active",
+              merchantId: vd.merchantId || "",
+              conditions: Array.isArray(vd.conditions)
+                ? vd.conditions.join(", ")
+                : vd.conditions || "",
               image: vd.image || null,
               isExpired: vd.isExpired || false,
               canRedeem: vd.canRedeem || false,
@@ -510,18 +520,18 @@ export const getVoucherCollectionByPublicKey = async (
             // Fallback if voucher details fetch fails
             return {
               ...voucher,
-              voucherName: 'Unknown Voucher',
-              voucherType: 'Unknown',
+              voucherName: "Unknown Voucher",
+              voucherType: "Unknown",
               value: 0,
-              symbol: 'USDC',
-              description: '',
-              expiryDate: '',
+              symbol: "USDC",
+              description: "",
+              expiryDate: "",
               maxUses: 1,
               currentUses: 0,
               transferable: true,
-              status: 'active',
-              merchantId: '',
-              conditions: '',
+              status: "active",
+              merchantId: "",
+              conditions: "",
               image: null,
               isExpired: false,
               canRedeem: false,
@@ -529,21 +539,21 @@ export const getVoucherCollectionByPublicKey = async (
             };
           }
         } catch (error) {
-          console.error('Error fetching voucher details:', error);
+          console.error("Error fetching voucher details:", error);
           return {
             ...voucher,
-            voucherName: 'Unknown Voucher',
-            voucherType: 'Unknown',
+            voucherName: "Unknown Voucher",
+            voucherType: "Unknown",
             value: 0,
-            symbol: 'USDC',
-            description: '',
-            expiryDate: '',
+            symbol: "USDC",
+            description: "",
+            expiryDate: "",
             maxUses: 1,
             currentUses: 0,
             transferable: true,
-            status: 'active',
-            merchantId: '',
-            conditions: '',
+            status: "active",
+            merchantId: "",
+            conditions: "",
             image: null,
             isExpired: false,
             canRedeem: false,
@@ -557,7 +567,7 @@ export const getVoucherCollectionByPublicKey = async (
       success: true,
       collection: {
         ...collection,
-        collectionName: details.success ? details.data?.name : 'Unknown Collection',
+        collectionName: details.success ? details.data?.name : "Unknown Collection",
         collectionImage: details.success ? details.data?.image : null,
         voucherStats: details.success ? details.data?.voucherStats : null,
         blockchainDetails: details.success ? details.data : null,
@@ -565,10 +575,10 @@ export const getVoucherCollectionByPublicKey = async (
       },
     };
   } catch (error: any) {
-    console.error('Error fetching voucher collection by public key:', error);
+    console.error("Error fetching voucher collection by public key:", error);
     return {
       success: false,
-      error: error.message || 'Failed to fetch voucher collection',
+      error: error.message || "Failed to fetch voucher collection",
     };
   }
 };
@@ -576,7 +586,21 @@ export const getVoucherCollectionByPublicKey = async (
 export interface CreateVoucherClaimLinkData {
   collectionAddress: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
+  voucherType:
+    | "CUSTOM_REWARD"
+    | "TOKEN"
+    | "PERCENTAGE_OFF"
+    | "FIXED_AMOUNT_OFF"
+    | "BUY_ONE_GET_ONE"
+    | "FREE_SHIPPING"
+    | "FREE_DELIVERY"
+    | "FREE_GIFT"
+    | "FREE_ITEM"
+    | "FREE_TRIAL"
+    | "FREE_SAMPLE"
+    | "FREE_CONSULTATION"
+    | "FREE_REPAIR"
+    | string;
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -607,21 +631,33 @@ export const createVoucherClaimLink = async (
     } = data;
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Validate required fields
-    if (!collectionAddress || !voucherName || !voucherType || value === undefined || value === null || !description || !expiryDate || maxUses === undefined || !merchantId || !creatorEmail) {
-      return { 
-        success: false, 
-        error: 'collectionAddress, voucherName, voucherType, value, description, expiryDate, maxUses, merchantId, and creatorEmail are required' 
+    if (
+      !collectionAddress ||
+      !voucherName ||
+      !voucherType ||
+      value === undefined ||
+      value === null ||
+      !description ||
+      !expiryDate ||
+      maxUses === undefined ||
+      !merchantId ||
+      !creatorEmail
+    ) {
+      return {
+        success: false,
+        error:
+          "collectionAddress, voucherName, voucherType, value, description, expiryDate, maxUses, merchantId, and creatorEmail are required",
       };
     }
 
     // Parse expiry date (same logic as mintVoucher)
     const parsedExpiry = parseExpiryDateInput(expiryDate);
     if (!parsedExpiry.success || !parsedExpiry.date) {
-      return { success: false, error: parsedExpiry.error || 'Invalid expiry date' };
+      return { success: false, error: parsedExpiry.error || "Invalid expiry date" };
     }
 
     // Get creator info from email
@@ -647,17 +683,17 @@ export const createVoucherClaimLink = async (
     });
 
     if (!collectionByKey) {
-      return { 
-        success: false, 
-        error: `Voucher collection not found with address: ${trimmedCollectionAddress}` 
+      return {
+        success: false,
+        error: `Voucher collection not found with address: ${trimmedCollectionAddress}`,
       };
     }
 
     // Verify ownership
     if (collectionByKey.creator !== creatorAddress) {
-      return { 
-        success: false, 
-        error: `Voucher collection found but you are not the creator. Collection creator: ${collectionByKey.creator}, Your address: ${creatorAddress}` 
+      return {
+        success: false,
+        error: `Voucher collection found but you are not the creator. Collection creator: ${collectionByKey.creator}, Your address: ${creatorAddress}`,
       };
     }
 
@@ -669,7 +705,8 @@ export const createVoucherClaimLink = async (
     if (!collection.metadataUri) {
       return {
         success: false,
-        error: 'Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.',
+        error:
+          "Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.",
       };
     }
 
@@ -695,7 +732,7 @@ export const createVoucherClaimLink = async (
         conditions: conditions || null,
         metadataUri: collection.metadataUri,
         merchantId,
-        status: 'active',
+        status: "active",
       },
     });
 
@@ -714,15 +751,29 @@ export const createVoucherClaimLink = async (
       claimCode: rewardLink.claimCode || rewardLink.slug, // Support both during migration
     };
   } catch (error: any) {
-    console.error('Error creating voucher claim link:', error);
-    return { success: false, error: error.message || 'Failed to create voucher claim link' };
+    console.error("Error creating voucher claim link:", error);
+    return { success: false, error: error.message || "Failed to create voucher claim link" };
   }
 };
 
 export interface CreateBatchVoucherClaimLinksData {
   collectionAddress: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
+  voucherType:
+    | "CUSTOM_REWARD"
+    | "TOKEN"
+    | "PERCENTAGE_OFF"
+    | "FIXED_AMOUNT_OFF"
+    | "BUY_ONE_GET_ONE"
+    | "FREE_SHIPPING"
+    | "FREE_DELIVERY"
+    | "FREE_GIFT"
+    | "FREE_ITEM"
+    | "FREE_TRIAL"
+    | "FREE_SAMPLE"
+    | "FREE_CONSULTATION"
+    | "FREE_REPAIR"
+    | string;
   value: number;
   description: string;
   expiryDate: string | Date;
@@ -741,18 +792,26 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
     if (!quantity || quantity < 1) {
       return {
         success: false,
-        error: 'Quantity must be at least 1',
+        error: "Quantity must be at least 1",
       };
     }
 
     // Validate required fields first
-    if (!singleLinkData.collectionAddress || !singleLinkData.voucherName || !singleLinkData.voucherType || 
-        singleLinkData.value === undefined || singleLinkData.value === null || !singleLinkData.description || 
-        !singleLinkData.expiryDate || singleLinkData.maxUses === undefined || !singleLinkData.merchantId || 
-        !singleLinkData.creatorEmail) {
+    if (
+      !singleLinkData.collectionAddress ||
+      !singleLinkData.voucherName ||
+      !singleLinkData.voucherType ||
+      singleLinkData.value === undefined ||
+      singleLinkData.value === null ||
+      !singleLinkData.description ||
+      !singleLinkData.expiryDate ||
+      singleLinkData.maxUses === undefined ||
+      !singleLinkData.merchantId ||
+      !singleLinkData.creatorEmail
+    ) {
       return {
         success: false,
-        error: 'All required fields must be provided',
+        error: "All required fields must be provided",
       };
     }
 
@@ -793,7 +852,8 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
     if (!collectionByKey.metadataUri) {
       return {
         success: false,
-        error: 'Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.',
+        error:
+          "Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.",
       };
     }
 
@@ -809,14 +869,17 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
     // Create links sequentially to avoid race conditions (skip individual debits)
     for (let i = 0; i < quantity; i++) {
       try {
-        const result = await createVoucherClaimLink(singleLinkData as CreateVoucherClaimLinkData, true); // Skip individual debit
+        const result = await createVoucherClaimLink(
+          singleLinkData as CreateVoucherClaimLinkData,
+          true
+        ); // Skip individual debit
         if (result.success && result.claimCode) {
           claimCodes.push(result.claimCode);
         } else {
-          errors.push(`Link ${i + 1}: ${result.error || 'Failed to create'}`);
+          errors.push(`Link ${i + 1}: ${result.error || "Failed to create"}`);
         }
       } catch (error: any) {
-        errors.push(`Link ${i + 1}: ${error.message || 'Failed to create'}`);
+        errors.push(`Link ${i + 1}: ${error.message || "Failed to create"}`);
       }
     }
 
@@ -824,7 +887,7 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
     if (claimCodes.length === 0) {
       return {
         success: false,
-        error: `Failed to create any claim links. Errors: ${errors.join('; ')}`,
+        error: `Failed to create any claim links. Errors: ${errors.join("; ")}`,
       };
     }
 
@@ -854,8 +917,8 @@ export const createBatchVoucherClaimLinks = async (data: CreateBatchVoucherClaim
       message: `Successfully created ${claimCodes.length} claim links`,
     };
   } catch (error: any) {
-    console.error('Error creating batch voucher claim links:', error);
-    return { success: false, error: error.message || 'Failed to create batch claim links' };
+    console.error("Error creating batch voucher claim links:", error);
+    return { success: false, error: error.message || "Failed to create batch claim links" };
   }
 };
 
@@ -872,13 +935,13 @@ export const getVoucherClaimLink = async (claimCodeOrId: string) => {
     });
 
     if (!rewardLink) {
-      return { success: false, error: 'Claim link not found' };
+      return { success: false, error: "Claim link not found" };
     }
 
     return { success: true, rewardLink };
   } catch (error: any) {
-    console.error('Error fetching voucher claim link:', error);
-    return { success: false, error: error.message || 'Failed to fetch claim link' };
+    console.error("Error fetching voucher claim link:", error);
+    return { success: false, error: error.message || "Failed to fetch claim link" };
   }
 };
 
@@ -886,13 +949,13 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
   try {
     const rewardRes = await getVoucherClaimLink(claimCodeOrId);
     if (!rewardRes.success || !rewardRes.rewardLink) {
-      return { success: false, error: rewardRes.error || 'Claim link not found' };
+      return { success: false, error: rewardRes.error || "Claim link not found" };
     }
 
     const reward = rewardRes.rewardLink as any;
 
-    if (reward.status === 'claimed') {
-      return { success: false, error: 'This claim link has already been used.' };
+    if (reward.status === "claimed") {
+      return { success: false, error: "This claim link has already been used." };
     }
 
     if (reward.expiryDate) {
@@ -900,14 +963,14 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       if (expiry <= new Date()) {
         await (prisma as any).rewardLink.update({
           where: { id: reward.id },
-          data: { status: 'expired' },
+          data: { status: "expired" },
         });
-        return { success: false, error: 'This claim link has expired.' };
+        return { success: false, error: "This claim link has expired." };
       }
     }
 
     if (reward.voucherWorth === null || reward.voucherWorth === undefined) {
-      return { success: false, error: 'Claim link is missing voucher value.' };
+      return { success: false, error: "Claim link is missing voucher value." };
     }
 
     // Check if deal exists and if voucher is non-tradeable, prevent double claiming
@@ -934,7 +997,8 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       if (existingVoucher) {
         return {
           success: false,
-          error: 'You have already claimed a voucher from this collection. Each user can only claim one non-tradeable voucher per collection.',
+          error:
+            "You have already claimed a voucher from this collection. Each user can only claim one non-tradeable voucher per collection.",
         };
       }
     }
@@ -942,10 +1006,10 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
     const mintData: MintVoucherData = {
       collectionAddress: reward.collectionAddress,
       recipientEmail,
-      voucherName: reward.voucherName || 'Reward Voucher',
+      voucherName: reward.voucherName || "Reward Voucher",
       voucherType: reward.voucherType,
       value: reward.voucherWorth,
-      description: reward.description || 'Voucher reward',
+      description: reward.description || "Voucher reward",
       expiryDate: reward.expiryDate,
       maxUses: reward.maxUses,
       transferable: !!reward.transferable,
@@ -956,13 +1020,13 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
     // Mint voucher without charging API cost (merchant already paid when creating claim link)
     const minted = await mintVoucher(mintData, reward.creatorEmail, true);
     if (!minted.success || !minted.voucher) {
-      return { success: false, error: minted.error || 'Failed to mint voucher from claim link' };
+      return { success: false, error: minted.error || "Failed to mint voucher from claim link" };
     }
 
     await (prisma as any).rewardLink.update({
       where: { id: reward.id },
       data: {
-        status: 'claimed',
+        status: "claimed",
         voucherAddress: minted.voucher.voucherPublicKey,
       },
     });
@@ -987,7 +1051,7 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       }
     } catch (dealError: any) {
       // Log error but don't fail the claim if deal update fails
-      console.error('Error updating deal quantity:', dealError);
+      console.error("Error updating deal quantity:", dealError);
     }
 
     return {
@@ -996,8 +1060,8 @@ export const claimVoucherFromLink = async (claimCodeOrId: string, recipientEmail
       voucherId: minted.voucher.id,
     };
   } catch (error: any) {
-    console.error('Error claiming voucher from link:', error);
-    return { success: false, error: error.message || 'Failed to claim voucher' };
+    console.error("Error claiming voucher from link:", error);
+    return { success: false, error: error.message || "Failed to claim voucher" };
   }
 };
 
@@ -1006,7 +1070,21 @@ export interface MintVoucherData {
   collectionAddress: string;
   recipientEmail: string;
   voucherName: string;
-  voucherType: "CUSTOM_REWARD" | "TOKEN" | "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "BUY_ONE_GET_ONE" | "FREE_SHIPPING" | "FREE_DELIVERY" | "FREE_GIFT" | "FREE_ITEM" | "FREE_TRIAL" | "FREE_SAMPLE" | "FREE_CONSULTATION" | "FREE_REPAIR" | string;
+  voucherType:
+    | "CUSTOM_REWARD"
+    | "TOKEN"
+    | "PERCENTAGE_OFF"
+    | "FIXED_AMOUNT_OFF"
+    | "BUY_ONE_GET_ONE"
+    | "FREE_SHIPPING"
+    | "FREE_DELIVERY"
+    | "FREE_GIFT"
+    | "FREE_ITEM"
+    | "FREE_TRIAL"
+    | "FREE_SAMPLE"
+    | "FREE_CONSULTATION"
+    | "FREE_REPAIR"
+    | string;
   value: number;
   valueSymbol?: string;
   assetName?: string;
@@ -1054,7 +1132,7 @@ export const mintVoucher = async (
     } = data;
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Get creator info from email
@@ -1072,17 +1150,17 @@ export const mintVoucher = async (
 
     // Convert expiryDate to Date if it's a string (needed for metadata generation)
     let expiryDateObj: Date;
-    
-    if (typeof expiryDate === 'string') {
+
+    if (typeof expiryDate === "string") {
       // Handle DD/MM/YYYY format (e.g., "25/12/2025")
       const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
       const match = expiryDate.match(ddmmyyyyPattern);
-      
+
       if (match) {
         const day = parseInt(match[1], 10);
         const month = parseInt(match[2], 10) - 1; // Month is 0-indexed in Date
         const year = parseInt(match[3], 10);
-        
+
         // Set to end of day (23:59:59) to ensure it's in the future
         expiryDateObj = new Date(year, month, day, 23, 59, 59, 999);
       } else {
@@ -1092,21 +1170,22 @@ export const mintVoucher = async (
     } else {
       expiryDateObj = expiryDate;
     }
-    
+
     // Validate expiry date
     if (isNaN(expiryDateObj.getTime())) {
       return {
         success: false,
-        error: 'Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+        error:
+          "Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)",
       };
     }
-    
+
     // Ensure expiry date is in the future
     const now = new Date();
     if (expiryDateObj <= now) {
       return {
         success: false,
-        error: 'Voucher expiry date must be in the future',
+        error: "Voucher expiry date must be in the future",
       };
     }
 
@@ -1126,7 +1205,7 @@ export const mintVoucher = async (
     if (!collection) {
       return {
         success: false,
-        error: 'Voucher collection not found',
+        error: "Voucher collection not found",
       };
     }
 
@@ -1134,26 +1213,27 @@ export const mintVoucher = async (
     if (!collection.metadataUri) {
       return {
         success: false,
-        error: 'Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.',
+        error:
+          "Voucher collection does not have a stored metadataUri. Please ensure the collection was created with an imageURL or metadataUri.",
       };
     }
-    
+
     const finalVoucherMetadataUri = collection.metadataUri;
 
     // Validate that finalVoucherMetadataUri is a valid URL
     if (finalVoucherMetadataUri) {
       try {
         const url = new URL(finalVoucherMetadataUri);
-        if (!url.protocol.startsWith('http')) {
+        if (!url.protocol.startsWith("http")) {
           return {
             success: false,
-            error: 'Metadata URI must be a valid HTTP/HTTPS URL',
+            error: "Metadata URI must be a valid HTTP/HTTPS URL",
           };
         }
       } catch (error) {
         return {
           success: false,
-          error: 'Metadata URI must be a valid URL',
+          error: "Metadata URI must be a valid URL",
         };
       }
     }
@@ -1177,7 +1257,7 @@ export const mintVoucher = async (
       recipient: publicKey(recipient),
       voucherName: voucherName.substring(0, 32), // Limit voucher name length
       voucherData: {
-        type: voucherType.toLowerCase().replace('_', '_') as any,
+        type: voucherType.toLowerCase().replace("_", "_") as any,
         value,
         description: description,
         expiryDate: expiryDateObj.getTime(),
@@ -1193,14 +1273,15 @@ export const mintVoucher = async (
 
     // Mint voucher
     const mintResult = await mintVoucherCore(context, mintConfig);
-    
+
     // Extract from result - result has asset (KeypairSigner), signature, and voucherAddress
     const { asset, signature } = mintResult;
 
     // Convert PublicKey to string
-    const assetPublicKey = typeof (asset.publicKey as any) === 'string'
-      ? (asset.publicKey as string)
-      : (asset.publicKey as any).toString();
+    const assetPublicKey =
+      typeof (asset.publicKey as any) === "string"
+        ? (asset.publicKey as string)
+        : (asset.publicKey as any).toString();
 
     // Save to database - store recipient email, not wallet address
     const savedVoucher = await (prisma as any).voucher.create({
@@ -1232,10 +1313,10 @@ export const mintVoucher = async (
       },
     };
   } catch (error: any) {
-    console.error('Error minting voucher:', error);
+    console.error("Error minting voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to mint voucher',
+      error: error.message || "Failed to mint voucher",
     };
   }
 };
@@ -1244,7 +1325,7 @@ export const mintVoucher = async (
 export const validateVoucher = async (voucherAddress: string, creatorEmail: string) => {
   try {
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Get creator address from email (for context initialization)
@@ -1261,10 +1342,10 @@ export const validateVoucher = async (voucherAddress: string, creatorEmail: stri
 
     return validateResult;
   } catch (error: any) {
-    console.error('Error validating voucher:', error);
+    console.error("Error validating voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to validate voucher',
+      error: error.message || "Failed to validate voucher",
     };
   }
 };
@@ -1304,12 +1385,14 @@ export const redeemVoucher = async (
     if (!voucher) {
       return {
         success: false,
-        error: 'Voucher not found',
+        error: "Voucher not found",
       };
     }
 
     // Get voucher collection authority secret key
-    const collectionKeyResult = await getVoucherAuthoritySecretKey(voucher.collection.collectionPublicKey);
+    const collectionKeyResult = await getVoucherAuthoritySecretKey(
+      voucher.collection.collectionPublicKey
+    );
     if (!collectionKeyResult.success) {
       return {
         success: false,
@@ -1318,7 +1401,7 @@ export const redeemVoucher = async (
     }
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Initialize context
@@ -1351,16 +1434,20 @@ export const redeemVoucher = async (
 
     return redeemResult;
   } catch (error: any) {
-    console.error('Error redeeming voucher:', error);
+    console.error("Error redeeming voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to redeem voucher',
+      error: error.message || "Failed to redeem voucher",
     };
   }
 };
 
 // Cancel Voucher
-export const cancelVoucher = async (voucherAddress: string, reason: string, creatorEmail: string) => {
+export const cancelVoucher = async (
+  voucherAddress: string,
+  reason: string,
+  creatorEmail: string
+) => {
   try {
     // Get creator address from email
     const creatorInfo = await getUserCreatorInfo(creatorEmail);
@@ -1389,12 +1476,14 @@ export const cancelVoucher = async (voucherAddress: string, reason: string, crea
     if (!voucher) {
       return {
         success: false,
-        error: 'Voucher not found',
+        error: "Voucher not found",
       };
     }
 
     // Get voucher collection authority secret key
-    const collectionKeyResult = await getVoucherAuthoritySecretKey(voucher.collection.collectionPublicKey);
+    const collectionKeyResult = await getVoucherAuthoritySecretKey(
+      voucher.collection.collectionPublicKey
+    );
     if (!collectionKeyResult.success) {
       return {
         success: false,
@@ -1403,7 +1492,7 @@ export const cancelVoucher = async (voucherAddress: string, reason: string, crea
     }
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Initialize context
@@ -1431,10 +1520,10 @@ export const cancelVoucher = async (voucherAddress: string, reason: string, crea
 
     return cancelResult;
   } catch (error: any) {
-    console.error('Error cancelling voucher:', error);
+    console.error("Error cancelling voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to cancel voucher',
+      error: error.message || "Failed to cancel voucher",
     };
   }
 };
@@ -1448,17 +1537,17 @@ export const extendVoucherExpiry = async (
   try {
     // Convert newExpiryDate to Date if it's a string
     let expiryDateObj: Date;
-    
-    if (typeof newExpiryDate === 'string') {
+
+    if (typeof newExpiryDate === "string") {
       // Handle DD/MM/YYYY format (e.g., "25/12/2025")
       const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
       const match = newExpiryDate.match(ddmmyyyyPattern);
-      
+
       if (match) {
         const day = parseInt(match[1], 10);
         const month = parseInt(match[2], 10) - 1; // Month is 0-indexed in Date
         const year = parseInt(match[3], 10);
-        
+
         // Set to end of day (23:59:59) to ensure it's in the future
         expiryDateObj = new Date(year, month, day, 23, 59, 59, 999);
       } else {
@@ -1468,21 +1557,22 @@ export const extendVoucherExpiry = async (
     } else {
       expiryDateObj = newExpiryDate;
     }
-    
+
     // Validate expiry date
     if (isNaN(expiryDateObj.getTime())) {
       return {
         success: false,
-        error: 'Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)',
+        error:
+          "Invalid expiry date format. Please use DD/MM/YYYY format (e.g., 25/12/2025) or ISO 8601 format (e.g., 2024-12-31T23:59:59Z)",
       };
     }
-    
+
     // Ensure expiry date is in the future
     const now = new Date();
     if (expiryDateObj <= now) {
       return {
         success: false,
-        error: 'Voucher expiry date must be in the future',
+        error: "Voucher expiry date must be in the future",
       };
     }
 
@@ -1513,12 +1603,14 @@ export const extendVoucherExpiry = async (
     if (!voucher) {
       return {
         success: false,
-        error: 'Voucher not found',
+        error: "Voucher not found",
       };
     }
 
     // Get voucher collection authority secret key
-    const collectionKeyResult = await getVoucherAuthoritySecretKey(voucher.collection.collectionPublicKey);
+    const collectionKeyResult = await getVoucherAuthoritySecretKey(
+      voucher.collection.collectionPublicKey
+    );
     if (!collectionKeyResult.success) {
       return {
         success: false,
@@ -1527,7 +1619,7 @@ export const extendVoucherExpiry = async (
     }
 
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Initialize context
@@ -1555,10 +1647,10 @@ export const extendVoucherExpiry = async (
 
     return extendResult;
   } catch (error: any) {
-    console.error('Error extending voucher expiry:', error);
+    console.error("Error extending voucher expiry:", error);
     return {
       success: false,
-      error: error.message || 'Failed to extend voucher expiry',
+      error: error.message || "Failed to extend voucher expiry",
     };
   }
 };
@@ -1577,16 +1669,16 @@ export const getVoucherDetailsByAddress = async (
     if (!voucherAddress) {
       return {
         success: false,
-        error: 'Voucher address is required',
+        error: "Voucher address is required",
       };
     }
 
     const voucherDetails = await getVoucherDetails(voucherAddress);
-    
+
     if (!voucherDetails.success) {
       return {
         success: false,
-        error: voucherDetails.error || 'Failed to fetch voucher details',
+        error: voucherDetails.error || "Failed to fetch voucher details",
       };
     }
 
@@ -1595,10 +1687,10 @@ export const getVoucherDetailsByAddress = async (
       data: voucherDetails.data,
     };
   } catch (error: any) {
-    console.error('Error fetching voucher details:', error);
+    console.error("Error fetching voucher details:", error);
     return {
       success: false,
-      error: error.message || 'Failed to fetch voucher details',
+      error: error.message || "Failed to fetch voucher details",
     };
   }
 };
@@ -1607,7 +1699,7 @@ export const getVoucherDetailsByAddress = async (
 export const getUserVouchers = async (userEmail: string, collectionAddress?: string) => {
   try {
     if (!process.env.PRIVATE_KEY) {
-      throw new AppError('Private key not configured', 500);
+      throw new AppError("Private key not configured", 500);
     }
 
     // Get user wallet address from email
@@ -1634,18 +1726,18 @@ export const getUserVouchers = async (userEmail: string, collectionAddress?: str
     const vouchers = vouchersResult.vouchers || [];
     const vouchersWithBasicInfo = vouchers.map((voucher: any) => ({
       ...voucher,
-      voucherName: 'Loading...',
-      voucherType: 'Loading...',
+      voucherName: "Loading...",
+      voucherType: "Loading...",
       value: 0,
-      symbol: 'USDC', // Default fallback
-      description: '',
-      expiryDate: '',
+      symbol: "USDC", // Default fallback
+      description: "",
+      expiryDate: "",
       maxUses: 1,
       currentUses: 0,
       transferable: true,
-      status: 'active',
-      merchantId: '',
-      conditions: '',
+      status: "active",
+      merchantId: "",
+      conditions: "",
       image: null,
       isExpired: false,
       canRedeem: false,
@@ -1658,11 +1750,10 @@ export const getUserVouchers = async (userEmail: string, collectionAddress?: str
       vouchers: vouchersWithBasicInfo,
     };
   } catch (error: any) {
-    console.error('❌ Error fetching user vouchers:', error);
+    console.error("❌ Error fetching user vouchers:", error);
     return {
       success: false,
-      error: error.message || 'Failed to fetch user vouchers',
+      error: error.message || "Failed to fetch user vouchers",
     };
   }
 };
-

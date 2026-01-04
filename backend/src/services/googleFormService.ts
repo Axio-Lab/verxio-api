@@ -1,4 +1,4 @@
-import * as workflowService from './workflowService';
+import * as workflowService from "./workflowService";
 
 /**
  * Validates that a workflow contains a Google Form trigger node
@@ -9,14 +9,14 @@ import * as workflowService from './workflowService';
 export const validateGoogleFormTrigger = async (workflowId: string) => {
   // Get workflow without user validation (webhooks are public)
   const workflow = await workflowService.getWorkflowById(workflowId);
-  
+
   // Find the Google Form trigger node in the workflow
-  const googleFormNode = workflow.nodes.find((node: any) => node.type === 'GOOGLE_FORM_TRIGGER');
-  
+  const googleFormNode = workflow.nodes.find((node: any) => node.type === "GOOGLE_FORM_TRIGGER");
+
   if (!googleFormNode) {
-    throw new Error('Google Form trigger node not found in workflow');
+    throw new Error("Google Form trigger node not found in workflow");
   }
-  
+
   return {
     workflow,
     googleFormNode,
@@ -39,4 +39,3 @@ export const prepareGoogleFormPayload = (googleFormPayload: any) => {
     raw: googleFormPayload,
   };
 };
-

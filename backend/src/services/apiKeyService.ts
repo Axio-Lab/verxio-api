@@ -1,6 +1,6 @@
-import { prisma } from '../lib/prisma';
-import { AppError } from '../middleware/errorHandler';
-import crypto from 'crypto';
+import { prisma } from "../lib/prisma";
+import { AppError } from "../middleware/errorHandler";
+import crypto from "crypto";
 
 // Type assertion for extended Prisma client to access apiKey model
 // The extended client type doesn't properly expose new models, so we use a type assertion
@@ -22,7 +22,7 @@ export interface RevokeApiKeyData {
 const generateSecureApiKey = (): string => {
   // Generate a 64-character hex string (32 bytes)
   const randomBytes = crypto.randomBytes(32);
-  return `vx_${randomBytes.toString('hex')}`;
+  return `vx_${randomBytes.toString("hex")}`;
 };
 
 /**
@@ -32,13 +32,13 @@ export const generateApiKey = async (data: GenerateApiKeyData) => {
   const { email, name } = data;
 
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    throw new AppError('Invalid email format', 400);
+    throw new AppError("Invalid email format", 400);
   }
 
   // Check if user exists
@@ -47,7 +47,7 @@ export const generateApiKey = async (data: GenerateApiKeyData) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Generate API key
@@ -73,7 +73,8 @@ export const generateApiKey = async (data: GenerateApiKeyData) => {
   return {
     success: true,
     apiKey: createdApiKey,
-    message: 'API key generated successfully. Store this key securely - it will not be shown again.',
+    message:
+      "API key generated successfully. Store this key securely - it will not be shown again.",
   };
 };
 
@@ -82,7 +83,7 @@ export const generateApiKey = async (data: GenerateApiKeyData) => {
  */
 export const listApiKeys = async (email: string) => {
   if (!email) {
-    throw new AppError('Email is required', 400);
+    throw new AppError("Email is required", 400);
   }
 
   // Check if user exists
@@ -91,7 +92,7 @@ export const listApiKeys = async (email: string) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Get all API keys for the user (without showing the full key)
@@ -105,14 +106,23 @@ export const listApiKeys = async (email: string) => {
       lastUsedAt: true,
       createdAt: true,
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
 
   // Mask the API keys for security (show only first 8 and last 4 characters)
-  const maskedApiKeys = apiKeys.map((key: { key: string; id: string; name: string | null; isActive: boolean; lastUsedAt: Date | null; createdAt: Date }) => ({
-    ...key,
-    key: `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 4)}`,
-  }));
+  const maskedApiKeys = apiKeys.map(
+    (key: {
+      key: string;
+      id: string;
+      name: string | null;
+      isActive: boolean;
+      lastUsedAt: Date | null;
+      createdAt: Date;
+    }) => ({
+      ...key,
+      key: `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 4)}`,
+    })
+  );
 
   return {
     success: true,
@@ -127,7 +137,7 @@ export const revokeApiKey = async (data: RevokeApiKeyData) => {
   const { email, apiKeyId } = data;
 
   if (!email || !apiKeyId) {
-    throw new AppError('Email and API key ID are required', 400);
+    throw new AppError("Email and API key ID are required", 400);
   }
 
   // Check if user exists
@@ -136,7 +146,7 @@ export const revokeApiKey = async (data: RevokeApiKeyData) => {
   });
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
 
   // Check if API key exists and belongs to the user
@@ -148,7 +158,7 @@ export const revokeApiKey = async (data: RevokeApiKeyData) => {
   });
 
   if (!apiKey) {
-    throw new AppError('API key not found', 404);
+    throw new AppError("API key not found", 404);
   }
 
   // Deactivate the API key
@@ -159,7 +169,7 @@ export const revokeApiKey = async (data: RevokeApiKeyData) => {
 
   return {
     success: true,
-    message: 'API key revoked successfully',
+    message: "API key revoked successfully",
   };
 };
 
@@ -194,4 +204,3 @@ export const validateApiKey = async (apiKey: string) => {
 
   return key.user;
 };
-

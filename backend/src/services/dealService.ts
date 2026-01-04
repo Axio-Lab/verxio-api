@@ -1,11 +1,11 @@
-import { prisma } from '@/lib/prisma';
-import * as voucherService from './voucherService';
+import { prisma } from "@/lib/prisma";
+import * as voucherService from "./voucherService";
 import {
   getVoucherCollectionDetails,
   type VoucherCollectionDetails,
-} from '../lib/voucher/getVoucherCollectionDetails';
-import { getVoucherDetails, type VoucherDetails } from '../lib/voucher/getVoucherDetails';
-import { getUserCreatorInfo } from './userService';
+} from "../lib/voucher/getVoucherCollectionDetails";
+import { getVoucherDetails, type VoucherDetails } from "../lib/voucher/getVoucherDetails";
+import { getUserCreatorInfo } from "./userService";
 
 export interface CreateDealData {
   creatorEmail: string;
@@ -53,63 +53,63 @@ const CHAR_LIMITS = {
 export const createDeal = async (data: CreateDealData): Promise<CreateDealResult> => {
   try {
     // Validate and truncate string fields to prevent Solana transaction size errors
-    const truncatedDescription = data.description 
-      ? (data.description.length > CHAR_LIMITS.DESCRIPTION 
-          ? data.description.substring(0, CHAR_LIMITS.DESCRIPTION) 
-          : data.description)
-      : '';
-    
-    const truncatedConditions = data.conditions 
-      ? (data.conditions.length > CHAR_LIMITS.CONDITIONS 
-          ? data.conditions.substring(0, CHAR_LIMITS.CONDITIONS) 
-          : data.conditions)
-      : '';
-    
-    const truncatedMerchantName = data.merchantName 
-      ? (data.merchantName.length > CHAR_LIMITS.MERCHANT_NAME 
-          ? data.merchantName.substring(0, CHAR_LIMITS.MERCHANT_NAME) 
-          : data.merchantName)
-      : '';
-    
-    const truncatedMerchantAddress = data.merchantAddress 
-      ? (data.merchantAddress.length > CHAR_LIMITS.MERCHANT_ADDRESS 
-          ? data.merchantAddress.substring(0, CHAR_LIMITS.MERCHANT_ADDRESS) 
-          : data.merchantAddress)
-      : '';
+    const truncatedDescription = data.description
+      ? data.description.length > CHAR_LIMITS.DESCRIPTION
+        ? data.description.substring(0, CHAR_LIMITS.DESCRIPTION)
+        : data.description
+      : "";
+
+    const truncatedConditions = data.conditions
+      ? data.conditions.length > CHAR_LIMITS.CONDITIONS
+        ? data.conditions.substring(0, CHAR_LIMITS.CONDITIONS)
+        : data.conditions
+      : "";
+
+    const truncatedMerchantName = data.merchantName
+      ? data.merchantName.length > CHAR_LIMITS.MERCHANT_NAME
+        ? data.merchantName.substring(0, CHAR_LIMITS.MERCHANT_NAME)
+        : data.merchantName
+      : "";
+
+    const truncatedMerchantAddress = data.merchantAddress
+      ? data.merchantAddress.length > CHAR_LIMITS.MERCHANT_ADDRESS
+        ? data.merchantAddress.substring(0, CHAR_LIMITS.MERCHANT_ADDRESS)
+        : data.merchantAddress
+      : "";
 
     // Step 1: Map voucher type from form format to API format
     // Form sends lowercase with underscores (e.g., "percentage_off")
     // API expects uppercase with underscores (e.g., "PERCENTAGE_OFF")
     const mapVoucherTypeForCollection = (type: string): string => {
-      if (!type || type.trim() === '') {
-        return 'CUSTOM_REWARD';
+      if (!type || type.trim() === "") {
+        return "CUSTOM_REWARD";
       }
-      
+
       // Convert to uppercase and handle special cases
       const normalizedType = type.toUpperCase().trim();
-      
+
       // Handle special mappings
-      if (normalizedType === 'TOKEN' || normalizedType === 'DEFAULT') {
-        return normalizedType === 'TOKEN' ? 'TOKEN' : 'CUSTOM_REWARD';
+      if (normalizedType === "TOKEN" || normalizedType === "DEFAULT") {
+        return normalizedType === "TOKEN" ? "TOKEN" : "CUSTOM_REWARD";
       }
-      
+
       // Map common form values to API values
       const typeMap: Record<string, string> = {
-        'PERCENTAGE_OFF': 'PERCENTAGE_OFF',
-        'FIXED_AMOUNT_OFF': 'FIXED_AMOUNT_OFF',
-        'BUY_ONE_GET_ONE': 'BUY_ONE_GET_ONE',
-        'CUSTOM_REWARD': 'CUSTOM_REWARD',
-        'FREE_SHIPPING': 'FREE_SHIPPING',
-        'FREE_DELIVERY': 'FREE_DELIVERY',
-        'FREE_GIFT': 'FREE_GIFT',
-        'FREE_ITEM': 'FREE_ITEM',
-        'FREE_TRIAL': 'FREE_TRIAL',
-        'FREE_SAMPLE': 'FREE_SAMPLE',
-        'FREE_CONSULTATION': 'FREE_CONSULTATION',
-        'FREE_REPAIR': 'FREE_REPAIR',
+        PERCENTAGE_OFF: "PERCENTAGE_OFF",
+        FIXED_AMOUNT_OFF: "FIXED_AMOUNT_OFF",
+        BUY_ONE_GET_ONE: "BUY_ONE_GET_ONE",
+        CUSTOM_REWARD: "CUSTOM_REWARD",
+        FREE_SHIPPING: "FREE_SHIPPING",
+        FREE_DELIVERY: "FREE_DELIVERY",
+        FREE_GIFT: "FREE_GIFT",
+        FREE_ITEM: "FREE_ITEM",
+        FREE_TRIAL: "FREE_TRIAL",
+        FREE_SAMPLE: "FREE_SAMPLE",
+        FREE_CONSULTATION: "FREE_CONSULTATION",
+        FREE_REPAIR: "FREE_REPAIR",
       };
-      
-      return typeMap[normalizedType] || 'CUSTOM_REWARD';
+
+      return typeMap[normalizedType] || "CUSTOM_REWARD";
     };
 
     // Step 2: Create voucher collection
@@ -130,7 +130,7 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
     if (!collectionResult.success || !collectionResult.collection) {
       return {
         success: false,
-        error: collectionResult.error || 'Failed to create voucher collection',
+        error: collectionResult.error || "Failed to create voucher collection",
       };
     }
 
@@ -141,7 +141,7 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
       voucherName: data.voucherName,
       voucherType: mappedVoucherType,
       value: data.voucherWorth,
-      description: truncatedDescription || '',
+      description: truncatedDescription || "",
       expiryDate: data.expiryDate,
       maxUses: data.maxUses,
       transferable: data.transferable || false,
@@ -156,16 +156,18 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
     if (!batchResult.success || !batchResult.claimCodes) {
       return {
         success: false,
-        error: batchResult.error || 'Failed to create batch claim links',
+        error: batchResult.error || "Failed to create batch claim links",
       };
     }
 
     // Step 4: Create Deal record in database
     // Convert expiryDate string to Date if provided
-    const expiryDateValue = data.expiryDate 
-      ? (typeof data.expiryDate === 'string' ? new Date(data.expiryDate) : data.expiryDate)
+    const expiryDateValue = data.expiryDate
+      ? typeof data.expiryDate === "string"
+        ? new Date(data.expiryDate)
+        : data.expiryDate
       : null;
-    
+
     const dealRecord = await (prisma as any).deal.create({
       data: {
         creatorEmail: data.creatorEmail,
@@ -196,10 +198,10 @@ export const createDeal = async (data: CreateDealData): Promise<CreateDealResult
       },
     };
   } catch (error: any) {
-    console.error('Error creating deal:', error);
+    console.error("Error creating deal:", error);
     return {
       success: false,
-      error: error.message || 'Failed to create deal',
+      error: error.message || "Failed to create deal",
     };
   }
 };
@@ -233,7 +235,11 @@ export interface DealInfo {
   updatedAt: Date;
 }
 
-export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInfo[]; error?: string }> => {
+export const getAllDeals = async (): Promise<{
+  success: boolean;
+  deals?: DealInfo[];
+  error?: string;
+}> => {
   try {
     // Query Deal table using the schema
     const deals = await (prisma as any).deal.findMany({
@@ -255,7 +261,7 @@ export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInf
         updatedAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -283,7 +289,7 @@ export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInf
         const unclaimedCount = await (prisma as any).rewardLink.count({
           where: {
             collectionAddress: deal.collectionAddress,
-            status: 'active',
+            status: "active",
             voucherAddress: null, // Not claimed yet
           },
         });
@@ -318,15 +324,17 @@ export const getAllDeals = async (): Promise<{ success: boolean; deals?: DealInf
       deals: dealsInfo,
     };
   } catch (error: any) {
-    console.error('Error getting all deals:', error);
+    console.error("Error getting all deals:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get deals',
+      error: error.message || "Failed to get deals",
     };
   }
 };
 
-export const getDealsByUser = async (creatorEmail: string): Promise<{ success: boolean; deals?: DealInfo[]; error?: string }> => {
+export const getDealsByUser = async (
+  creatorEmail: string
+): Promise<{ success: boolean; deals?: DealInfo[]; error?: string }> => {
   try {
     // Query Deal table filtered by creatorEmail using the schema
     const deals = await (prisma as any).deal.findMany({
@@ -351,7 +359,7 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
         updatedAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -378,7 +386,7 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
         const unclaimedCount = await (prisma as any).rewardLink.count({
           where: {
             collectionAddress: deal.collectionAddress,
-            status: 'active',
+            status: "active",
             voucherAddress: null, // Not claimed yet
           },
         });
@@ -389,7 +397,7 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
             collectionAddress: deal.collectionAddress,
             creatorEmail: creatorEmail,
             status: {
-              in: ['active', 'claimed'],
+              in: ["active", "claimed"],
             },
           },
           select: {
@@ -422,9 +430,9 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
               });
 
               return {
-                claimCode: link.claimCode || link.slug || '',
+                claimCode: link.claimCode || link.slug || "",
                 voucherAddress: link.voucherAddress,
-                recipientEmail: voucher?.recipient || 'Unknown',
+                recipientEmail: voucher?.recipient || "Unknown",
                 claimedAt: voucher?.createdAt || link.updatedAt,
               };
             })
@@ -462,10 +470,10 @@ export const getDealsByUser = async (creatorEmail: string): Promise<{ success: b
       deals: dealsInfo,
     };
   } catch (error: any) {
-    console.error('Error getting deals by user:', error);
+    console.error("Error getting deals by user:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get deals by user',
+      error: error.message || "Failed to get deals by user",
     };
   }
 };
@@ -481,7 +489,7 @@ export interface VoucherInfo {
   maxUses?: number;
   transferable: boolean;
   conditions?: string;
-  status: 'claimed' | 'unclaimed';
+  status: "claimed" | "unclaimed";
   voucherAddress?: string;
   createdAt: Date;
 }
@@ -500,7 +508,7 @@ export const getCollectionVouchers = async (
     if (!deal) {
       return {
         success: false,
-        error: 'Deal collection not found',
+        error: "Deal collection not found",
       };
     }
 
@@ -509,7 +517,7 @@ export const getCollectionVouchers = async (
       where: {
         collectionAddress: collectionAddress,
         status: {
-          in: ['active', 'claimed'],
+          in: ["active", "claimed"],
         },
       },
       select: {
@@ -527,15 +535,15 @@ export const getCollectionVouchers = async (
         createdAt: true,
       },
       orderBy: {
-        createdAt: 'asc',
+        createdAt: "asc",
       },
     });
 
     const vouchers: VoucherInfo[] = rewardLinks.map((link: any) => {
       const isClaimed = link.voucherAddress !== null && link.voucherAddress !== undefined;
-      
+
       return {
-        claimCode: link.claimCode || link.slug || '', // Support both claimCode and slug
+        claimCode: link.claimCode || link.slug || "", // Support both claimCode and slug
         voucherName: link.voucherName || undefined,
         voucherType: link.voucherType,
         voucherWorth: link.voucherWorth || undefined,
@@ -545,7 +553,7 @@ export const getCollectionVouchers = async (
         maxUses: link.maxUses || undefined,
         transferable: link.transferable,
         conditions: link.conditions || undefined,
-        status: isClaimed ? 'claimed' : 'unclaimed',
+        status: isClaimed ? "claimed" : "unclaimed",
         voucherAddress: link.voucherAddress || undefined,
         createdAt: link.createdAt,
       };
@@ -556,10 +564,10 @@ export const getCollectionVouchers = async (
       vouchers,
     };
   } catch (error: any) {
-    console.error('Error getting collection vouchers:', error);
+    console.error("Error getting collection vouchers:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get collection vouchers',
+      error: error.message || "Failed to get collection vouchers",
     };
   }
 };
@@ -569,7 +577,7 @@ export interface UserClaimedVoucher {
   voucherAddress: string;
   claimCode: string;
   claimedAt: Date;
-  
+
   // Deal info (from Deal table)
   dealId?: string;
   creatorEmail?: string; // Merchant email for redemption
@@ -579,10 +587,10 @@ export interface UserClaimedVoucher {
   tradeable: boolean;
   country?: string;
   currency?: string;
-  
+
   // Voucher details from blockchain (preferred source)
   voucherDetails?: VoucherDetails;
-  
+
   // Collection details from blockchain
   collectionDetails?: VoucherCollectionDetails;
 }
@@ -664,21 +672,22 @@ export const getDealsClaimedByUser = async (
         });
 
         // Fetch collection details (from cache)
-        const collectionDetails = collectionDetailsMap.get(voucher.collection.collectionPublicKey) || undefined;
+        const collectionDetails =
+          collectionDetailsMap.get(voucher.collection.collectionPublicKey) || undefined;
 
         // Fetch voucher details from blockchain
         const voucherDetailsResult = await getVoucherDetails(voucher.voucherPublicKey);
         const voucherDetails = voucherDetailsResult.success ? voucherDetailsResult.data : undefined;
 
         // Get claim code from reward link
-        const claimCode = rewardLink?.claimCode || rewardLink?.slug || '';
+        const claimCode = rewardLink?.claimCode || rewardLink?.slug || "";
 
         return {
           // Basic voucher info
           voucherAddress: voucher.voucherPublicKey,
           claimCode,
           claimedAt: voucher.createdAt,
-          
+
           // Deal info (from Deal table)
           dealId: deal?.id,
           creatorEmail: deal?.creatorEmail, // Include creatorEmail for redemption
@@ -688,10 +697,10 @@ export const getDealsClaimedByUser = async (
           tradeable: deal?.tradeable ?? true,
           country: deal?.country || undefined,
           currency: deal?.currency || voucherDetails?.symbol || undefined,
-          
+
           // Voucher details from blockchain (preferred source - contains all voucher info)
           voucherDetails: voucherDetails || undefined,
-          
+
           // Collection details from blockchain
           collectionDetails: collectionDetails || undefined,
         };
@@ -703,10 +712,10 @@ export const getDealsClaimedByUser = async (
       vouchers: vouchersWithDetails,
     };
   } catch (error: any) {
-    console.error('Error getting deals claimed by user:', error);
+    console.error("Error getting deals claimed by user:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get deals claimed by user',
+      error: error.message || "Failed to get deals claimed by user",
     };
   }
 };
@@ -727,14 +736,16 @@ export interface AddDealQuantityResult {
 /**
  * Add more claim links to an existing deal (reuses collection info, no metadata upload needed)
  */
-export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDealQuantityResult> => {
+export const addDealQuantity = async (
+  data: AddDealQuantityData
+): Promise<AddDealQuantityResult> => {
   try {
     const { dealId, quantity, creatorEmail } = data;
 
     if (!quantity || quantity < 1) {
       return {
         success: false,
-        error: 'Quantity must be at least 1',
+        error: "Quantity must be at least 1",
       };
     }
 
@@ -749,7 +760,7 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
     if (!deal) {
       return {
         success: false,
-        error: 'Deal not found or you are not the creator',
+        error: "Deal not found or you are not the creator",
       };
     }
 
@@ -767,7 +778,7 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
     if (!collection || !collection.metadataUri) {
       return {
         success: false,
-        error: 'Collection not found or missing metadata',
+        error: "Collection not found or missing metadata",
       };
     }
 
@@ -776,7 +787,7 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
       where: {
         collectionAddress: deal.collectionAddress,
         creatorEmail: creatorEmail,
-        status: 'active',
+        status: "active",
       },
       select: {
         voucherName: true,
@@ -794,7 +805,7 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
     if (!existingLink) {
       return {
         success: false,
-        error: 'No existing claim links found for this deal. Cannot determine voucher details.',
+        error: "No existing claim links found for this deal. Cannot determine voucher details.",
       };
     }
 
@@ -802,13 +813,13 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
     const batchLinkData: voucherService.CreateBatchVoucherClaimLinksData = {
       collectionAddress: deal.collectionAddress,
       voucherName: existingLink.voucherName || deal.collectionName,
-      voucherType: existingLink.voucherType || deal.dealType || 'CUSTOM_REWARD',
+      voucherType: existingLink.voucherType || deal.dealType || "CUSTOM_REWARD",
       value: existingLink.voucherWorth || deal.worth || 0,
-      description: existingLink.description || '',
+      description: existingLink.description || "",
       expiryDate: existingLink.expiryDate || deal.expiryDate || new Date(),
       maxUses: existingLink.maxUses || 1,
       transferable: existingLink.transferable || false,
-      merchantId: existingLink.merchantId || '',
+      merchantId: existingLink.merchantId || "",
       conditions: existingLink.conditions || deal.conditions || undefined,
       creatorEmail: creatorEmail,
       quantity: quantity,
@@ -819,7 +830,7 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
     if (!batchResult.success || !batchResult.claimCodes) {
       return {
         success: false,
-        error: batchResult.error || 'Failed to create additional claim links',
+        error: batchResult.error || "Failed to create additional claim links",
       };
     }
 
@@ -839,10 +850,10 @@ export const addDealQuantity = async (data: AddDealQuantityData): Promise<AddDea
       newQuantity: updatedDeal.quantity,
     };
   } catch (error: any) {
-    console.error('Error adding deal quantity:', error);
+    console.error("Error adding deal quantity:", error);
     return {
       success: false,
-      error: error.message || 'Failed to add deal quantity',
+      error: error.message || "Failed to add deal quantity",
     };
   }
 };
@@ -862,13 +873,15 @@ export interface ExtendDealExpiryResult {
 /**
  * Extend expiry for all unclaimed vouchers in a deal collection and update deal expiry
  */
-export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<ExtendDealExpiryResult> => {
+export const extendDealExpiry = async (
+  data: ExtendDealExpiryData
+): Promise<ExtendDealExpiryResult> => {
   try {
     const { dealId, newExpiryDate, creatorEmail } = data;
 
     // Convert newExpiryDate to Date if it's a string
     let expiryDateObj: Date;
-    if (typeof newExpiryDate === 'string') {
+    if (typeof newExpiryDate === "string") {
       expiryDateObj = new Date(newExpiryDate);
     } else {
       expiryDateObj = newExpiryDate;
@@ -877,7 +890,7 @@ export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<Exte
     if (isNaN(expiryDateObj.getTime())) {
       return {
         success: false,
-        error: 'Invalid expiry date format',
+        error: "Invalid expiry date format",
       };
     }
 
@@ -892,7 +905,7 @@ export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<Exte
     if (!deal) {
       return {
         success: false,
-        error: 'Deal not found or you are not the creator',
+        error: "Deal not found or you are not the creator",
       };
     }
 
@@ -900,7 +913,7 @@ export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<Exte
     const unclaimedLinks = await (prisma as any).rewardLink.findMany({
       where: {
         collectionAddress: deal.collectionAddress,
-        status: 'active',
+        status: "active",
         voucherAddress: null, // Unclaimed
       },
       select: {
@@ -911,7 +924,7 @@ export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<Exte
     if (unclaimedLinks.length === 0) {
       return {
         success: false,
-        error: 'No unclaimed vouchers found to extend expiry',
+        error: "No unclaimed vouchers found to extend expiry",
       };
     }
 
@@ -938,10 +951,10 @@ export const extendDealExpiry = async (data: ExtendDealExpiryData): Promise<Exte
       vouchersUpdated: unclaimedLinks.length,
     };
   } catch (error: any) {
-    console.error('Error extending deal expiry:', error);
+    console.error("Error extending deal expiry:", error);
     return {
       success: false,
-      error: error.message || 'Failed to extend deal expiry',
+      error: error.message || "Failed to extend deal expiry",
     };
   }
 };
@@ -989,7 +1002,7 @@ export const redeemUserVoucher = async (data: RedeemVoucherData): Promise<Redeem
     if (!voucher) {
       return {
         success: false,
-        error: 'Voucher not found or you do not own this voucher',
+        error: "Voucher not found or you do not own this voucher",
       };
     }
 
@@ -1006,7 +1019,7 @@ export const redeemUserVoucher = async (data: RedeemVoucherData): Promise<Redeem
     if (!deal || !deal.creatorEmail) {
       return {
         success: false,
-        error: 'Deal not found for this voucher',
+        error: "Deal not found for this voucher",
       };
     }
 
@@ -1015,24 +1028,24 @@ export const redeemUserVoucher = async (data: RedeemVoucherData): Promise<Redeem
     if (!finalMerchantId) {
       const voucherDetailsResult = await getVoucherDetails(voucherAddress);
       if (voucherDetailsResult.success && voucherDetailsResult.data) {
-        finalMerchantId = voucherDetailsResult.data.merchantId || '';
+        finalMerchantId = voucherDetailsResult.data.merchantId || "";
       }
     }
 
     // Call voucherService.redeemVoucher
     const redeemResult = await voucherService.redeemVoucher(
       voucherAddress,
-      finalMerchantId || '',
+      finalMerchantId || "",
       deal.creatorEmail,
       redemptionAmount
     );
 
     return redeemResult;
   } catch (error: any) {
-    console.error('Error redeeming user voucher:', error);
+    console.error("Error redeeming user voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to redeem voucher',
+      error: error.message || "Failed to redeem voucher",
     };
   }
 };
@@ -1047,7 +1060,9 @@ export interface ClaimDealVoucherResult {
 /**
  * Claim a voucher from a deal by automatically selecting an unclaimed claim code
  */
-export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<ClaimDealVoucherResult> => {
+export const claimDealVoucher = async (
+  data: ClaimDealVoucherData
+): Promise<ClaimDealVoucherResult> => {
   try {
     const { dealId, recipientEmail } = data;
 
@@ -1065,7 +1080,7 @@ export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<Clai
     if (!deal) {
       return {
         success: false,
-        error: 'Deal not found',
+        error: "Deal not found",
       };
     }
 
@@ -1083,7 +1098,8 @@ export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<Clai
       if (existingVoucher) {
         return {
           success: false,
-          error: 'You have already claimed a voucher from this deal collection. Each user can only claim one non-tradeable voucher per collection.',
+          error:
+            "You have already claimed a voucher from this deal collection. Each user can only claim one non-tradeable voucher per collection.",
         };
       }
     }
@@ -1092,31 +1108,34 @@ export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<Clai
     const unclaimedLink = await (prisma as any).rewardLink.findFirst({
       where: {
         collectionAddress: deal.collectionAddress,
-        status: 'active',
+        status: "active",
         voucherAddress: null, // Unclaimed
       },
       select: {
         claimCode: true,
       },
       orderBy: {
-        createdAt: 'asc', // Claim oldest first
+        createdAt: "asc", // Claim oldest first
       },
     });
 
     if (!unclaimedLink || !unclaimedLink.claimCode) {
       return {
         success: false,
-        error: 'No unclaimed vouchers available for this deal',
+        error: "No unclaimed vouchers available for this deal",
       };
     }
 
     // Claim the voucher using the claim code
-    const claimResult = await voucherService.claimVoucherFromLink(unclaimedLink.claimCode, recipientEmail);
+    const claimResult = await voucherService.claimVoucherFromLink(
+      unclaimedLink.claimCode,
+      recipientEmail
+    );
 
     if (!claimResult.success) {
       return {
         success: false,
-        error: claimResult.error || 'Failed to claim voucher',
+        error: claimResult.error || "Failed to claim voucher",
       };
     }
 
@@ -1126,10 +1145,10 @@ export const claimDealVoucher = async (data: ClaimDealVoucherData): Promise<Clai
       claimCode: unclaimedLink.claimCode,
     };
   } catch (error: any) {
-    console.error('Error claiming deal voucher:', error);
+    console.error("Error claiming deal voucher:", error);
     return {
       success: false,
-      error: error.message || 'Failed to claim deal voucher',
+      error: error.message || "Failed to claim deal voucher",
     };
   }
 };
@@ -1149,7 +1168,9 @@ export interface MerchantStats {
 /**
  * Get merchant statistics for a user
  */
-export const getMerchantStats = async (userEmail: string): Promise<{ success: boolean; stats?: MerchantStats; error?: string }> => {
+export const getMerchantStats = async (
+  userEmail: string
+): Promise<{ success: boolean; stats?: MerchantStats; error?: string }> => {
   try {
     // 1. Count vouchers issued (deals created by the user)
     const vouchersIssued = await (prisma as any).deal.count({
@@ -1218,7 +1239,7 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
     // Also store voucher creation dates for trend calculation
     let totalRedemptions = 0;
     const voucherDetailsWithDates: Array<{ details: any; createdAt: Date }> = [];
-    
+
     const voucherDetailsPromises = claimedVouchers.map(async (voucher: any) => {
       const details = await getVoucherDetails(voucher.voucherPublicKey).catch((error) => {
         console.error(`Error fetching voucher details for ${voucher.voucherPublicKey}:`, error);
@@ -1234,15 +1255,17 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
         const voucherDetails = result.data;
         // Count vouchers that have been redeemed at least once
         // A voucher is considered redeemed if it has redemption history OR is marked as used
-        const hasRedemptions = 
-          (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
-          voucherDetails.status === 'used' ||
+        const hasRedemptions =
+          (voucherDetails.redemptionHistory &&
+            Array.isArray(voucherDetails.redemptionHistory) &&
+            voucherDetails.redemptionHistory.length > 0) ||
+          voucherDetails.status === "used" ||
           (voucherDetails.currentUses && voucherDetails.currentUses > 0);
-        
+
         if (hasRedemptions) {
           totalRedemptions += 1; // Count unique vouchers, not redemption events
         }
-        
+
         // Store for trend calculation
         voucherDetailsWithDates.push({ details: voucherDetails, createdAt });
       }
@@ -1268,18 +1291,21 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
       },
     });
 
-    const currentMonthDealsClaimed = collectionAddresses.length > 0 ? await (prisma as any).voucher.count({
-      where: {
-        collection: {
-          collectionPublicKey: {
-            in: collectionAddresses,
-          },
-        },
-        createdAt: {
-          gte: currentMonthStart,
-        },
-      },
-    }) : 0;
+    const currentMonthDealsClaimed =
+      collectionAddresses.length > 0
+        ? await (prisma as any).voucher.count({
+            where: {
+              collection: {
+                collectionPublicKey: {
+                  in: collectionAddresses,
+                },
+              },
+              createdAt: {
+                gte: currentMonthStart,
+              },
+            },
+          })
+        : 0;
 
     // Previous month activity
     const previousMonthVouchersIssued = await (prisma as any).deal.count({
@@ -1292,19 +1318,22 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
       },
     });
 
-    const previousMonthDealsClaimed = collectionAddresses.length > 0 ? await (prisma as any).voucher.count({
-      where: {
-        collection: {
-          collectionPublicKey: {
-            in: collectionAddresses,
-          },
-        },
-        createdAt: {
-          gte: previousMonthStart,
-          lte: previousMonthEnd,
-        },
-      },
-    }) : 0;
+    const previousMonthDealsClaimed =
+      collectionAddresses.length > 0
+        ? await (prisma as any).voucher.count({
+            where: {
+              collection: {
+                collectionPublicKey: {
+                  in: collectionAddresses,
+                },
+              },
+              createdAt: {
+                gte: previousMonthStart,
+                lte: previousMonthEnd,
+              },
+            },
+          })
+        : 0;
 
     // Calculate redemption trends using the voucher details we already fetched
     // Note: We use voucher creation date as a proxy for redemption date since exact redemption timestamps
@@ -1313,11 +1342,13 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
     let previousMonthRedemptions = 0;
 
     for (const { details: voucherDetails, createdAt } of voucherDetailsWithDates) {
-      const hasRedemptions = 
-        (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
-        voucherDetails.status === 'used' ||
+      const hasRedemptions =
+        (voucherDetails.redemptionHistory &&
+          Array.isArray(voucherDetails.redemptionHistory) &&
+          voucherDetails.redemptionHistory.length > 0) ||
+        voucherDetails.status === "used" ||
         (voucherDetails.currentUses && voucherDetails.currentUses > 0);
-      
+
       if (hasRedemptions) {
         // Use voucher creation date as proxy for redemption timing
         // Vouchers created in current month with redemptions count as current month redemptions
@@ -1338,7 +1369,10 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
       return Math.round(((current - previous) / previous) * 100);
     };
 
-    const vouchersIssuedTrend = calculateTrend(currentMonthVouchersIssued, previousMonthVouchersIssued);
+    const vouchersIssuedTrend = calculateTrend(
+      currentMonthVouchersIssued,
+      previousMonthVouchersIssued
+    );
     const dealsClaimedTrend = calculateTrend(currentMonthDealsClaimed, previousMonthDealsClaimed);
     const totalRedemptionsTrend = calculateTrend(currentMonthRedemptions, previousMonthRedemptions);
     const totalTradesTrend = 0; // No trades yet
@@ -1357,16 +1391,16 @@ export const getMerchantStats = async (userEmail: string): Promise<{ success: bo
       },
     };
   } catch (error: any) {
-    console.error('Error getting merchant stats:', error);
+    console.error("Error getting merchant stats:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get merchant stats',
+      error: error.message || "Failed to get merchant stats",
     };
   }
 };
 
 export interface RecentActivity {
-  type: 'claim' | 'redemption' | 'deal_created';
+  type: "claim" | "redemption" | "deal_created";
   message: string;
   timestamp: Date;
   value?: string;
@@ -1375,7 +1409,10 @@ export interface RecentActivity {
 /**
  * Get recent activity for a merchant
  */
-export const getMerchantRecentActivity = async (userEmail: string, limit: number = 10): Promise<{ success: boolean; activities?: RecentActivity[]; error?: string }> => {
+export const getMerchantRecentActivity = async (
+  userEmail: string,
+  limit: number = 10
+): Promise<{ success: boolean; activities?: RecentActivity[]; error?: string }> => {
   try {
     // Get creator address from email
     const creatorInfo = await getUserCreatorInfo(userEmail);
@@ -1420,19 +1457,21 @@ export const getMerchantRecentActivity = async (userEmail: string, limit: number
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
         take: limit,
       });
 
       // Get deal names for claims
       for (const claim of recentClaims) {
-        const deal = userDeals.find((d: any) => d.collectionAddress === claim.collection.collectionPublicKey);
+        const deal = userDeals.find(
+          (d: any) => d.collectionAddress === claim.collection.collectionPublicKey
+        );
         activities.push({
-          type: 'claim',
+          type: "claim",
           message: `Voucher claimed`,
           timestamp: claim.createdAt,
-          value: deal?.collectionName || 'Unknown Deal',
+          value: deal?.collectionName || "Unknown Deal",
         });
       }
 
@@ -1468,18 +1507,22 @@ export const getMerchantRecentActivity = async (userEmail: string, limit: number
           const voucherDetailsResult = await getVoucherDetails(voucher.voucherPublicKey);
           if (voucherDetailsResult.success && voucherDetailsResult.data) {
             const voucherDetails = voucherDetailsResult.data;
-            const hasRedemptions = 
-              (voucherDetails.redemptionHistory && Array.isArray(voucherDetails.redemptionHistory) && voucherDetails.redemptionHistory.length > 0) ||
-              voucherDetails.status === 'used' ||
+            const hasRedemptions =
+              (voucherDetails.redemptionHistory &&
+                Array.isArray(voucherDetails.redemptionHistory) &&
+                voucherDetails.redemptionHistory.length > 0) ||
+              voucherDetails.status === "used" ||
               (voucherDetails.currentUses && voucherDetails.currentUses > 0);
-            
+
             if (hasRedemptions) {
-              const deal = userDeals.find((d: any) => d.collectionAddress === voucher.collection.collectionPublicKey);
+              const deal = userDeals.find(
+                (d: any) => d.collectionAddress === voucher.collection.collectionPublicKey
+              );
               activities.push({
-                type: 'redemption',
+                type: "redemption",
                 message: `Voucher redeemed`,
                 timestamp: voucher.createdAt, // Using creation date as proxy
-                value: deal?.collectionName || 'Unknown Deal',
+                value: deal?.collectionName || "Unknown Deal",
               });
             }
           }
@@ -1499,14 +1542,14 @@ export const getMerchantRecentActivity = async (userEmail: string, limit: number
         createdAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
       take: 5,
     });
 
     for (const deal of recentDeals) {
       activities.push({
-        type: 'deal_created',
+        type: "deal_created",
         message: `New deal created`,
         timestamp: deal.createdAt,
         value: deal.collectionName,
@@ -1522,10 +1565,10 @@ export const getMerchantRecentActivity = async (userEmail: string, limit: number
       activities: limitedActivities,
     };
   } catch (error: any) {
-    console.error('Error getting merchant recent activity:', error);
+    console.error("Error getting merchant recent activity:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get recent activity',
+      error: error.message || "Failed to get recent activity",
     };
   }
 };
@@ -1533,7 +1576,10 @@ export const getMerchantRecentActivity = async (userEmail: string, limit: number
 /**
  * Get voucher details by claim code
  */
-export const getVoucherByClaimCode = async (claimCode: string, userEmail: string): Promise<{ success: boolean; voucher?: any; error?: string }> => {
+export const getVoucherByClaimCode = async (
+  claimCode: string,
+  userEmail: string
+): Promise<{ success: boolean; voucher?: any; error?: string }> => {
   try {
     // Get creator address to verify ownership
     const creatorInfo = await getUserCreatorInfo(userEmail);
@@ -1560,7 +1606,7 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
     if (!rewardLink) {
       return {
         success: false,
-        error: 'Claim code not found',
+        error: "Claim code not found",
       };
     }
 
@@ -1568,21 +1614,21 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
     if (rewardLink.collection.creator !== creatorAddress) {
       return {
         success: false,
-        error: 'You do not have permission to view this voucher',
+        error: "You do not have permission to view this voucher",
       };
     }
 
     // Check if the claim link has been claimed
-    if (rewardLink.status !== 'claimed') {
+    if (rewardLink.status !== "claimed") {
       return {
         success: false,
-        error: 'This claim code has not been claimed yet.',
+        error: "This claim code has not been claimed yet.",
       };
     }
 
     // Try to find voucher using voucherAddress if it's stored in the RewardLink
     let finalVoucher = null;
-    
+
     if (rewardLink.voucherAddress) {
       finalVoucher = await (prisma as any).voucher.findFirst({
         where: {
@@ -1619,7 +1665,7 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
           createdAt: true,
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
     }
@@ -1638,7 +1684,7 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
           createdAt: true,
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
     }
@@ -1646,17 +1692,17 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
     if (!finalVoucher) {
       return {
         success: false,
-        error: 'No voucher found for this claim code. It may not have been claimed yet.',
+        error: "No voucher found for this claim code. It may not have been claimed yet.",
       };
     }
 
     // Get full voucher details from blockchain
     const voucherDetailsResult = await getVoucherDetails(finalVoucher.voucherPublicKey);
-    
+
     if (!voucherDetailsResult.success || !voucherDetailsResult.data) {
       return {
         success: false,
-        error: voucherDetailsResult.error || 'Failed to fetch voucher details',
+        error: voucherDetailsResult.error || "Failed to fetch voucher details",
       };
     }
 
@@ -1670,10 +1716,10 @@ export const getVoucherByClaimCode = async (claimCode: string, userEmail: string
       },
     };
   } catch (error: any) {
-    console.error('Error getting voucher by claim code:', error);
+    console.error("Error getting voucher by claim code:", error);
     return {
       success: false,
-      error: error.message || 'Failed to get voucher by claim code',
+      error: error.message || "Failed to get voucher by claim code",
     };
   }
 };

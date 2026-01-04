@@ -1,6 +1,6 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { apiKeyAuth } from '../middleware/auth';
-import * as userService from '../services/userService';
+import { Router, Request, Response, NextFunction } from "express";
+import { apiKeyAuth } from "../middleware/auth";
+import * as userService from "../services/userService";
 
 export const userRouter: Router = Router();
 
@@ -31,7 +31,7 @@ export const userRouter: Router = Router();
  *       409:
  *         description: User already exists
  */
-userRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+userRouter.post("/create", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await userService.createUser(req.body);
     res.status(201).json(result);
@@ -59,7 +59,7 @@ userRouter.post('/create', async (req: Request, res: Response, next: NextFunctio
  *       404:
  *         description: User not found
  */
-userRouter.get('/:email', async (req: Request, res: Response, next: NextFunction) => {
+userRouter.get("/:email", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.params;
     const result = await userService.getUserByEmail(email);
@@ -68,7 +68,6 @@ userRouter.get('/:email', async (req: Request, res: Response, next: NextFunction
     next(error);
   }
 });
-
 
 /**
  * @swagger
@@ -97,11 +96,11 @@ userRouter.get('/:email', async (req: Request, res: Response, next: NextFunction
  *       404:
  *         description: User not found
  */
-userRouter.delete('/delete', async (req: Request, res: Response, next: NextFunction) => {
+userRouter.delete("/delete", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ success: false, error: 'Email is required' });
+      return res.status(400).json({ success: false, error: "Email is required" });
     }
     const result = await userService.deleteUser(email);
     res.json(result);
@@ -149,15 +148,19 @@ userRouter.delete('/delete', async (req: Request, res: Response, next: NextFunct
  *       404:
  *         description: User not found
  */
-userRouter.post('/issue-verxio', apiKeyAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const apiKey = req.headers['x-api-key'] as string;
-    const result = await userService.issueVerxio(req.body, apiKey);
-    res.json(result);
-  } catch (error) {
-    next(error);
+userRouter.post(
+  "/issue-verxio",
+  apiKeyAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const apiKey = req.headers["x-api-key"] as string;
+      const result = await userService.issueVerxio(req.body, apiKey);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -199,7 +202,7 @@ userRouter.post('/issue-verxio', apiKeyAuth, async (req: Request, res: Response,
  *       404:
  *         description: User not found
  */
-userRouter.post('/transfer', async (req: Request, res: Response, next: NextFunction) => {
+userRouter.post("/transfer", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await userService.transferVerxio(req.body);
     res.json(result);
@@ -207,4 +210,3 @@ userRouter.post('/transfer', async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 });
-

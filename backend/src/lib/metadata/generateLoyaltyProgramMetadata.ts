@@ -1,4 +1,4 @@
-import { storeMetadata } from './storeMetadata';
+import { storeMetadata } from "./storeMetadata";
 
 interface LoyaltyProgramMetadataInput {
   loyaltyProgramName: string;
@@ -25,25 +25,33 @@ export async function generateLoyaltyProgramMetadata(
   data: LoyaltyProgramMetadataInput
 ): Promise<string> {
   try {
-    const { loyaltyProgramName, metadata, tiers, pointsPerAction, imageUri, creatorAddress, mimeType } = data;
+    const {
+      loyaltyProgramName,
+      metadata,
+      tiers,
+      pointsPerAction,
+      imageUri,
+      creatorAddress,
+      mimeType,
+    } = data;
 
     if (!loyaltyProgramName || !imageUri || !creatorAddress) {
-      throw new Error('Missing required data for metadata generation');
+      throw new Error("Missing required data for metadata generation");
     }
 
     const metadataObject = {
       name: loyaltyProgramName,
-      symbol: 'VERXIO',
+      symbol: "VERXIO",
       description: `Loyalty Program for ${metadata.organizationName}`,
       image: imageUri,
       properties: {
         files: [
           {
             uri: imageUri,
-            type: mimeType || 'image/png',
+            type: mimeType || "image/png",
           },
         ],
-        category: 'image',
+        category: "image",
         creators: [
           {
             address: creatorAddress,
@@ -53,12 +61,12 @@ export async function generateLoyaltyProgramMetadata(
       },
       attributes: [
         {
-          trait_type: 'Organization',
+          trait_type: "Organization",
           value: metadata.organizationName,
         },
         {
-          trait_type: 'Brand Color',
-          value: metadata.brandColor || '#00adef',
+          trait_type: "Brand Color",
+          value: metadata.brandColor || "#00adef",
         },
       ],
       program: {
@@ -72,8 +80,7 @@ export async function generateLoyaltyProgramMetadata(
     const uri = await storeMetadata(metadataObject);
     return uri;
   } catch (error) {
-    console.error('Error generating loyalty program metadata:', error);
-    throw new Error('Failed to generate loyalty program metadata');
+    console.error("Error generating loyalty program metadata:", error);
+    throw new Error("Failed to generate loyalty program metadata");
   }
 }
-

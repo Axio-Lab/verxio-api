@@ -49,7 +49,9 @@ const calculateRemainingWorth = (originalValue: number, redemptionHistory: any[]
   return remainingWorth;
 };
 
-export const getVoucherDetails = async (voucherAddress: string): Promise<{
+export const getVoucherDetails = async (
+  voucherAddress: string
+): Promise<{
   success: boolean;
   data?: VoucherDetails;
   error?: string;
@@ -57,12 +59,12 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
   try {
     const url = RPC_ENDPOINT;
     const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: '1',
-        method: 'getAsset',
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAsset",
         params: {
           id: voucherAddress,
         },
@@ -101,7 +103,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     }
 
     if (!data) {
-      return { success: false, error: 'Failed to fetch voucher details' };
+      return { success: false, error: "Failed to fetch voucher details" };
     }
 
     if (data.error) {
@@ -110,7 +112,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
 
     const asset = data.result;
     if (!asset) {
-      return { success: false, error: 'Voucher not found' };
+      return { success: false, error: "Voucher not found" };
     }
 
     // Extract metadata
@@ -118,27 +120,29 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     const attributes = metadata?.attributes || [];
 
     // Extract attributes from metadata that are still surfaced
-    const assetNameAttr = attributes.find((attr: any) => attr.trait_type === 'Asset Name');
-    const assetSymbolAttr = attributes.find((attr: any) => attr.trait_type === 'Asset Symbol');
-    const tokenAddressAttr = attributes.find((attr: any) => attr.trait_type === 'Token Address');
+    const assetNameAttr = attributes.find((attr: any) => attr.trait_type === "Asset Name");
+    const assetSymbolAttr = attributes.find((attr: any) => attr.trait_type === "Asset Symbol");
+    const tokenAddressAttr = attributes.find((attr: any) => attr.trait_type === "Token Address");
 
     // Extract collection ID from grouping
-    const collectionGrouping = asset.grouping?.find((group: any) => group.group_key === 'collection');
-    const collectionId = collectionGrouping?.group_value || '';
+    const collectionGrouping = asset.grouping?.find(
+      (group: any) => group.group_key === "collection"
+    );
+    const collectionId = collectionGrouping?.group_value || "";
 
     // Extract voucher data from external plugins
     const externalPlugins = asset.external_plugins || [];
-    const appDataPlugin = externalPlugins.find((plugin: any) => plugin.type === 'AppData');
+    const appDataPlugin = externalPlugins.find((plugin: any) => plugin.type === "AppData");
     const voucherData = appDataPlugin?.data || {
-      type: '',
+      type: "",
       value: 0,
-      status: 'active',
+      status: "active",
       maxUses: 1,
       issuedAt: 0,
       conditions: [],
-      description: '',
+      description: "",
       expiryDate: 0,
-      merchantId: '',
+      merchantId: "",
       currentUses: 0,
       transferable: true,
       redemptionHistory: [],
@@ -148,11 +152,12 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     const originalValue = voucherData.value || 0;
     const redemptionHistory = voucherData.redemption_history || [];
     const maxUses = voucherData.max_uses || 1;
-    
+
     // Calculate remaining worth by subtracting total redeemed amounts from original value
-    const remainingWorth = redemptionHistory.length > 0
-      ? calculateRemainingWorth(originalValue, redemptionHistory)
-      : originalValue;
+    const remainingWorth =
+      redemptionHistory.length > 0
+        ? calculateRemainingWorth(originalValue, redemptionHistory)
+        : originalValue;
 
     // Calculate current uses from redemption history (source of truth)
     // Cap it at maxUses to ensure it never exceeds the maximum
@@ -166,43 +171,43 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
     // Calculate if voucher can be redeemed
     const canRedeem =
       !isExpired &&
-      (voucherData.status === 'active' || voucherData.status === 'Active') &&
+      (voucherData.status === "active" || voucherData.status === "Active") &&
       currentUses < maxUses &&
       remainingWorth > 0;
 
     // Get symbol from attributes
-    const symbol = assetSymbolAttr?.value || 'USDC';
+    const symbol = assetSymbolAttr?.value || "USDC";
 
     const voucherDetails: VoucherDetails = {
       id: asset.id,
-      name: metadata?.name || 'Unknown Voucher',
-      description: metadata?.description || '',
-      image: asset.content?.links?.image || '',
+      name: metadata?.name || "Unknown Voucher",
+      description: metadata?.description || "",
+      image: asset.content?.links?.image || "",
       symbol: symbol,
-      assetName: assetNameAttr?.value || '',
-      assetSymbol: assetSymbolAttr?.value || '',
-      tokenAddress: tokenAddressAttr?.value || '',
+      assetName: assetNameAttr?.value || "",
+      assetSymbol: assetSymbolAttr?.value || "",
+      tokenAddress: tokenAddressAttr?.value || "",
       isExpired: isExpired,
       canRedeem: canRedeem,
-      creator: asset.ownership?.owner || '',
-      owner: asset.ownership?.owner || '',
+      creator: asset.ownership?.owner || "",
+      owner: asset.ownership?.owner || "",
       collectionId: collectionId,
       // Flattened voucherData fields
-      type: voucherData.type || '',
+      type: voucherData.type || "",
       value: originalValue,
       remainingWorth: remainingWorth,
-      status: voucherData.status || 'active',
+      status: voucherData.status || "active",
       maxUses: maxUses,
       issuedAt: voucherData.issued_at || 0,
       conditions: Array.isArray(voucherData.conditions)
         ? voucherData.conditions
-            .map((c: any) => (typeof c === 'string' ? c : c.value || ''))
+            .map((c: any) => (typeof c === "string" ? c : c.value || ""))
             .filter(Boolean)
-            .join(', ')
-        : voucherData.conditions || '',
-      voucherDescription: voucherData.description || '',
+            .join(", ")
+        : voucherData.conditions || "",
+      voucherDescription: voucherData.description || "",
       expiryDate: voucherData.expiry_date || 0,
-      merchantId: voucherData.merchant_id || '',
+      merchantId: voucherData.merchant_id || "",
       currentUses: currentUses, // Use calculated value from redemption history
       transferable: voucherData.transferable || true,
       redemptionHistory: redemptionHistory,
@@ -210,8 +215,7 @@ export const getVoucherDetails = async (voucherAddress: string): Promise<{
 
     return { success: true, data: voucherDetails };
   } catch (error: any) {
-    console.error('Error fetching voucher details:', error);
-    return { success: false, error: 'Failed to fetch voucher details' };
+    console.error("Error fetching voucher details:", error);
+    return { success: false, error: "Failed to fetch voucher details" };
   }
 };
-

@@ -3,15 +3,15 @@
  * Use these constants throughout the codebase to ensure consistency and avoid node type errors
  */
 export const NodeType = {
-    MANUAL_TRIGGER: "MANUAL_TRIGGER",
-    HTTP_REQUEST: "HTTP_REQUEST",
-    WEBHOOK: "WEBHOOK",
-    INITIAL: "INITIAL",
-    GOOGLE_FORM_TRIGGER: "GOOGLE_FORM_TRIGGER",
-    STRIPE_TRIGGER: "STRIPE_TRIGGER",
-    ANTHROPIC: "ANTHROPIC",
-    GEMINI: "GEMINI",
-    OPENAI: "OPENAI",
+  MANUAL_TRIGGER: "MANUAL_TRIGGER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+  WEBHOOK: "WEBHOOK",
+  INITIAL: "INITIAL",
+  GOOGLE_FORM_TRIGGER: "GOOGLE_FORM_TRIGGER",
+  STRIPE_TRIGGER: "STRIPE_TRIGGER",
+  ANTHROPIC: "ANTHROPIC",
+  GEMINI: "GEMINI",
+  OPENAI: "OPENAI",
 } as const;
 
-export type NodeTypeValue = typeof NodeType[keyof typeof NodeType];
+export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

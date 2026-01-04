@@ -1,4 +1,4 @@
-import { storeMetadata } from './storeMetadata';
+import { storeMetadata } from "./storeMetadata";
 
 interface VoucherCollectionMetadataInput {
   voucherCollectionName: string;
@@ -32,27 +32,28 @@ export async function generateVoucherCollectionMetadata(
     } = data;
 
     if (!voucherCollectionName || !imageUri || !creatorAddress) {
-      throw new Error('Missing required data for metadata generation');
+      throw new Error("Missing required data for metadata generation");
     }
 
     // Ensure imageUri has https:// prefix
-    const normalizedImageUri = imageUri.startsWith('http://') || imageUri.startsWith('https://')
-      ? imageUri
-      : `https://${imageUri}`;
+    const normalizedImageUri =
+      imageUri.startsWith("http://") || imageUri.startsWith("https://")
+        ? imageUri
+        : `https://${imageUri}`;
 
     const metadataObject = {
       name: voucherCollectionName,
-      symbol: 'VERXIO-VOUCHER',
+      symbol: "VERXIO-VOUCHER",
       description: description || `Voucher collection for ${merchantName}`,
       image: normalizedImageUri,
       properties: {
         files: [
           {
             uri: normalizedImageUri,
-            type: mimeType || 'image/png',
+            type: mimeType || "image/png",
           },
         ],
-        category: 'image',
+        category: "image",
         creators: [
           {
             address: creatorAddress,
@@ -62,20 +63,20 @@ export async function generateVoucherCollectionMetadata(
       },
       attributes: [
         {
-          trait_type: 'Merchant',
+          trait_type: "Merchant",
           value: merchantName,
         },
         {
-          trait_type: 'Merchant Address',
+          trait_type: "Merchant Address",
           value: merchantAddress,
         },
         {
-          trait_type: 'Contact Info',
+          trait_type: "Contact Info",
           value: contactInfo,
         },
         {
-          trait_type: 'Voucher Types',
-          value: voucherTypes.filter(Boolean).join(', '),
+          trait_type: "Voucher Types",
+          value: voucherTypes.filter(Boolean).join(", "),
         },
       ],
       collection: {
@@ -89,8 +90,7 @@ export async function generateVoucherCollectionMetadata(
     const uri = await storeMetadata(metadataObject);
     return uri;
   } catch (error) {
-    console.error('Error generating voucher collection metadata:', error);
-    throw new Error('Failed to generate voucher collection metadata');
+    console.error("Error generating voucher collection metadata:", error);
+    throw new Error("Failed to generate voucher collection metadata");
   }
 }
-

@@ -2,7 +2,4 @@
 import { triggerWorkflow } from "./functions/trigger-workflow";
 
 // Export all Inngest functions
-export const functions = [
-  triggerWorkflow,
-];
-
+export const functions = [triggerWorkflow];

@@ -1,11 +1,11 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as workflowService from '../services/workflowService';
-import { betterAuthMiddleware } from '../middleware/betterAuth';
-import { AppError } from '../middleware/errorHandler';
-import { inngest } from '../inngest';
-import { workflowTriggerRateLimiter } from '../middleware/rateLimiter';
-import { getNodeStatusSubscriptionTokens } from '../inngest/utils/realtime';
-import { channelNameMap } from '../inngest/channels';
+import { Router, Request, Response, NextFunction } from "express";
+import * as workflowService from "../services/workflowService";
+import { betterAuthMiddleware } from "../middleware/betterAuth";
+import { AppError } from "../middleware/errorHandler";
+import { inngest } from "../inngest";
+import { workflowTriggerRateLimiter } from "../middleware/rateLimiter";
+import { getNodeStatusSubscriptionTokens } from "../inngest/utils/realtime";
+import { channelNameMap } from "../inngest/channels";
 
 export const workflowRouter: Router = Router();
 
@@ -61,7 +61,7 @@ workflowRouter.use(betterAuthMiddleware);
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const page = parseInt(req.query.page as string) || 1;
@@ -107,7 +107,7 @@ workflowRouter.get('/', async (req: Request, res: Response, next: NextFunction) 
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.post("/create", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { name } = req.body;
@@ -141,19 +141,22 @@ workflowRouter.post('/create', async (req: Request, res: Response, next: NextFun
 // This provides a cleaner, more descriptive structure for all trigger endpoints
 
 // IMPORTANT: This route must come BEFORE /:id route to avoid route conflicts
-workflowRouter.get('/subscription-token', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const tokens = await getNodeStatusSubscriptionTokens();
-    // Return tokens with channel name mapping for client-side filtering
-    res.status(200).json({ 
-      success: true, 
-      tokens,
-      channelNames: channelNameMap
-    });
-  } catch (error) {
-    next(error);
+workflowRouter.get(
+  "/subscription-token",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const tokens = await getNodeStatusSubscriptionTokens();
+      // Return tokens with channel name mapping for client-side filtering
+      res.status(200).json({
+        success: true,
+        tokens,
+        channelNames: channelNameMap,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * @swagger
@@ -182,7 +185,7 @@ workflowRouter.get('/subscription-token', async (req: Request, res: Response, ne
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -235,14 +238,14 @@ workflowRouter.get('/:id', async (req: Request, res: Response, next: NextFunctio
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.put('/update/name/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.put("/update/name/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
     const { name } = req.body;
 
-    if (!name || name.trim() === '') {
-      throw new AppError('Workflow name is required', 400);
+    if (!name || name.trim() === "") {
+      throw new AppError("Workflow name is required", 400);
     }
 
     const result = await workflowService.updateWorkflowName(id, user.id, { name });
@@ -348,7 +351,7 @@ workflowRouter.put('/update/name/:id', async (req: Request, res: Response, next:
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.put('/update/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.put("/update/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -388,13 +391,13 @@ workflowRouter.put('/update/:id', async (req: Request, res: Response, next: Next
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: NextFunction) => {
+workflowRouter.delete("/delete/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
 
     await workflowService.deleteWorkflow(id, user.id);
-    res.status(200).json({ success: true, message: 'Workflow deleted successfully' });
+    res.status(200).json({ success: true, message: "Workflow deleted successfully" });
   } catch (error) {
     next(error);
   }
@@ -472,33 +475,36 @@ workflowRouter.delete('/delete/:id', async (req: Request, res: Response, next: N
  *       401:
  *         description: Unauthorized
  */
-workflowRouter.post('/trigger/:id', workflowTriggerRateLimiter, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = (req as any).user;
-    const { id } = req.params;
-    const { data } = req.body;
+workflowRouter.post(
+  "/trigger/:id",
+  workflowTriggerRateLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { data } = req.body;
 
-    // Verify workflow exists and belongs to user, and get workflow name
-    const workflow = await workflowService.getWorkflow(id, user.id);
+      // Verify workflow exists and belongs to user, and get workflow name
+      const workflow = await workflowService.getWorkflow(id, user.id);
 
-    // Send event to Inngest to trigger workflow execution
-    await inngest.send({
-      name: "workflow/trigger",
-      data: {
+      // Send event to Inngest to trigger workflow execution
+      await inngest.send({
+        name: "workflow/trigger",
+        data: {
+          workflowId: id,
+          userId: user.id,
+          data: data || {},
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Workflow trigger event sent successfully",
         workflowId: id,
-        userId: user.id,
-        data: data || {},
-      },
-    });
-
-    res.status(200).json({ 
-      success: true, 
-      message: 'Workflow trigger event sent successfully',
-      workflowId: id,
-      workflowName: workflow.name,
-    });
-  } catch (error) {
-    next(error);
+        workflowName: workflow.name,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
-
+);

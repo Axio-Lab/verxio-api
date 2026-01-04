@@ -1,4 +1,4 @@
-import { pinata } from '../config';
+import { pinata } from "../config";
 
 /**
  * Store metadata to IPFS via Pinata and return the gateway URL
@@ -6,19 +6,19 @@ import { pinata } from '../config';
 export const storeMetadata = async (data: any): Promise<string> => {
   try {
     if (!data) {
-      throw new Error('No metadata provided');
+      throw new Error("No metadata provided");
     }
 
     // Use Pinata REST API to upload JSON to IPFS
     const jwt = process.env.PINATA_JWT;
     if (!jwt) {
-      throw new Error('PINATA_JWT is not configured');
+      throw new Error("PINATA_JWT is not configured");
     }
 
-    const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-      method: 'POST',
+    const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${jwt}`,
       },
       body: JSON.stringify({ pinataContent: data }),
@@ -33,7 +33,7 @@ export const storeMetadata = async (data: any): Promise<string> => {
     const cid = json.IpfsHash;
 
     if (!cid) {
-      throw new Error('Failed to obtain CID for metadata');
+      throw new Error("Failed to obtain CID for metadata");
     }
 
     // Convert CID to gateway URL using Pinata SDK
@@ -41,8 +41,7 @@ export const storeMetadata = async (data: any): Promise<string> => {
     new URL(url); // Validate URL format
     return url;
   } catch (error) {
-    console.error('Error uploading metadata:', error);
-    throw new Error('Failed to store metadata');
+    console.error("Error uploading metadata:", error);
+    throw new Error("Failed to store metadata");
   }
 };
-

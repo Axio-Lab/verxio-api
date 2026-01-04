@@ -1,6 +1,6 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { inngest } from '../../inngest';
-import { validateGoogleFormTrigger } from '../../services/googleFormService';
+import { Router, Request, Response, NextFunction } from "express";
+import { inngest } from "../../inngest";
+import { validateGoogleFormTrigger } from "../../services/googleFormService";
 
 export const googleFormRouter: Router = Router();
 
@@ -64,41 +64,40 @@ export const googleFormRouter: Router = Router();
  *       404:
  *         description: Workflow or Google Form trigger node not found
  */
-googleFormRouter.post('/google-form', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { workflowId } = req.query;
-        const googleFormPayload = req.body;
+googleFormRouter.post("/google-form", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { workflowId } = req.query;
+    const googleFormPayload = req.body;
 
-        if (!workflowId || typeof workflowId !== 'string') {
-            return res.status(400).json({ error: 'workflowId query parameter is required' });
-        }
-
-        // Validate workflow and find Google Form trigger node
-        const { workflow, googleFormNode } = await validateGoogleFormTrigger(workflowId);
-
-        // Send event to Inngest to trigger workflow execution with Google Form data
-        await inngest.send({
-            name: "workflow/trigger",
-            data: {
-                workflowId,
-                userId: workflow.userId,
-                data: {
-                    googleFormPayload,
-                    googleFormNodeId: googleFormNode.id,
-                },
-            },
-        });
-
-        res.status(200).json({
-            success: true,
-            message: 'Google Form submission received and workflow triggered',
-            workflowId,
-        });
-    } catch (error: any) {
-        if (error.statusCode === 404 || error.message?.includes('not found')) {
-            return res.status(404).json({ error: 'Workflow not found' });
-        }
-        next(error);
+    if (!workflowId || typeof workflowId !== "string") {
+      return res.status(400).json({ error: "workflowId query parameter is required" });
     }
-});
 
+    // Validate workflow and find Google Form trigger node
+    const { workflow, googleFormNode } = await validateGoogleFormTrigger(workflowId);
+
+    // Send event to Inngest to trigger workflow execution with Google Form data
+    await inngest.send({
+      name: "workflow/trigger",
+      data: {
+        workflowId,
+        userId: workflow.userId,
+        data: {
+          googleFormPayload,
+          googleFormNodeId: googleFormNode.id,
+        },
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Google Form submission received and workflow triggered",
+      workflowId,
+    });
+  } catch (error: any) {
+    if (error.statusCode === 404 || error.message?.includes("not found")) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+    next(error);
+  }
+});

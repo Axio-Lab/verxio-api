@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as dealService from '../services/dealService';
+import { Router, Request, Response, NextFunction } from "express";
+import * as dealService from "../services/dealService";
 
 export const dealRouter: Router = Router();
 
@@ -173,7 +173,7 @@ export const dealRouter: Router = Router();
  *       400:
  *         description: Invalid input
  */
-dealRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.post("/create", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await dealService.createDeal(req.body);
     if (!result.success) {
@@ -316,7 +316,7 @@ dealRouter.post('/create', async (req: Request, res: Response, next: NextFunctio
  *                         format: date-time
  *                         description: Timestamp when the deal was last updated
  */
-dealRouter.get('/all', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.get("/all", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await dealService.getAllDeals();
     if (!result.success) {
@@ -494,7 +494,7 @@ dealRouter.get('/all', async (req: Request, res: Response, next: NextFunction) =
  *       400:
  *         description: Invalid input or user not found
  */
-dealRouter.get('/user/:email', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.get("/user/:email", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await dealService.getDealsByUser(req.params.email);
     if (!result.success) {
@@ -629,7 +629,7 @@ dealRouter.get('/user/:email', async (req: Request, res: Response, next: NextFun
  *       400:
  *         description: Invalid input or user not found
  */
-dealRouter.get('/user/:email/claimed', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.get("/user/:email/claimed", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await dealService.getDealsClaimedByUser(req.params.email);
     if (!result.success) {
@@ -715,17 +715,20 @@ dealRouter.get('/user/:email/claimed', async (req: Request, res: Response, next:
  *       400:
  *         description: Invalid input or collection not found
  */
-dealRouter.get('/collection/:collectionAddress/vouchers', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await dealService.getCollectionVouchers(req.params.collectionAddress);
-    if (!result.success) {
-      return res.status(400).json(result);
+dealRouter.get(
+  "/collection/:collectionAddress/vouchers",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await dealService.getCollectionVouchers(req.params.collectionAddress);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -764,33 +767,36 @@ dealRouter.get('/collection/:collectionAddress/vouchers', async (req: Request, r
  *       400:
  *         description: Invalid input or deal not found
  */
-dealRouter.post('/:dealId/add-quantity', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { dealId } = req.params;
-    const { quantity, creatorEmail } = req.body;
-    
-    if (!quantity || !creatorEmail) {
-      return res.status(400).json({
-        success: false,
-        error: 'quantity and creatorEmail are required',
+dealRouter.post(
+  "/:dealId/add-quantity",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { dealId } = req.params;
+      const { quantity, creatorEmail } = req.body;
+
+      if (!quantity || !creatorEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "quantity and creatorEmail are required",
+        });
+      }
+
+      const result = await dealService.addDealQuantity({
+        dealId,
+        quantity: Number(quantity),
+        creatorEmail,
       });
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-
-    const result = await dealService.addDealQuantity({
-      dealId,
-      quantity: Number(quantity),
-      creatorEmail,
-    });
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -830,33 +836,36 @@ dealRouter.post('/:dealId/add-quantity', async (req: Request, res: Response, nex
  *       400:
  *         description: Invalid input or deal not found
  */
-dealRouter.post('/:dealId/extend-expiry', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { dealId } = req.params;
-    const { newExpiryDate, creatorEmail } = req.body;
-    
-    if (!newExpiryDate || !creatorEmail) {
-      return res.status(400).json({
-        success: false,
-        error: 'newExpiryDate and creatorEmail are required',
+dealRouter.post(
+  "/:dealId/extend-expiry",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { dealId } = req.params;
+      const { newExpiryDate, creatorEmail } = req.body;
+
+      if (!newExpiryDate || !creatorEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "newExpiryDate and creatorEmail are required",
+        });
+      }
+
+      const result = await dealService.extendDealExpiry({
+        dealId,
+        newExpiryDate,
+        creatorEmail,
       });
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-
-    const result = await dealService.extendDealExpiry({
-      dealId,
-      newExpiryDate,
-      creatorEmail,
-    });
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -891,15 +900,15 @@ dealRouter.post('/:dealId/extend-expiry', async (req: Request, res: Response, ne
  *       400:
  *         description: Invalid input, no vouchers available, or user already claimed
  */
-dealRouter.post('/:dealId/claim', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.post("/:dealId/claim", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { dealId } = req.params;
     const { recipientEmail } = req.body;
-    
+
     if (!recipientEmail) {
       return res.status(400).json({
         success: false,
-        error: 'recipientEmail is required',
+        error: "recipientEmail is required",
       });
     }
 
@@ -957,14 +966,14 @@ dealRouter.post('/:dealId/claim', async (req: Request, res: Response, next: Next
  *       400:
  *         description: Invalid input or redemption failed
  */
-dealRouter.post('/redeem', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.post("/redeem", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { voucherAddress, userEmail, merchantId, redemptionAmount } = req.body;
 
     if (!voucherAddress || !userEmail) {
       return res.status(400).json({
         success: false,
-        error: 'voucherAddress and userEmail are required',
+        error: "voucherAddress and userEmail are required",
       });
     }
 
@@ -1028,14 +1037,14 @@ dealRouter.post('/redeem', async (req: Request, res: Response, next: NextFunctio
  *       404:
  *         description: User not found
  */
-dealRouter.get('/stats/:email', async (req: Request, res: Response, next: NextFunction) => {
+dealRouter.get("/stats/:email", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.params;
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Email is required',
+        error: "Email is required",
       });
     }
 
@@ -1074,29 +1083,32 @@ dealRouter.get('/stats/:email', async (req: Request, res: Response, next: NextFu
  *       200:
  *         description: Recent activity retrieved successfully
  */
-dealRouter.get('/recent-activity/:email', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email } = req.params;
-    const limit = parseInt(req.query.limit as string) || 10;
+dealRouter.get(
+  "/recent-activity/:email",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email is required',
-      });
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: "Email is required",
+        });
+      }
+
+      const result = await dealService.getMerchantRecentActivity(email, limit);
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-
-    const result = await dealService.getMerchantRecentActivity(email, limit);
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * @swagger
@@ -1122,25 +1134,28 @@ dealRouter.get('/recent-activity/:email', async (req: Request, res: Response, ne
  *       200:
  *         description: Voucher details retrieved successfully
  */
-dealRouter.post('/voucher-by-claim-code', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { claimCode, userEmail } = req.body;
+dealRouter.post(
+  "/voucher-by-claim-code",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { claimCode, userEmail } = req.body;
 
-    if (!claimCode || !userEmail) {
-      return res.status(400).json({
-        success: false,
-        error: 'claimCode and userEmail are required',
-      });
+      if (!claimCode || !userEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "claimCode and userEmail are required",
+        });
+      }
+
+      const result = await dealService.getVoucherByClaimCode(claimCode, userEmail);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      next(error);
     }
-
-    const result = await dealService.getVoucherByClaimCode(claimCode, userEmail);
-
-    if (!result.success) {
-      return res.status(404).json(result);
-    }
-
-    res.json(result);
-  } catch (error) {
-    next(error);
   }
-});
+);

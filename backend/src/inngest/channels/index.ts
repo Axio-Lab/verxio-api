@@ -35,4 +35,3 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   anthropic: "anthropic-execution",
   gemini: "gemini-execution",
 };
-

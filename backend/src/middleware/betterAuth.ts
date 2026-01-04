@@ -1,23 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../lib/prisma';
-import { AppError } from './errorHandler';
+import { Request, Response, NextFunction } from "express";
+import { prisma } from "../lib/prisma";
+import { AppError } from "./errorHandler";
 
 /**
  * Better Auth Authentication Middleware
- * 
+ *
  * Validates user via X-User-Email header from Better Auth session.
  * This middleware is used for routes that use Better Auth instead of API keys.
  */
-export const betterAuthMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const betterAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userEmail = req.headers['x-user-email'] as string;
+    const userEmail = req.headers["x-user-email"] as string;
 
     if (!userEmail) {
-      throw new AppError('Authentication required. X-User-Email header is missing.', 401);
+      throw new AppError("Authentication required. X-User-Email header is missing.", 401);
     }
 
     // Find the Better Auth user by email
@@ -32,7 +28,7 @@ export const betterAuthMiddleware = async (
     });
 
     if (!betterAuthUser) {
-      throw new AppError('User not found. Please ensure you are logged in.', 401);
+      throw new AppError("User not found. Please ensure you are logged in.", 401);
     }
 
     // Attach user info to request for use in routes
@@ -44,7 +40,6 @@ export const betterAuthMiddleware = async (
     if (error instanceof AppError) {
       return next(error);
     }
-    next(new AppError('Authentication failed', 401));
+    next(new AppError("Authentication failed", 401));
   }
 };
-
