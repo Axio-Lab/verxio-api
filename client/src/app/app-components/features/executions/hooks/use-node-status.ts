@@ -115,6 +115,26 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const whatsappTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("whatsappTrigger"),
+    enabled: true,
+  });
+
+  const whatsappSub = useInngestSubscription({
+    refreshToken: createRefreshToken("whatsapp"),
+    enabled: true,
+  });
+
+  const slackSub = useInngestSubscription({
+    refreshToken: createRefreshToken("slack"),
+    enabled: true,
+  });
+
+  const discordSub = useInngestSubscription({
+    refreshToken: createRefreshToken("discord"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -126,6 +146,10 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(openaiSub.data || []),
       ...(anthropicSub.data || []),
       ...(geminiSub.data || []),
+      ...(whatsappTriggerSub.data || []),
+      ...(whatsappSub.data || []),
+      ...(slackSub.data || []),
+      ...(discordSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -136,6 +160,10 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     openaiSub.data,
     anthropicSub.data,
     geminiSub.data,
+    whatsappTriggerSub.data,
+    whatsappSub.data,
+    slackSub.data,
+    discordSub.data,
   ]);
 
   // Filter and update status for this specific node

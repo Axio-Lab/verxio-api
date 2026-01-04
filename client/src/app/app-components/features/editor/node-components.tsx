@@ -11,9 +11,13 @@ import { NodeType } from "./node-types";
 import { NodeSelector } from "./node-selector";
 import { GoogleFormTriggerNode } from "@/app/app-components/features/executions/triggers/google-form-trigger/node";
 import { StripeTriggerNode } from "@/app/app-components/features/executions/triggers/stripe-trigger/node";
+import { WhatsAppTriggerNode } from "@/app/app-components/features/executions/triggers/whatsapp-trigger/node";
 import { OpenAINode } from "@/app/app-components/features/executions/actions/open-ai/node";
 import { AnthropicNode } from "@/app/app-components/features/executions/actions/anthropic/node";
 import { GeminiNode } from "@/app/app-components/features/executions/actions/gemini/node";
+import { WhatsAppNode } from "@/app/app-components/features/executions/actions/whatsapp/node";
+import { SlackNode } from "@/app/app-components/features/executions/actions/slack/node";
+import { DiscordNode } from "@/app/app-components/features/executions/actions/discord/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -22,9 +26,13 @@ export const NodeComponents = {
   [NodeType.WEBHOOK]: WebhookNode,
   [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
   [NodeType.STRIPE_TRIGGER]: StripeTriggerNode,
+  [NodeType.WHATSAPP_TRIGGER]: WhatsAppTriggerNode,
   [NodeType.OPENAI]: OpenAINode,
   [NodeType.ANTHROPIC]: AnthropicNode,
   [NodeType.GEMINI]: GeminiNode,
+  [NodeType.WHATSAPP]: WhatsAppNode,
+  [NodeType.SLACK]: SlackNode,
+  [NodeType.DISCORD]: DiscordNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

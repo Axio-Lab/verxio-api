@@ -12,6 +12,10 @@ export const NodeType = {
   ANTHROPIC: "ANTHROPIC",
   GEMINI: "GEMINI",
   OPENAI: "OPENAI",
+  DISCORD: "DISCORD",
+  SLACK: "SLACK",
+  WHATSAPP_TRIGGER: "WHATSAPP_TRIGGER",
+  WHATSAPP: "WHATSAPP",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

@@ -10,7 +10,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { NodeType } from "@/app/app-components/features/editor/node-types";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useMemo, useState, useEffect } from "react";
@@ -50,6 +49,12 @@ const triggerNodes: NodeTypeOption[] = [
       "Triggers the workflow when a Stripe webhook event occurs (e.g., payment_intent.succeeded).",
     icon: "/logo/stripe.svg",
   },
+  {
+    type: NodeType.WHATSAPP_TRIGGER,
+    label: "Whatsapp Trigger",
+    description: "Triggers the workflow when a Whatsapp message is sent.",
+    icon: "/logo/whatsapp.svg",
+  },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -82,6 +87,24 @@ const executionNodes: NodeTypeOption[] = [
     label: "Google Gemini",
     description: "Generate text using Google's Gemini models",
     icon: "/logo/gemini.svg",
+  },
+  {
+    type: NodeType.WHATSAPP,
+    label: "Whatsapp",
+    description: "Send messages to Whatsapp",
+    icon: "/logo/whatsapp.svg",
+  },
+  {
+    type: NodeType.DISCORD,
+    label: "Discord",
+    description: "Send messages to Discord",
+    icon: "/logo/discord.svg",
+  },
+  {
+    type: NodeType.SLACK,
+    label: "Slack",
+    description: "Send messages to Slack",
+    icon: "/logo/slack.svg",
   },
 ];
 
@@ -210,6 +233,28 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
           setNodes((nodes) => [...nodes, newNode]);
         }
         onOpenChange(false);
+      } else if (selection.type === NodeType.WHATSAPP_TRIGGER) {
+        const hasWhatsAppTrigger = nodes.some((node) => node.type === NodeType.WHATSAPP_TRIGGER);
+        if (hasWhatsAppTrigger) {
+          toast.error("Only one WhatsApp trigger is allowed per workflow");
+          return;
+        }
+        const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "WhatsApp Trigger",
+          },
+          type: NodeType.WHATSAPP_TRIGGER,
+          position: flowPosition,
+        };
+
+        if (hasInitialTrigger) {
+          setNodes([newNode]);
+        } else {
+          setNodes((nodes) => [...nodes, newNode]);
+        }
+        onOpenChange(false);
       } else if (selection.type === NodeType.HTTP_REQUEST) {
         const newNode = {
           id: createId(),
@@ -264,6 +309,42 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             variables: "gemini",
           },
           type: NodeType.GEMINI,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.WHATSAPP) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "WhatsApp",
+            variables: "whatsapp",
+          },
+          type: NodeType.WHATSAPP,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.SLACK) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Slack",
+            variables: "slack",
+          },
+          type: NodeType.SLACK,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.DISCORD) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Discord",
+            variables: "discord",
+          },
+          type: NodeType.DISCORD,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

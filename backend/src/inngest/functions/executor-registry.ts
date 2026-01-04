@@ -7,6 +7,10 @@ import { stripeTriggerExecutor } from "./triggers/stripe-trigger";
 import { openaiTriggerExecutor } from "./triggers/openai-trigger";
 import { anthropicTriggerExecutor } from "./triggers/anthropic-trigger";
 import { geminiTriggerExecutor } from "./triggers/gemini-trigger";
+import { whatsappTriggerExecutor } from "./triggers/whatsapp-trigger";
+import { whatsappExecutor } from "./triggers/whatsapp";
+import { slackExecutor } from "./triggers/slack";
+import { discordExecutor } from "./triggers/discord";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -15,12 +19,16 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.MANUAL_TRIGGER]: manualTriggerExecutor,
   [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
   [NodeType.STRIPE_TRIGGER]: stripeTriggerExecutor as NodeExecutor,
+  [NodeType.WHATSAPP_TRIGGER]: whatsappTriggerExecutor as NodeExecutor,
   [NodeType.INITIAL]: async () => ({}),
   [NodeType.HTTP_REQUEST]: httpTriggerExecutor as NodeExecutor,
   [NodeType.WEBHOOK]: webhookTriggerExecutor as NodeExecutor,
   [NodeType.OPENAI]: openaiTriggerExecutor as NodeExecutor,
   [NodeType.ANTHROPIC]: anthropicTriggerExecutor as NodeExecutor,
   [NodeType.GEMINI]: geminiTriggerExecutor as NodeExecutor,
+  [NodeType.WHATSAPP]: whatsappExecutor as NodeExecutor,
+  [NodeType.SLACK]: slackExecutor as NodeExecutor,
+  [NodeType.DISCORD]: discordExecutor as NodeExecutor,
 };
 
 /**

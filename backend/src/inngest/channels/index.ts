@@ -7,9 +7,13 @@ import { manualTriggerChannel } from "./manual-trigger";
 import { webhookChannel } from "./webhook";
 import { googleFormTriggerChannel } from "./google-form-trigger";
 import { stripeTriggerChannel } from "./stripe-trigger";
+import { whatsappTriggerChannel } from "./whatsapp-trigger";
 import { openaiChannel } from "./openai";
 import { anthropicChannel } from "./anthropic";
 import { geminiChannel } from "./gemini";
+import { whatsappChannel } from "./whatsapp";
+import { slackChannel } from "./slack";
+import { discordChannel } from "./discord";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -17,9 +21,13 @@ export const nodeStatusChannels = {
   webhook: webhookChannel,
   googleFormTrigger: googleFormTriggerChannel,
   stripeTrigger: stripeTriggerChannel,
+  whatsappTrigger: whatsappTriggerChannel,
   openai: openaiChannel,
   anthropic: anthropicChannel,
   gemini: geminiChannel,
+  whatsapp: whatsappChannel,
+  slack: slackChannel,
+  discord: discordChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -31,7 +39,11 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   webhook: "webhook-execution",
   googleFormTrigger: "google-form-trigger-execution",
   stripeTrigger: "stripe-trigger-execution",
+  whatsappTrigger: "whatsapp-trigger-execution",
   openai: "openai-execution",
   anthropic: "anthropic-execution",
   gemini: "gemini-execution",
+  whatsapp: "whatsapp-execution",
+  slack: "slack-execution",
+  discord: "discord-execution",
 };

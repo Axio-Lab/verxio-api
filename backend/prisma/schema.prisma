@@ -355,6 +355,10 @@ enum NodeType {
   ANTHROPIC
   GEMINI
   OPENAI
+  DISCORD
+  SLACK
+  WHATSAPP_TRIGGER
+  WHATSAPP
 }
 
 model Node {
