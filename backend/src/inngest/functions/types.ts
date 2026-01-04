@@ -11,6 +11,7 @@ export interface NodeExecutorParams<TData = Record<string, unknown>> {
     context: WorkflowContext;
     step: StepTools;
     publish: Realtime.PublishFn;
+    userId: string; 
 }
 
 export type NodeExecutor<TData = Record<string, unknown>> = (

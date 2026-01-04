@@ -248,16 +248,17 @@ model Deal {
 
 // Better Auth Models
 model User {
-  id            String     @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
-  email         String     @unique
-  emailVerified Boolean    @default(false)
+  email         String       @unique
+  emailVerified Boolean      @default(false)
   image         String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   sessions      Session[]
   accounts      Account[]
   workflows     Workflow[]
+  credentials   Credential[]
 
   @@map("user")
 }
@@ -288,6 +289,7 @@ model Account {
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
   scope                 String?
+  /// @encrypted
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -304,6 +306,27 @@ model Verification {
   updatedAt  DateTime? @updatedAt
 
   @@map("verification")
+}
+
+model Credential {
+  id        String         @id @default(cuid())
+  name      String
+  /// @encrypted
+  value     String
+  type      CredentialType
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  Node Node[]
+}
+
+enum CredentialType {
+  OPENAI
+  ANTHROPIC
+  GEMINI
 }
 
 model Workflow {
@@ -343,6 +366,9 @@ model Node {
   type     NodeType
   position Json
   data     Json     @default("{}")
+
+  credentialId String?
+  credential   Credential? @relation(fields: [credentialId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

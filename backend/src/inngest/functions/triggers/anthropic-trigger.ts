@@ -4,6 +4,8 @@ import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
+import { getCredential } from "@/services/credentialService";
+import { CredentialType } from "@/services/credentialService";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("json", (context) => {
@@ -15,6 +17,7 @@ type AnthropicTriggerData = {
     systemPrompt?: string;
     userPrompt?: string;
     variablesName?: string;
+    credentialId?: string;
 };
 
 // Helper to publish status updates
@@ -38,6 +41,7 @@ export const anthropicTriggerExecutor: NodeExecutor<AnthropicTriggerData> = asyn
         context,
         step,
         publish,
+        userId,
     }) => {
     try {
         await publishStatus(publish, nodeId, "loading");
@@ -51,20 +55,31 @@ export const anthropicTriggerExecutor: NodeExecutor<AnthropicTriggerData> = asyn
             throw new NonRetriableError("Anthropic node: User prompt is required");
         }
 
-        // if (!data.credentialName) {
-        //     await publishStatus(publish, nodeId, "error");
-        //     throw new NonRetriableError("Anthropic node: Credential name is required");
-        // }
-
         const systemPrompt = data.systemPrompt ? Handlebars.compile(data.systemPrompt)(context) 
         : "You are a helpful assistant.";
 
-        const userPrompt = Handlebars.compile(data.userPrompt)(context) 
-        const credentialValue = process.env.ANTHROPIC_API_KEY;
-        if (!credentialValue) {
+        const userPrompt = Handlebars.compile(data.userPrompt)(context);
+        
+        if (!data.credentialId) {
             await publishStatus(publish, nodeId, "error");
-            throw new NonRetriableError("Anthropic node: ANTHROPIC_API_KEY environment variable is required");
+            throw new NonRetriableError("Anthropic node: Credential ID is required");
         }
+
+        const credential = await step.run("get-credential", async () => {
+            return await getCredential(data.credentialId!, userId);
+        });
+        
+        if (!credential) {
+            await publishStatus(publish, nodeId, "error");
+            throw new NonRetriableError("Anthropic node: Credential not found");
+        }
+        
+        if (credential.type !== CredentialType.ANTHROPIC) {
+            await publishStatus(publish, nodeId, "error");
+            throw new NonRetriableError("Anthropic node: Credential type mismatch. Expected ANTHROPIC credential.");
+        }
+
+        const credentialValue = credential.value;
 
         const anthropicClient = createAnthropic({
             apiKey: credentialValue,

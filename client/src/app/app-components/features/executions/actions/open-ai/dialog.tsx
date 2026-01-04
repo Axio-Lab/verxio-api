@@ -32,6 +32,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { useCredentials, CredentialType } from "@/hooks/useCredentials";
+import Image from "next/image";
 
 // Available OpenAI models
 const OPENAI_MODELS = [
@@ -52,6 +54,7 @@ const formSchema = z.object({
     systemPrompt: z.string().optional(),
     userPrompt: z.string().min(1, { message: "User prompt is required" }),
     temperature: z.number().min(0).max(2).optional(),
+    credentialId: z.string().min(1, { message: "Credential is required" }),
 });
 
 export type OpenAIFormValues = z.infer<typeof formSchema>;
@@ -69,6 +72,10 @@ export const OpenAIDialog = ({
     onSubmit,
     defaultValues = {},
 }: Props) => {
+    // Fetch OpenAI credentials
+    const { data: credentialsData } = useCredentials(1, 100, CredentialType.OPENAI);
+    const openAICredentials = credentialsData?.credentials || [];
+
     const form = useForm<OpenAIFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -77,6 +84,7 @@ export const OpenAIDialog = ({
             userPrompt: defaultValues.userPrompt || "",
             systemPrompt: defaultValues.systemPrompt || "",
             temperature: defaultValues.temperature ?? 0.7,
+            credentialId: defaultValues.credentialId || undefined,
         },
     });
 
@@ -87,6 +95,7 @@ export const OpenAIDialog = ({
                 model: defaultValues.model || "gpt-3.5-turbo",
                 userPrompt: defaultValues.userPrompt || "",
                 systemPrompt: defaultValues.systemPrompt || "",
+                credentialId: defaultValues.credentialId || undefined,
             });
         }
     }, [open, defaultValues, form]);
@@ -132,6 +141,52 @@ export const OpenAIDialog = ({
                                             Use this name to reference the result in other nodes:
                                             <br />
                                             <code>{`{"{{${watchVariables}.text}}"}`}</code>
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="credentialId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>OpenAI Credential</FormLabel>
+                                        <Select
+                                            onValueChange={(value) => field.onChange(value || undefined)}
+                                            value={field.value || undefined}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select a credential" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {openAICredentials.length === 0 ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        No OpenAI credentials found. Create one in Credentials.
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {openAICredentials.map((credential) => (
+                                                            <SelectItem key={credential.id} value={credential.id}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Image 
+                                                                        src="/logo/openai.svg" 
+                                                                        alt="OpenAI" 
+                                                                        width={20} 
+                                                                        height={20} 
+                                                                    />
+                                                                    {credential.name}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            Select a credential to use or create a new one in Credentials.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

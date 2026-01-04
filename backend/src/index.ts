@@ -13,6 +13,7 @@ import { loyaltyRouter } from './routes/loyalty';
 import { voucherRouter } from './routes/voucher';
 import { dealRouter } from './routes/deal';
 import { workflowRouter } from './routes/workflow';
+import { credentialRouter } from './routes/credential';
 import { googleFormRouter } from './routes/triggers/google-form';
 import { stripeRouter } from './routes/triggers/stripe';
 // import { apiKeyRouter } from './routes/apiKey';
@@ -126,6 +127,7 @@ app.use('/loyalty', loyaltyRouter);
 app.use('/voucher', voucherRouter);
 app.use('/deal', dealRouter);
 app.use('/workflow', workflowRouter);
+app.use('/credential', credentialRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)

@@ -6,7 +6,7 @@
  */
 
 import { useQueryState, useQueryStates } from "nuqs";
-import { searchParams } from "@/lib/search-params";
+import { searchParams, workflowSearchParams } from "@/lib/search-params";
 
 /**
  * Hook for managing search query in URL
@@ -50,6 +50,23 @@ export function useDealSearch() {
     setSearchQuery,
     filters,
     setFilters,
+  };
+}
+
+/**
+ * Hook for managing workflow search and pagination in URL
+ * Syncs with ?search=query&page=1&limit=5
+ */
+export function useWorkflowSearch() {
+  const [params, setParams] = useQueryStates(workflowSearchParams);
+
+  return {
+    search: params.search,
+    setSearch: (value: string) => setParams({ search: value }),
+    page: params.page,
+    setPage: (value: number) => setParams({ page: value }),
+    limit: params.limit,
+    setLimit: (value: number) => setParams({ limit: value }),
   };
 }
 

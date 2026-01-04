@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   WorkflowsContainer, 
   WorkflowsLoadingView, 
@@ -10,15 +10,51 @@ import {
 } from "@/app/app-components/features/workflow/workflows";
 import { useWorkflows, useCreateWorkflow } from "@/hooks/useWorkflows";
 import { WorkflowNameInput } from "@/app/app-components/features/workflow/workflow-name-input";
+import { useWorkflowSearch } from "@/hooks/useSearchParams";
 
 
 
 // Client component that fetches and displays workflows
 export function WorkflowsContent() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { search: searchQuery, setSearch: setSearchQuery, page: currentPage, setPage: setCurrentPage, limit } = useWorkflowSearch();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const limit = 5;
+  
+  // Local state for search input to prevent focus loss on URL updates
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local search with URL search on mount or when URL changes externally
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Debounced search update to URL
+  const handleSearchChange = (value: string) => {
+    setLocalSearch(value);
+    
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // Update URL after 300ms of no typing
+    debounceTimerRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      // Reset to page 1 when search changes
+      if (value !== searchQuery) {
+        setCurrentPage(1);
+      }
+    }, 300);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const { data: apiData, isLoading, error } = useWorkflows(currentPage, limit, searchQuery || undefined);
   const createWorkflow = useCreateWorkflow();
@@ -44,8 +80,8 @@ export function WorkflowsContent() {
   if (isLoading) {
     return (
       <WorkflowsContainer
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchValue={localSearch}
+        onSearchChange={handleSearchChange}
         currentPage={currentPage}
         totalPages={0}
         onPageChange={setCurrentPage}
@@ -61,8 +97,8 @@ export function WorkflowsContent() {
   if (error) {
     return (
       <WorkflowsContainer
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchValue={localSearch}
+        onSearchChange={handleSearchChange}
         currentPage={currentPage}
         totalPages={0}
         onPageChange={setCurrentPage}
@@ -108,8 +144,8 @@ export function WorkflowsContent() {
       />
 
       <WorkflowsContainer
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchValue={localSearch}
+        onSearchChange={handleSearchChange}
         currentPage={currentPage}
         totalPages={data?.totalPages || 0}
         onPageChange={setCurrentPage}

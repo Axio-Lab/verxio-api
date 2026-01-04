@@ -79,7 +79,9 @@ export const AppSidebar = () => {
     const isCollapsed = state === "collapsed";
     
     const isActive = (url: string) => {
-        return pathname === url;
+        // Check if pathname exactly matches or starts with the URL
+        // This keeps sidebar items active on detail pages (e.g., /workflows/[id], /credentials/[id])
+        return pathname === url || pathname?.startsWith(`${url}/`);
     }
 
     const handleSignOut = async () => {
@@ -121,7 +123,7 @@ export const AppSidebar = () => {
             <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
             <SidebarContent>
                 {menuItems.map((item) => (
-                    <SidebarGroup key={item.title}>
+                    <SidebarGroup key={item.title} className="mb-0.5 py-1">
                         <SidebarGroupContent>
                             <SidebarMenu>
                             {item.items.map((subItem) => (

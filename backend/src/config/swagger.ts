@@ -73,6 +73,10 @@ Required for all workflow endpoints. This header should contain the authenticate
       description: 'create, update, and manage workflows',
     },
     {
+      name: 'Credentials',
+      description: 'manage API credentials for AI nodes (OpenAI, Anthropic, Gemini)',
+    },
+    {
       name: 'Triggers',
       description: 'webhook endpoints for triggering workflows from external services',
     },

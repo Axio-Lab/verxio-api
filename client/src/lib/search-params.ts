@@ -1,4 +1,4 @@
-import { parseAsString, parseAsBoolean, createSearchParamsCache } from "nuqs/server";
+import { parseAsString, parseAsBoolean, parseAsInteger, createSearchParamsCache } from "nuqs/server";
 
 /**
  * Search parameters for the explore/deals page
@@ -23,5 +23,18 @@ export const searchParams = {
   sortOrder: parseAsString.withDefault("asc"),
 };
 
+/**
+ * Search parameters for the workflows page
+ */
+export const workflowSearchParams = {
+  // Search query
+  search: parseAsString.withDefault(""),
+  
+  // Pagination
+  page: parseAsInteger.withDefault(1),
+  limit: parseAsInteger.withDefault(5),
+};
+
 export const searchParamsCache = createSearchParamsCache(searchParams);
+export const workflowSearchParamsCache = createSearchParamsCache(workflowSearchParams);
 

@@ -149,6 +149,7 @@ export const triggerWorkflow = inngest.createFunction(
         context,
         step,
         publish,
+        userId, 
       });
     }
 

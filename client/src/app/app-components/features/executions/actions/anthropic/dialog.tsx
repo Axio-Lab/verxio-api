@@ -32,6 +32,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { useCredentials, CredentialType } from "@/hooks/useCredentials";
+import Image from "next/image";
 
 // Available Anthropic Claude models
 const ANTHROPIC_MODELS = [
@@ -49,6 +51,7 @@ const formSchema = z.object({
     model: z.enum(ANTHROPIC_MODEL_VALUES),
     systemPrompt: z.string().optional(),
     userPrompt: z.string().min(1, { message: "User prompt is required" }),
+    credentialId: z.string().min(1, { message: "Credential is required" }),
 });
 
 export type AnthropicFormValues = z.infer<typeof formSchema>;
@@ -66,6 +69,10 @@ export const AnthropicDialog = ({
     onSubmit,
     defaultValues = {},
 }: Props) => {
+    // Fetch Anthropic credentials
+    const { data: credentialsData } = useCredentials(1, 100, CredentialType.ANTHROPIC);
+    const anthropicCredentials = credentialsData?.credentials || [];
+
     const form = useForm<AnthropicFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -73,6 +80,7 @@ export const AnthropicDialog = ({
             model: defaultValues.model || "claude-3-5-sonnet-20241022",
             userPrompt: defaultValues.userPrompt || "",
             systemPrompt: defaultValues.systemPrompt || "",
+            credentialId: defaultValues.credentialId || undefined,
         },
     });
 
@@ -83,6 +91,7 @@ export const AnthropicDialog = ({
                 model: defaultValues.model || "claude-3-5-sonnet-20241022",
                 userPrompt: defaultValues.userPrompt || "",
                 systemPrompt: defaultValues.systemPrompt || "",
+                credentialId: defaultValues.credentialId || undefined,
             });
         }
     }, [open, defaultValues, form]);
@@ -128,6 +137,52 @@ export const AnthropicDialog = ({
                                             Use this name to reference the result in other nodes:
                                             <br />
                                             <code>{`{"{{${watchVariables}.text}}"}`}</code>
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="credentialId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Anthropic Credential</FormLabel>
+                                        <Select
+                                            onValueChange={(value) => field.onChange(value || undefined)}
+                                            value={field.value || undefined}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select a credential" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {anthropicCredentials.length === 0 ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        No Anthropic credentials found.
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {anthropicCredentials.map((credential) => (
+                                                            <SelectItem key={credential.id} value={credential.id}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Image 
+                                                                        src="/logo/anthropic.svg" 
+                                                                        alt="Anthropic" 
+                                                                        width={20} 
+                                                                        height={20} 
+                                                                    />
+                                                                    {credential.name}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            Select a credential to use or create a new one in Credentials.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
