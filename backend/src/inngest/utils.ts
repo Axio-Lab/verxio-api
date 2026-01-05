@@ -1,5 +1,4 @@
 import toposort from "toposort";
-import { inngest } from "./index";
 
 /**
  * Sorts workflow nodes in topological order based on their connections
