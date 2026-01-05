@@ -153,7 +153,7 @@ const validateNodes = (nodes: any[]): WorkflowNode[] => {
 export const triggerWorkflow = inngest.createFunction(
   {
     id: "trigger-workflow",
-    retries: 0, // Don't retry on errors - each execution creates a new record
+    retries: process.env.NODE_ENV === "production" ? 0 : 3,
   },
   {
     event: "workflow/trigger",

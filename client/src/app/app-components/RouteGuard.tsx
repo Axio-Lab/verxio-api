@@ -15,7 +15,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   // Routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/"];
+  const publicRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/"];
   const isPublicRoute = publicRoutes.some((route) => {
     if (route === "/") {
       // Exact match for home page

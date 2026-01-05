@@ -50,10 +50,15 @@ export function RegisterForm() {
     },
   });
 
-  // Redirect if already authenticated and VerxioUser is created
+  // Prefetch workflows page on mount for instant navigation
+  useEffect(() => {
+    router.prefetch("/workflows");
+  }, [router]);
+
+  // Redirect if already authenticated and VerxioUser is created - use replace for instant navigation
   useEffect(() => {
     if (isAuthenticated && verxioUser) {
-      router.push("/explore");
+      router.replace("/workflows");
     }
   }, [isAuthenticated, verxioUser, router]);
 
@@ -71,9 +76,8 @@ export function RegisterForm() {
         return;
       }
 
-      toast.success("Account created successfully! Creating your Verxio profile...");
-      // The useAuthWithVerxioUser hook will automatically create VerxioUser
-      // Redirect will happen via useEffect when verxioUser is created
+      toast.success("Setting up your Verxio profile...");
+      router.push("/workflows");
     } catch (error: any) {
       console.error("Registration error:", error);
       const errorMessage =
@@ -84,12 +88,12 @@ export function RegisterForm() {
     }
   };
 
-  const handleSocialSignup = async (provider: "google" | "facebook" | "apple") => {
+  const handleSocialSignup = async (provider: "google") => {
     setSocialLoading(provider);
     try {
       await signIn.social({
         provider,
-        callbackURL: "/explore",
+        callbackURL: "/workflows",
       });
     } catch (error) {
       console.error(`${provider} signup error:`, error);
@@ -101,77 +105,37 @@ export function RegisterForm() {
   const isPending = form.formState.isSubmitting;
 
   return (
-    <div className="flex flex-col items-center justify-center w-full px-4 py-8">
-      <Card className="w-full max-w-md md:max-w-lg lg:max-w-xl">
-        <CardHeader className="text-center space-y-2 px-6 pt-8 pb-6 md:px-8 md:pt-10 md:pb-8">
-          <CardTitle className="text-2xl md:text-3xl font-bold">Get Started</CardTitle>
-          <CardDescription className="text-sm md:text-base text-gray-500">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 py-12">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center space-y-2 px-6 pt-6 pb-4">
+          <CardTitle className="text-2xl font-bold">Get Started</CardTitle>
+          <CardDescription className="text-sm text-gray-500">
             Create your account to get started
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-6 pb-8 md:px-8 md:pb-10">
+        <CardContent className="px-6 pb-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 md:space-y-8">
-              <div className="flex flex-col gap-3 md:gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="flex flex-col gap-3">
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-11 md:h-12 text-sm md:text-base flex items-center justify-center gap-2"
+                  className="w-full h-10 text-sm flex items-center justify-center gap-2"
                   disabled={isPending || socialLoading !== null}
                   onClick={() => handleSocialSignup("google")}
                 >
                   {socialLoading === "google" ? (
-                    <Spinner className="w-5 h-5" />
+                    <Spinner className="w-4 h-4" />
                   ) : (
                     <Image
                       src="/logo/google.svg"
                       alt="Google"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5"
+                      width={18}
+                      height={18}
+                      className="w-4 h-4"
                     />
                   )}
                   Continue with Google
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-11 md:h-12 text-sm md:text-base flex items-center justify-center gap-2"
-                  disabled={isPending || socialLoading !== null}
-                  onClick={() => handleSocialSignup("facebook")}
-                >
-                  {socialLoading === "facebook" ? (
-                    <Spinner className="w-5 h-5" />
-                  ) : (
-                    <Image
-                      src="/logo/facebook.svg"
-                      alt="Facebook"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5"
-                    />
-                  )}
-                  Continue with Facebook
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-11 md:h-12 text-sm md:text-base flex items-center justify-center gap-2"
-                  disabled={isPending || socialLoading !== null}
-                  onClick={() => handleSocialSignup("apple")}
-                >
-                  {socialLoading === "apple" ? (
-                    <Spinner className="w-5 h-5" />
-                  ) : (
-                    <Image
-                      src="/logo/apple.svg"
-                      alt="Apple"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5"
-                    />
-                  )}
-                  Continue with Apple
                 </Button>
               </div>
 
@@ -184,18 +148,18 @@ export function RegisterForm() {
                 </div>
               </div>
 
-              <div className="space-y-5 md:space-y-6">
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm md:text-base">Email</FormLabel>
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-sm">Email</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
                           placeholder="user@example.com"
-                          className="h-11 md:h-12 text-base"
+                          className="h-10 text-sm"
                           {...field}
                         />
                       </FormControl>
@@ -207,13 +171,13 @@ export function RegisterForm() {
                   control={form.control}
                   name="password"
                   render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm md:text-base">Password</FormLabel>
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-sm">Password</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder="********"
-                          className="h-11 md:h-12 text-base"
+                          className="h-10 text-sm"
                           {...field}
                         />
                       </FormControl>
@@ -225,13 +189,13 @@ export function RegisterForm() {
                   control={form.control}
                   name="confirmPassword"
                   render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm md:text-base">Confirm Password</FormLabel>
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-sm">Confirm Password</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder="********"
-                          className="h-11 md:h-12 text-base"
+                          className="h-10 text-sm"
                           {...field}
                         />
                       </FormControl>
@@ -242,10 +206,10 @@ export function RegisterForm() {
                 <div className="relative pt-2">
                   <Button
                     type="submit"
-                    className="w-full h-11 md:h-12 text-base md:text-lg font-semibold relative z-10 flex items-center justify-center gap-2"
+                    className="w-full h-10 text-sm font-semibold relative z-10 flex items-center justify-center gap-2"
                     disabled={isPending || socialLoading !== null}
                   >
-                    {isPending && <Spinner className="w-5 h-5" />}
+                    {isPending && <Spinner className="w-4 h-4" />}
                     {isPending ? "Creating account..." : "Create Account"}
                   </Button>
                   {/* Logo icons behind the button */}
@@ -253,22 +217,22 @@ export function RegisterForm() {
                     <Image
                       src="/logo/verxioIcon.svg"
                       alt="Verxio"
-                      width={24}
-                      height={24}
-                      className="w-6 h-6 md:w-8 md:h-8"
+                      width={20}
+                      height={20}
+                      className="w-5 h-5"
                     />
                     <Image
                       src="/logo/verxioLogo.svg"
                       alt="Verxio"
-                      width={80}
-                      height={24}
-                      className="h-6 w-auto md:h-8 md:w-auto"
+                      width={60}
+                      height={20}
+                      className="h-5 w-auto"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="text-center text-sm md:text-base pt-2">
+              <div className="text-center text-sm pt-2">
                 Already have an account?{" "}
                 <Link
                   href="/login"

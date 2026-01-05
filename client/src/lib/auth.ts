@@ -11,31 +11,38 @@ export const auth = betterAuth({
   // Email/Password authentication
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // Set to true in production if needed
+    sendResetPassword: async ({ user, url }) => {
+      if (process.env.RESEND_API_KEY) {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: "onboarding@resend.dev",
+          to: user.email,
+          subject: "Reset your password",
+          html: `
+            <h2>Reset Your Password</h2>
+            <p>Click the link below to reset your password:</p>
+            <a href="${url}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+            <p>Or copy and paste this URL into your browser:</p>
+            <p>${url}</p>
+            <p>This link will expire in 1 hour.</p>
+          `,
+        });
+      }
+    },
   },
 
   // Social authentication providers
   socialProviders: {
     google: {
-      clientId: process.env.BETTER_AUTH_GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET!,
-      enabled: true,
-    },
-    facebook: {
-      clientId: process.env.BETTER_AUTH_FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.BETTER_AUTH_FACEBOOK_CLIENT_SECRET!,
-      enabled: true,
-    },
-    apple: {
-      clientId: process.env.BETTER_AUTH_APPLE_CLIENT_ID!,
-      clientSecret: process.env.BETTER_AUTH_APPLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       enabled: true,
     },
   },
 
   // Base URL for the auth server
-  baseURL:
-    process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  baseURL: process.env.BETTER_AUTH_URL,
 
   // API route path (default: /api/auth)
   basePath: "/api/auth",

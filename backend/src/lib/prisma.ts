@@ -8,16 +8,16 @@ const globalForPrisma = globalThis as unknown as {
 // Create base Prisma client - use backendClient which has all models including workflow
 const basePrisma: BackendPrismaClient = globalForPrisma.prisma ?? new BackendPrismaClient();
 
-// Export base client for models not exposed by extension
-export const basePrismaClient: BackendPrismaClient = basePrisma;
-
-export const prisma: BackendPrismaClient = process.env.PRISMA_FIELD_ENCRYPTION_KEY
+// Apply encryption extension to base client if encryption key is available
+export const basePrismaClient: BackendPrismaClient = process.env.PRISMA_FIELD_ENCRYPTION_KEY
   ? (basePrisma.$extends(
       fieldEncryptionExtension({
         encryptionKey: process.env.PRISMA_FIELD_ENCRYPTION_KEY,
       })
     ) as BackendPrismaClient)
   : basePrisma;
+
+export const prisma: BackendPrismaClient = basePrismaClient;
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

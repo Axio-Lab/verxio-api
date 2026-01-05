@@ -13,7 +13,11 @@ export function ConditionalNavbar() {
     pathname?.startsWith("/executions") ||
     pathname?.startsWith("/credentials");
 
-  const isAuthRoute = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+  const isAuthRoute =
+    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/signup") ||
+    pathname?.startsWith("/forgot-password") ||
+    pathname?.startsWith("/reset-password");
 
   if (isDashboardRoute || isAuthRoute) {
     return null;
@@ -35,7 +39,11 @@ export function ConditionalFooter() {
     pathname?.startsWith("/executions") ||
     pathname?.startsWith("/credentials");
 
-  const isAuthRoute = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+  const isAuthRoute =
+    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/signup") ||
+    pathname?.startsWith("/forgot-password") ||
+    pathname?.startsWith("/reset-password");
 
   if (isDashboardRoute || isAuthRoute) {
     return null;

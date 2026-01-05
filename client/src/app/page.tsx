@@ -84,7 +84,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace("/explore");
+      // Prefetch and instant redirect
+      router.prefetch("/workflows");
+      router.replace("/workflows");
     }
   }, [isAuthenticated, isLoading, router]);
 

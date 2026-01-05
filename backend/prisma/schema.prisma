@@ -8,6 +8,10 @@ generator backendClient {
   output   = "../node_modules/.prisma/client"
 }
 
+generator fieldEncryption {
+  provider = "prisma-field-encryption"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

@@ -6,7 +6,7 @@ import {
   HistoryIcon,
   KeyIcon,
   LogOutIcon,
-  Undo2Icon,
+  // Undo2Icon,
   StarIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -59,16 +59,16 @@ const menuItems = [
       },
     ],
   },
-  {
-    title: "Settings",
-    items: [
-      {
-        title: "Go Back",
-        url: "/merchant",
-        icon: <Undo2Icon />,
-      },
-    ],
-  },
+  // {
+  //   title: "Settings",
+  //   items: [
+  //     {
+  //       title: "Go Back",
+  //       url: "/merchant",
+  //       icon: <Undo2Icon />,
+  //     },
+  //   ],
+  // },
 ];
 
 export const AppSidebar = () => {
