@@ -96,12 +96,15 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
         typeof currentNode.data?.label === "string" ? currentNode.data.label : currentNode.id;
 
       // Normalize data objects for comparison (sort keys for consistent comparison)
+      // Exclude internal scheduling fields that are added by the backend
       const normalizeData = (data: any) => {
         if (!data || typeof data !== "object") return data;
-        const sorted = Object.keys(data)
+        // Remove internal fields that shouldn't affect the comparison
+        const { scheduledEventId, scheduledEventTime, lastRunTime, cancelled, ...cleanData } = data;
+        const sorted = Object.keys(cleanData)
           .sort()
           .reduce((acc, key) => {
-            acc[key] = data[key];
+            acc[key] = cleanData[key];
             return acc;
           }, {} as any);
         return JSON.stringify(sorted);

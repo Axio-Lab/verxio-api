@@ -1,6 +1,13 @@
 "use client";
 
-import { GlobeIcon, MousePointerIcon, WebhookIcon, SearchIcon } from "lucide-react";
+import {
+  GlobeIcon,
+  MousePointerIcon,
+  WebhookIcon,
+  SearchIcon,
+  ClockIcon,
+  GitBranchIcon,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -35,6 +42,13 @@ const triggerNodes: NodeTypeOption[] = [
     label: "Manual Trigger",
     description: "Runs the workflow on clicking a button. Good for getting started quickly.",
     icon: MousePointerIcon,
+  },
+  {
+    type: NodeType.TIMED_TRIGGER,
+    label: "Timed Trigger",
+    description:
+      "Runs the workflow on a schedule (every X hours, daily, weekly, monthly, or custom cron).",
+    icon: ClockIcon,
   },
   {
     type: NodeType.GOOGLE_FORM_TRIGGER,
@@ -105,6 +119,12 @@ const executionNodes: NodeTypeOption[] = [
     label: "Slack",
     description: "Send messages to Slack",
     icon: "/logo/slack.svg",
+  },
+  {
+    type: NodeType.DECIDER,
+    label: "Decider",
+    description: "Evaluate a condition and route to different nodes based on true/false result.",
+    icon: GitBranchIcon,
   },
 ];
 
@@ -345,6 +365,44 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             variables: "discord",
           },
           type: NodeType.DISCORD,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.TIMED_TRIGGER) {
+        const hasTimedTrigger = nodes.some((node) => node.type === NodeType.TIMED_TRIGGER);
+        if (hasTimedTrigger) {
+          toast.error("Only one timed trigger is allowed per workflow");
+          return;
+        }
+        const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Timed Trigger",
+            scheduleType: "interval",
+            intervalHours: 1,
+            intervalMinutes: 0,
+            timezone: "UTC",
+          },
+          type: NodeType.TIMED_TRIGGER,
+          position: flowPosition,
+        };
+
+        if (hasInitialTrigger) {
+          setNodes([newNode]);
+        } else {
+          setNodes((nodes) => [...nodes, newNode]);
+        }
+        onOpenChange(false);
+      } else if (selection.type === NodeType.DECIDER) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Decider",
+            condition: "",
+          },
+          type: NodeType.DECIDER,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

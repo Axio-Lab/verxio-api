@@ -4,6 +4,8 @@
  */
 import { httpRequestChannel } from "./http-request";
 import { manualTriggerChannel } from "./manual-trigger";
+import { timedTriggerChannel } from "./timed-trigger";
+import { deciderChannel } from "./decider";
 import { webhookChannel } from "./webhook";
 import { googleFormTriggerChannel } from "./google-form-trigger";
 import { stripeTriggerChannel } from "./stripe-trigger";
@@ -18,6 +20,8 @@ import { discordChannel } from "./discord";
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
   manualTrigger: manualTriggerChannel,
+  timedTrigger: timedTriggerChannel,
+  decider: deciderChannel,
   webhook: webhookChannel,
   googleFormTrigger: googleFormTriggerChannel,
   stripeTrigger: stripeTriggerChannel,
@@ -36,6 +40,8 @@ export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
 export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   httpRequest: "http-request-execution",
   manualTrigger: "manual-trigger-execution",
+  timedTrigger: "timed-trigger-execution",
+  decider: "decider-execution",
   webhook: "webhook-execution",
   googleFormTrigger: "google-form-trigger-execution",
   stripeTrigger: "stripe-trigger-execution",

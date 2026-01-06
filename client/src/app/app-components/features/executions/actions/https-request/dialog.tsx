@@ -228,7 +228,7 @@ export const HttpRequestDialog = ({ open, onOpenChange, onSubmit, defaultValues 
                     Saving...
                   </>
                 ) : (
-                  "Save"
+                  "Save Configuration"
                 )}
               </Button>
             </DialogFooter>

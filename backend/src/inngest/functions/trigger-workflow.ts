@@ -16,11 +16,14 @@ interface WorkflowNode {
 interface WorkflowConnection {
   source: string;
   target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
 }
 
 // Helper functions
 const TRIGGER_NODE_TYPES = [
   "MANUAL_TRIGGER",
+  "TIMED_TRIGGER",
   "GOOGLE_FORM_TRIGGER",
   "STRIPE_TRIGGER",
   "WEBHOOK",
@@ -35,6 +38,7 @@ const findTriggerNode = (nodes: WorkflowNode[], eventData: any): WorkflowNode | 
     eventData.data?.googleFormNodeId ||
     eventData.data?.stripeNodeId ||
     eventData.data?.webhookNodeId ||
+    eventData.data?.timedTriggerNodeId ||
     null;
 
   if (triggerNodeId) {
@@ -125,7 +129,7 @@ export const triggerWorkflow = inngest.createFunction(
     channels: Object.values(nodeStatusChannels).map((channel) => channel()),
   },
   async ({ event, step, publish }) => {
-    const { workflowId, userId } = event.data;
+    const { workflowId, userId, timedTriggerNodeId } = event.data;
 
     // Validate required parameters
     if (!workflowId) {
@@ -187,9 +191,62 @@ export const triggerWorkflow = inngest.createFunction(
       );
     }
 
-    // Execute workflow nodes
+    // Execute workflow nodes with conditional routing support for DECIDER nodes
     try {
+      const executedNodeIds = new Set<string>();
+      const skippedNodeIds = new Set<string>();
+      const nodeMap = new Map(validNodes.map((n) => [n.id, n]));
+
+      // Track decider results for conditional routing
+      const deciderResults = new Map<string, boolean>();
+
+      // Build connection map with handle information: fromNodeId -> [{ toNodeId, sourceHandle }, ...]
+      const connectionMapWithHandles = new Map<
+        string,
+        Array<{ target: string; sourceHandle?: string }>
+      >();
+      for (const conn of workflow.connections || []) {
+        if (!connectionMapWithHandles.has(conn.source)) {
+          connectionMapWithHandles.set(conn.source, []);
+        }
+        connectionMapWithHandles.get(conn.source)!.push({
+          target: conn.target,
+          sourceHandle: conn.sourceHandle,
+        });
+      }
+
+      // Execute nodes in topological order
       for (const node of validNodes) {
+        // Skip if already executed or explicitly skipped
+        if (executedNodeIds.has(node.id) || skippedNodeIds.has(node.id)) {
+          continue;
+        }
+
+        // Check if this node should be skipped due to a decider condition
+        // Find if any decider node has marked this node to be skipped
+        const shouldSkip = Array.from(deciderResults.entries()).some(([deciderId, result]) => {
+          const deciderConnections = connectionMapWithHandles.get(deciderId) || [];
+          // Check each connection from the decider
+          for (const conn of deciderConnections) {
+            if (conn.target === node.id) {
+              // If decider is true, skip connections from "false" handle
+              if (result === true && conn.sourceHandle === "false") {
+                return true;
+              }
+              // If decider is false, skip connections from "true" handle
+              if (result === false && conn.sourceHandle === "true") {
+                return true;
+              }
+            }
+          }
+          return false;
+        });
+
+        if (shouldSkip) {
+          skippedNodeIds.add(node.id);
+          continue;
+        }
+
         const executor = getExecutor(node.type);
         context = await executor({
           data: node.data as Record<string, unknown>,
@@ -199,6 +256,16 @@ export const triggerWorkflow = inngest.createFunction(
           publish,
           userId,
         });
+
+        executedNodeIds.add(node.id);
+
+        // Store decider result for conditional routing
+        if (node.type === "DECIDER") {
+          const deciderResult = (context as any).decider?.result;
+          if (typeof deciderResult === "boolean") {
+            deciderResults.set(node.id, deciderResult);
+          }
+        }
       }
 
       return {

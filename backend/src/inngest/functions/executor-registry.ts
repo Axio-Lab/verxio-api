@@ -1,5 +1,7 @@
 import { NodeExecutor } from "./types";
 import { manualTriggerExecutor } from "./triggers/manual-trigger";
+import { timedTriggerExecutor } from "./triggers/timed-trigger";
+import { deciderExecutor } from "./triggers/decider";
 import { httpTriggerExecutor } from "./triggers/http-trigger";
 import { webhookTriggerExecutor } from "./triggers/webhook-trigger";
 import { googleFormTriggerExecutor } from "./triggers/google-form-trigger";
@@ -17,6 +19,8 @@ import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 // Note: We cast specific executors to base NodeExecutor type to allow different generic types
 export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.MANUAL_TRIGGER]: manualTriggerExecutor,
+  [NodeType.TIMED_TRIGGER]: timedTriggerExecutor,
+  [NodeType.DECIDER]: deciderExecutor,
   [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
   [NodeType.STRIPE_TRIGGER]: stripeTriggerExecutor as NodeExecutor,
   [NodeType.WHATSAPP_TRIGGER]: whatsappTriggerExecutor as NodeExecutor,

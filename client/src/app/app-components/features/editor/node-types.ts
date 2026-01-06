@@ -2,6 +2,7 @@
 export const NodeType = {
   INITIAL: "INITIAL",
   MANUAL_TRIGGER: "MANUAL_TRIGGER",
+  TIMED_TRIGGER: "TIMED_TRIGGER",
   HTTP_REQUEST: "HTTP_REQUEST",
   WEBHOOK: "WEBHOOK",
   GOOGLE_FORM_TRIGGER: "GOOGLE_FORM_TRIGGER",
@@ -13,6 +14,7 @@ export const NodeType = {
   SLACK: "SLACK",
   WHATSAPP_TRIGGER: "WHATSAPP_TRIGGER",
   WHATSAPP: "WHATSAPP",
+  DECIDER: "DECIDER",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

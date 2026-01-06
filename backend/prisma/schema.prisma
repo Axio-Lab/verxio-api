@@ -352,6 +352,7 @@ model Workflow {
 enum NodeType {
   INITIAL
   MANUAL_TRIGGER
+  TIMED_TRIGGER
   HTTP_REQUEST
   WEBHOOK
   GOOGLE_FORM_TRIGGER
@@ -363,6 +364,7 @@ enum NodeType {
   SLACK
   WHATSAPP_TRIGGER
   WHATSAPP
+  DECIDER
 }
 
 model Node {

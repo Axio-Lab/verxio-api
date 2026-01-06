@@ -66,16 +66,28 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
   // Create refresh token function for a specific channel (uses shared cache)
   const createRefreshToken =
     (channelKey: string) => async (): Promise<Realtime.Subscribe.Token> => {
-      const tokens = await fetchTokens();
-      const token = tokens[channelKey];
-      if (!token) {
-        throw new Error(`Token not found for channel: ${channelKey}`);
+      try {
+        const tokens = await fetchTokens();
+        const token = tokens[channelKey];
+        if (!token) {
+          throw new Error(`Token not found for channel: ${channelKey}`);
+        }
+        return token;
+      } catch (error) {
+        // Log error but don't throw - let the subscription hook handle retries
+        // This prevents WebSocket connection errors from showing in console
+        if (process.env.NODE_ENV === "development") {
+          console.debug(`Token fetch error for ${channelKey} (will retry):`, error);
+        }
+        // Re-throw so the hook knows to retry
+        throw error;
       }
-      return token;
     };
 
-  // Subscribe to all 4 known channels
+  // Subscribe to all node status channels
   // Enable immediately - refreshToken will fetch tokens when needed
+  // Note: WebSocket connection errors (empty error objects) may appear in console
+  // during initial connection - these are handled automatically by the Inngest Realtime library
   const httpRequestSub = useInngestSubscription({
     refreshToken: createRefreshToken("httpRequest"),
     enabled: true,
@@ -136,6 +148,16 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const timedTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("timedTrigger"),
+    enabled: true,
+  });
+
+  const deciderSub = useInngestSubscription({
+    refreshToken: createRefreshToken("decider"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -151,6 +173,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(whatsappSub.data || []),
       ...(slackSub.data || []),
       ...(discordSub.data || []),
+      ...(timedTriggerSub.data || []),
+      ...(deciderSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -165,6 +189,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     whatsappSub.data,
     slackSub.data,
     discordSub.data,
+    timedTriggerSub.data,
+    deciderSub.data,
   ]);
 
   // Filter and update status for this specific node

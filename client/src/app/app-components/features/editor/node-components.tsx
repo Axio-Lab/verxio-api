@@ -18,10 +18,13 @@ import { GeminiNode } from "@/app/app-components/features/executions/actions/gem
 import { WhatsAppNode } from "@/app/app-components/features/executions/actions/whatsapp/node";
 import { SlackNode } from "@/app/app-components/features/executions/actions/slack/node";
 import { DiscordNode } from "@/app/app-components/features/executions/actions/discord/node";
+import { TimedTriggerNode } from "@/app/app-components/features/executions/triggers/timed-trigger/node";
+import { DeciderNode } from "@/app/app-components/features/executions/actions/decider/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
   [NodeType.MANUAL_TRIGGER]: ManualTriggerNode,
+  [NodeType.TIMED_TRIGGER]: TimedTriggerNode,
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
   [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
@@ -33,6 +36,7 @@ export const NodeComponents = {
   [NodeType.WHATSAPP]: WhatsAppNode,
   [NodeType.SLACK]: SlackNode,
   [NodeType.DISCORD]: DiscordNode,
+  [NodeType.DECIDER]: DeciderNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

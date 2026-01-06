@@ -367,16 +367,10 @@ export const updateWorkflowData = async (
     // Create nodes separately using createMany to preserve client-provided IDs
     if (data.nodes.length > 0) {
       const nodesToCreate = data.nodes.map((node) => {
-        // Access the enum value directly: NodeType[node.type] returns the enum value string
-        let nodeType: any = node.type;
-
-        // Validate and convert to enum value if it exists
-        if (node.type && (NodeType as any)[node.type]) {
-          nodeType = (NodeType as any)[node.type];
-        } else if (node.type) {
-          // If the type doesn't exist in enum, throw an error
+        // Validate node type exists in our NodeType constants
+        if (node.type && !Object.values(NodeType).includes(node.type as any)) {
           throw new AppError(
-            `Invalid node type: ${node.type}. Valid types are: ${Object.keys(NodeType).join(", ")}`,
+            `Invalid node type: ${node.type}. Valid types are: ${Object.values(NodeType).join(", ")}`,
             400
           );
         }
@@ -386,7 +380,7 @@ export const updateWorkflowData = async (
           id: node.id, // Use client-provided ID
           workflowId: id,
           name: node.name,
-          type: nodeType,
+          type: node.type as any, // Prisma will validate against the enum
           position: node.position,
           data: node.data || {},
         };
