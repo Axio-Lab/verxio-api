@@ -49,16 +49,6 @@ const menuItems = [
       },
     ],
   },
-  {
-    title: "Executions",
-    items: [
-      {
-        title: "Executions",
-        url: "/executions",
-        icon: <HistoryIcon />,
-      },
-    ],
-  },
   // {
   //   title: "Settings",
   //   items: [

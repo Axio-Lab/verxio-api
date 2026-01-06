@@ -18,7 +18,7 @@ export const DiscordNode = memo((props: NodeProps) => {
   const { data } = props;
   const [dialogOpen, setDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
-  const nodeStatus = useNodeStatus({
+  const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
   const nodeData = (data || {}) as DiscordNodeData;
@@ -62,6 +62,7 @@ export const DiscordNode = memo((props: NodeProps) => {
         name="Discord"
         description={description}
         status={nodeStatus}
+        output={output}
         onSettings={handleOpenSettings}
         onDoubleClick={handleOpenSettings}
         iconColor="!text-indigo-600 dark:!text-indigo-400"

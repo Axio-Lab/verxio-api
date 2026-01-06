@@ -19,7 +19,7 @@ export async function getNodeStatusSubscriptionTokens(): Promise<
   const tokenPromises = Object.entries(nodeStatusChannels).map(async ([key, channel]) => {
     const token = await getSubscriptionToken(inngest, {
       channel: channel(),
-      topics: ["status"] as const,
+      topics: ["status", "output"] as const,
     });
     return [key, token] as [NodeStatusChannelKey, Realtime.Subscribe.Token];
   });

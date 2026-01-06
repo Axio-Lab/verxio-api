@@ -142,3 +142,20 @@ export const prefetchExecution = async (queryClient: any, id: string) => {
     queryFn: () => authenticatedGet<Execution>(`/execution/${id}`),
   });
 };
+
+/**
+ * Get output for a specific node from an execution
+ */
+export interface NodeOutput {
+  nodeId: string;
+  output: Record<string, unknown>;
+}
+
+export function useNodeOutput(executionId: string | null, nodeId: string | null) {
+  return useProtectedQuery<NodeOutput>({
+    queryKey: ["node-output", executionId, nodeId],
+    queryFn: () => authenticatedGet<NodeOutput>(`/execution/${executionId}/node/${nodeId}/output`),
+    enabled: !!executionId && !!nodeId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}

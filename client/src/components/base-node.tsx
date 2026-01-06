@@ -2,7 +2,8 @@ import type { ComponentProps } from "react";
 import { NodeStatus } from "./node-status-indicator";
 
 import { cn } from "@/lib/utils";
-import { CheckCircleIcon, Loader2Icon, XCircleIcon } from "lucide-react";
+import { CheckCircleIcon, Loader2Icon, XCircleIcon, InfoIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function BaseNode({
   className,
@@ -36,7 +37,16 @@ export function BaseNode({
  * A container for a consistent header layout intended to be used inside the
  * `<BaseNode />` component.
  */
-export function BaseNodeHeader({ className, ...props }: ComponentProps<"header">) {
+export function BaseNodeHeader({
+  className,
+  showInfoIcon,
+  onInfoClick,
+  children,
+  ...props
+}: ComponentProps<"header"> & {
+  showInfoIcon?: boolean;
+  onInfoClick?: () => void;
+}) {
   return (
     <header
       {...props}
@@ -46,7 +56,23 @@ export function BaseNodeHeader({ className, ...props }: ComponentProps<"header">
         // `<BaseNode />` component.
         className
       )}
-    />
+    >
+      {children}
+      {showInfoIcon && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInfoClick?.();
+          }}
+          title="View node output"
+        >
+          <InfoIcon className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </header>
   );
 }
 

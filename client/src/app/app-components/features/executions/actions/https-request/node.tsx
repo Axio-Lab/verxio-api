@@ -22,7 +22,7 @@ export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => 
   const { data } = props;
   const [dialogOpen, setDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
-  const nodeStatus = useNodeStatus({
+  const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
   const nodeData = data;
@@ -67,6 +67,7 @@ export const HttpRequestNode = memo((props: NodeProps<HTTPSRequestNodeType>) => 
         description={description}
         onSettings={handleOpenSettings}
         status={nodeStatus}
+        output={output}
         onDoubleClick={handleOpenSettings}
         iconColor="!text-green-600 dark:!text-green-400"
         handleColor="!border-green-500 !bg-green-500"

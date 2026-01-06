@@ -43,15 +43,51 @@ export const discordExecutor: NodeExecutor<DiscordData> = async ({
 
     if (!data.variables) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("Discord node: Variable name is required");
+      const error = new NonRetriableError("Discord node: Variable name is required");
+      await publish(
+        discordChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
     if (!data.webhookUrl) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("Discord node: Webhook URL is required");
+      const error = new NonRetriableError("Discord node: Webhook URL is required");
+      await publish(
+        discordChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
     if (!data.message) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("Discord node: Message is required");
+      const error = new NonRetriableError("Discord node: Message is required");
+      await publish(
+        discordChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
 
     const webhookUrl = Handlebars.compile(data.webhookUrl)(context);
@@ -78,13 +114,52 @@ export const discordExecutor: NodeExecutor<DiscordData> = async ({
         };
       });
       await publishStatus(publish, nodeId, "success");
+
+      // Publish node output to realtime channel
+      await publish(
+        discordChannel().output({
+          nodeId,
+          output: result,
+        })
+      );
+
       return result;
     } catch (error) {
       await publishStatus(publish, nodeId, "error");
+
+      // Publish error output to realtime channel
+      await publish(
+        discordChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error instanceof Error ? error.message : "Failed to send message",
+              stack: error instanceof Error ? error.stack : undefined,
+            },
+          },
+        })
+      );
+
       throw new NonRetriableError("Discord node: Failed to send message");
     }
   } catch (error) {
     await publishStatus(publish, nodeId, "error");
+
+    // Publish error output to realtime channel
+    await publish(
+      discordChannel().output({
+        nodeId,
+        output: {
+          ...context,
+          error: {
+            message: error instanceof Error ? error.message : "Unknown error",
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        },
+      })
+    );
+
     if (error instanceof NonRetriableError) {
       throw error;
     }

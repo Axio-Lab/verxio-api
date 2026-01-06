@@ -61,6 +61,7 @@ const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> 
 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
   const [status, setStatus] = useState<NodeStatus>("initial");
+  const [nodeOutput, setNodeOutput] = useState<Record<string, unknown> | null>(null);
 
   // Create refresh token function for a specific channel (uses shared cache)
   const createRefreshToken =
@@ -172,32 +173,49 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       return;
     }
 
-    // Filter messages for this node
-    // We check nodeId first, then verify it's a status message
-    // This ensures we catch all messages for this node regardless of channel
-    const nodeMessages = allMessages.filter((msg): msg is Extract<typeof msg, { kind: "data" }> => {
-      if (msg.kind !== "data") return false;
-      if (msg.topic !== "status") return false;
-      // Check if this message is for our node
-      if (msg.data?.nodeId !== nodeId) return false;
-      return true;
-    });
+    // Filter status messages for this node
+    const statusMessages = allMessages.filter(
+      (msg): msg is Extract<typeof msg, { kind: "data" }> => {
+        if (msg.kind !== "data") return false;
+        if (msg.topic !== "status") return false;
+        if (msg.data?.nodeId !== nodeId) return false;
+        return true;
+      }
+    );
 
-    if (nodeMessages.length === 0) {
-      return;
+    // Filter output messages for this node
+    const outputMessages = allMessages.filter(
+      (msg): msg is Extract<typeof msg, { kind: "data" }> => {
+        if (msg.kind !== "data") return false;
+        if (msg.topic !== "output") return false;
+        if (msg.data?.nodeId !== nodeId) return false;
+        return true;
+      }
+    );
+
+    // Update status from latest status message
+    if (statusMessages.length > 0) {
+      const latestStatus = statusMessages.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+
+      if (latestStatus?.data?.status) {
+        const newStatus = mapInngestStatusToNodeStatus(latestStatus.data.status);
+        setStatus(newStatus);
+      }
     }
 
-    // Get latest message (most recent first)
-    const latest = nodeMessages.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+    // Update output from latest output message
+    if (outputMessages.length > 0) {
+      const latestOutput = outputMessages.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
 
-    if (latest?.data?.status) {
-      const newStatus = mapInngestStatusToNodeStatus(latest.data.status);
-      // Always update status, even if it's the same (to handle rapid updates)
-      setStatus(newStatus);
+      if (latestOutput?.data?.output) {
+        setNodeOutput(latestOutput.data.output);
+      }
     }
   }, [allMessages, nodeId]);
 
-  return status;
+  return { status, output: nodeOutput };
 }

@@ -4,7 +4,6 @@ import { NonRetriableError } from "inngest";
 import { topologicalSort } from "../utils";
 import { getExecutor } from "./executor-registry";
 import { nodeStatusChannels } from "../channels";
-import { createExecution, updateExecution, ExecutionStatus } from "../../services/executionService";
 
 // Helper types
 interface WorkflowNode {
@@ -26,40 +25,6 @@ const TRIGGER_NODE_TYPES = [
   "STRIPE_TRIGGER",
   "WEBHOOK",
 ] as const;
-
-/**
- * Extract error information from an error object
- */
-const getErrorInfo = (error: unknown): { message: string; stack?: string } => {
-  if (error instanceof Error) {
-    return { message: error.message, stack: error.stack };
-  }
-  return { message: "Unknown error" };
-};
-
-/**
- * Update execution record with error information
- */
-const updateExecutionWithError = async (
-  step: any,
-  executionId: string,
-  error: unknown,
-  stepName: string
-): Promise<void> => {
-  await step.run(stepName, async () => {
-    try {
-      const { message, stack } = getErrorInfo(error);
-      await updateExecution(executionId, {
-        status: ExecutionStatus.FAILED,
-        error: message,
-        errorStack: stack,
-        completedAt: new Date(),
-      });
-    } catch (updateError) {
-      console.error(`Failed to update execution record in ${stepName}:`, updateError);
-    }
-  });
-};
 
 /**
  * Find the trigger node in the workflow
@@ -161,49 +126,13 @@ export const triggerWorkflow = inngest.createFunction(
   },
   async ({ event, step, publish }) => {
     const { workflowId, userId } = event.data;
-    const ingestEventId = (event as any).id;
-
-    if (!ingestEventId) {
-      throw new NonRetriableError("ingestEventId is required");
-    }
-
-    // Create execution record
-    let executionId: string = "";
-    try {
-      const execution = await step.run("create-execution", async () => {
-        return await createExecution({
-          workflowId: workflowId || "unknown",
-          ingestEventId,
-          status: ExecutionStatus.RUNNING,
-        });
-      });
-      executionId = execution.id;
-    } catch (error) {
-      console.error("Failed to create execution record:", error);
-    }
 
     // Validate required parameters
     if (!workflowId) {
-      if (executionId) {
-        await updateExecutionWithError(
-          step,
-          executionId,
-          new Error("workflowId is required"),
-          "update-execution-validation-error"
-        );
-      }
       throw new NonRetriableError("workflowId is required");
     }
 
     if (!userId) {
-      if (executionId) {
-        await updateExecutionWithError(
-          step,
-          executionId,
-          new Error("userId is required"),
-          "update-execution-validation-error"
-        );
-      }
       throw new NonRetriableError("userId is required");
     }
 
@@ -239,15 +168,6 @@ export const triggerWorkflow = inngest.createFunction(
         };
       });
     } catch (error) {
-      if (executionId) {
-        const { message } = getErrorInfo(error);
-        await updateExecutionWithError(
-          step,
-          executionId,
-          new Error(`Workflow preparation failed: ${message}`),
-          "update-execution-prep-error"
-        );
-      }
       throw error;
     }
 
@@ -256,28 +176,12 @@ export const triggerWorkflow = inngest.createFunction(
 
     // Validate nodes array
     if (!Array.isArray(workflow.nodes)) {
-      if (executionId) {
-        await updateExecutionWithError(
-          step,
-          executionId,
-          new Error("Workflow nodes must be an array"),
-          "update-execution-validation-error"
-        );
-      }
       throw new NonRetriableError("Workflow nodes must be an array");
     }
 
     // Validate and filter nodes
     const validNodes = validateNodes(workflow.nodes);
     if (validNodes.length === 0) {
-      if (executionId) {
-        await updateExecutionWithError(
-          step,
-          executionId,
-          new Error("Workflow has no valid nodes to execute. All nodes must have an id and type."),
-          "update-execution-validation-error"
-        );
-      }
       throw new NonRetriableError(
         "Workflow has no valid nodes to execute. All nodes must have an id and type."
       );
@@ -297,30 +201,11 @@ export const triggerWorkflow = inngest.createFunction(
         });
       }
 
-      // Update execution record on success
-      if (executionId) {
-        await step.run("update-execution-success", async () => {
-          try {
-            await updateExecution(executionId, {
-              status: ExecutionStatus.SUCCESS,
-              output: context,
-              completedAt: new Date(),
-            });
-          } catch (error) {
-            console.error("Failed to update execution record on success:", error);
-          }
-        });
-      }
-
       return {
         workflowId,
         result: context,
       };
     } catch (error) {
-      // Update execution record on failure
-      if (executionId) {
-        await updateExecutionWithError(step, executionId, error, "update-execution-error");
-      }
       throw error;
     }
   }

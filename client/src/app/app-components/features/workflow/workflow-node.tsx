@@ -1,7 +1,7 @@
 "use client";
 
 import { NodeToolbar, Position } from "@xyflow/react";
-import { SettingsIcon, TrashIcon, Loader2Icon } from "lucide-react";
+import { SettingsIcon, TrashIcon, Loader2Icon, InfoIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +10,8 @@ interface WorkflowNodeProps {
   showToolbar?: boolean;
   onDelete?: () => void;
   onSettings?: () => void;
+  onInfoClick?: () => void;
+  showInfoIcon?: boolean;
   name?: string;
   description?: string;
   isDeleting?: boolean;
@@ -20,24 +22,35 @@ export const WorkflowNode = ({
   showToolbar,
   onDelete,
   onSettings,
+  onInfoClick,
+  showInfoIcon,
   name,
   description,
   isDeleting = false,
 }: WorkflowNodeProps) => {
   return (
     <>
-      {showToolbar && (
+      {(showToolbar || showInfoIcon) && (
         <NodeToolbar>
-          <Button size="sm" variant="ghost" onClick={onSettings} disabled={isDeleting}>
-            <SettingsIcon className="size-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onDelete} disabled={isDeleting}>
-            {isDeleting ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <TrashIcon className="size-4" />
-            )}
-          </Button>
+          {showInfoIcon && (
+            <Button size="sm" variant="ghost" onClick={onInfoClick} title="View node output">
+              <InfoIcon className="size-4" />
+            </Button>
+          )}
+          {showToolbar && (
+            <>
+              <Button size="sm" variant="ghost" onClick={onSettings} disabled={isDeleting}>
+                <SettingsIcon className="size-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} disabled={isDeleting}>
+                {isDeleting ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <TrashIcon className="size-4" />
+                )}
+              </Button>
+            </>
+          )}
         </NodeToolbar>
       )}
       {children}

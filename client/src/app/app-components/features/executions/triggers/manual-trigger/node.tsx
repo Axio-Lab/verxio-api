@@ -9,7 +9,7 @@ import { useNodeStatus } from "@/app/app-components/features/executions/hooks/us
 
 export const ManualTriggerNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const nodeStatus = useNodeStatus({
+  const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
   const handleOpenSettings = () => {
@@ -24,6 +24,7 @@ export const ManualTriggerNode = memo((props: NodeProps) => {
         icon={MousePointerIcon}
         name="Manual Trigger"
         status={nodeStatus}
+        output={output}
         onSettings={handleOpenSettings}
         onDoubleClick={handleOpenSettings}
       />

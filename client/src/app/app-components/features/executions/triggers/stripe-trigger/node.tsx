@@ -15,7 +15,7 @@ type StripeTriggerNodeData = {
 export const StripeTriggerNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
-  const nodeStatus = useNodeStatus({
+  const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
   const nodeData = (props.data || {}) as StripeTriggerNodeData;
@@ -61,6 +61,7 @@ export const StripeTriggerNode = memo((props: NodeProps) => {
         name="Stripe"
         description={description}
         status={nodeStatus}
+        output={output}
         onSettings={handleOpenSettings}
         onDoubleClick={handleOpenSettings}
       />

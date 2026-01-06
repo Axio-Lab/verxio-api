@@ -43,11 +43,35 @@ export const slackExecutor: NodeExecutor<SlackData> = async ({
     const variablesName = data.variables || "slack";
     if (!data.webhookUrl) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("Slack node: Webhook URL is required");
+      const error = new NonRetriableError("Slack node: Webhook URL is required");
+      await publish(
+        slackChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
     if (!data.message) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("Slack node: Message is required");
+      const error = new NonRetriableError("Slack node: Message is required");
+      await publish(
+        slackChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
 
     const webhookUrl = Handlebars.compile(data.webhookUrl)(context);
@@ -77,9 +101,33 @@ export const slackExecutor: NodeExecutor<SlackData> = async ({
     });
 
     await publishStatus(publish, nodeId, "success");
+
+    // Publish node output to realtime channel
+    await publish(
+      slackChannel().output({
+        nodeId,
+        output: result,
+      })
+    );
+
     return result;
   } catch (error) {
     await publishStatus(publish, nodeId, "error");
+
+    // Publish error output to realtime channel
+    await publish(
+      slackChannel().output({
+        nodeId,
+        output: {
+          ...context,
+          error: {
+            message: error instanceof Error ? error.message : "Unknown error",
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        },
+      })
+    );
+
     if (error instanceof NonRetriableError) {
       throw error;
     }

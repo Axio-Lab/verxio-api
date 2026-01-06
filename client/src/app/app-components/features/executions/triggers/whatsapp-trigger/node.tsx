@@ -8,7 +8,7 @@ import { useNodeStatus } from "../../hooks/use-node-status";
 
 export const WhatsAppTriggerNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const nodeStatus = useNodeStatus({
+  const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
   const handleOpenSettings = () => {
@@ -24,6 +24,7 @@ export const WhatsAppTriggerNode = memo((props: NodeProps) => {
         name="WhatsApp"
         description="When a message is received."
         status={nodeStatus}
+        output={output}
         onSettings={handleOpenSettings}
         onDoubleClick={handleOpenSettings}
       />

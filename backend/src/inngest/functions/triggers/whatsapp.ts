@@ -42,11 +42,35 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
     const variablesName = data.variables || "whatsapp";
     if (!data.phoneNumber) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("WhatsApp node: Phone number is required");
+      const error = new NonRetriableError("WhatsApp node: Phone number is required");
+      await publish(
+        whatsappChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
     if (!data.message) {
       await publishStatus(publish, nodeId, "error");
-      throw new NonRetriableError("WhatsApp node: Message is required");
+      const error = new NonRetriableError("WhatsApp node: Message is required");
+      await publish(
+        whatsappChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error.message,
+            },
+          },
+        })
+      );
+      throw error;
     }
 
     const phoneNumber = Handlebars.compile(data.phoneNumber)(context);
@@ -73,9 +97,33 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
     });
 
     await publishStatus(publish, nodeId, "success");
+
+    // Publish node output to realtime channel
+    await publish(
+      whatsappChannel().output({
+        nodeId,
+        output: result,
+      })
+    );
+
     return result;
   } catch (error) {
     await publishStatus(publish, nodeId, "error");
+
+    // Publish error output to realtime channel
+    await publish(
+      whatsappChannel().output({
+        nodeId,
+        output: {
+          ...context,
+          error: {
+            message: error instanceof Error ? error.message : "Unknown error",
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        },
+      })
+    );
+
     if (error instanceof NonRetriableError) {
       throw error;
     }

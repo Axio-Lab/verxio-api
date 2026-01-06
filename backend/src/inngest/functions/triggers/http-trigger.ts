@@ -144,9 +144,42 @@ export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async ({
         // Publish success status before returning
         await publishStatus(publish, nodeId, "success");
 
+        // Publish node output to realtime channel
+        await publish(
+          httpRequestChannel().output({
+            nodeId,
+            output: result,
+          })
+        );
+
         return result;
       } catch (error: any) {
         await publishStatus(publish, nodeId, "error");
+
+        // Publish error output to realtime channel
+        const errorMessage = error.response
+          ? `HTTP Request failed: ${error.response.status} ${error.response.statusText}`
+          : `HTTP Request failed: ${error.message || "Unknown error"}`;
+
+        await publish(
+          httpRequestChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: {
+                message: errorMessage,
+                stack: error instanceof Error ? error.stack : undefined,
+                response: error.response
+                  ? {
+                      status: error.response.status,
+                      statusText: error.response.statusText,
+                    }
+                  : undefined,
+              },
+            },
+          })
+        );
+
         return handleHttpError(error);
       }
     });

@@ -51,9 +51,32 @@ export const whatsappTriggerExecutor: NodeExecutor<WhatsAppTriggerData> = async 
     // Publish success status before returning
     await publishStatus(publish, nodeId, "success");
 
+    // Publish node output to realtime channel
+    await publish(
+      whatsappTriggerChannel().output({
+        nodeId,
+        output: result,
+      })
+    );
+
     return result;
   } catch (error) {
     await publishStatus(publish, nodeId, "error");
+
+    // Publish error output to realtime channel
+    await publish(
+      whatsappTriggerChannel().output({
+        nodeId,
+        output: {
+          ...context,
+          error: {
+            message: error instanceof Error ? error.message : "Unknown error",
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        },
+      })
+    );
+
     if (error instanceof NonRetriableError) {
       throw error;
     }
