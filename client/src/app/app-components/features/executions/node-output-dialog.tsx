@@ -20,37 +20,39 @@ export function NodeOutputDialog({ open, onOpenChange, output }: NodeOutputDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Node Output</DialogTitle>
           <DialogDescription>Output data for this node from the execution</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto mt-4">
-          {!displayOutput && (
-            <p className="text-sm text-muted-foreground">
-              No output available yet. Run the workflow to see output.
-            </p>
-          )}
-          {displayOutput && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Output Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="text-xs bg-muted p-4 rounded-md overflow-auto max-h-96">
-                  {JSON.stringify(displayOutput, null, 2)}
-                </pre>
-                <p className="text-xs text-muted-foreground mt-4">
-                  Use the variable names shown above in other nodes with Handlebars templating
-                  (e.g.,{" "}
-                  <code className="bg-background px-1 py-0.5 rounded">
-                    {"{{variableName.field}}"}
-                  </code>
-                  )
-                </p>
-              </CardContent>
-            </Card>
-          )}
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto mt-4 pr-2 -mr-2">
+            {!displayOutput && (
+              <p className="text-sm text-muted-foreground">
+                No output available yet. Run the workflow to see output.
+              </p>
+            )}
+            {displayOutput && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Output Data</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-xs bg-muted p-4 rounded-md overflow-auto">
+                    {JSON.stringify(displayOutput, null, 2)}
+                  </pre>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Use the variable names shown above in other nodes with Handlebars templating
+                    (e.g.,{" "}
+                    <code className="bg-background px-1 py-0.5 rounded">
+                      {"{{variableName.field}}"}
+                    </code>
+                    )
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

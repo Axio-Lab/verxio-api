@@ -30,7 +30,6 @@ export const TimedTriggerNode = memo((props: NodeProps) => {
               intervalHours: values.intervalHours,
               intervalMinutes: values.intervalMinutes,
               cronExpression: values.cronExpression,
-              timezone: values.timezone,
               enabled: values.enabled,
             },
           };

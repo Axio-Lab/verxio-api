@@ -383,7 +383,6 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             scheduleType: "interval",
             intervalHours: 1,
             intervalMinutes: 0,
-            timezone: "UTC",
           },
           type: NodeType.TIMED_TRIGGER,
           position: flowPosition,

@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { timezones } from "@/lib/timezones";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
@@ -27,7 +26,6 @@ export type TimedTriggerFormValues = {
   intervalHours?: number;
   intervalMinutes?: number;
   cronExpression?: string;
-  timezone: string;
   enabled: boolean;
 };
 
@@ -49,7 +47,6 @@ export const TimedTriggerDialog = ({ open, onOpenChange, onSubmit, defaultValues
     defaultValues.intervalMinutes?.toString() || "0"
   );
   const [cronExpression, setCronExpression] = useState<string>(defaultValues.cronExpression || "");
-  const [timezone, setTimezone] = useState<string>(defaultValues.timezone || "UTC");
   const [enabled, setEnabled] = useState<boolean>(
     defaultValues.enabled !== undefined ? defaultValues.enabled : true
   );
@@ -60,7 +57,6 @@ export const TimedTriggerDialog = ({ open, onOpenChange, onSubmit, defaultValues
       setIntervalHours(defaultValues.intervalHours?.toString() || "1");
       setIntervalMinutes(defaultValues.intervalMinutes?.toString() || "0");
       setCronExpression(defaultValues.cronExpression || "");
-      setTimezone(defaultValues.timezone || "UTC");
       setEnabled(defaultValues.enabled !== undefined ? defaultValues.enabled : true);
     }
   }, [open, defaultValues]);
@@ -73,7 +69,6 @@ export const TimedTriggerDialog = ({ open, onOpenChange, onSubmit, defaultValues
           intervalHours: scheduleType === "interval" ? parseInt(intervalHours) : undefined,
           intervalMinutes: scheduleType === "interval" ? parseInt(intervalMinutes) : undefined,
           cronExpression: scheduleType === "cron" ? cronExpression : undefined,
-          timezone,
           enabled,
         })
       );
@@ -154,23 +149,6 @@ export const TimedTriggerDialog = ({ open, onOpenChange, onSubmit, defaultValues
                 </p>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select value={timezone} onValueChange={setTimezone}>
-                <SelectTrigger id="timezone">
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {timezones.map((tz) => (
-                    <SelectItem key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Select the timezone for the schedule</p>
-            </div>
 
             <div className="flex items-center justify-between space-x-2 pt-2">
               <div className="space-y-0.5">
