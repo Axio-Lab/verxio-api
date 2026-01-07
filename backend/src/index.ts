@@ -16,10 +16,13 @@ import { workflowRouter } from "./routes/workflow";
 import { credentialRouter } from "./routes/credential";
 import { googleFormRouter } from "./routes/triggers/google-form";
 import { stripeRouter } from "./routes/triggers/stripe";
+import { telegramRouter } from "./routes/triggers/telegram";
+import { googleAuthRouter } from "./routes/auth/google";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
 import { functions } from "./inngest/functions";
+import { initializeCronScheduler } from "./services/cron-scheduler";
 
 // Load environment variables
 dotenv.config();
@@ -126,6 +129,7 @@ app.use((req, res, next) => {
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/webhooks", googleFormRouter);
 app.use("/api/webhooks", stripeRouter);
+app.use("/api/webhooks/telegram", telegramRouter);
 
 // API routes
 // app.use('/health', healthRouter);
@@ -135,6 +139,7 @@ app.use("/voucher", voucherRouter);
 app.use("/deal", dealRouter);
 app.use("/workflow", workflowRouter);
 app.use("/credential", credentialRouter);
+app.use("/api/auth/google", googleAuthRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)
@@ -155,8 +160,11 @@ app.use(errorHandler);
 
 // Start server
 
-app.listen(serverPort, () => {
+app.listen(serverPort, async () => {
   console.log(`🚀 Verxio API Server running on port ${serverPort}`);
+
+  // Initialize cron scheduler for timed triggers
+  await initializeCronScheduler();
 });
 
 export default app;

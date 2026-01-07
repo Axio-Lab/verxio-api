@@ -13,6 +13,13 @@ import { whatsappTriggerExecutor } from "./triggers/whatsapp-trigger";
 import { whatsappExecutor } from "./triggers/whatsapp";
 import { slackExecutor } from "./triggers/slack";
 import { discordExecutor } from "./triggers/discord";
+import { telegramTriggerExecutor } from "./triggers/telegram-trigger";
+import { telegramExecutor } from "./triggers/telegram";
+import { googleDriveExecutor } from "./actions/google-drive";
+import { googleCalendarExecutor } from "./actions/google-calendar";
+import { googleSheetsExecutor } from "./actions/google-sheets";
+import { googleDocsExecutor } from "./actions/google-docs";
+import { googleMeetExecutor } from "./actions/google-meet";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -33,6 +40,13 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.WHATSAPP]: whatsappExecutor as NodeExecutor,
   [NodeType.SLACK]: slackExecutor as NodeExecutor,
   [NodeType.DISCORD]: discordExecutor as NodeExecutor,
+  [NodeType.TELEGRAM_TRIGGER]: telegramTriggerExecutor as NodeExecutor,
+  [NodeType.TELEGRAM]: telegramExecutor as NodeExecutor,
+  [NodeType.GOOGLE_DRIVE]: googleDriveExecutor as NodeExecutor,
+  [NodeType.GOOGLE_CALENDAR]: googleCalendarExecutor as NodeExecutor,
+  [NodeType.GOOGLE_SHEETS]: googleSheetsExecutor as NodeExecutor,
+  [NodeType.GOOGLE_DOCS]: googleDocsExecutor as NodeExecutor,
+  [NodeType.GOOGLE_MEET]: googleMeetExecutor as NodeExecutor,
 };
 
 /**

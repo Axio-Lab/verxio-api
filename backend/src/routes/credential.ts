@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import * as credentialService from "../services/credentialService";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
-import { CredentialType } from "../services/credentialService";
+import { CredentialType, isValidCredentialType } from "../services/credentialService";
 
 export const credentialRouter: Router = Router();
 
@@ -153,10 +153,10 @@ credentialRouter.post("/", async (req: Request, res: Response, next: NextFunctio
       throw new AppError("Name, value, and type are required", 400);
     }
 
-    // Validate type
-    if (!Object.values(CredentialType).includes(type)) {
+    // Validate type (allows known types and custom types)
+    if (!isValidCredentialType(type)) {
       throw new AppError(
-        `Invalid type. Must be one of: ${Object.values(CredentialType).join(", ")}`,
+        `Invalid type. Must be a known type (${Object.values(CredentialType).join(", ")}) or a custom type (uppercase, alphanumeric + underscore, 3-50 chars)`,
         400
       );
     }
@@ -291,10 +291,10 @@ credentialRouter.put("/:id", async (req: Request, res: Response, next: NextFunct
     const { id } = req.params;
     const { name, value, type } = req.body;
 
-    // Validate type if provided
-    if (type && !Object.values(CredentialType).includes(type)) {
+    // Validate type if provided (allows known types and custom types)
+    if (type && !isValidCredentialType(type)) {
       throw new AppError(
-        `Invalid type. Must be one of: ${Object.values(CredentialType).join(", ")}`,
+        `Invalid type. Must be a known type (${Object.values(CredentialType).join(", ")}) or a custom type (uppercase, alphanumeric + underscore, 3-50 chars)`,
         400
       );
     }

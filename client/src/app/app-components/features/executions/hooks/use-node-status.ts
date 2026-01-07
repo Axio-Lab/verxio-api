@@ -33,9 +33,12 @@ let tokenCache: {
   timestamp: 0,
 };
 
+// Request deduplication: track in-flight requests
+let inFlightRequest: Promise<Record<string, Realtime.Subscribe.Token>> | null = null;
+
 const TOKEN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Fetch all subscription tokens from backend (with caching)
+// Fetch all subscription tokens from backend (with caching and request deduplication)
 const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> => {
   const now = Date.now();
 
@@ -44,19 +47,34 @@ const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> 
     return tokenCache.tokens;
   }
 
-  const response = await authenticatedGet<{
-    success: boolean;
-    tokens: Record<string, Realtime.Subscribe.Token>;
-    channelNames: Record<string, string>;
-  }>("/workflow/subscription-token");
+  // If a request is already in flight, wait for it instead of making a new one
+  if (inFlightRequest) {
+    return inFlightRequest;
+  }
 
-  // Update cache
-  tokenCache = {
-    tokens: response.tokens,
-    timestamp: now,
-  };
+  // Create new request and store it
+  inFlightRequest = (async () => {
+    try {
+      const response = await authenticatedGet<{
+        success: boolean;
+        tokens: Record<string, Realtime.Subscribe.Token>;
+        channelNames: Record<string, string>;
+      }>("/workflow/subscription-token");
 
-  return response.tokens;
+      // Update cache
+      tokenCache = {
+        tokens: response.tokens,
+        timestamp: Date.now(),
+      };
+
+      return response.tokens;
+    } finally {
+      // Clear in-flight request after completion (success or error)
+      inFlightRequest = null;
+    }
+  })();
+
+  return inFlightRequest;
 };
 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
@@ -133,8 +151,18 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const telegramTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("telegramTrigger"),
+    enabled: true,
+  });
+
   const whatsappSub = useInngestSubscription({
     refreshToken: createRefreshToken("whatsapp"),
+    enabled: true,
+  });
+
+  const telegramSub = useInngestSubscription({
+    refreshToken: createRefreshToken("telegram"),
     enabled: true,
   });
 
@@ -158,6 +186,31 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const googleDriveSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleDrive"),
+    enabled: true,
+  });
+
+  const googleCalendarSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleCalendar"),
+    enabled: true,
+  });
+
+  const googleSheetsSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleSheets"),
+    enabled: true,
+  });
+
+  const googleDocsSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleDocs"),
+    enabled: true,
+  });
+
+  const googleMeetSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleMeet"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -170,11 +223,18 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(anthropicSub.data || []),
       ...(geminiSub.data || []),
       ...(whatsappTriggerSub.data || []),
+      ...(telegramTriggerSub.data || []),
       ...(whatsappSub.data || []),
+      ...(telegramSub.data || []),
       ...(slackSub.data || []),
       ...(discordSub.data || []),
       ...(timedTriggerSub.data || []),
       ...(deciderSub.data || []),
+      ...(googleDriveSub.data || []),
+      ...(googleCalendarSub.data || []),
+      ...(googleSheetsSub.data || []),
+      ...(googleDocsSub.data || []),
+      ...(googleMeetSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -186,11 +246,18 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     anthropicSub.data,
     geminiSub.data,
     whatsappTriggerSub.data,
+    telegramTriggerSub.data,
     whatsappSub.data,
+    telegramSub.data,
     slackSub.data,
     discordSub.data,
     timedTriggerSub.data,
     deciderSub.data,
+    googleDriveSub.data,
+    googleCalendarSub.data,
+    googleSheetsSub.data,
+    googleDocsSub.data,
+    googleMeetSub.data,
   ]);
 
   // Filter and update status for this specific node

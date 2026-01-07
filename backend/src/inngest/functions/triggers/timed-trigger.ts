@@ -6,7 +6,6 @@ type TimedTriggerData = {
   intervalHours?: number;
   intervalMinutes?: number;
   cronExpression?: string;
-  timezone?: string;
   enabled?: boolean; // If false, the schedule is paused/stopped
 };
 

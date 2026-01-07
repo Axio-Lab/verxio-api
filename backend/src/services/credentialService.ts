@@ -1,10 +1,38 @@
 import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
 
+/**
+ * Known credential types for validation and type safety
+ * New types can be added here, but custom types are also supported
+ */
 export enum CredentialType {
   OPENAI = "OPENAI",
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
+  TELEGRAM = "TELEGRAM",
+  GOOGLE_OAUTH = "GOOGLE_OAUTH",
+  // Add more known types here as needed
+}
+
+/**
+ * List of known credential types for validation
+ * Custom types (not in this list) are also allowed
+ */
+export const KNOWN_CREDENTIAL_TYPES = Object.values(CredentialType);
+
+/**
+ * Validate credential type
+ * Allows known types and custom string types (for future extensibility)
+ */
+export function isValidCredentialType(type: string): boolean {
+  // Allow known types
+  if (KNOWN_CREDENTIAL_TYPES.includes(type as CredentialType)) {
+    return true;
+  }
+
+  // Allow custom types (must be uppercase, alphanumeric + underscore, 3-50 chars)
+  const customTypePattern = /^[A-Z][A-Z0-9_]{2,49}$/;
+  return customTypePattern.test(type);
 }
 
 // Use basePrismaClient for credential model
@@ -13,20 +41,20 @@ const prismaClient = basePrismaClient as any;
 export interface CreateCredentialData {
   name: string;
   value: string;
-  type: CredentialType;
+  type: string; // Changed to string to support custom types
   userId: string;
 }
 
 export interface UpdateCredentialData {
   name?: string;
   value?: string;
-  type?: CredentialType;
+  type?: string; // Changed to string to support custom types
 }
 
 export interface CredentialResponse {
   id: string;
   name: string;
-  type: CredentialType;
+  type: string; // Changed to string to support custom types
   value: string;
   createdAt: Date;
   updatedAt: Date;
@@ -73,10 +101,12 @@ export const createCredential = async (data: CreateCredentialData): Promise<Cred
     throw new AppError("User not found", 404);
   }
 
-  // Validate credential type
-  const validTypes = Object.values(CredentialType);
-  if (!validTypes.includes(data.type)) {
-    throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
+  // Validate credential type (allows known types and custom types)
+  if (!isValidCredentialType(data.type)) {
+    throw new AppError(
+      `Invalid credential type. Must be a known type (${KNOWN_CREDENTIAL_TYPES.join(", ")}) or a custom type (uppercase, alphanumeric + underscore, 3-50 chars)`,
+      400
+    );
   }
 
   const credential = await prismaClient.credential.create({
@@ -122,10 +152,12 @@ export const getCredentials = async (
   // Build where clause
   const where: any = { userId };
   if (type) {
-    // Validate type if provided
-    const validTypes = Object.values(CredentialType);
-    if (!validTypes.includes(type)) {
-      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
+    // Validate type if provided (allows known types and custom types)
+    if (!isValidCredentialType(type)) {
+      throw new AppError(
+        `Invalid credential type. Must be a known type (${KNOWN_CREDENTIAL_TYPES.join(", ")}) or a custom type (uppercase, alphanumeric + underscore, 3-50 chars)`,
+        400
+      );
     }
     where.type = type;
   }
@@ -228,11 +260,13 @@ export const updateCredential = async (
     throw new AppError("Credential not found", 404);
   }
 
-  // Validate credential type if provided
+  // Validate credential type if provided (allows known types and custom types)
   if (data.type) {
-    const validTypes = Object.values(CredentialType);
-    if (!validTypes.includes(data.type)) {
-      throw new AppError(`Invalid credential type. Must be one of: ${validTypes.join(", ")}`, 400);
+    if (!isValidCredentialType(data.type)) {
+      throw new AppError(
+        `Invalid credential type. Must be a known type (${KNOWN_CREDENTIAL_TYPES.join(", ")}) or a custom type (uppercase, alphanumeric + underscore, 3-50 chars)`,
+        400
+      );
     }
   }
 

@@ -16,6 +16,13 @@ import { geminiChannel } from "./gemini";
 import { whatsappChannel } from "./whatsapp";
 import { slackChannel } from "./slack";
 import { discordChannel } from "./discord";
+import { telegramTriggerChannel } from "./telegram-trigger";
+import { telegramChannel } from "./telegram";
+import { googleDriveChannel } from "./google-drive";
+import { googleCalendarChannel } from "./google-calendar";
+import { googleSheetsChannel } from "./google-sheets";
+import { googleDocsChannel } from "./google-docs";
+import { googleMeetChannel } from "./google-meet";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -32,6 +39,13 @@ export const nodeStatusChannels = {
   whatsapp: whatsappChannel,
   slack: slackChannel,
   discord: discordChannel,
+  telegramTrigger: telegramTriggerChannel,
+  telegram: telegramChannel,
+  googleDrive: googleDriveChannel,
+  googleCalendar: googleCalendarChannel,
+  googleSheets: googleSheetsChannel,
+  googleDocs: googleDocsChannel,
+  googleMeet: googleMeetChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -52,4 +66,11 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   whatsapp: "whatsapp-execution",
   slack: "slack-execution",
   discord: "discord-execution",
+  telegramTrigger: "telegram-trigger-execution",
+  telegram: "telegram-execution",
+  googleDrive: "google-drive-execution",
+  googleCalendar: "google-calendar-execution",
+  googleSheets: "google-sheets-execution",
+  googleDocs: "google-docs-execution",
+  googleMeet: "google-meet-execution",
 };

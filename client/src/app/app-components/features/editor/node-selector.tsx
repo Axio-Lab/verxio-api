@@ -69,6 +69,12 @@ const triggerNodes: NodeTypeOption[] = [
     description: "Triggers the workflow when a Whatsapp message is sent.",
     icon: "/logo/whatsapp.svg",
   },
+  {
+    type: NodeType.TELEGRAM_TRIGGER,
+    label: "Telegram Trigger",
+    description: "Triggers the workflow when a Telegram message is received.",
+    icon: "/logo/telegram.svg",
+  },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -109,6 +115,12 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/whatsapp.svg",
   },
   {
+    type: NodeType.TELEGRAM,
+    label: "Telegram",
+    description: "Send messages to Telegram",
+    icon: "/logo/telegram.svg",
+  },
+  {
     type: NodeType.DISCORD,
     label: "Discord",
     description: "Send messages to Discord",
@@ -125,6 +137,36 @@ const executionNodes: NodeTypeOption[] = [
     label: "Decider",
     description: "Evaluate a condition and route to different nodes based on true/false result.",
     icon: GitBranchIcon,
+  },
+  {
+    type: NodeType.GOOGLE_DRIVE,
+    label: "Google Drive",
+    description: "Upload, download, delete, and manage files in Google Drive",
+    icon: "/logo/googledrive.svg",
+  },
+  {
+    type: NodeType.GOOGLE_CALENDAR,
+    label: "Google Calendar",
+    description: "Create, list, update, and manage calendar events",
+    icon: "/logo/googlecalendar.svg",
+  },
+  {
+    type: NodeType.GOOGLE_SHEETS,
+    label: "Google Sheets",
+    description: "Read, write, and manage data in Google Sheets",
+    icon: "/logo/googlesheets.svg",
+  },
+  {
+    type: NodeType.GOOGLE_DOCS,
+    label: "Google Docs",
+    description: "Create, read, update, and export Google Docs",
+    icon: "/logo/googledocs.svg",
+  },
+  {
+    type: NodeType.GOOGLE_MEET,
+    label: "Google Meet",
+    description: "Create meetings and get meeting links",
+    icon: "/logo/googlemeet.svg",
   },
 ];
 
@@ -275,6 +317,28 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
           setNodes((nodes) => [...nodes, newNode]);
         }
         onOpenChange(false);
+      } else if (selection.type === NodeType.TELEGRAM_TRIGGER) {
+        const hasTelegramTrigger = nodes.some((node) => node.type === NodeType.TELEGRAM_TRIGGER);
+        if (hasTelegramTrigger) {
+          toast.error("Only one Telegram trigger is allowed per workflow");
+          return;
+        }
+        const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Telegram Trigger",
+          },
+          type: NodeType.TELEGRAM_TRIGGER,
+          position: flowPosition,
+        };
+
+        if (hasInitialTrigger) {
+          setNodes([newNode]);
+        } else {
+          setNodes((nodes) => [...nodes, newNode]);
+        }
+        onOpenChange(false);
       } else if (selection.type === NodeType.HTTP_REQUEST) {
         const newNode = {
           id: createId(),
@@ -345,6 +409,18 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
+      } else if (selection.type === NodeType.TELEGRAM) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Telegram",
+            variables: "telegram",
+          },
+          type: NodeType.TELEGRAM,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
       } else if (selection.type === NodeType.SLACK) {
         const newNode = {
           id: createId(),
@@ -402,6 +478,73 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             condition: "",
           },
           type: NodeType.DECIDER,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_DRIVE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Drive",
+            variables: "googleDrive",
+            action: "upload",
+          },
+          type: NodeType.GOOGLE_DRIVE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_CALENDAR) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Calendar",
+            variables: "googleCalendar",
+            action: "createEvent",
+            calendarId: "primary",
+          },
+          type: NodeType.GOOGLE_CALENDAR,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_SHEETS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Sheets",
+            variables: "googleSheets",
+            action: "readRange",
+          },
+          type: NodeType.GOOGLE_SHEETS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_DOCS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Docs",
+            variables: "googleDocs",
+            action: "createDocument",
+          },
+          type: NodeType.GOOGLE_DOCS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_MEET) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Meet",
+            variables: "googleMeet",
+            action: "createMeeting",
+            calendarId: "primary",
+          },
+          type: NodeType.GOOGLE_MEET,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

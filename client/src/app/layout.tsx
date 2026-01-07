@@ -7,7 +7,6 @@ import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
 import { NuqsProvider } from "@/lib/nuqs-adapter";
 import { Provider as JotaiProvider } from "jotai";
-import { WebSocketErrorHandler } from "./app-components/WebSocketErrorHandler";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -38,7 +37,6 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <WebSocketErrorHandler />
           <NuqsProvider>
             <RouteGuard>
               <ConditionalNavbar />

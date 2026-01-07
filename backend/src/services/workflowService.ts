@@ -435,7 +435,42 @@ export const updateWorkflowData = async (
     });
   });
 
-  return transformWorkflow(workflow);
+  const transformedWorkflow = transformWorkflow(workflow);
+
+  // Schedule/update cron jobs for TIMED_TRIGGER nodes
+  // Do this asynchronously after returning the response
+  const timedTriggerNodes = workflow.nodes.filter((node: any) => node.type === "TIMED_TRIGGER");
+
+  if (timedTriggerNodes.length > 0) {
+    // Schedule asynchronously without blocking the response
+    process.nextTick(async () => {
+      try {
+        const { scheduleTimedTrigger, cancelTimedTrigger } = await import("./cron-scheduler");
+
+        for (const node of timedTriggerNodes) {
+          try {
+            const nodeData = (node.data as any) || {};
+            const isEnabled =
+              nodeData.enabled !== false && nodeData.enabled !== "false" && nodeData.enabled !== 0;
+
+            if (isEnabled) {
+              await scheduleTimedTrigger(id, userId, node.id, nodeData);
+            } else {
+              // Cancel cron job if disabled
+              cancelTimedTrigger(node.id);
+            }
+          } catch (error) {
+            console.error(`Failed to schedule cron job for timed trigger node ${node.id}:`, error);
+            // Continue with other nodes even if one fails
+          }
+        }
+      } catch (error) {
+        console.error("Failed to import cron scheduler:", error);
+      }
+    });
+  }
+
+  return transformedWorkflow;
 };
 
 /**

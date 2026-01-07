@@ -26,6 +26,7 @@ const TRIGGER_NODE_TYPES = [
   "TIMED_TRIGGER",
   "GOOGLE_FORM_TRIGGER",
   "STRIPE_TRIGGER",
+  "TELEGRAM_TRIGGER",
   "WEBHOOK",
 ] as const;
 
@@ -38,6 +39,7 @@ const findTriggerNode = (nodes: WorkflowNode[], eventData: any): WorkflowNode | 
     eventData.data?.googleFormNodeId ||
     eventData.data?.stripeNodeId ||
     eventData.data?.webhookNodeId ||
+    eventData.data?.telegramNodeId ||
     eventData.data?.timedTriggerNodeId ||
     null;
 

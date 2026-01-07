@@ -12,6 +12,8 @@ export enum CredentialType {
   OPENAI = "OPENAI",
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
+  TELEGRAM = "TELEGRAM",
+  GOOGLE_OAUTH = "GOOGLE_OAUTH",
 }
 
 export interface Credential {

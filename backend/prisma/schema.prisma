@@ -252,17 +252,18 @@ model Deal {
 
 // Better Auth Models
 model User {
-  id            String       @id @default(cuid())
-  name          String
-  email         String       @unique
-  emailVerified Boolean      @default(false)
-  image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  workflows     Workflow[]
-  credentials   Credential[]
+  id                String             @id @default(cuid())
+  name              String
+  email             String             @unique
+  emailVerified     Boolean            @default(false)
+  image             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  sessions          Session[]
+  accounts          Account[]
+  workflows         Workflow[]
+  credentials       Credential[]
+  googleOAuthTokens GoogleOAuthToken[]
 
   @@map("user")
 }
@@ -313,24 +314,46 @@ model Verification {
 }
 
 model Credential {
-  id        String         @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   /// @encrypted
   value     String
-  type      CredentialType
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  type      String // Changed from enum to String to support custom types
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  Node Node[]
+  Node              Node[]
+  googleOAuthTokens GoogleOAuthToken[]
+
+  @@index([type])
+  @@index([userId, type])
 }
 
-enum CredentialType {
-  OPENAI
-  ANTHROPIC
-  GEMINI
+model GoogleOAuthToken {
+  id           String     @id @default(cuid())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// @encrypted
+  accessToken  String
+  /// @encrypted
+  refreshToken String?
+  expiresAt    DateTime?
+  scope        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, credentialId])
+  @@index([userId])
+  @@index([credentialId])
+  @@index([expiresAt])
 }
 
 model Workflow {
@@ -364,7 +387,14 @@ enum NodeType {
   SLACK
   WHATSAPP_TRIGGER
   WHATSAPP
+  TELEGRAM_TRIGGER
+  TELEGRAM
   DECIDER
+  GOOGLE_DRIVE
+  GOOGLE_CALENDAR
+  GOOGLE_SHEETS
+  GOOGLE_DOCS
+  GOOGLE_MEET
 }
 
 model Node {
