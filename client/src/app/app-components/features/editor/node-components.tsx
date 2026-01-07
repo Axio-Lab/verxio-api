@@ -27,6 +27,8 @@ import { GoogleCalendarNode } from "@/app/app-components/features/executions/act
 import { GoogleSheetsNode } from "@/app/app-components/features/executions/actions/google-sheets/node";
 import { GoogleDocsNode } from "@/app/app-components/features/executions/actions/google-docs/node";
 import { GoogleMeetNode } from "@/app/app-components/features/executions/actions/google-meet/node";
+import { GoogleSlidesNode } from "@/app/app-components/features/executions/actions/google-slides/node";
+import { GmailNode } from "@/app/app-components/features/executions/actions/gmail/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -51,6 +53,8 @@ export const NodeComponents = {
   [NodeType.GOOGLE_SHEETS]: GoogleSheetsNode,
   [NodeType.GOOGLE_DOCS]: GoogleDocsNode,
   [NodeType.GOOGLE_MEET]: GoogleMeetNode,
+  [NodeType.GOOGLE_SLIDES]: GoogleSlidesNode,
+  [NodeType.GMAIL]: GmailNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

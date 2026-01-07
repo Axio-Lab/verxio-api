@@ -395,6 +395,8 @@ enum NodeType {
   GOOGLE_SHEETS
   GOOGLE_DOCS
   GOOGLE_MEET
+  GOOGLE_SLIDES
+  GMAIL
 }
 
 model Node {

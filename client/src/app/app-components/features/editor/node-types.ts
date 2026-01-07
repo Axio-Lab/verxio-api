@@ -22,6 +22,8 @@ export const NodeType = {
   GOOGLE_SHEETS: "GOOGLE_SHEETS",
   GOOGLE_DOCS: "GOOGLE_DOCS",
   GOOGLE_MEET: "GOOGLE_MEET",
+  GOOGLE_SLIDES: "GOOGLE_SLIDES",
+  GMAIL: "GMAIL",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

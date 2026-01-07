@@ -172,6 +172,11 @@ googleAuthRouter.get("/connect", async (req: Request, res: Response, next: NextF
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/documents",
       "https://www.googleapis.com/auth/meetings.space.created",
+      "https://www.googleapis.com/auth/presentations",
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/gmail.modify",
     ];
 
     // Get returnUrl from query parameter (current page URL)
@@ -192,94 +197,6 @@ googleAuthRouter.get("/connect", async (req: Request, res: Response, next: NextF
       success: true,
       authUrl,
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * Handle Google OAuth callback
- * GET /api/auth/google/callback?code=xxx&state=xxx
- */
-googleAuthRouter.get("/callback", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { code, state } = req.query;
-
-    if (!code || typeof code !== "string") {
-      throw new AppError("Authorization code is required", 400);
-    }
-
-    if (!state || typeof state !== "string") {
-      throw new AppError("State parameter is required", 400);
-    }
-
-    // Parse state to get credentialId and userId
-    let stateData: { credentialId: string; userId: string };
-    try {
-      stateData = JSON.parse(state);
-    } catch (error) {
-      throw new AppError("Invalid state parameter", 400);
-    }
-
-    const { credentialId, userId } = stateData;
-
-    // Get credential to access client ID and secret
-    const credential = await getCredential(credentialId, userId);
-
-    if (!credential) {
-      throw new AppError("Credential not found", 404);
-    }
-
-    if (credential.type !== "GOOGLE_OAUTH") {
-      throw new AppError("Credential is not a Google OAuth credential", 400);
-    }
-
-    // Parse credential value
-    let clientId: string;
-    let clientSecret: string;
-    try {
-      const credentialData = JSON.parse(credential.value);
-      clientId = credentialData.clientId;
-      clientSecret = credentialData.clientSecret;
-
-      if (!clientId || !clientSecret) {
-        throw new Error("Missing clientId or clientSecret");
-      }
-    } catch (error) {
-      throw new AppError(
-        "Invalid credential format. Expected JSON with clientId and clientSecret.",
-        400
-      );
-    }
-
-    // Get redirect URI - should be the backend API URL (must match connect route)
-    const baseUrl = process.env.API_URL;
-    const redirectUri = `${baseUrl}/api/auth/google/callback`;
-
-    // Create OAuth2 client
-    const oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
-
-    // Exchange code for tokens
-    const { tokens } = await oauth2Client.getToken(code);
-
-    if (!tokens.access_token) {
-      throw new AppError("Failed to get access token from Google", 500);
-    }
-
-    // Calculate expiry date
-    const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
-
-    // Store tokens
-    await storeGoogleOAuthToken(userId, credentialId, {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || undefined,
-      expiresAt,
-      scope: tokens.scope || undefined,
-    });
-
-    // Redirect to frontend success page
-    const frontendUrl = process.env.FRONTEND_URL;
-    res.redirect(`${frontendUrl}/credentials?google_connected=true`);
   } catch (error) {
     next(error);
   }

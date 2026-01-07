@@ -23,6 +23,8 @@ import { googleCalendarChannel } from "./google-calendar";
 import { googleSheetsChannel } from "./google-sheets";
 import { googleDocsChannel } from "./google-docs";
 import { googleMeetChannel } from "./google-meet";
+import { googleSlidesChannel } from "./google-slides";
+import { gmailChannel } from "./gmail";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -46,6 +48,8 @@ export const nodeStatusChannels = {
   googleSheets: googleSheetsChannel,
   googleDocs: googleDocsChannel,
   googleMeet: googleMeetChannel,
+  googleSlides: googleSlidesChannel,
+  gmail: gmailChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -73,4 +77,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   googleSheets: "google-sheets-execution",
   googleDocs: "google-docs-execution",
   googleMeet: "google-meet-execution",
+  googleSlides: "google-slides-execution",
+  gmail: "gmail-execution",
 };

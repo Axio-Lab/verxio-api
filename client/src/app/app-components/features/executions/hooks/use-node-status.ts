@@ -211,6 +211,16 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const googleSlidesSub = useInngestSubscription({
+    refreshToken: createRefreshToken("googleSlides"),
+    enabled: true,
+  });
+
+  const gmailSub = useInngestSubscription({
+    refreshToken: createRefreshToken("gmail"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -235,6 +245,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(googleSheetsSub.data || []),
       ...(googleDocsSub.data || []),
       ...(googleMeetSub.data || []),
+      ...(googleSlidesSub.data || []),
+      ...(gmailSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -258,6 +270,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     googleSheetsSub.data,
     googleDocsSub.data,
     googleMeetSub.data,
+    googleSlidesSub.data,
+    gmailSub.data,
   ]);
 
   // Filter and update status for this specific node

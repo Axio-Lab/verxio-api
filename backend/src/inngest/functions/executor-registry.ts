@@ -20,6 +20,8 @@ import { googleCalendarExecutor } from "./actions/google-calendar";
 import { googleSheetsExecutor } from "./actions/google-sheets";
 import { googleDocsExecutor } from "./actions/google-docs";
 import { googleMeetExecutor } from "./actions/google-meet";
+import { googleSlidesExecutor } from "./actions/google-slides";
+import { gmailExecutor } from "./actions/gmail";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -47,6 +49,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.GOOGLE_SHEETS]: googleSheetsExecutor as NodeExecutor,
   [NodeType.GOOGLE_DOCS]: googleDocsExecutor as NodeExecutor,
   [NodeType.GOOGLE_MEET]: googleMeetExecutor as NodeExecutor,
+  [NodeType.GOOGLE_SLIDES]: googleSlidesExecutor as NodeExecutor,
+  [NodeType.GMAIL]: gmailExecutor as NodeExecutor,
 };
 
 /**

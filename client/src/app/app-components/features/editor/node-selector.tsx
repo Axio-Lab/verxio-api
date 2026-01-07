@@ -168,6 +168,18 @@ const executionNodes: NodeTypeOption[] = [
     description: "Create meetings and get meeting links",
     icon: "/logo/googlemeet.svg",
   },
+  {
+    type: NodeType.GOOGLE_SLIDES,
+    label: "Google Slides",
+    description: "Create, modify, and manage Google Slides presentations",
+    icon: "/logo/googleslides.svg",
+  },
+  {
+    type: NodeType.GMAIL,
+    label: "Gmail",
+    description: "Send, read, and manage emails via Gmail",
+    icon: "/logo/gmail.svg",
+  },
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
@@ -545,6 +557,32 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             calendarId: "primary",
           },
           type: NodeType.GOOGLE_MEET,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GOOGLE_SLIDES) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Google Slides",
+            variables: "googleSlides",
+            action: "createPresentation",
+          },
+          type: NodeType.GOOGLE_SLIDES,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.GMAIL) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Gmail",
+            variables: "gmail",
+            action: "sendEmail",
+          },
+          type: NodeType.GMAIL,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);
