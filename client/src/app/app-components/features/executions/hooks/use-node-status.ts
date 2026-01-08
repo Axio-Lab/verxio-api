@@ -126,6 +126,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const airtableTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("airtableTrigger"),
+    enabled: true,
+  });
+
   const stripeTriggerSub = useInngestSubscription({
     refreshToken: createRefreshToken("stripeTrigger"),
     enabled: true,
@@ -221,6 +226,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const airtableSub = useInngestSubscription({
+    refreshToken: createRefreshToken("airtable"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -228,6 +238,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(manualTriggerSub.data || []),
       ...(webhookSub.data || []),
       ...(googleFormSub.data || []),
+      ...(airtableTriggerSub.data || []),
       ...(stripeTriggerSub.data || []),
       ...(openaiSub.data || []),
       ...(anthropicSub.data || []),
@@ -247,12 +258,14 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(googleMeetSub.data || []),
       ...(googleSlidesSub.data || []),
       ...(gmailSub.data || []),
+      ...(airtableSub.data || []),
     ];
   }, [
     httpRequestSub.data,
     manualTriggerSub.data,
     webhookSub.data,
     googleFormSub.data,
+    airtableTriggerSub.data,
     stripeTriggerSub.data,
     openaiSub.data,
     anthropicSub.data,
@@ -272,6 +285,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     googleMeetSub.data,
     googleSlidesSub.data,
     gmailSub.data,
+    airtableSub.data,
   ]);
 
   // Filter and update status for this specific node

@@ -57,6 +57,12 @@ const triggerNodes: NodeTypeOption[] = [
     icon: "/logo/googleform.svg",
   },
   {
+    type: NodeType.AIRTABLE_TRIGGER,
+    label: "Airtable Trigger",
+    description: "Triggers the workflow when a record is created, updated, or deleted in Airtable.",
+    icon: "/logo/airtable.svg",
+  },
+  {
     type: NodeType.STRIPE_TRIGGER,
     label: "Stripe Trigger",
     description:
@@ -180,6 +186,12 @@ const executionNodes: NodeTypeOption[] = [
     description: "Send, read, and manage emails via Gmail",
     icon: "/logo/gmail.svg",
   },
+  {
+    type: NodeType.AIRTABLE,
+    label: "Airtable",
+    description: "Read, create, update, and delete records in Airtable bases",
+    icon: "/logo/airtable.svg",
+  },
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
@@ -276,6 +288,28 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             label: "Google Form Trigger",
           },
           type: NodeType.GOOGLE_FORM_TRIGGER,
+          position: flowPosition,
+        };
+
+        if (hasInitialTrigger) {
+          setNodes([newNode]);
+        } else {
+          setNodes((nodes) => [...nodes, newNode]);
+        }
+        onOpenChange(false);
+      } else if (selection.type === NodeType.AIRTABLE_TRIGGER) {
+        const hasAirtableTrigger = nodes.some((node) => node.type === NodeType.AIRTABLE_TRIGGER);
+        if (hasAirtableTrigger) {
+          toast.error("Only one Airtable trigger is allowed per workflow");
+          return;
+        }
+        const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Airtable Trigger",
+          },
+          type: NodeType.AIRTABLE_TRIGGER,
           position: flowPosition,
         };
 
@@ -583,6 +617,19 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             action: "sendEmail",
           },
           type: NodeType.GMAIL,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.AIRTABLE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Airtable",
+            variables: "airtable",
+            action: "listBases",
+          },
+          type: NodeType.AIRTABLE,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

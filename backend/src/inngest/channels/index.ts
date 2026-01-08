@@ -8,6 +8,7 @@ import { timedTriggerChannel } from "./timed-trigger";
 import { deciderChannel } from "./decider";
 import { webhookChannel } from "./webhook";
 import { googleFormTriggerChannel } from "./google-form-trigger";
+import { airtableTriggerChannel } from "./airtable-trigger";
 import { stripeTriggerChannel } from "./stripe-trigger";
 import { whatsappTriggerChannel } from "./whatsapp-trigger";
 import { openaiChannel } from "./openai";
@@ -25,6 +26,7 @@ import { googleDocsChannel } from "./google-docs";
 import { googleMeetChannel } from "./google-meet";
 import { googleSlidesChannel } from "./google-slides";
 import { gmailChannel } from "./gmail";
+import { airtableChannel } from "./airtable";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -33,6 +35,7 @@ export const nodeStatusChannels = {
   decider: deciderChannel,
   webhook: webhookChannel,
   googleFormTrigger: googleFormTriggerChannel,
+  airtableTrigger: airtableTriggerChannel,
   stripeTrigger: stripeTriggerChannel,
   whatsappTrigger: whatsappTriggerChannel,
   openai: openaiChannel,
@@ -50,6 +53,7 @@ export const nodeStatusChannels = {
   googleMeet: googleMeetChannel,
   googleSlides: googleSlidesChannel,
   gmail: gmailChannel,
+  airtable: airtableChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -62,6 +66,7 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   decider: "decider-execution",
   webhook: "webhook-execution",
   googleFormTrigger: "google-form-trigger-execution",
+  airtableTrigger: "airtable-trigger-execution",
   stripeTrigger: "stripe-trigger-execution",
   whatsappTrigger: "whatsapp-trigger-execution",
   openai: "openai-execution",
@@ -79,4 +84,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   googleMeet: "google-meet-execution",
   googleSlides: "google-slides-execution",
   gmail: "gmail-execution",
+  airtable: "airtable-execution",
 };

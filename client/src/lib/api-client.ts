@@ -116,9 +116,10 @@ export async function authenticatedPut<T>(url: string, data?: unknown): Promise<
 /**
  * Helper for DELETE requests
  */
-export async function authenticatedDelete<T>(url: string): Promise<T> {
+export async function authenticatedDelete<T>(url: string, data?: unknown): Promise<T> {
   const response = await authenticatedFetch(url, {
     method: "DELETE",
+    body: data ? JSON.stringify(data) : undefined,
   });
 
   if (!response.ok) {
@@ -132,6 +133,11 @@ export async function authenticatedDelete<T>(url: string): Promise<T> {
 
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
+  }
+
+  // Handle 204 No Content responses
+  if (response.status === 204) {
+    return {} as T;
   }
 
   return response.json();

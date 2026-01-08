@@ -296,26 +296,26 @@ export const GoogleSlidesDialog = ({ open, onOpenChange, onSubmit, defaultValues
                 watchAction === "replaceImage" ||
                 watchAction === "exportPresentation" ||
                 watchAction === "getPresentation") && (
-                  <FormField
-                    control={form.control}
-                    name="presentationId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Presentation ID *</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Presentation ID or {{variables.presentationId}}"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          ID of the presentation. Use {"{{variables}}"} for dynamic values.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={form.control}
+                  name="presentationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Presentation ID *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Presentation ID or {{variables.presentationId}}"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        ID of the presentation. Use {"{{variables}}"} for dynamic values.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Insert Text */}
               {watchAction === "insertText" && (

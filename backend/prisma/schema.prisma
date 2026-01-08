@@ -397,6 +397,8 @@ enum NodeType {
   GOOGLE_MEET
   GOOGLE_SLIDES
   GMAIL
+  AIRTABLE
+  AIRTABLE_TRIGGER
 }
 
 model Node {

@@ -10,6 +10,7 @@ import { memo } from "react";
 import { NodeType } from "./node-types";
 import { NodeSelector } from "./node-selector";
 import { GoogleFormTriggerNode } from "@/app/app-components/features/executions/triggers/google-form-trigger/node";
+import { AirtableTriggerNode } from "@/app/app-components/features/executions/triggers/airtable-trigger/node";
 import { StripeTriggerNode } from "@/app/app-components/features/executions/triggers/stripe-trigger/node";
 import { WhatsAppTriggerNode } from "@/app/app-components/features/executions/triggers/whatsapp-trigger/node";
 import { TelegramTriggerNode } from "@/app/app-components/features/executions/triggers/telegram-trigger/node";
@@ -29,6 +30,7 @@ import { GoogleDocsNode } from "@/app/app-components/features/executions/actions
 import { GoogleMeetNode } from "@/app/app-components/features/executions/actions/google-meet/node";
 import { GoogleSlidesNode } from "@/app/app-components/features/executions/actions/google-slides/node";
 import { GmailNode } from "@/app/app-components/features/executions/actions/gmail/node";
+import { AirtableNode } from "@/app/app-components/features/executions/actions/airtable/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -37,6 +39,7 @@ export const NodeComponents = {
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
   [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
+  [NodeType.AIRTABLE_TRIGGER]: AirtableTriggerNode,
   [NodeType.STRIPE_TRIGGER]: StripeTriggerNode,
   [NodeType.WHATSAPP_TRIGGER]: WhatsAppTriggerNode,
   [NodeType.TELEGRAM_TRIGGER]: TelegramTriggerNode,
@@ -55,6 +58,7 @@ export const NodeComponents = {
   [NodeType.GOOGLE_MEET]: GoogleMeetNode,
   [NodeType.GOOGLE_SLIDES]: GoogleSlidesNode,
   [NodeType.GMAIL]: GmailNode,
+  [NodeType.AIRTABLE]: AirtableNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

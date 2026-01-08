@@ -5,6 +5,7 @@ import { deciderExecutor } from "./triggers/decider";
 import { httpTriggerExecutor } from "./triggers/http-trigger";
 import { webhookTriggerExecutor } from "./triggers/webhook-trigger";
 import { googleFormTriggerExecutor } from "./triggers/google-form-trigger";
+import { airtableTriggerExecutor } from "./triggers/airtable-trigger";
 import { stripeTriggerExecutor } from "./triggers/stripe-trigger";
 import { openaiTriggerExecutor } from "./triggers/openai-trigger";
 import { anthropicTriggerExecutor } from "./triggers/anthropic-trigger";
@@ -22,6 +23,7 @@ import { googleDocsExecutor } from "./actions/google-docs";
 import { googleMeetExecutor } from "./actions/google-meet";
 import { googleSlidesExecutor } from "./actions/google-slides";
 import { gmailExecutor } from "./actions/gmail";
+import { airtableExecutor } from "./actions/airtable";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -31,6 +33,7 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.TIMED_TRIGGER]: timedTriggerExecutor,
   [NodeType.DECIDER]: deciderExecutor,
   [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
+  [NodeType.AIRTABLE_TRIGGER]: airtableTriggerExecutor as NodeExecutor,
   [NodeType.STRIPE_TRIGGER]: stripeTriggerExecutor as NodeExecutor,
   [NodeType.WHATSAPP_TRIGGER]: whatsappTriggerExecutor as NodeExecutor,
   [NodeType.INITIAL]: async () => ({}),
@@ -51,6 +54,7 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.GOOGLE_MEET]: googleMeetExecutor as NodeExecutor,
   [NodeType.GOOGLE_SLIDES]: googleSlidesExecutor as NodeExecutor,
   [NodeType.GMAIL]: gmailExecutor as NodeExecutor,
+  [NodeType.AIRTABLE]: airtableExecutor as NodeExecutor,
 };
 
 /**

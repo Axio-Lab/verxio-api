@@ -25,6 +25,7 @@ const TRIGGER_NODE_TYPES = [
   "MANUAL_TRIGGER",
   "TIMED_TRIGGER",
   "GOOGLE_FORM_TRIGGER",
+  "AIRTABLE_TRIGGER",
   "STRIPE_TRIGGER",
   "TELEGRAM_TRIGGER",
   "WEBHOOK",
@@ -32,11 +33,19 @@ const TRIGGER_NODE_TYPES = [
 
 /**
  * Find the trigger node in the workflow
+ * @param nodes - All workflow nodes
+ * @param eventData - Event data that may contain specific trigger node IDs
+ * @param connections - Workflow connections to check if trigger is connected
  */
-const findTriggerNode = (nodes: WorkflowNode[], eventData: any): WorkflowNode | null => {
-  // Check for specific trigger node IDs in event data
+const findTriggerNode = (
+  nodes: WorkflowNode[],
+  eventData: any,
+  connections: WorkflowConnection[] = []
+): WorkflowNode | null => {
+  // Check for specific trigger node IDs in event data (webhook triggers, etc.)
   const triggerNodeId =
     eventData.data?.googleFormNodeId ||
+    eventData.data?.airtableNodeId ||
     eventData.data?.stripeNodeId ||
     eventData.data?.webhookNodeId ||
     eventData.data?.telegramNodeId ||
@@ -48,7 +57,48 @@ const findTriggerNode = (nodes: WorkflowNode[], eventData: any): WorkflowNode | 
     if (node) return node;
   }
 
-  // Find first trigger node by type
+  // For manual execution (no specific trigger node ID), prioritize connected trigger nodes
+  // Build a set of connected node IDs (nodes that have outgoing connections)
+  const connectedNodeIds = new Set<string>();
+  for (const conn of connections) {
+    connectedNodeIds.add(conn.source);
+  }
+
+  // Helper to check if a node is connected
+  const isConnected = (node: WorkflowNode): boolean => {
+    return connectedNodeIds.has(node.id);
+  };
+
+  // Priority order for manual execution:
+  // 1. Connected MANUAL_TRIGGER (highest priority for manual execution)
+  // 2. Other connected trigger nodes
+  // 3. Unconnected MANUAL_TRIGGER (fallback)
+  // 4. Other unconnected trigger nodes (last resort)
+
+  // First, try to find a connected MANUAL_TRIGGER
+  const connectedManualTrigger = nodes.find(
+    (node) => node.type === "MANUAL_TRIGGER" && isConnected(node)
+  );
+  if (connectedManualTrigger) {
+    return connectedManualTrigger;
+  }
+
+  // Then try other connected trigger nodes (prioritize by TRIGGER_NODE_TYPES order)
+  for (const triggerType of TRIGGER_NODE_TYPES) {
+    if (triggerType === "MANUAL_TRIGGER") continue; // Already checked
+    const connectedTrigger = nodes.find((node) => node.type === triggerType && isConnected(node));
+    if (connectedTrigger) {
+      return connectedTrigger;
+    }
+  }
+
+  // Fallback: unconnected MANUAL_TRIGGER
+  const unconnectedManualTrigger = nodes.find((node) => node.type === "MANUAL_TRIGGER");
+  if (unconnectedManualTrigger) {
+    return unconnectedManualTrigger;
+  }
+
+  // Last resort: any unconnected trigger node
   return nodes.find((node) => TRIGGER_NODE_TYPES.includes(node.type as any)) || null;
 };
 
@@ -147,15 +197,15 @@ export const triggerWorkflow = inngest.createFunction(
     try {
       workflow = await step.run("prepare-workflow", async () => {
         const fetchedWorkflow = await getWorkflow(workflowId, userId);
+        const connections = fetchedWorkflow.connections || [];
 
-        // Find trigger node
-        const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data);
+        // Find trigger node (pass connections to check if trigger is connected)
+        const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data, connections);
         if (!triggerNode) {
           throw new NonRetriableError("No trigger node found in workflow");
         }
 
         // Find all reachable nodes from trigger
-        const connections = fetchedWorkflow.connections || [];
         const reachableNodeIds = findReachableNodes(
           triggerNode,
           fetchedWorkflow.nodes,
@@ -179,6 +229,14 @@ export const triggerWorkflow = inngest.createFunction(
 
     // Initialize context with initial data from trigger
     let context = event.data.initialData || event.data.data || {};
+
+    // Extract trigger-specific payloads and add to context
+    if (event.data.data?.airtablePayload) {
+      context.airtablePayload = event.data.data.airtablePayload;
+    }
+    if (event.data.data?.googleFormPayload) {
+      context.googleFormPayload = event.data.data.googleFormPayload;
+    }
 
     // Validate nodes array
     if (!Array.isArray(workflow.nodes)) {

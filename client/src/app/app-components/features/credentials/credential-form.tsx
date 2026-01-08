@@ -11,7 +11,7 @@ import Image from "next/image";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import {
   Form,
@@ -44,9 +44,6 @@ interface CredentialFormProps {
   };
 }
 
-// Custom type validation pattern (matches backend: uppercase, alphanumeric + underscore, 3-50 chars)
-const customTypePattern = /^[A-Z][A-Z0-9_]{2,49}$/;
-
 const formSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
@@ -55,16 +52,11 @@ const formSchema = z
       .min(1, "Type is required")
       .refine(
         (val) => {
-          // Allow known credential types
-          if (Object.values(CredentialType).includes(val as CredentialType)) {
-            return true;
-          }
-          // Allow custom types matching the pattern
-          return customTypePattern.test(val);
+          // Only allow known credential types
+          return Object.values(CredentialType).includes(val as CredentialType);
         },
         {
-          message:
-            "Type must be a known type or a custom type (uppercase, alphanumeric + underscore, 3-50 chars, e.g., APIFY)",
+          message: "Type must be a known credential type",
         }
       ),
     value: z.string().optional(),
@@ -129,9 +121,12 @@ export const credentialTypeOptions = [
     value: CredentialType.GOOGLE_OAUTH,
     logo: "/logo/google.svg",
   },
+  {
+    label: "Airtable",
+    value: CredentialType.AIRTABLE,
+    logo: "/logo/airtable.svg",
+  },
 ];
-
-const CUSTOM_TYPE_VALUE = "__CUSTOM__";
 
 export function CredentialForm({ initialData }: CredentialFormProps) {
   const router = useRouter();
@@ -140,13 +135,8 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
 
   const isEdit = !!initialData?.id;
 
-  // Check if initial type is a custom type (not in known types)
-  const initialType = initialData?.type || CredentialType.GEMINI;
-  const isCustomType =
-    initialType && !Object.values(CredentialType).includes(initialType as CredentialType);
-
-  const [isCustomTypeSelected, setIsCustomTypeSelected] = useState(isCustomType);
-  const [customTypeValue, setCustomTypeValue] = useState(isCustomType ? initialType : "");
+  // Use initial type or default to GEMINI
+  const initialType = (initialData?.type as CredentialType) || CredentialType.GEMINI;
 
   // Parse Google OAuth credential value if editing
   const parseGoogleOAuthValue = (value: string | undefined) => {
@@ -171,8 +161,7 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: initialData?.name || "",
-      // Use custom value if it's a custom type, otherwise use the known type
-      type: isCustomType ? customTypeValue : (initialType as CredentialType),
+      type: initialType,
       value: initialData?.type === CredentialType.GOOGLE_OAUTH ? "" : initialData?.value || "",
       clientId: googleOAuthFields.clientId,
       clientSecret: googleOAuthFields.clientSecret,
@@ -182,11 +171,7 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
   // Update form when initialData loads or changes
   useEffect(() => {
     if (initialData && isEdit) {
-      const type = initialData.type || CredentialType.GEMINI;
-      const isCustom = !Object.values(CredentialType).includes(type as CredentialType);
-
-      setIsCustomTypeSelected(isCustom);
-      setCustomTypeValue(isCustom ? type : "");
+      const type = (initialData.type as CredentialType) || CredentialType.GEMINI;
 
       const googleOAuthFields =
         type === CredentialType.GOOGLE_OAUTH
@@ -202,27 +187,6 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
       });
     }
   }, [initialData, isEdit, form]);
-
-  // Handle type selection change
-  const handleTypeChange = (value: string) => {
-    if (value === CUSTOM_TYPE_VALUE) {
-      setIsCustomTypeSelected(true);
-      setCustomTypeValue("");
-      form.setValue("type", "");
-    } else {
-      setIsCustomTypeSelected(false);
-      setCustomTypeValue("");
-      form.setValue("type", value);
-    }
-  };
-
-  // Handle custom type input change
-  const handleCustomTypeChange = (value: string) => {
-    // Convert to uppercase and remove invalid characters
-    const sanitized = value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
-    setCustomTypeValue(sanitized);
-    form.setValue("type", sanitized);
-  };
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -305,66 +269,22 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type</FormLabel>
-                  {!isCustomTypeSelected ? (
-                    <Select
-                      onValueChange={(value) => {
-                        handleTypeChange(value);
-                        field.onChange(value);
-                      }}
-                      value={field.value}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a credential type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {credentialTypeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <Image src={option.logo} alt={option.label} width={20} height={20} />
-                              {option.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={CUSTOM_TYPE_VALUE}>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a credential type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {credentialTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Custom Type</span>
+                            <Image src={option.logo} alt={option.label} width={20} height={20} />
+                            {option.label}
                           </div>
                         </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="space-y-2">
-                      <Input
-                        {...field}
-                        value={customTypeValue}
-                        onChange={(e) => {
-                          handleCustomTypeChange(e.target.value);
-                        }}
-                        placeholder="APIFY, STRIPE_API, etc."
-                        className="uppercase"
-                        maxLength={50}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border-primary"
-                        onClick={() => {
-                          setIsCustomTypeSelected(false);
-                          setCustomTypeValue("");
-                          form.setValue("type", CredentialType.GEMINI);
-                        }}
-                      >
-                        Use predefined type
-                      </Button>
-                    </div>
-                  )}
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
-                  {isCustomTypeSelected && (
-                    <p className="text-xs text-muted-foreground">
-                      Enter a custom type (uppercase, alphanumeric + underscore, 3-50 chars)
-                    </p>
-                  )}
                 </FormItem>
               )}
             />
@@ -469,10 +389,36 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                 name="value"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>API Key</FormLabel>
+                    <FormLabel>
+                      {form.watch("type") === CredentialType.AIRTABLE
+                        ? "Personal Access Token"
+                        : "API Key"}
+                    </FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} placeholder="AI-..." />
+                      <Input
+                        type="password"
+                        {...field}
+                        placeholder={
+                          form.watch("type") === CredentialType.AIRTABLE
+                            ? "patXXXXXXXXXXXXXX"
+                            : "AI-..."
+                        }
+                      />
                     </FormControl>
+                    {form.watch("type") === CredentialType.AIRTABLE && (
+                      <FormDescription>
+                        Enter your Airtable Personal Access Token (starts with "pat"). Get it from{" "}
+                        <a
+                          href="https://airtable.com/api"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          Airtable API documentation
+                        </a>
+                        .
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

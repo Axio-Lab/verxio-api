@@ -27,6 +27,8 @@ export const NodeType = {
   GOOGLE_MEET: "GOOGLE_MEET",
   GOOGLE_SLIDES: "GOOGLE_SLIDES",
   GMAIL: "GMAIL",
+  AIRTABLE: "AIRTABLE",
+  AIRTABLE_TRIGGER: "AIRTABLE_TRIGGER",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

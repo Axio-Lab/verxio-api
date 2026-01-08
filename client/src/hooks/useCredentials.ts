@@ -14,6 +14,7 @@ export enum CredentialType {
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
   GOOGLE_OAUTH = "GOOGLE_OAUTH",
+  AIRTABLE = "AIRTABLE",
 }
 
 export interface Credential {
