@@ -31,6 +31,7 @@ import { GoogleMeetNode } from "@/app/app-components/features/executions/actions
 import { GoogleSlidesNode } from "@/app/app-components/features/executions/actions/google-slides/node";
 import { GmailNode } from "@/app/app-components/features/executions/actions/gmail/node";
 import { AirtableNode } from "@/app/app-components/features/executions/actions/airtable/node";
+import { ElevenLabsNode } from "@/app/app-components/features/executions/actions/elevenlabs/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -59,6 +60,7 @@ export const NodeComponents = {
   [NodeType.GOOGLE_SLIDES]: GoogleSlidesNode,
   [NodeType.GMAIL]: GmailNode,
   [NodeType.AIRTABLE]: AirtableNode,
+  [NodeType.ELEVENLABS]: ElevenLabsNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

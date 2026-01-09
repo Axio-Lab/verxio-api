@@ -192,6 +192,12 @@ const executionNodes: NodeTypeOption[] = [
     description: "Read, create, update, and delete records in Airtable bases",
     icon: "/logo/airtable.svg",
   },
+  {
+    type: NodeType.ELEVENLABS,
+    label: "ElevenLabs",
+    description: "Generate speech, transcribe audio, or clone voices using AI",
+    icon: "/logo/elevenlabs.svg",
+  },
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
@@ -630,6 +636,19 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             action: "listBases",
           },
           type: NodeType.AIRTABLE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.ELEVENLABS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "ElevenLabs",
+            variables: "elevenlabs",
+            action: "textToSpeech",
+          },
+          type: NodeType.ELEVENLABS,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

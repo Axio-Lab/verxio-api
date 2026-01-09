@@ -20,6 +20,7 @@ import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
+import { elevenlabsRouter } from "./routes/elevenlabs";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -144,6 +145,7 @@ app.use("/workflow", workflowRouter);
 app.use("/workflow/airtable-webhook", airtableWebhookRouter);
 app.use("/credential", credentialRouter);
 app.use("/api/auth/google", googleAuthRouter);
+app.use("/api/elevenlabs", elevenlabsRouter);
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)

@@ -231,6 +231,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const elevenlabsSub = useInngestSubscription({
+    refreshToken: createRefreshToken("elevenlabs"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -259,6 +264,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(googleSlidesSub.data || []),
       ...(gmailSub.data || []),
       ...(airtableSub.data || []),
+      ...(elevenlabsSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -286,6 +292,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     googleSlidesSub.data,
     gmailSub.data,
     airtableSub.data,
+    elevenlabsSub.data,
   ]);
 
   // Filter and update status for this specific node

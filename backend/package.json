@@ -31,6 +31,7 @@
     "@ai-sdk/anthropic": "^3.0.2",
     "@ai-sdk/google": "^3.0.1",
     "@ai-sdk/openai": "^3.0.2",
+    "@elevenlabs/elevenlabs-js": "^2.30.0",
     "@inngest/realtime": "^0.4.5",
     "@metaplex-foundation/umi": "^1.2.0",
     "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",

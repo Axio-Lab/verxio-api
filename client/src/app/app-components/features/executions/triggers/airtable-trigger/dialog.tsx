@@ -295,7 +295,7 @@ export const AirtableTriggerDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Airtable Form Trigger Configuration</DialogTitle>
           <DialogDescription>
@@ -341,11 +341,11 @@ export const AirtableTriggerDialog = ({
                     {currentExpirationTime && new Date(currentExpirationTime).toLocaleString()}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     onClick={handleRefreshWebhook}
                     disabled={refreshWebhookMutation.isPending}
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     {refreshWebhookMutation.isPending ? (
                       <>
@@ -363,7 +363,7 @@ export const AirtableTriggerDialog = ({
                     onClick={handleDeleteWebhook}
                     disabled={deleteWebhookMutation.isPending}
                     variant="destructive"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     {deleteWebhookMutation.isPending ? (
                       <>

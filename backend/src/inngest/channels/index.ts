@@ -27,6 +27,7 @@ import { googleMeetChannel } from "./google-meet";
 import { googleSlidesChannel } from "./google-slides";
 import { gmailChannel } from "./gmail";
 import { airtableChannel } from "./airtable";
+import { elevenlabsChannel } from "./elevenlabs";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -54,6 +55,7 @@ export const nodeStatusChannels = {
   googleSlides: googleSlidesChannel,
   gmail: gmailChannel,
   airtable: airtableChannel,
+  elevenlabs: elevenlabsChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -85,4 +87,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   googleSlides: "google-slides-execution",
   gmail: "gmail-execution",
   airtable: "airtable-execution",
+  elevenlabs: "elevenlabs-execution",
 };

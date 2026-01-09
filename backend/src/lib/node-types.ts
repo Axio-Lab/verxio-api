@@ -29,6 +29,7 @@ export const NodeType = {
   GMAIL: "GMAIL",
   AIRTABLE: "AIRTABLE",
   AIRTABLE_TRIGGER: "AIRTABLE_TRIGGER",
+  ELEVENLABS: "ELEVENLABS",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];
