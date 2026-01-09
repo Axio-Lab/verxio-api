@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { ConditionalNavbar, ConditionalFooter } from "./app-components/ConditionalNavbar";
+// import { ConditionalNavbar, ConditionalFooter } from "./app-components/ConditionalNavbar";
 import { RouteGuard } from "./app-components/RouteGuard";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
@@ -20,9 +20,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Verxio Deals",
+  title: "Verxio: AI workflow automation copilot for businesses",
   description:
-    "Discover unbeatable deals, collect and trade vouchers from merchants worldwide with Verxio Deals built on the Verxio Loyalty API.",
+    "Verxio is an AI-powered assistant that helps you design, run, and manage automated workflows alongside you",
 };
 
 export default function RootLayout({
@@ -39,9 +39,9 @@ export default function RootLayout({
         <Providers>
           <NuqsProvider>
             <RouteGuard>
-              <ConditionalNavbar />
+              {/* <ConditionalNavbar /> */}
               <JotaiProvider>{children}</JotaiProvider>
-              <ConditionalFooter />
+              {/* <ConditionalFooter /> */}
             </RouteGuard>
             <Toaster />
           </NuqsProvider>
