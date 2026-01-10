@@ -8,18 +8,13 @@ interface GoogleOAuthStatus {
   expiresAt: Date | null;
 }
 
-export function useGoogleOAuth(credentialId: string | undefined) {
+export function useGoogleOAuth() {
   const [status, setStatus] = useState<GoogleOAuthStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
   // Check connection status
   const checkStatus = async () => {
-    if (!credentialId) {
-      setStatus(null);
-      return;
-    }
-
     setIsLoading(true);
     try {
       const response = await authenticatedGet<{
@@ -27,7 +22,7 @@ export function useGoogleOAuth(credentialId: string | undefined) {
         connected: boolean;
         hasRefreshToken: boolean;
         expiresAt: string | null;
-      }>(`/api/auth/google/status?credentialId=${credentialId}`);
+      }>(`/api/auth/google/status`);
 
       setStatus({
         connected: response.connected,
@@ -48,11 +43,6 @@ export function useGoogleOAuth(credentialId: string | undefined) {
 
   // Connect to Google (initiate OAuth flow)
   const connect = async () => {
-    if (!credentialId) {
-      toast.error("Please select a Google OAuth credential first");
-      return;
-    }
-
     setIsConnecting(true);
     try {
       // Get current pathname and search params to redirect back after OAuth
@@ -60,11 +50,11 @@ export function useGoogleOAuth(credentialId: string | undefined) {
         typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
           : undefined;
-      const queryParam = returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : "";
+      const queryParam = returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : "";
       const response = await authenticatedGet<{
         success: boolean;
         authUrl: string;
-      }>(`/api/auth/google/connect?credentialId=${credentialId}${queryParam}`);
+      }>(`/api/auth/google/connect${queryParam}`);
 
       if (response.authUrl) {
         // Open OAuth flow in new window
@@ -84,13 +74,9 @@ export function useGoogleOAuth(credentialId: string | undefined) {
 
   // Disconnect from Google
   const disconnect = async () => {
-    if (!credentialId) {
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await authenticatedDelete(`/api/auth/google/disconnect?credentialId=${credentialId}`);
+      await authenticatedDelete(`/api/auth/google/disconnect`);
       toast.success("Disconnected from Google");
       await checkStatus();
     } catch (error) {
@@ -101,10 +87,10 @@ export function useGoogleOAuth(credentialId: string | undefined) {
     }
   };
 
-  // Check status when credentialId changes
+  // Check status on mount
   useEffect(() => {
     checkStatus();
-  }, [credentialId]);
+  }, []);
 
   return {
     status,

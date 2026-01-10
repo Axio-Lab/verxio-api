@@ -263,7 +263,7 @@ model User {
   accounts          Account[]
   workflows         Workflow[]
   credentials       Credential[]
-  googleOAuthTokens GoogleOAuthToken[]
+  googleOAuthToken GoogleOAuthToken?
 
   @@map("user")
 }
@@ -325,18 +325,14 @@ model Credential {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  Node              Node[]
-  googleOAuthTokens GoogleOAuthToken[]
+  Node Node[]
 
   @@index([type])
   @@index([userId, type])
 }
 
 model GoogleOAuthToken {
-  id           String     @id @default(cuid())
-  credentialId String
-  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
-
+  id   String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -350,9 +346,8 @@ model GoogleOAuthToken {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, credentialId])
+  @@unique([userId])
   @@index([userId])
-  @@index([credentialId])
   @@index([expiresAt])
 }
 

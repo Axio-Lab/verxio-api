@@ -2,7 +2,6 @@ import type { NodeExecutor } from "../types";
 import { googleSheetsChannel } from "@/inngest/channels/google-sheets";
 import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
-import { getCredential, CredentialType } from "@/services/credentialService";
 import { getValidAccessToken } from "@/services/googleOAuthService";
 import { google } from "googleapis";
 
@@ -13,7 +12,6 @@ Handlebars.registerHelper("json", (context) => {
 
 type GoogleSheetsData = {
   variables?: string;
-  credentialId?: string;
   action?:
     | "readRange"
     | "writeRange"
@@ -76,25 +74,6 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
 
     const variablesName = data.variables || "googleSheets";
 
-    if (!data.credentialId) {
-      await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError(
-        "Google Sheets node: Google OAuth credential is required"
-      );
-      await publish(
-        googleSheetsChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
-        })
-      );
-      throw error;
-    }
-
     if (!data.action) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError("Google Sheets node: Action is required");
@@ -112,52 +91,15 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
       throw error;
     }
 
-    // Get OAuth token from credential
-    const credential = await step.run("get-google-oauth-credential", async () => {
-      return await getCredential(data.credentialId!, userId!);
-    });
-
-    if (!credential) {
-      await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError("Google Sheets node: Credential not found");
-      await publish(
-        googleSheetsChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
-        })
-      );
-      throw error;
-    }
-
-    if (credential.type !== CredentialType.GOOGLE_OAUTH) {
-      await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError(
-        "Google Sheets node: Credential type mismatch. Expected GOOGLE_OAUTH credential."
-      );
-      await publish(
-        googleSheetsChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
-        })
-      );
-      throw error;
-    }
-
     // Get valid access token (automatically refreshes if expired)
+    // Uses env-based GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
     let accessToken: string;
     try {
       accessToken = await step.run("get-valid-access-token", async () => {
-        return await getValidAccessToken(userId!, data.credentialId!);
+        if (!userId) {
+          throw new Error("User ID is required");
+        }
+        return await getValidAccessToken(userId);
       });
     } catch (error) {
       await publishStatus(publish, nodeId, "error");

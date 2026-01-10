@@ -10,9 +10,7 @@ export enum CredentialType {
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
-  GOOGLE_OAUTH = "GOOGLE_OAUTH",
   AIRTABLE = "AIRTABLE",
-  // Add more known types here as needed
 }
 
 /**

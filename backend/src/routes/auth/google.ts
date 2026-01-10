@@ -7,7 +7,6 @@ import {
   deleteGoogleOAuthToken,
   getGoogleOAuthToken,
 } from "../../services/googleOAuthService";
-import { getCredential } from "../../services/credentialService";
 
 export const googleAuthRouter: Router = Router();
 
@@ -28,42 +27,25 @@ googleAuthRouter.get("/callback", async (req: Request, res: Response, next: Next
       throw new AppError("State parameter is required", 400);
     }
 
-    // Parse state to get credentialId, userId, and optional returnUrl
-    let stateData: { credentialId: string; userId: string; returnUrl?: string };
+    // Parse state to get userId and optional returnUrl
+    // credentialId removed - using env-based OAuth credentials
+    let stateData: { userId: string; returnUrl?: string };
     try {
       stateData = JSON.parse(state);
     } catch (error) {
       throw new AppError("Invalid state parameter", 400);
     }
 
-    const { credentialId, userId, returnUrl } = stateData;
+    const { userId, returnUrl } = stateData;
 
-    // Get credential to access client ID and secret
-    const credential = await getCredential(credentialId, userId);
+    // Get client ID and secret from environment variables
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
-    if (!credential) {
-      throw new AppError("Credential not found", 404);
-    }
-
-    if (credential.type !== "GOOGLE_OAUTH") {
-      throw new AppError("Credential is not a Google OAuth credential", 400);
-    }
-
-    // Parse credential value
-    let clientId: string;
-    let clientSecret: string;
-    try {
-      const credentialData = JSON.parse(credential.value);
-      clientId = credentialData.clientId;
-      clientSecret = credentialData.clientSecret;
-
-      if (!clientId || !clientSecret) {
-        throw new Error("Missing clientId or clientSecret");
-      }
-    } catch (error) {
+    if (!clientId || !clientSecret) {
       throw new AppError(
-        "Invalid credential format. Expected JSON with clientId and clientSecret.",
-        400
+        "Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.",
+        500
       );
     }
 
@@ -84,8 +66,8 @@ googleAuthRouter.get("/callback", async (req: Request, res: Response, next: Next
     // Calculate expiry date
     const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
 
-    // Store tokens
-    await storeGoogleOAuthToken(userId, credentialId, {
+    // Store tokens (no credentialId needed - using env-based OAuth)
+    await storeGoogleOAuthToken(userId, {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || undefined,
       expiresAt,
@@ -118,43 +100,21 @@ googleAuthRouter.use(betterAuthMiddleware);
 
 /**
  * Initiate Google OAuth flow
- * GET /api/auth/google/connect?credentialId=xxx
+ * GET /api/auth/google/connect
+ * Uses env-based GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
  */
 googleAuthRouter.get("/connect", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
-    const { credentialId } = req.query;
 
-    if (!credentialId || typeof credentialId !== "string") {
-      throw new AppError("credentialId query parameter is required", 400);
-    }
+    // Get client ID and secret from environment variables
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
-    // Get credential to access client ID and secret
-    const credential = await getCredential(credentialId, user.id);
-
-    if (!credential) {
-      throw new AppError("Credential not found", 404);
-    }
-
-    if (credential.type !== "GOOGLE_OAUTH") {
-      throw new AppError("Credential is not a Google OAuth credential", 400);
-    }
-
-    // Parse credential value (should contain clientId and clientSecret)
-    let clientId: string;
-    let clientSecret: string;
-    try {
-      const credentialData = JSON.parse(credential.value);
-      clientId = credentialData.clientId;
-      clientSecret = credentialData.clientSecret;
-
-      if (!clientId || !clientSecret) {
-        throw new Error("Missing clientId or clientSecret");
-      }
-    } catch (error) {
+    if (!clientId || !clientSecret) {
       throw new AppError(
-        "Invalid credential format. Expected JSON with clientId and clientSecret.",
-        400
+        "Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.",
+        500
       );
     }
 
@@ -187,7 +147,6 @@ googleAuthRouter.get("/connect", async (req: Request, res: Response, next: NextF
       scope: scopes,
       prompt: "consent", // Force consent screen to get refresh token
       state: JSON.stringify({
-        credentialId,
         userId: user.id,
         returnUrl: returnUrl || undefined,
       }),
@@ -204,18 +163,14 @@ googleAuthRouter.get("/connect", async (req: Request, res: Response, next: NextF
 
 /**
  * Check connection status
- * GET /api/auth/google/status?credentialId=xxx
+ * GET /api/auth/google/status
+ * Uses env-based OAuth credentials
  */
 googleAuthRouter.get("/status", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
-    const { credentialId } = req.query;
 
-    if (!credentialId || typeof credentialId !== "string") {
-      throw new AppError("credentialId query parameter is required", 400);
-    }
-
-    const token = await getGoogleOAuthToken(user.id, credentialId);
+    const token = await getGoogleOAuthToken(user.id);
 
     res.json({
       success: true,
@@ -230,18 +185,14 @@ googleAuthRouter.get("/status", async (req: Request, res: Response, next: NextFu
 
 /**
  * Disconnect Google account
- * DELETE /api/auth/google/disconnect?credentialId=xxx
+ * DELETE /api/auth/google/disconnect
+ * Uses env-based OAuth credentials
  */
 googleAuthRouter.delete("/disconnect", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
-    const { credentialId } = req.query;
 
-    if (!credentialId || typeof credentialId !== "string") {
-      throw new AppError("credentialId query parameter is required", 400);
-    }
-
-    await deleteGoogleOAuthToken(user.id, credentialId);
+    await deleteGoogleOAuthToken(user.id);
 
     res.json({
       success: true,

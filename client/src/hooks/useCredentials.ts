@@ -13,7 +13,6 @@ export enum CredentialType {
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
-  GOOGLE_OAUTH = "GOOGLE_OAUTH",
   AIRTABLE = "AIRTABLE",
 }
 

@@ -6,22 +6,17 @@ import { useGoogleOAuth } from "@/hooks/useGoogleOAuth";
 import { cn } from "@/lib/utils";
 
 interface GoogleOAuthConnectionProps {
-  credentialId: string | undefined;
   className?: string;
 }
 
-export function GoogleOAuthConnection({ credentialId, className }: GoogleOAuthConnectionProps) {
+export function GoogleOAuthConnection({ className }: GoogleOAuthConnectionProps) {
   const {
     status,
     isLoading: isStatusLoading,
     isConnecting,
     connect,
     disconnect,
-  } = useGoogleOAuth(credentialId);
-
-  if (!credentialId) {
-    return null;
-  }
+  } = useGoogleOAuth();
 
   if (isStatusLoading) {
     return (

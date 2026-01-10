@@ -12,53 +12,51 @@ export interface GoogleOAuthTokenData {
 }
 
 /**
- * Store or update Google OAuth tokens for a user and credential
+ * Store or update Google OAuth tokens for a user
  */
 export const storeGoogleOAuthToken = async (
   userId: string,
-  credentialId: string,
   tokenData: GoogleOAuthTokenData
 ): Promise<void> => {
   const expiresAt = tokenData.expiresAt || null;
 
-  await prismaClient.googleOAuthToken.upsert({
-    where: {
-      userId_credentialId: {
-        userId,
-        credentialId,
-      },
-    },
-    update: {
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken || null,
-      expiresAt,
-      scope: tokenData.scope || null,
-      updatedAt: new Date(),
-    },
-    create: {
-      userId,
-      credentialId,
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken || null,
-      expiresAt,
-      scope: tokenData.scope || null,
-    },
+  // Use findFirst to check if token exists, then create or update
+  const existingToken = await prismaClient.googleOAuthToken.findFirst({
+    where: { userId },
   });
+
+  if (existingToken) {
+    await prismaClient.googleOAuthToken.update({
+      where: { id: existingToken.id },
+      data: {
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken || null,
+        expiresAt,
+        scope: tokenData.scope || null,
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    await prismaClient.googleOAuthToken.create({
+      data: {
+        userId,
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken || null,
+        expiresAt,
+        scope: tokenData.scope || null,
+      },
+    });
+  }
 };
 
 /**
- * Get Google OAuth tokens for a user and credential
+ * Get Google OAuth tokens for a user
  */
-export const getGoogleOAuthToken = async (
-  userId: string,
-  credentialId: string
-): Promise<GoogleOAuthTokenData | null> => {
-  const token = await prismaClient.googleOAuthToken.findUnique({
+export const getGoogleOAuthToken = async (userId: string): Promise<GoogleOAuthTokenData | null> => {
+  // Use findFirst instead of findUnique since unique constraint is on userId
+  const token = await prismaClient.googleOAuthToken.findFirst({
     where: {
-      userId_credentialId: {
-        userId,
-        credentialId,
-      },
+      userId: userId,
     },
   });
 
@@ -77,16 +75,11 @@ export const getGoogleOAuthToken = async (
 /**
  * Check if token exists and is valid (not expired)
  */
-export const hasValidGoogleOAuthToken = async (
-  userId: string,
-  credentialId: string
-): Promise<boolean> => {
-  const token = await prismaClient.googleOAuthToken.findUnique({
+export const hasValidGoogleOAuthToken = async (userId: string): Promise<boolean> => {
+  // Use findFirst instead of findUnique since unique constraint is on userId
+  const token = await prismaClient.googleOAuthToken.findFirst({
     where: {
-      userId_credentialId: {
-        userId,
-        credentialId,
-      },
+      userId: userId,
     },
   });
 
@@ -109,44 +102,22 @@ export const hasValidGoogleOAuthToken = async (
 
 /**
  * Refresh Google OAuth token using refresh token
+ * Uses env-based GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
  */
-export const refreshGoogleOAuthToken = async (
-  userId: string,
-  credentialId: string
-): Promise<GoogleOAuthTokenData> => {
-  // Get credential to access client ID and secret
-  const credential = await prismaClient.credential.findUnique({
-    where: { id: credentialId },
-  });
+export const refreshGoogleOAuthToken = async (userId: string): Promise<GoogleOAuthTokenData> => {
+  // Get client ID and secret from environment variables
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
-  if (!credential) {
-    throw new AppError("Credential not found", 404);
-  }
-
-  if (credential.type !== "GOOGLE_OAUTH") {
-    throw new AppError("Credential is not a Google OAuth credential", 400);
-  }
-
-  // Parse credential value (should contain clientId and clientSecret)
-  let clientId: string;
-  let clientSecret: string;
-  try {
-    const credentialData = JSON.parse(credential.value);
-    clientId = credentialData.clientId;
-    clientSecret = credentialData.clientSecret;
-
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing clientId or clientSecret");
-    }
-  } catch (error) {
+  if (!clientId || !clientSecret) {
     throw new AppError(
-      "Invalid credential format. Expected JSON with clientId and clientSecret.",
-      400
+      "Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.",
+      500
     );
   }
 
   // Get current token
-  const currentToken = await getGoogleOAuthToken(userId, credentialId);
+  const currentToken = await getGoogleOAuthToken(userId);
 
   if (!currentToken || !currentToken.refreshToken) {
     throw new AppError("No refresh token available. Please reconnect.", 400);
@@ -178,7 +149,7 @@ export const refreshGoogleOAuthToken = async (
       scope: credentials.scope || currentToken.scope,
     };
 
-    await storeGoogleOAuthToken(userId, credentialId, newTokenData);
+    await storeGoogleOAuthToken(userId, newTokenData);
 
     return newTokenData;
   } catch (error) {
@@ -191,15 +162,13 @@ export const refreshGoogleOAuthToken = async (
 
 /**
  * Get a valid access token, refreshing if necessary
+ * Uses env-based GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
  */
-export const getValidAccessToken = async (
-  userId: string,
-  credentialId: string
-): Promise<string> => {
-  const isValid = await hasValidGoogleOAuthToken(userId, credentialId);
+export const getValidAccessToken = async (userId: string): Promise<string> => {
+  const isValid = await hasValidGoogleOAuthToken(userId);
 
   if (isValid) {
-    const token = await getGoogleOAuthToken(userId, credentialId);
+    const token = await getGoogleOAuthToken(userId);
     if (!token) {
       throw new AppError("Token not found", 404);
     }
@@ -208,7 +177,7 @@ export const getValidAccessToken = async (
 
   // Token is expired or doesn't exist, try to refresh
   try {
-    const refreshedToken = await refreshGoogleOAuthToken(userId, credentialId);
+    const refreshedToken = await refreshGoogleOAuthToken(userId);
     return refreshedToken.accessToken;
   } catch (error) {
     // If refresh fails, throw error asking user to reconnect
@@ -222,14 +191,10 @@ export const getValidAccessToken = async (
 /**
  * Delete Google OAuth token
  */
-export const deleteGoogleOAuthToken = async (
-  userId: string,
-  credentialId: string
-): Promise<void> => {
+export const deleteGoogleOAuthToken = async (userId: string): Promise<void> => {
   await prismaClient.googleOAuthToken.deleteMany({
     where: {
       userId,
-      credentialId,
     },
   });
 };

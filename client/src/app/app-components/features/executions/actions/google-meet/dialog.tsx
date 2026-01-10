@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,7 +33,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
-import { useCredentials, CredentialType } from "@/hooks/useCredentials";
 import { GoogleOAuthConnection } from "../../components/google-oauth-connection";
 
 const formSchema = z.object({
@@ -43,7 +43,6 @@ const formSchema = z.object({
       message:
         "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores",
     }),
-  credentialId: z.string().min(1, { message: "Google OAuth credential is required" }),
   action: z.enum(["createMeeting", "getMeetingLink"]),
   calendarId: z.string().optional(),
   summary: z.string().optional(),
@@ -66,14 +65,10 @@ interface Props {
 }
 
 export const GoogleMeetDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
-  const { data: credentialsData } = useCredentials(1, 100, CredentialType.GOOGLE_OAUTH);
-  const googleCredentials = credentialsData?.credentials || [];
-
   const form = useForm<GoogleMeetFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       variables: defaultValues.variables || "googleMeet",
-      credentialId: defaultValues.credentialId || "",
       action: defaultValues.action || "createMeeting",
       calendarId: defaultValues.calendarId || "primary",
       summary: defaultValues.summary || "",
@@ -91,7 +86,6 @@ export const GoogleMeetDialog = ({ open, onOpenChange, onSubmit, defaultValues =
     if (open) {
       form.reset({
         variables: defaultValues.variables || "googleMeet",
-        credentialId: defaultValues.credentialId || "",
         action: defaultValues.action || "createMeeting",
         calendarId: defaultValues.calendarId || "primary",
         summary: defaultValues.summary || "",
@@ -149,43 +143,15 @@ export const GoogleMeetDialog = ({ open, onOpenChange, onSubmit, defaultValues =
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="credentialId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Google OAuth Credential</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a Google OAuth credential" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {googleCredentials.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            No Google OAuth credentials found. Please add one in the Credentials
-                            page.
-                          </div>
-                        ) : (
-                          googleCredentials.map((credential) => (
-                            <SelectItem key={credential.id} value={credential.id}>
-                              {credential.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Select the Google OAuth credential with Meet API access.
-                    </FormDescription>
-                    <FormMessage />
-                    <div className="mt-2">
-                      <GoogleOAuthConnection credentialId={field.value} />
-                    </div>
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-2">
+                <Label>Google Account Connection</Label>
+                <p className="text-[0.8rem] text-muted-foreground">
+                  Connect your Google account to use Google Meet. Uses env-based OAuth credentials.
+                </p>
+                <div className="mt-2">
+                  <GoogleOAuthConnection />
+                </div>
+              </div>
 
               <FormField
                 control={form.control}
