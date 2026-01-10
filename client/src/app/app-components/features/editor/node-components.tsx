@@ -32,6 +32,8 @@ import { GoogleSlidesNode } from "@/app/app-components/features/executions/actio
 import { GmailNode } from "@/app/app-components/features/executions/actions/gmail/node";
 import { AirtableNode } from "@/app/app-components/features/executions/actions/airtable/node";
 import { ElevenLabsNode } from "@/app/app-components/features/executions/actions/elevenlabs/node";
+import { FirecrawlNode } from "@/app/app-components/features/executions/actions/firecrawl/node";
+import { ApifyNode } from "@/app/app-components/features/executions/actions/apify/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -61,6 +63,8 @@ export const NodeComponents = {
   [NodeType.GMAIL]: GmailNode,
   [NodeType.AIRTABLE]: AirtableNode,
   [NodeType.ELEVENLABS]: ElevenLabsNode,
+  [NodeType.FIRECRAWL]: FirecrawlNode,
+  [NodeType.APIFY]: ApifyNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

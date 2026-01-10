@@ -399,6 +399,9 @@ enum NodeType {
   GMAIL
   AIRTABLE
   AIRTABLE_TRIGGER
+  ELEVENLABS
+  FIRECRAWL
+  APIFY
 }
 
 model Node {

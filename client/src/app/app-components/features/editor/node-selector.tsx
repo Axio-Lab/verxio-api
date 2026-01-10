@@ -198,6 +198,19 @@ const executionNodes: NodeTypeOption[] = [
     description: "Generate speech, transcribe audio, or clone voices using AI",
     icon: "/logo/elevenlabs.svg",
   },
+  {
+    type: NodeType.FIRECRAWL,
+    label: "Firecrawl",
+    description: "Scrape, crawl, map, search, or use agent for deep research on web content",
+    icon: "/logo/firecrawl.svg",
+  },
+  {
+    type: NodeType.APIFY,
+    label: "Apify",
+    description:
+      "Browse actors, run scrapers (TikTok, LinkedIn, Facebook, etc.), or retrieve results",
+    icon: "/logo/apify.svg",
+  },
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
@@ -649,6 +662,32 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
             action: "textToSpeech",
           },
           type: NodeType.ELEVENLABS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.FIRECRAWL) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Firecrawl",
+            variables: "firecrawl",
+            action: "scrape",
+          },
+          type: NodeType.FIRECRAWL,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.APIFY) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Apify",
+            variables: "apify",
+            action: "listActors",
+          },
+          type: NodeType.APIFY,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

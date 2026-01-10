@@ -30,6 +30,8 @@ export const NodeType = {
   AIRTABLE: "AIRTABLE",
   AIRTABLE_TRIGGER: "AIRTABLE_TRIGGER",
   ELEVENLABS: "ELEVENLABS",
+  FIRECRAWL: "FIRECRAWL",
+  APIFY: "APIFY",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

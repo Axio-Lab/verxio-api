@@ -25,6 +25,8 @@ import { googleSlidesExecutor } from "./actions/google-slides";
 import { gmailExecutor } from "./actions/gmail";
 import { airtableExecutor } from "./actions/airtable";
 import { elevenlabsExecutor } from "./actions/elevenlabs";
+import { firecrawlExecutor } from "./actions/firecrawl";
+import { apifyExecutor } from "./actions/apify";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
@@ -57,6 +59,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.GMAIL]: gmailExecutor as NodeExecutor,
   [NodeType.AIRTABLE]: airtableExecutor as NodeExecutor,
   [NodeType.ELEVENLABS]: elevenlabsExecutor as NodeExecutor,
+  [NodeType.FIRECRAWL]: firecrawlExecutor as NodeExecutor,
+  [NodeType.APIFY]: apifyExecutor as NodeExecutor,
 };
 
 /**

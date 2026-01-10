@@ -28,6 +28,8 @@ import { googleSlidesChannel } from "./google-slides";
 import { gmailChannel } from "./gmail";
 import { airtableChannel } from "./airtable";
 import { elevenlabsChannel } from "./elevenlabs";
+import { firecrawlChannel } from "./firecrawl";
+import { apifyChannel } from "./apify";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -56,6 +58,8 @@ export const nodeStatusChannels = {
   gmail: gmailChannel,
   airtable: airtableChannel,
   elevenlabs: elevenlabsChannel,
+  firecrawl: firecrawlChannel,
+  apify: apifyChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -88,4 +92,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   gmail: "gmail-execution",
   airtable: "airtable-execution",
   elevenlabs: "elevenlabs-execution",
+  firecrawl: "firecrawl-execution",
+  apify: "apify-execution",
 };
