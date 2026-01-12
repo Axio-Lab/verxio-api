@@ -14,6 +14,7 @@ export enum CredentialType {
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
   AIRTABLE = "AIRTABLE",
+  CUSTOM = "CUSTOM",
 }
 
 export interface Credential {

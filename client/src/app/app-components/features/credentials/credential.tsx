@@ -139,8 +139,10 @@ export const CredentialsList = ({ credentials }: { credentials: Credential[] }) 
   );
 };
 
-const getCredentialTypeOption = (type: CredentialType) => {
-  return credentialTypeOptions.find((option) => option.value === type);
+const getCredentialTypeOption = (type: string) => {
+  return credentialTypeOptions.find(
+    (option) => option.value === type || option.value.toLowerCase() === type.toLowerCase()
+  );
 };
 
 export const CredentialsItem = ({ credential }: { credential: Credential }) => {
@@ -162,7 +164,7 @@ export const CredentialsItem = ({ credential }: { credential: Credential }) => {
         </span>
       }
       image={
-        credentialOption ? (
+        credentialOption && credentialOption.logo ? (
           <div className="size-8 flex items-center justify-center">
             <Image
               src={credentialOption.logo}

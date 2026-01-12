@@ -261,9 +261,10 @@ model User {
   updatedAt         DateTime           @updatedAt
   sessions          Session[]
   accounts          Account[]
-  workflows         Workflow[]
-  credentials       Credential[]
-  googleOAuthToken GoogleOAuthToken?
+  workflows            Workflow[]
+  credentials          Credential[]
+  googleOAuthToken     GoogleOAuthToken?
+  workflowGenerations  WorkflowGeneration[]
 
   @@map("user")
 }
@@ -370,6 +371,7 @@ model Workflow {
 enum NodeType {
   INITIAL
   MANUAL_TRIGGER
+  MANUAL_INPUT
   TIMED_TRIGGER
   HTTP_REQUEST
   WEBHOOK
@@ -397,6 +399,7 @@ enum NodeType {
   ELEVENLABS
   FIRECRAWL
   APIFY
+  CODE_BLOCK
 }
 
 model Node {
@@ -444,4 +447,25 @@ model Connection {
   @@index([fromNodeId])
   @@index([toNodeId])
   @@map("connections")
+}
+
+model WorkflowGeneration {
+  id                String   @id @default(cuid())
+  userId            String
+  workflowId        String?
+  prompt            String
+  generatedWorkflow Json     // Stores the generated workflow blueprint (nodes + connections)
+  customCodeBlocks  Json?    // Stores custom code for CODE_BLOCK nodes
+  status            String   @default("pending") // pending, generating, testing, completed, failed
+  testResults       Json?    // Stores test results from Daytona sandboxes
+  daytonaSandboxIds String[] // Array of Daytona sandbox IDs used for testing/execution
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workflowId])
+  @@index([status])
+  @@map("workflow_generations")
 }

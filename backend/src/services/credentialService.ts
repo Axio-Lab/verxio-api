@@ -29,6 +29,11 @@ export function isValidCredentialType(type: string): boolean {
     return true;
   }
 
+  // Explicitly allow "custom" or "CUSTOM" for custom credentials
+  if (type.toLowerCase() === "custom") {
+    return true;
+  }
+
   // Allow custom types (must be uppercase, alphanumeric + underscore, 3-50 chars)
   const customTypePattern = /^[A-Z][A-Z0-9_]{2,49}$/;
   return customTypePattern.test(type);

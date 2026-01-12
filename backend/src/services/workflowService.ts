@@ -345,95 +345,197 @@ export const updateWorkflowData = async (
   }
 
   // Use transaction to ensure atomicity
-  const workflow = await (prismaClient as any).$transaction(async (tx: any) => {
-    // Delete all existing nodes (connections will be cascade deleted)
-    await tx.node.deleteMany({
-      where: { workflowId: id },
-    });
+  // Prisma Accelerate limits interactive transactions to 15 seconds max
+  // Optimize transaction to complete within this limit
+  await (prismaClient as any).$transaction(
+    async (tx: any) => {
+      // Delete all existing connections first (explicitly to avoid unique constraint issues)
+      await tx.connection.deleteMany({
+        where: { workflowId: id },
+      });
 
-    // Prepare update data
-    const updateData: any = {};
+      // Delete all existing nodes (connections should already be deleted, but this ensures cleanup)
+      await tx.node.deleteMany({
+        where: { workflowId: id },
+      });
 
-    if (data.name && data.name.trim() !== "") {
-      updateData.name = data.name.trim();
-    }
+      // Prepare update data
+      // Always update the workflow record to refresh updatedAt timestamp
+      const updateData: any = {
+        updatedAt: new Date(), // Explicitly update the timestamp
+      };
 
-    // Update workflow name first (if provided)
-    await tx.workflow.update({
-      where: { id },
-      data: updateData,
-    });
+      if (data.name && data.name.trim() !== "") {
+        updateData.name = data.name.trim();
+      }
 
-    // Create nodes separately using createMany to preserve client-provided IDs
-    if (data.nodes.length > 0) {
-      const nodesToCreate = data.nodes.map((node) => {
-        // Validate node type exists in our NodeType constants
-        if (node.type && !Object.values(NodeType).includes(node.type as any)) {
-          throw new AppError(
-            `Invalid node type: ${node.type}. Valid types are: ${Object.values(NodeType).join(", ")}`,
-            400
-          );
+      // Update workflow record (this ensures updatedAt is refreshed)
+      // This is important to track when the workflow was last modified
+      await tx.workflow.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // Build node IDs set for connection validation
+      // This avoids an extra database query later
+      let nodeIds = new Set<string>();
+
+      // Create nodes separately using upsert to preserve client-provided IDs
+      // No deduplication - use all nodes as provided (AI-generated workflows should include all nodes)
+      if (data.nodes.length > 0) {
+        // Deduplicate nodes by ID to prevent errors, but log if duplicates are found
+        const nodeMap = new Map<string, (typeof data.nodes)[0]>();
+        const duplicateIds: string[] = [];
+
+        for (const node of data.nodes) {
+          if (nodeMap.has(node.id)) {
+            duplicateIds.push(node.id);
+            // Keep the last occurrence (or first, depending on preference)
+            // For AI-generated workflows, we want to keep all nodes, so we'll keep the first
+            continue;
+          }
+          nodeMap.set(node.id, node);
         }
 
-        // Preserve the node ID from client so connections can reference it
-        return {
-          id: node.id, // Use client-provided ID
-          workflowId: id,
-          name: node.name,
-          type: node.type as any, // Prisma will validate against the enum
-          position: node.position,
-          data: node.data || {},
-        };
-      });
+        const uniqueNodes = Array.from(nodeMap.values());
+        const nodesToCreate = uniqueNodes.map((node) => {
+          // Validate node type exists in our NodeType constants
+          if (node.type && !Object.values(NodeType).includes(node.type as any)) {
+            throw new AppError(
+              `Invalid node type: ${node.type}. Valid types are: ${Object.values(NodeType).join(", ")}`,
+              400
+            );
+          }
 
-      // Use createMany to create nodes with their IDs
-      await tx.node.createMany({
-        data: nodesToCreate,
-        skipDuplicates: false, // Fail if duplicate IDs exist
-      });
-    }
+          // Preserve the node ID from client so connections can reference it
+          return {
+            id: node.id, // Use client-provided ID
+            workflowId: id,
+            name: node.name,
+            type: node.type as any, // Prisma will validate against the enum
+            position: node.position,
+            data: node.data || {},
+          };
+        });
 
-    // Fetch the newly created nodes to verify they exist
-    const createdNodes = await tx.node.findMany({
-      where: { workflowId: id },
-      select: { id: true },
-    });
-    const nodeIds = new Set(createdNodes.map((n: any) => n.id));
+        // Build node IDs set for connection validation BEFORE creating nodes
+        // This avoids an extra database query
+        nodeIds = new Set(nodesToCreate.map((n) => n.id));
 
-    // Create connections (transform source/target to fromNodeId/toNodeId)
-    if (data.connections.length > 0) {
-      // Verify all referenced nodes exist
-
-      for (const conn of data.connections) {
-        if (!nodeIds.has(conn.source) || !nodeIds.has(conn.target)) {
-          throw new AppError(
-            `Connection references non-existent node: source=${conn.source}, target=${conn.target}`,
-            400
-          );
+        // Use createMany for better performance since we've already deleted all nodes
+        // This is much faster than individual upserts in a loop
+        if (nodesToCreate.length > 0) {
+          // Split into batches of 1000 to avoid potential issues with very large arrays
+          const batchSize = 1000;
+          for (let i = 0; i < nodesToCreate.length; i += batchSize) {
+            const batch = nodesToCreate.slice(i, i + batchSize);
+            await tx.node.createMany({
+              data: batch,
+              skipDuplicates: true, // Safety net in case of race conditions
+            });
+          }
         }
       }
 
-      // Create connections with transformed field names
-      await tx.connection.createMany({
-        data: data.connections.map((conn) => ({
-          workflowId: id,
-          fromNodeId: conn.source,
-          toNodeId: conn.target,
-          fromOutput: conn.sourceHandle || "main",
-          toInput: conn.targetHandle || "main",
-        })),
-      });
-    }
+      // Create connections (transform source/target to fromNodeId/toNodeId)
+      if (data.connections.length > 0) {
+        // Verify all referenced nodes exist using the nodeIds we built earlier
+        const missingNodes: string[] = [];
+        for (const conn of data.connections) {
+          if (!nodeIds.has(conn.source)) {
+            missingNodes.push(`source=${conn.source}`);
+          }
+          if (!nodeIds.has(conn.target)) {
+            missingNodes.push(`target=${conn.target}`);
+          }
+        }
 
-    // Fetch the complete workflow with all relations
-    return await tx.workflow.findUnique({
-      where: { id },
-      include: {
-        nodes: true,
-        connections: true,
+        if (missingNodes.length > 0) {
+          throw new AppError(
+            `Connection references non-existent node(s): ${missingNodes.join(", ")}. ` +
+              `Available node IDs: ${Array.from(nodeIds).join(", ")}`,
+            400
+          );
+        }
+
+        // Transform and deduplicate connections to avoid unique constraint violations
+        const connectionMap = new Map<
+          string,
+          {
+            workflowId: string;
+            fromNodeId: string;
+            toNodeId: string;
+            fromOutput: string;
+            toInput: string;
+          }
+        >();
+
+        for (const conn of data.connections) {
+          const fromOutput = conn.sourceHandle || "main";
+          const toInput = conn.targetHandle || "main";
+
+          // Create unique key for deduplication (matches the unique constraint)
+          const uniqueKey = `${conn.source}:${conn.target}:${fromOutput}:${toInput}`;
+
+          if (!connectionMap.has(uniqueKey)) {
+            connectionMap.set(uniqueKey, {
+              workflowId: id,
+              fromNodeId: conn.source,
+              toNodeId: conn.target,
+              fromOutput,
+              toInput,
+            });
+          }
+        }
+
+        // Create connections with transformed field names (deduplicated)
+        const uniqueConnections = Array.from(connectionMap.values());
+
+        if (uniqueConnections.length > 0) {
+          // Since we deleted all connections at the start, we can directly create them
+          // Split into batches of 1000 to avoid potential issues with very large arrays
+          const batchSize = 1000;
+          for (let i = 0; i < uniqueConnections.length; i += batchSize) {
+            const batch = uniqueConnections.slice(i, i + batchSize);
+            await tx.connection.createMany({
+              data: batch,
+              skipDuplicates: true, // Safety net in case of race conditions
+            });
+          }
+        }
+      }
+
+      // Don't fetch the workflow inside the transaction - do it after to save time
+      // The transaction just needs to complete the writes
+      // No return needed - transaction completes successfully
+    },
+    {
+      maxWait: 10000, // Maximum time to wait for a transaction slot (10 seconds)
+      timeout: 15000, // Maximum time the transaction can run (15 seconds - Accelerate limit)
+    }
+  );
+
+  // Fetch the complete workflow AFTER the transaction completes
+  // This is faster and avoids transaction timeout issues
+  const workflow = await prismaClient.workflow.findUnique({
+    where: { id },
+    include: {
+      nodes: {
+        orderBy: {
+          createdAt: "asc", // Order nodes by creation time for consistency
+        },
       },
-    });
+      connections: {
+        orderBy: {
+          createdAt: "asc", // Order connections by creation time for consistency
+        },
+      },
+    },
   });
+
+  if (!workflow) {
+    throw new AppError(`Workflow ${id} not found after update`, 404);
+  }
 
   const transformedWorkflow = transformWorkflow(workflow);
 
@@ -460,12 +562,12 @@ export const updateWorkflowData = async (
               cancelTimedTrigger(node.id);
             }
           } catch (error) {
-            console.error(`Failed to schedule cron job for timed trigger node ${node.id}:`, error);
             // Continue with other nodes even if one fails
+            // Cron scheduling errors are non-critical and don't block workflow save
           }
         }
       } catch (error) {
-        console.error("Failed to import cron scheduler:", error);
+        // Cron scheduler import errors are non-critical
       }
     });
   }

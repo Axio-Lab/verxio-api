@@ -247,6 +247,10 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
       });
       // Changes are saved - the workflow will refetch automatically
       // The editor will sync the new saved state, and hasChanges will update
+      // Force a change check after a short delay to ensure hasChanges updates
+      setTimeout(() => {
+        checkForChanges();
+      }, 100);
     } catch (error) {
       // Error is handled by the mutation's onError callback
       console.error("Failed to save workflow:", error);

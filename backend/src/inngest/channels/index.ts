@@ -30,10 +30,13 @@ import { airtableChannel } from "./airtable";
 import { elevenlabsChannel } from "./elevenlabs";
 import { firecrawlChannel } from "./firecrawl";
 import { apifyChannel } from "./apify";
+import { codeBlockChannel } from "./code-block";
+import { manualInputChannel } from "./manual-input";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
   manualTrigger: manualTriggerChannel,
+  manualInput: manualInputChannel,
   timedTrigger: timedTriggerChannel,
   decider: deciderChannel,
   webhook: webhookChannel,
@@ -60,6 +63,7 @@ export const nodeStatusChannels = {
   elevenlabs: elevenlabsChannel,
   firecrawl: firecrawlChannel,
   apify: apifyChannel,
+  codeBlock: codeBlockChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -68,6 +72,7 @@ export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
 export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   httpRequest: "http-request-execution",
   manualTrigger: "manual-trigger-execution",
+  manualInput: "manual-input-execution",
   timedTrigger: "timed-trigger-execution",
   decider: "decider-execution",
   webhook: "webhook-execution",
@@ -94,4 +99,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   elevenlabs: "elevenlabs-execution",
   firecrawl: "firecrawl-execution",
   apify: "apify-execution",
+  codeBlock: "code-block-execution",
 };

@@ -20,6 +20,72 @@ Handlebars.registerHelper("json", (context) => {
   return new Handlebars.SafeString(JSON.stringify(context, null, 2));
 });
 
+// Helper to access array elements: {{arrayIndex array 0}}
+Handlebars.registerHelper("arrayIndex", (array: any, index: number | string) => {
+  if (!Array.isArray(array)) {
+    return "";
+  }
+  const idx = typeof index === "string" ? parseInt(index, 10) : index;
+  if (isNaN(idx) || idx < 0 || idx >= array.length) {
+    return "";
+  }
+  const value = array[idx];
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "object") {
+    return new Handlebars.SafeString(JSON.stringify(value, null, 2));
+  }
+  return String(value);
+});
+
+// Helper to safely access nested properties: {{get parsedContent result contentPieces 0 imageDescription}}
+Handlebars.registerHelper("get", (obj: any, ...args: any[]) => {
+  if (!obj || typeof obj !== "object") {
+    return "";
+  }
+  try {
+    let value = obj;
+    for (let i = 0; i < args.length - 1; i++) {
+      const key = args[i];
+      if (Array.isArray(value) && typeof key === "number") {
+        value = value[key];
+      } else if (Array.isArray(value) && typeof key === "string") {
+        const idx = parseInt(key, 10);
+        if (!isNaN(idx)) {
+          value = value[idx];
+        } else {
+          return "";
+        }
+      } else if (value && typeof value === "object") {
+        value = value[key];
+      } else {
+        return "";
+      }
+      if (value === null || value === undefined) {
+        return "";
+      }
+    }
+    const finalKey = args[args.length - 1];
+    if (Array.isArray(value) && typeof finalKey === "number") {
+      value = value[finalKey];
+    } else if (value && typeof value === "object") {
+      value = value[finalKey];
+    } else {
+      return "";
+    }
+    if (value === null || value === undefined) {
+      return "";
+    }
+    if (typeof value === "object") {
+      return new Handlebars.SafeString(JSON.stringify(value, null, 2));
+    }
+    return String(value);
+  } catch (e) {
+    return "";
+  }
+});
+
 type OpenAITriggerData = {
   model?: string;
   systemPrompt?: string;

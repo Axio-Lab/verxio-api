@@ -2,6 +2,7 @@
 export const NodeType = {
   INITIAL: "INITIAL",
   MANUAL_TRIGGER: "MANUAL_TRIGGER",
+  MANUAL_INPUT: "MANUAL_INPUT",
   TIMED_TRIGGER: "TIMED_TRIGGER",
   HTTP_REQUEST: "HTTP_REQUEST",
   WEBHOOK: "WEBHOOK",
@@ -29,6 +30,7 @@ export const NodeType = {
   ELEVENLABS: "ELEVENLABS",
   FIRECRAWL: "FIRECRAWL",
   APIFY: "APIFY",
+  CODE_BLOCK: "CODE_BLOCK",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

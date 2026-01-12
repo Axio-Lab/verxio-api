@@ -2,6 +2,7 @@ import { NodeTypes } from "@xyflow/react";
 import { useState } from "react";
 import { InitialNode } from "@/app/app-components/features/editor/initial-node";
 import { ManualTriggerNode } from "@/app/app-components/features/executions/triggers/manual-trigger/node";
+import { ManualInputNode } from "@/app/app-components/features/executions/triggers/manual-input/node";
 import { HttpRequestNode } from "@/app/app-components/features/executions/actions/https-request/node";
 import { WebhookNode } from "@/app/app-components/features/executions/webhook/node";
 import { Button } from "@/components/ui/button";
@@ -34,10 +35,12 @@ import { AirtableNode } from "@/app/app-components/features/executions/actions/a
 import { ElevenLabsNode } from "@/app/app-components/features/executions/actions/elevenlabs/node";
 import { FirecrawlNode } from "@/app/app-components/features/executions/actions/firecrawl/node";
 import { ApifyNode } from "@/app/app-components/features/executions/actions/apify/node";
+import { CodeBlockNode } from "@/app/app-components/features/executions/actions/code-block/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
   [NodeType.MANUAL_TRIGGER]: ManualTriggerNode,
+  [NodeType.MANUAL_INPUT]: ManualInputNode,
   [NodeType.TIMED_TRIGGER]: TimedTriggerNode,
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
@@ -65,15 +68,20 @@ export const NodeComponents = {
   [NodeType.ELEVENLABS]: ElevenLabsNode,
   [NodeType.FIRECRAWL]: FirecrawlNode,
   [NodeType.APIFY]: ApifyNode,
+  [NodeType.CODE_BLOCK]: CodeBlockNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;
 
-export const AddNodeButton = memo(() => {
+interface AddNodeButtonProps {
+  workflowId?: string;
+}
+
+export const AddNodeButton = memo(({ workflowId }: AddNodeButtonProps) => {
   const [selectorOpen, setSelectorOpen] = useState(false);
 
   return (
-    <NodeSelector open={selectorOpen} onOpenChange={setSelectorOpen}>
+    <NodeSelector open={selectorOpen} onOpenChange={setSelectorOpen} workflowId={workflowId}>
       <Button variant="outline" size="icon">
         <PlusIcon className="size-4" />
       </Button>

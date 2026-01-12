@@ -74,7 +74,11 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const credentialTypeOptions = [
+export const credentialTypeOptions: Array<{
+  label: string;
+  value: CredentialType;
+  logo?: string;
+}> = [
   {
     label: "OpenAI",
     value: CredentialType.OPENAI,
@@ -99,6 +103,10 @@ export const credentialTypeOptions = [
     label: "Airtable",
     value: CredentialType.AIRTABLE,
     logo: "/logo/airtable.svg",
+  },
+  {
+    label: "Custom",
+    value: CredentialType.CUSTOM,
   },
   // Note: Google OAuth removed - Google OAuth credentials are now managed via env variables
 ];
@@ -211,7 +219,9 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                       {credentialTypeOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           <div className="flex items-center gap-2">
-                            <Image src={option.logo} alt={option.label} width={20} height={20} />
+                            {option.logo && (
+                              <Image src={option.logo} alt={option.label} width={20} height={20} />
+                            )}
                             {option.label}
                           </div>
                         </SelectItem>
@@ -230,7 +240,9 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                   <FormLabel>
                     {form.watch("type") === CredentialType.AIRTABLE
                       ? "Personal Access Token"
-                      : "API Key"}
+                      : form.watch("type") === CredentialType.CUSTOM
+                        ? "Credential Value"
+                        : "API Key"}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -239,7 +251,9 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                       placeholder={
                         form.watch("type") === CredentialType.AIRTABLE
                           ? "patXXXXXXXXXXXXXX"
-                          : "AI-..."
+                          : form.watch("type") === CredentialType.CUSTOM
+                            ? "Enter your API key or credential value"
+                            : "AI-..."
                       }
                     />
                   </FormControl>
@@ -255,6 +269,12 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                         Airtable API documentation
                       </a>
                       .
+                    </FormDescription>
+                  )}
+                  {form.watch("type") === CredentialType.CUSTOM && (
+                    <FormDescription>
+                      Use custom credentials for API keys in CODE_BLOCK nodes. The credential name
+                      will be used to access the value in your code.
                     </FormDescription>
                   )}
                   <FormMessage />

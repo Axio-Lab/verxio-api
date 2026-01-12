@@ -25,6 +25,10 @@ import { NodeType } from "@/app/app-components/features/editor/node-types";
 import { useSetAtom } from "jotai";
 import { editorAtom } from "./atoms";
 import { ExecuteWorkflowButton } from "../executions/execute-workflow-button";
+import { WorkflowGenerationPanel } from "./workflow-generation-panel";
+import type { ExistingNode, ExistingConnection } from "./workflow-generation-panel";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export const EditorLoader = () => {
   return <LoadingView message="Loading editor..." />;
@@ -83,16 +87,26 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   // Transform workflow connections to ReactFlow Edge format
   const workflowEdges = useMemo<Edge[]>(() => {
     if (!workflow?.connections) return [];
-    return workflow.connections.map((conn) => ({
-      id: conn.id,
-      source: conn.source,
-      target: conn.target,
-      sourceHandle: conn.sourceHandle,
-      targetHandle: conn.targetHandle,
-      // Keep edges deletable and selectable but use default styling
-      deletable: true,
-      selectable: true,
-    }));
+    return workflow.connections.map((conn) => {
+      // Normalize handle values - convert "null", "main", empty string, or null to undefined
+      const normalizeHandle = (handle: any): string | undefined => {
+        if (!handle || handle === "null" || handle === "main" || handle === "" || handle === null) {
+          return undefined;
+        }
+        return handle;
+      };
+
+      return {
+        id: conn.id,
+        source: conn.source,
+        target: conn.target,
+        sourceHandle: normalizeHandle(conn.sourceHandle),
+        targetHandle: normalizeHandle(conn.targetHandle),
+        // Keep edges deletable and selectable but use default styling
+        deletable: true,
+        selectable: true,
+      };
+    });
   }, [workflow?.connections]);
 
   // Local state is the source of truth - only sync from saved workflow on initial load
@@ -130,9 +144,14 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
       setEdges(workflowEdges);
     } else if (lastSavedWorkflowRef.current !== workflowKey) {
       // Saved workflow changed (likely after a save)
-      // Update our reference but keep local state as source of truth
-      // The change detection will handle updating hasChanges
+      // Update our reference and sync local state to match saved state
+      // This ensures change detection works correctly after saves
       lastSavedWorkflowRef.current = workflowKey;
+
+      // Sync local state to saved state after save
+      // This ensures hasChanges becomes false after successful save
+      setNodes(workflowNodes);
+      setEdges(workflowEdges);
     }
   }, [workflow?.id, workflowNodes, workflowEdges]);
 
@@ -201,6 +220,18 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     return nodes.some((node) => node.type === NodeType.MANUAL_TRIGGER);
   }, [nodes]);
 
+  // Check if workflow has nodes (to determine button text)
+  const hasNodes = useMemo(() => {
+    return nodes.length > 0;
+  }, [nodes]);
+
+  // Check if there are any actual workflow nodes (excluding INITIAL node)
+  const hasWorkflowNodes = useMemo(() => {
+    return nodes.some((node) => node.type !== NodeType.INITIAL);
+  }, [nodes]);
+
+  const [editWorkflowOpen, setEditWorkflowOpen] = useState(false);
+
   if (isLoading) {
     return <EditorLoader />;
   }
@@ -239,14 +270,58 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         <Background />
         <Controls />
         <MiniMap />
-        <Panel position="top-right">
-          <AddNodeButton />
+        <Panel position="top-right" className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditWorkflowOpen(true)}
+            className="flex items-center gap-2 border-primary"
+          >
+            <Sparkles className="h-4 w-4" />
+            {hasWorkflowNodes ? "Edit with AI" : "Generate with AI"}
+          </Button>
+          <AddNodeButton workflowId={workflowId} />
         </Panel>
         {hasManualTriggerNode && (
           <Panel position="bottom-center">
             <ExecuteWorkflowButton workflowId={workflowId} />
           </Panel>
         )}
+        <WorkflowGenerationPanel
+          open={editWorkflowOpen}
+          onOpenChange={setEditWorkflowOpen}
+          workflowId={workflowId}
+          mode={hasWorkflowNodes ? "edit" : "generate"}
+          existingNodes={
+            hasWorkflowNodes
+              ? nodes
+                  .filter((n) => n.type !== NodeType.INITIAL)
+                  .map((n): ExistingNode => {
+                    const nodeId: string = n.id || "";
+                    const nodeType: string = n.type || "";
+                    return {
+                      id: nodeId,
+                      type: nodeType,
+                      data: (n.data || {}) as Record<string, unknown>,
+                    };
+                  })
+              : undefined
+          }
+          existingConnections={
+            hasWorkflowNodes
+              ? edges.map((e): ExistingConnection => {
+                  const edgeId: string = e.id || `edge-${e.source}-${e.target}`;
+                  const source: string = e.source;
+                  const target: string = e.target;
+                  return {
+                    id: edgeId,
+                    source,
+                    target,
+                  };
+                })
+              : undefined
+          }
+        />
       </ReactFlow>
     </div>
   );

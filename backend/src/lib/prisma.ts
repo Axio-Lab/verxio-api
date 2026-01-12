@@ -1,4 +1,4 @@
-import { PrismaClient as BackendPrismaClient } from "../../node_modules/.prisma/client";
+import { PrismaClient as BackendPrismaClient } from "../../node_modules/.prisma/client/index";
 import { fieldEncryptionExtension } from "prisma-field-encryption";
 
 const globalForPrisma = globalThis as unknown as {

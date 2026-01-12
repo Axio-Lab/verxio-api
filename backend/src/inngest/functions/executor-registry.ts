@@ -27,12 +27,15 @@ import { airtableExecutor } from "./actions/airtable";
 import { elevenlabsExecutor } from "./actions/elevenlabs";
 import { firecrawlExecutor } from "./actions/firecrawl";
 import { apifyExecutor } from "./actions/apify";
+import { codeBlockExecutor } from "./actions/code-block";
+import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
 // Registry of executors for each node type
 // Note: We cast specific executors to base NodeExecutor type to allow different generic types
 export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.MANUAL_TRIGGER]: manualTriggerExecutor,
+  [NodeType.MANUAL_INPUT]: manualInputExecutor,
   [NodeType.TIMED_TRIGGER]: timedTriggerExecutor,
   [NodeType.DECIDER]: deciderExecutor,
   [NodeType.GOOGLE_FORM_TRIGGER]: googleFormTriggerExecutor as NodeExecutor,
@@ -61,6 +64,7 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.ELEVENLABS]: elevenlabsExecutor as NodeExecutor,
   [NodeType.FIRECRAWL]: firecrawlExecutor as NodeExecutor,
   [NodeType.APIFY]: apifyExecutor as NodeExecutor,
+  [NodeType.CODE_BLOCK]: codeBlockExecutor as NodeExecutor,
 };
 
 /**

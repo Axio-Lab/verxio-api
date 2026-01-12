@@ -7,6 +7,7 @@ import {
   SearchIcon,
   ClockIcon,
   GitBranchIcon,
+  Keyboard,
 } from "lucide-react";
 import {
   Sheet,
@@ -22,6 +23,8 @@ import { useReactFlow } from "@xyflow/react";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { createId } from "@paralleldrive/cuid2";
+import { WorkflowGenerationPanel } from "./workflow-generation-panel";
+import { Sparkles } from "lucide-react";
 
 export type NodeTypeOption = {
   type: keyof typeof NodeType;
@@ -34,6 +37,7 @@ interface NodeSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  workflowId?: string;
 }
 
 const triggerNodes: NodeTypeOption[] = [
@@ -213,10 +217,11 @@ const executionNodes: NodeTypeOption[] = [
   },
 ];
 
-export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps) => {
-  const { setNodes, getNodes, screenToFlowPosition } = useReactFlow();
+export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {
+  const { setNodes, getNodes, screenToFlowPosition, setEdges } = useReactFlow();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [workflowGenOpen, setWorkflowGenOpen] = useState(false);
   const itemsPerPage = 6; // Show 5 items per page
 
   // Combine all nodes for unified search
@@ -403,6 +408,19 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
         } else {
           setNodes((nodes) => [...nodes, newNode]);
         }
+        onOpenChange(false);
+      } else if (selection.type === NodeType.MANUAL_INPUT) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Manual Input",
+            variables: "input",
+            prompt: "",
+          },
+          type: NodeType.MANUAL_INPUT,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
       } else if (selection.type === NodeType.HTTP_REQUEST) {
         const newNode = {
@@ -707,6 +725,25 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
           </SheetDescription>
         </SheetHeader>
 
+        {/* Generate with AI Button */}
+        <div className="mt-4 flex-shrink-0">
+          <button
+            onClick={() => {
+              setWorkflowGenOpen(true);
+              onOpenChange(false);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors duration-200 group"
+          >
+            <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <div className="flex flex-col text-left items-start flex-1">
+              <span className="font-semibold text-sm text-foreground">Generate with AI</span>
+              <span className="text-xs text-muted-foreground">
+                Describe your workflow and let Claude create it
+              </span>
+            </div>
+          </button>
+        </div>
+
         {/* Search Input */}
         <div className="mt-4 flex-shrink-0">
           <div className="relative">
@@ -817,6 +854,18 @@ export const NodeSelector = ({ open, onOpenChange, children }: NodeSelectorProps
           </div>
         )}
       </SheetContent>
+
+      {/* Workflow Generation Panel */}
+      <WorkflowGenerationPanel
+        open={workflowGenOpen}
+        onOpenChange={(open) => {
+          setWorkflowGenOpen(open);
+          if (open) {
+            onOpenChange(false);
+          }
+        }}
+        workflowId={workflowId}
+      />
     </Sheet>
   );
 };

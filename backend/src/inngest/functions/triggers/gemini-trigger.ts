@@ -113,16 +113,11 @@ export const geminiTriggerExecutor: NodeExecutor<GeminiTriggerData> = async ({
       let result = str;
       for (let i = matches.length - 1; i >= 0; i--) {
         const { fullMatch, expression } = matches[i];
-        // Try to evaluate the expression and check if it's an object
+        // Try to evaluate the expression and check if it's an object or array
         try {
           const value = expression.split(".").reduce((obj: any, key) => obj?.[key], context);
-          if (
-            value !== null &&
-            value !== undefined &&
-            typeof value === "object" &&
-            !Array.isArray(value)
-          ) {
-            // Replace the expression with JSON.stringify version
+          if (value !== null && value !== undefined && typeof value === "object") {
+            // Replace the expression with JSON.stringify version (handles both objects and arrays)
             result =
               result.substring(0, matches[i].index) +
               `{{json ${expression}}}` +

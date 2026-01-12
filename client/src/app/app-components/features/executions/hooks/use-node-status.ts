@@ -116,6 +116,16 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const manualInputSub = useInngestSubscription({
+    refreshToken: createRefreshToken("manualInput"),
+    enabled: true,
+  });
+
+  const codeBlockSub = useInngestSubscription({
+    refreshToken: createRefreshToken("codeBlock"),
+    enabled: true,
+  });
+
   const webhookSub = useInngestSubscription({
     refreshToken: createRefreshToken("webhook"),
     enabled: true,
@@ -241,6 +251,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     return [
       ...(httpRequestSub.data || []),
       ...(manualTriggerSub.data || []),
+      ...(manualInputSub.data || []),
+      ...(codeBlockSub.data || []),
       ...(webhookSub.data || []),
       ...(googleFormSub.data || []),
       ...(airtableTriggerSub.data || []),
@@ -269,6 +281,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
   }, [
     httpRequestSub.data,
     manualTriggerSub.data,
+    manualInputSub.data,
+    codeBlockSub.data,
     webhookSub.data,
     googleFormSub.data,
     airtableTriggerSub.data,
