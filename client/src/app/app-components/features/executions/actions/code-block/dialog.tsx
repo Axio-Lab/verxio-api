@@ -19,14 +19,16 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useCredentials, CredentialType } from "@/hooks/useCredentials";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { authenticatedPost } from "@/lib/api-client";
 
 // Dynamically import Monaco editor to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -46,7 +48,7 @@ const formSchema = z.object({
     }),
   label: z.string().min(1, { message: "Label is required" }),
   code: z.string().min(1, { message: "Code is required" }),
-  language: z.enum(["typescript", "javascript"]).default("typescript"),
+  language: z.enum(["typescript", "javascript", "python"]).default("typescript"),
   dependencies: z.array(z.string()).optional(),
   inputSchema: z.record(z.unknown()).optional(),
   outputSchema: z.record(z.unknown()).optional(),
@@ -69,6 +71,13 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
     credentialsData?.credentials.filter(
       (cred) => cred.type === CredentialType.CUSTOM || cred.type.toLowerCase() === "custom"
     ) || [];
+
+  // State for AI generation modal
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generatePrompt, setGeneratePrompt] = useState("");
+  const [exampleOutput, setExampleOutput] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [codeExplanation, setCodeExplanation] = useState<string | null>(null);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -96,11 +105,75 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         outputSchema: defaultValues.outputSchema,
         credentialIds: (defaultValues.credentialIds as string[]) || [],
       } as CodeBlockFormValues);
+      // Clear explanation when dialog opens
+      setCodeExplanation(null);
     }
   }, [open, defaultValues, form]);
 
   const watchLanguage = form.watch("language") || "typescript";
   const watchCode = form.watch("code") || "";
+
+  const handleGenerateCode = async () => {
+    if (!generatePrompt.trim()) {
+      toast.error("Please provide a prompt for code generation");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const selectedLanguage = form.getValues("language") || "typescript";
+
+      // Parse example output if provided
+      let parsedExampleOutput: Record<string, unknown> | undefined;
+      if (exampleOutput.trim()) {
+        try {
+          parsedExampleOutput = JSON.parse(exampleOutput);
+        } catch {
+          toast.error("Invalid JSON in example output. Please check the format.");
+          setIsGenerating(false);
+          return;
+        }
+      }
+
+      const response = await authenticatedPost<{
+        code: string;
+        dependencies?: string[];
+        explanation?: string;
+      }>("/workflow-generation/code-generate", {
+        prompt: generatePrompt,
+        language: selectedLanguage,
+        exampleOutput: parsedExampleOutput,
+        context: {}, // TODO: Could be enhanced to pass actual workflow context
+      });
+
+      // Populate the code field with generated code
+      form.setValue("code", response.code);
+
+      // Update dependencies if provided (always set, even if empty array)
+      if (response.dependencies) {
+        form.setValue("dependencies", response.dependencies);
+      } else {
+        // Clear dependencies if none were returned
+        form.setValue("dependencies", []);
+      }
+
+      // Store explanation if provided
+      if (response.explanation) {
+        setCodeExplanation(response.explanation);
+      }
+
+      toast.success("Code generated successfully!");
+      setShowGenerateModal(false);
+      setGeneratePrompt("");
+      setExampleOutput("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate code. Please try again."
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSubmit = async (values: CodeBlockFormValues) => {
     try {
@@ -156,8 +229,8 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Configure Custom Code Block</DialogTitle>
           <DialogDescription>
-            Write custom TypeScript/JavaScript code to execute in your workflow. The code will be
-            executed in an isolated Daytona sandbox.
+            Write custom code (TypeScript, JavaScript, or Python) to execute in your workflow. The
+            code will be executed in an isolated Daytona sandbox.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -263,15 +336,49 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
 
               <FormField
                 control={form.control}
+                name="language"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Language</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="typescript">TypeScript</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                      </select>
+                    </FormControl>
+                    <FormDescription>The programming language for this code block.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Code</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Code</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowGenerateModal(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Generate with AI
+                      </Button>
+                    </div>
                     <FormControl>
                       <div className="border rounded-md overflow-hidden">
                         <MonacoEditor
                           height="400px"
-                          language={watchLanguage}
+                          language={watchLanguage === "python" ? "python" : watchLanguage}
                           value={watchCode}
                           onChange={(value) => {
                             field.onChange(value || "");
@@ -286,35 +393,44 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                             scrollBeyondLastLine: false,
                             readOnly: false,
                             automaticLayout: true,
+                            tabSize: 2,
+                            insertSpaces: true,
+                            wordWrap: "on",
+                            acceptSuggestionOnEnter: "on",
+                            acceptSuggestionOnCommitCharacter: true,
+                            snippetSuggestions: "top",
+                            suggestOnTriggerCharacters: true,
+                            quickSuggestions: true,
+                            formatOnPaste: true,
+                            formatOnType: false,
+                            autoIndent: "full",
+                            trimAutoWhitespace: true,
                           }}
                         />
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Write your TypeScript/JavaScript code here. The code should follow the
-                      NodeExecutor interface pattern.
+                      Write your{" "}
+                      {watchLanguage === "python"
+                        ? "Python"
+                        : watchLanguage === "javascript"
+                          ? "JavaScript"
+                          : "TypeScript"}{" "}
+                      code here.
+                      {watchLanguage === "python"
+                        ? " The code should define a function: def execute(inputs: dict) -> dict:"
+                        : " The code should export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>"}
                     </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="language"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <FormControl>
-                      <select
-                        {...field}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="typescript">TypeScript</option>
-                        <option value="javascript">JavaScript</option>
-                      </select>
-                    </FormControl>
-                    <FormDescription>The programming language for this code block.</FormDescription>
+                    {codeExplanation && (
+                      <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          📝 What this code does:
+                        </p>
+                        <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                          {codeExplanation}
+                        </p>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -368,6 +484,82 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
             </DialogFooter>
           </form>
         </Form>
+
+        {/* Generate with AI Modal */}
+        <Dialog open={showGenerateModal} onOpenChange={setShowGenerateModal}>
+          <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Generate Code with AI</DialogTitle>
+              <DialogDescription>
+                Describe what you want the code to do. You can optionally provide example output
+                from a previous node to help AI understand the data structure.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Prompt Instructions *</label>
+                <Textarea
+                  placeholder="e.g., Format the jokes from the previous node into a single string with each joke on a new line..."
+                  value={generatePrompt}
+                  onChange={(e) => setGeneratePrompt(e.target.value)}
+                  rows={4}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Example Output (Optional)</label>
+                <Textarea
+                  placeholder='Paste example output from previous node as JSON, e.g., {"jokesResponse": {"httpResponse": {"data": [...]}}}'
+                  value={exampleOutput}
+                  onChange={(e) => setExampleOutput(e.target.value)}
+                  rows={6}
+                  className="w-full font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This helps AI understand the data structure from previous nodes
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Language</label>
+                <select
+                  value={form.getValues("language") || "typescript"}
+                  onChange={(e) =>
+                    form.setValue(
+                      "language",
+                      e.target.value as "typescript" | "javascript" | "python"
+                    )
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="typescript">TypeScript</option>
+                  <option value="javascript">JavaScript</option>
+                  <option value="python">Python</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowGenerateModal(false);
+                  setGeneratePrompt("");
+                  setExampleOutput("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleGenerateCode}
+                disabled={isGenerating || !generatePrompt.trim()}
+              >
+                {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Generate Code
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

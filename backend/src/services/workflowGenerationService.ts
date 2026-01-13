@@ -12,6 +12,8 @@ import {
   type NodeConfigurationContext,
 } from "./nodeConfigurationService";
 import { NodeType } from "@/lib/node-types";
+import { getWorkflowPlan } from "./planningService";
+import { getWorkflowSchema } from "./workflowSchemaService";
 import { createId } from "@paralleldrive/cuid2";
 
 const anthropic = new Anthropic({
@@ -102,6 +104,35 @@ export const generateAutonomousWorkflow = async (
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
+  // Get WorkflowPlan context if workflowId is provided
+  let planContext = "";
+  let workflowSchemaContext = "";
+  if (options.workflowId) {
+    try {
+      const plan = await getWorkflowPlan(options.workflowId);
+      if (plan && plan.conversationHistory && plan.conversationHistory.length > 0) {
+        const conversationSummary = plan.conversationHistory
+          .slice(-10) // Last 10 messages for context
+          .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+          .join("\n\n");
+        planContext = `\n\nPLANNING CONTEXT (from previous conversations):
+${conversationSummary}
+
+Use this planning context to better understand the user's requirements and generate a workflow that aligns with their planning discussions.`;
+      }
+
+      // Include workflow schema for better node selection
+      const schema = getWorkflowSchema();
+      workflowSchemaContext = `\n\nWORKFLOW SCHEMA (comprehensive node documentation):
+${JSON.stringify(schema, null, 2)}
+
+Use this schema to understand available nodes, their capabilities, workflow patterns, and best practices for non-technical task automation.`;
+    } catch (error) {
+      console.error("Failed to load plan context:", error);
+      // Continue without plan context
+    }
+  }
+
   const systemPrompt = `You are an expert software architect, full-stack engineer with 10+ years of experience, and business developer. Think like a business owner who understands both technical implementation and business value. Your task is to generate accurate, production-ready workflow blueprints for the Verxio platform.
 
 CRITICAL: At every step, inspect and ensure the best result is achieved:
@@ -121,7 +152,7 @@ YOUR ROLE:
 AVAILABLE NODE TYPES:
 ${Object.entries(AVAILABLE_NODE_TYPES)
   .map(([type, desc]) => `- ${type}: ${desc}`)
-  .join("\n")}
+  .join("\n")}${workflowSchemaContext}${planContext}
 
 DECISION GUIDELINES:
 1. Use existing node types when functionality matches the requirement

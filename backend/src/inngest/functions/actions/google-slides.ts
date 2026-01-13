@@ -148,7 +148,13 @@ export const googleSlidesExecutor: NodeExecutor<GoogleSlidesData> = async ({
     // Compile Handlebars templates
     const compileTemplate = (template: string) => {
       if (!template) return template;
-      return Handlebars.compile(template)(context);
+      try {
+        return Handlebars.compile(template)(context);
+      } catch (error) {
+        throw new NonRetriableError(
+          `Template compilation error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     };
 
     // Execute action
@@ -233,6 +239,15 @@ export const googleSlidesExecutor: NodeExecutor<GoogleSlidesData> = async ({
           data.width !== undefined ? parseFloat(compileTemplate(String(data.width))) : 400;
         const height =
           data.height !== undefined ? parseFloat(compileTemplate(String(data.height))) : 50;
+
+        // Validate text after templating - only if template contains Handlebars syntax
+        const hasHandlebarsSyntax =
+          data.text && (data.text.includes("{{") || data.text.includes("}}"));
+        if (hasHandlebarsSyntax && (!text || text.trim().length === 0)) {
+          throw new NonRetriableError(
+            `Google Slides node: Text is required and cannot be empty after templating. Template "${data.text}" resolved to empty. Please check that your template variables (e.g., ${data.text.match(/\{\{([^}]+)\}\}/g)?.join(", ") || "template variables"}) are available in the workflow context and contain values.`
+          );
+        }
 
         result = await step.run("insert-text", async () => {
           // First, get the slide ID
@@ -420,6 +435,24 @@ export const googleSlidesExecutor: NodeExecutor<GoogleSlidesData> = async ({
         const presentationId = compileTemplate(data.presentationId);
         const oldText = compileTemplate(data.oldText);
         const newText = compileTemplate(data.newText);
+
+        // Validate oldText after templating - only if template contains Handlebars syntax
+        const hasOldTextHandlebars =
+          data.oldText && (data.oldText.includes("{{") || data.oldText.includes("}}"));
+        if (hasOldTextHandlebars && (!oldText || oldText.trim().length === 0)) {
+          throw new NonRetriableError(
+            `Google Slides node: Old text (placeholder) is required and cannot be empty after templating. Template "${data.oldText}" resolved to empty. Please check that your template variables (e.g., ${data.oldText.match(/\{\{([^}]+)\}\}/g)?.join(", ") || "template variables"}) are available in the workflow context and contain values.`
+          );
+        }
+
+        // Validate newText after templating - only if template contains Handlebars syntax
+        const hasNewTextHandlebars =
+          data.newText && (data.newText.includes("{{") || data.newText.includes("}}"));
+        if (hasNewTextHandlebars && (!newText || newText.trim().length === 0)) {
+          throw new NonRetriableError(
+            `Google Slides node: New text is required and cannot be empty after templating. Template "${data.newText}" resolved to empty. Please check that your template variables (e.g., ${data.newText.match(/\{\{([^}]+)\}\}/g)?.join(", ") || "template variables"}) are available in the workflow context and contain values.`
+          );
+        }
 
         result = await step.run("replace-text", async () => {
           const response = await slides.presentations.batchUpdate({

@@ -130,6 +130,9 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
         .join(", ")}`
     );
 
+    // Get language from node data (default to "typescript")
+    const language = data.language || "typescript";
+
     // Execute code in Daytona sandbox with credentials
     const executionResult = await step.run("execute-code", async () => {
       return await executeCodeInSandbox({
@@ -137,6 +140,7 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
         inputs: inputsForExecution,
         dependencies: data.dependencies,
         timeout: 300000, // 5 minutes
+        language: language,
       });
     });
 

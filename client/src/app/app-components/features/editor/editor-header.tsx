@@ -237,7 +237,7 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
     }));
 
     try {
-      await saveWorkflow.mutateAsync({
+      const savedWorkflow = await saveWorkflow.mutateAsync({
         id: workflowId,
         data: {
           name: workflow.name,
@@ -245,8 +245,37 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
           connections: transformedConnections,
         },
       });
-      // Changes are saved - the workflow will refetch automatically
-      // The editor will sync the new saved state, and hasChanges will update
+
+      // Sync editor with saved workflow (IDs may have been remapped by backend)
+      // This ensures the editor state matches the database state
+      if (savedWorkflow && savedWorkflow.nodes) {
+        // Transform saved nodes back to ReactFlow format
+        const savedNodes = savedWorkflow.nodes.map((node: any) => ({
+          id: node.id,
+          type: node.type,
+          position: node.position || { x: 0, y: 0 },
+          data: {
+            ...node.data,
+            label: node.name,
+          },
+        }));
+
+        // Transform saved connections back to ReactFlow edges
+        const savedEdges = (savedWorkflow.connections || []).map((conn: any) => ({
+          id: conn.id || `edge-${conn.source}-${conn.target}`,
+          source: conn.source,
+          target: conn.target,
+          sourceHandle: conn.sourceHandle || "main",
+          targetHandle: conn.targetHandle || "main",
+          deletable: true,
+          selectable: true,
+        }));
+
+        // Update editor state with saved data (this syncs any remapped IDs)
+        editor.setNodes(savedNodes);
+        editor.setEdges(savedEdges);
+      }
+
       // Force a change check after a short delay to ensure hasChanges updates
       setTimeout(() => {
         checkForChanges();

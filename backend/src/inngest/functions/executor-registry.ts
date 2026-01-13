@@ -65,6 +65,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.FIRECRAWL]: firecrawlExecutor as NodeExecutor,
   [NodeType.APIFY]: apifyExecutor as NodeExecutor,
   [NodeType.CODE_BLOCK]: codeBlockExecutor as NodeExecutor,
+  // PLAN is a special node type for planning - it doesn't execute in workflows
+  [NodeType.PLAN]: (async () => ({ result: "PLAN nodes are not executed" })) as NodeExecutor,
 };
 
 /**

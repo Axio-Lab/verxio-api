@@ -34,6 +34,7 @@ export const NodeType = {
   FIRECRAWL: "FIRECRAWL",
   APIFY: "APIFY",
   CODE_BLOCK: "CODE_BLOCK",
+  PLAN: "PLAN",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

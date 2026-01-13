@@ -129,7 +129,13 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
     // Compile Handlebars templates
     const compileTemplate = (template: string) => {
       if (!template) return template;
-      return Handlebars.compile(template)(context);
+      try {
+        return Handlebars.compile(template)(context);
+      } catch (error) {
+        throw new NonRetriableError(
+          `Template compilation error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     };
 
     // Execute action
@@ -205,8 +211,21 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
         let values: any[][];
         try {
           const valuesStr = compileTemplate(data.values);
+          if (!valuesStr || valuesStr.trim().length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values are required and cannot be empty after templating. Please check that your template variables are available and contain values."
+            );
+          }
           values = JSON.parse(valuesStr);
+          if (!Array.isArray(values) || values.length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values must be a non-empty JSON array of arrays"
+            );
+          }
         } catch (error) {
+          if (error instanceof NonRetriableError) {
+            throw error;
+          }
           throw new NonRetriableError(
             "Google Sheets node: Values must be a valid JSON array of arrays"
           );
@@ -249,8 +268,21 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
         let values: any[][];
         try {
           const valuesStr = compileTemplate(data.values);
+          if (!valuesStr || valuesStr.trim().length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values are required and cannot be empty after templating. Please check that your template variables are available and contain values."
+            );
+          }
           values = JSON.parse(valuesStr);
+          if (!Array.isArray(values) || values.length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values must be a non-empty JSON array of arrays"
+            );
+          }
         } catch (error) {
+          if (error instanceof NonRetriableError) {
+            throw error;
+          }
           throw new NonRetriableError(
             "Google Sheets node: Values must be a valid JSON array of arrays"
           );
@@ -294,8 +326,21 @@ export const googleSheetsExecutor: NodeExecutor<GoogleSheetsData> = async ({
         let values: any[][];
         try {
           const valuesStr = compileTemplate(data.values);
+          if (!valuesStr || valuesStr.trim().length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values are required and cannot be empty after templating. Please check that your template variables are available and contain values."
+            );
+          }
           values = JSON.parse(valuesStr);
+          if (!Array.isArray(values) || values.length === 0) {
+            throw new NonRetriableError(
+              "Google Sheets node: Values must be a non-empty JSON array of arrays"
+            );
+          }
         } catch (error) {
+          if (error instanceof NonRetriableError) {
+            throw error;
+          }
           throw new NonRetriableError(
             "Google Sheets node: Values must be a valid JSON array of arrays"
           );

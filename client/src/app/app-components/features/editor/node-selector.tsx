@@ -8,6 +8,7 @@ import {
   ClockIcon,
   GitBranchIcon,
   Keyboard,
+  Code2,
 } from "lucide-react";
 import {
   Sheet,
@@ -214,6 +215,20 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Browse actors, run scrapers (TikTok, LinkedIn, Facebook, etc.), or retrieve results",
     icon: "/logo/apify.svg",
+  },
+  {
+    type: NodeType.CODE_BLOCK,
+    label: "Code Block",
+    description:
+      "Execute custom TypeScript, JavaScript, or Python code in an isolated sandbox. Use AI to generate code or write it manually.",
+    icon: Code2,
+  },
+  {
+    type: NodeType.PLAN,
+    label: "Plan Workflow",
+    description:
+      "Brainstorm and ideate workflows with AI. Have conversations, upload API docs/images, and generate workflows based on your planning.",
+    icon: Sparkles,
   },
 ];
 
@@ -706,6 +721,32 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             action: "listActors",
           },
           type: NodeType.APIFY,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.CODE_BLOCK) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Custom Code",
+            variables: "result",
+            code: "",
+            language: "typescript",
+          },
+          type: NodeType.CODE_BLOCK,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.PLAN) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Plan Workflow",
+            variables: "plan",
+          },
+          type: NodeType.PLAN,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

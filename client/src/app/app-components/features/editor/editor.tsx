@@ -144,14 +144,41 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
       setEdges(workflowEdges);
     } else if (lastSavedWorkflowRef.current !== workflowKey) {
       // Saved workflow changed (likely after a save)
-      // Update our reference and sync local state to match saved state
-      // This ensures change detection works correctly after saves
+      // Merge saved workflow with current local state to preserve any locally added nodes
+      const currentNodeIds = new Set(
+        nodes.filter((n) => n.type !== NodeType.INITIAL).map((n) => n.id)
+      );
+      const savedNodeIds = new Set(
+        workflowNodes.filter((n) => n.type !== NodeType.INITIAL).map((n) => n.id)
+      );
+
+      // Find nodes that exist in current state but not in saved workflow
+      // These are locally added nodes that haven't been saved yet
+      const locallyAddedNodes = nodes.filter(
+        (n) => n.type !== NodeType.INITIAL && !savedNodeIds.has(n.id)
+      );
+
+      // Find nodes that exist in saved workflow but not in current state
+      // These should be added (they were saved but missing from local state)
+      const savedButMissingNodes = workflowNodes.filter(
+        (n) => n.type !== NodeType.INITIAL && !currentNodeIds.has(n.id)
+      );
+
+      // Merge: start with saved workflow nodes, then add any locally added nodes
+      const mergedNodes = [...workflowNodes, ...locallyAddedNodes];
+
+      // For edges: merge saved edges with edges that connect locally added nodes
+      const currentEdgeIds = new Set(edges.map((e) => `${e.source}-${e.target}`));
+      const savedEdgeIds = new Set(workflowEdges.map((e) => `${e.source}-${e.target}`));
+      const locallyAddedEdges = edges.filter((e) => !savedEdgeIds.has(`${e.source}-${e.target}`));
+      const mergedEdges = [...workflowEdges, ...locallyAddedEdges];
+
       lastSavedWorkflowRef.current = workflowKey;
 
-      // Sync local state to saved state after save
-      // This ensures hasChanges becomes false after successful save
-      setNodes(workflowNodes);
-      setEdges(workflowEdges);
+      // Use merged state: saved nodes + locally added nodes
+      // This preserves locally added nodes while syncing saved state
+      setNodes(mergedNodes);
+      setEdges(mergedEdges);
     }
   }, [workflow?.id, workflowNodes, workflowEdges]);
 

@@ -120,7 +120,13 @@ export const googleDocsExecutor: NodeExecutor<GoogleDocsData> = async ({
     // Compile Handlebars templates
     const compileTemplate = (template: string) => {
       if (!template) return template;
-      return Handlebars.compile(template)(context);
+      try {
+        return Handlebars.compile(template)(context);
+      } catch (error) {
+        throw new NonRetriableError(
+          `Template compilation error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     };
 
     // Execute action
@@ -209,6 +215,16 @@ export const googleDocsExecutor: NodeExecutor<GoogleDocsData> = async ({
         const text = compileTemplate(data.text);
         const index = data.index !== undefined ? parseInt(compileTemplate(String(data.index))) : 1;
 
+        // Validate text after templating - only if template contains Handlebars syntax
+        // This allows plain empty strings but catches templating issues
+        const hasHandlebarsSyntax =
+          data.text && (data.text.includes("{{") || data.text.includes("}}"));
+        if (hasHandlebarsSyntax && (!text || text.trim().length === 0)) {
+          throw new NonRetriableError(
+            `Google Docs node: Text is required and cannot be empty after templating. Template "${data.text}" resolved to empty. Please check that your template variables (e.g., ${data.text.match(/\{\{([^}]+)\}\}/g)?.join(", ") || "template variables"}) are available in the workflow context and contain values.`
+          );
+        }
+
         result = await step.run("insert-text", async () => {
           const response = await docs.documents.batchUpdate({
             documentId,
@@ -248,7 +264,16 @@ export const googleDocsExecutor: NodeExecutor<GoogleDocsData> = async ({
         const documentId = compileTemplate(data.documentId);
         const text = compileTemplate(data.text);
         const startIndex = parseInt(compileTemplate(String(data.index)));
-        const endIndex = startIndex + (data.text.length || 0);
+        const endIndex = startIndex + text.length;
+
+        // Validate text after templating - only if template contains Handlebars syntax
+        const hasHandlebarsSyntax =
+          data.text && (data.text.includes("{{") || data.text.includes("}}"));
+        if (hasHandlebarsSyntax && (!text || text.trim().length === 0)) {
+          throw new NonRetriableError(
+            `Google Docs node: Text is required and cannot be empty after templating. Template "${data.text}" resolved to empty. Please check that your template variables (e.g., ${data.text.match(/\{\{([^}]+)\}\}/g)?.join(", ") || "template variables"}) are available in the workflow context and contain values.`
+          );
+        }
 
         result = await step.run("update-text", async () => {
           const response = await docs.documents.batchUpdate({

@@ -13,6 +13,8 @@ interface GenerateCodeOptions {
   inputSchema?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
   model?: string;
+  language?: string; // "typescript" | "javascript" | "python"
+  exampleOutput?: Record<string, unknown>; // Optional example output from previous node
 }
 
 /**
@@ -20,10 +22,12 @@ interface GenerateCodeOptions {
  */
 export const generateCustomCode = async (
   options: GenerateCodeOptions
-): Promise<{ code: string; dependencies?: string[] }> => {
+): Promise<{ code: string; dependencies?: string[]; explanation?: string }> => {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
+
+  const language = options.language || "typescript";
 
   // Standalone code pattern for CODE_BLOCK nodes
   // CODE_BLOCK nodes run in isolated sandboxes and should NOT use inngest or any workflow infrastructure
@@ -46,8 +50,11 @@ export default async function execute(inputs: Record<string, any>): Promise<Reco
 }
 `;
 
-  const systemPrompt = `You are an expert TypeScript developer specializing in workflow automation. 
-Generate standalone TypeScript code for Verxio CODE_BLOCK nodes that execute in isolated sandboxes.
+  const languageName =
+    language === "python" ? "Python" : language === "javascript" ? "JavaScript" : "TypeScript";
+
+  const systemPrompt = `You are an expert ${languageName} developer specializing in workflow automation. 
+Generate standalone ${languageName} code for Verxio CODE_BLOCK nodes that execute in isolated sandboxes.
 
 🚨 CRITICAL MANDATORY RULE - READ THIS FIRST 🚨
 **NEVER USE THE WORD "context" IN YOUR CODE**
@@ -85,14 +92,22 @@ CREDENTIALS AND API KEYS:
 - Example: const apiKey = inputs.credentials.MY_API_KEY;
 - Always inform users about required credentials in code comments
 
-Available input variables from previous nodes: ${Object.keys(options.context).join(", ")}
+🚨 CRITICAL: AVAILABLE INPUT VARIABLE NAMES (USE ONLY THESE EXACT NAMES - DO NOT MAKE UP NEW NAMES) 🚨
+${Object.keys(options.context)
+  .map((name) => `- ${name}`)
+  .join("\n")}
 
-INPUT VARIABLE STRUCTURE (CRITICAL - USE THIS EXACT STRUCTURE):
+⚠️ MANDATORY RULE: You MUST use ONLY the variable names listed above. If you use a variable name that doesn't appear in this list, your code will fail with "undefined" error.
+❌ DO NOT CREATE NEW VARIABLE NAMES like "contentStrategy", "response", "data", etc. - they don't exist!
+✅ USE THE EXACT NAMES shown above (e.g., "gemini", "jokesResponse", "testflow")
+
+INPUT VARIABLE STRUCTURE (CRITICAL - USE THIS EXACT STRUCTURE AND VARIABLE NAMES):
 ${Object.entries(options.context)
   .map(([key, value]) => {
     // Show the full structure for HTTP nodes
     if (value && typeof value === "object" && "httpResponse" in value) {
-      return `- ${key}: {
+      return `- Variable name: "${key}" (USE THIS EXACT NAME: inputs.${key})
+  Structure: {
     httpResponse: {
       data: <actual response data>,
       status: <HTTP status code>,
@@ -100,11 +115,27 @@ ${Object.entries(options.context)
     }
   }
   ✅ CORRECT ACCESS: inputs.${key}?.httpResponse?.data
-  ❌ WRONG: inputs.${key}.httpRequest.body (httpRequest doesn't exist)`;
+  ❌ WRONG: inputs.${key}.httpRequest.body (httpRequest doesn't exist)
+  ❌ WRONG: inputs.anythingElse (variable "${key}" is the ONLY valid name)`;
+    }
+    // For AI nodes or other structured outputs
+    if (value && typeof value === "object" && !("httpResponse" in value)) {
+      const keys = Object.keys(value);
+      return `- Variable name: "${key}" (USE THIS EXACT NAME: inputs.${key})
+  Structure: ${JSON.stringify(value, null, 2).substring(0, 300)}${JSON.stringify(value).length > 300 ? "..." : ""}
+  ✅ CORRECT ACCESS EXAMPLES:
+     - inputs.${key}?.${keys[0]} || inputs.${key}
+     - inputs.${key}?.text || inputs.${key}?.data
+  ❌ WRONG: inputs.contentStrategy (doesn't exist - use inputs.${key})
+  ❌ WRONG: inputs.response (doesn't exist - use inputs.${key})
+  ❌ WRONG: inputs.data (doesn't exist - use inputs.${key})`;
     }
     const valueStr =
       typeof value === "object" ? JSON.stringify(value, null, 2).substring(0, 200) : String(value);
-    return `- ${key}: ${valueStr}${valueStr.length >= 200 ? "..." : ""}`;
+    return `- Variable name: "${key}" (USE THIS EXACT NAME: inputs.${key})
+  Value: ${valueStr}${valueStr.length >= 200 ? "..." : ""}
+  ✅ CORRECT: inputs.${key}
+  ❌ WRONG: Any other variable name that's not "${key}"`;
   })
   .join("\n")}
 
@@ -236,8 +267,25 @@ Generate clean, production-ready TypeScript code only. Do not include markdown c
   const inputsStructure = JSON.stringify(options.context, null, 2);
   const availableVariables = Object.keys(options.context).join(", ");
 
-  const userPrompt = `🚨 MANDATORY CODE TEMPLATE - YOU MUST FOLLOW THIS EXACT STRUCTURE 🚨
-
+  const codeTemplate =
+    language === "python"
+      ? `
+def execute(inputs: dict) -> dict:
+    # CRITICAL: ALWAYS use dict access for ALL variables from previous nodes
+    # Example for HTTP node output:
+    jokes = inputs.get('jokesResponse', {}).get('httpResponse', {}).get('data', [])
+    
+    # Example for AI node output:
+    content = inputs.get('socialContent', {}).get('gemini') or inputs.get('socialContent', {})
+    
+    # Your logic here...
+    result = {
+        # Your processed data
+    }
+    
+    return result
+`
+      : `
 export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>> {
   // CRITICAL: ALWAYS use inputs. prefix for ALL variables from previous nodes
   // Example for HTTP node output:
@@ -253,6 +301,11 @@ export default async function execute(inputs: Record<string, any>): Promise<Reco
   
   return result;
 }
+`;
+
+  const userPrompt = `🚨 MANDATORY CODE TEMPLATE - YOU MUST FOLLOW THIS EXACT STRUCTURE 🚨
+
+${codeTemplate}
 
 ACTUAL INPUTS STRUCTURE FOR THIS WORKFLOW:
 ${inputsStructure}
@@ -267,9 +320,11 @@ VALIDATION CHECKLIST (MUST PASS ALL):
 - [ ] All code is inside the execute function
 - [ ] Optional chaining (?.) is used for safe property access
 
-Generate standalone TypeScript code for the following requirement:
+Generate standalone ${languageName} code for the following requirement:
 
 ${options.requirement}
+
+${options.exampleOutput ? `\nExample output from previous node (use this to understand the data structure):\n${JSON.stringify(options.exampleOutput, null, 2)}` : ""}
 
 ${
   options.existingNodes.length > 0
@@ -355,7 +410,14 @@ CRITICAL CODE STRUCTURE:
 - You MUST use inputs.variableName, NOT just variableName
 - Example: If previous node output is stored as "jokesResponse", access it as inputs.jokesResponse
 
-Generate the complete TypeScript code as a standalone function. Do NOT use inngest, step, publish, or any workflow infrastructure. Only use standard libraries.`;
+Generate the complete ${languageName} code as a standalone function. Do NOT use inngest, step, publish, or any workflow infrastructure. Only use standard libraries.
+
+IMPORTANT: After generating the code, provide a brief explanation (2-3 sentences) of what the code does. Format your response as follows:
+
+---EXPLANATION---
+[Brief explanation of what the code does and how it works]
+---CODE---
+[Your generated code here]`;
 
   try {
     const selectedModel = options.model || "claude-sonnet-4-5-20250929";
@@ -372,17 +434,83 @@ Generate the complete TypeScript code as a standalone function. Do NOT use innge
       ],
     });
 
+    let fullResponse = "";
+    let explanation = "";
     let code = "";
+
     if (message.content[0].type === "text") {
-      code = message.content[0].text;
+      fullResponse = message.content[0].text;
+    }
+
+    // Try to extract explanation and code from formatted response
+    // Support multiple formats:
+    // 1. ---EXPLANATION--- ... ---CODE---
+    // 2. Explanation: ... (followed by code)
+    // 3. Just code (no explanation)
+    const explanationMatch1 = fullResponse.match(/---EXPLANATION---\s*([\s\S]*?)\s*---CODE---/i);
+    const codeMatch1 = fullResponse.match(/---CODE---\s*([\s\S]*)/i);
+
+    if (explanationMatch1 && codeMatch1) {
+      // Response is formatted with EXPLANATION and CODE sections
+      explanation = explanationMatch1[1].trim();
+      code = codeMatch1[1].trim();
+    } else {
+      // Try alternative format: "Explanation:" or "What this code does:"
+      const explanationMatch2 = fullResponse.match(
+        /(?:Explanation|What this code does):\s*([\s\S]*?)(?:\n\n|```|export|def|async|function)/i
+      );
+      if (explanationMatch2) {
+        explanation = explanationMatch2[1].trim();
+        // Extract code after explanation
+        const codeStart = fullResponse.indexOf(explanationMatch2[0]) + explanationMatch2[0].length;
+        code = fullResponse.substring(codeStart).trim();
+      } else {
+        // Fallback: treat entire response as code
+        code = fullResponse;
+      }
     }
 
     // Extract code from markdown if present
-    code = code
-      .replace(/```typescript\n?/g, "")
-      .replace(/```ts\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
+    const codeBlockPatterns =
+      language === "python"
+        ? [/```python\n?/g, /```py\n?/g, /```\n?/g]
+        : language === "javascript"
+          ? [/```javascript\n?/g, /```js\n?/g, /```\n?/g]
+          : [/```typescript\n?/g, /```ts\n?/g, /```\n?/g];
+
+    codeBlockPatterns.forEach((pattern) => {
+      code = code.replace(pattern, "");
+    });
+    code = code.trim();
+
+    // Get list of available input variable names from context
+    const inputVariableNames = Object.keys(options.context);
+
+    // Add a comment at the top showing available variables (helpful for debugging)
+    const availableVarsComment =
+      inputVariableNames.length > 0
+        ? `// Available input variables: ${inputVariableNames.join(", ")}\n// Use: inputs.${inputVariableNames[0]}?.property (replace ${inputVariableNames[0]} with actual variable name)\n`
+        : `// No input variables available\n`;
+    if (
+      code.trim().startsWith("export") ||
+      code.trim().startsWith("async") ||
+      code.trim().startsWith("function") ||
+      code.trim().startsWith("def")
+    ) {
+      // Insert comment after the function declaration line
+      const lines = code.split("\n");
+      const firstLine = lines.findIndex(
+        (line) => line.includes("function execute") || line.includes("def execute")
+      );
+      if (firstLine >= 0) {
+        lines.splice(firstLine + 1, 0, availableVarsComment.trim());
+        code = lines.join("\n");
+      } else {
+        code = availableVarsComment + code;
+      }
+    } else {
+      code = availableVarsComment + code;
+    }
 
     // CRITICAL: Replace any instances of "context" with "inputs" as a safety measure
     // This ensures the generated code uses the correct parameter name
@@ -412,8 +540,6 @@ Generate the complete TypeScript code as a standalone function. Do NOT use innge
     });
 
     // CRITICAL: Fix bare variable access that should use inputs. prefix
-    // Get list of available input variable names from context
-    const inputVariableNames = Object.keys(options.context);
     // For each input variable name, check if it's accessed without inputs. prefix
     // Pattern: variableName.property or variableName[ or variableName) or variableName,
     // But NOT: inputs.variableName or const variableName = or function variableName
@@ -494,7 +620,11 @@ Generate the complete TypeScript code as a standalone function. Do NOT use innge
       }
     });
 
-    return { code, dependencies: dependencies.length > 0 ? dependencies : undefined };
+    return {
+      code,
+      dependencies: dependencies.length > 0 ? dependencies : undefined,
+      explanation: explanation || undefined,
+    };
   } catch (error) {
     throw new Error(
       `Failed to generate code: ${error instanceof Error ? error.message : String(error)}`

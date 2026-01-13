@@ -238,8 +238,6 @@ export const WorkflowGenerationPanel = ({
         return sourceExists && targetExists;
       });
 
-      console.log(`Adding ${newNodes.length} nodes and ${validConnections.length} edges to canvas`);
-
       // Convert connections to edges (matching React Flow format from editor.tsx)
       // Note: React Flow uses sourceHandle/targetHandle for connection points
       // If handles are undefined, React Flow will use default handles
@@ -282,19 +280,15 @@ export const WorkflowGenerationPanel = ({
         // This ensures the AI-generated workflow completely replaces the existing one
         setNodes(newNodes);
         setEdges(newEdges);
-        console.log(`Replaced workflow with ${newNodes.length} nodes and ${newEdges.length} edges`);
       } else {
         // Generate mode: add new nodes to existing workflow
         setNodes((nodes) => {
           const updated = [...nodes, ...newNodes];
-          console.log(`Nodes updated: ${updated.length} total nodes`);
           return updated;
         });
 
         setEdges((edges) => {
           const updated = [...edges, ...newEdges];
-          console.log(`Edges updated: ${updated.length} total edges`);
-          console.log("New edges:", newEdges.map((e) => `${e.source} -> ${e.target}`).join(", "));
           return updated;
         });
       }
@@ -305,7 +299,6 @@ export const WorkflowGenerationPanel = ({
       setTimeout(() => {
         // Get current viewport to ensure nodes stay within bounds
         const currentViewport = getViewport();
-        console.log("Current viewport before fitView:", currentViewport);
 
         // Fit view to show all new nodes, ensuring they're within viewport
         fitView({
@@ -316,10 +309,6 @@ export const WorkflowGenerationPanel = ({
           minZoom: 0.5, // Don't zoom in too much
           maxZoom: 1.5, // Don't zoom out too much
         });
-
-        // Verify nodes are within viewport after fitView
-        const newViewport = getViewport();
-        console.log("New viewport after fitView:", newViewport);
 
         setIsAddingToCanvas(false);
 

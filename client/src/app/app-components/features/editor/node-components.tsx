@@ -36,6 +36,7 @@ import { ElevenLabsNode } from "@/app/app-components/features/executions/actions
 import { FirecrawlNode } from "@/app/app-components/features/executions/actions/firecrawl/node";
 import { ApifyNode } from "@/app/app-components/features/executions/actions/apify/node";
 import { CodeBlockNode } from "@/app/app-components/features/executions/actions/code-block/node";
+import { PlanNode } from "@/app/app-components/features/executions/actions/plan/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -69,6 +70,7 @@ export const NodeComponents = {
   [NodeType.FIRECRAWL]: FirecrawlNode,
   [NodeType.APIFY]: ApifyNode,
   [NodeType.CODE_BLOCK]: CodeBlockNode,
+  [NodeType.PLAN]: PlanNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

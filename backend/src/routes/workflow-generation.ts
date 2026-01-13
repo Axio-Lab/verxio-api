@@ -223,6 +223,43 @@ workflowGenerationRouter.post(
  * GET /workflow-generation/:id
  * Get workflow generation status and results
  */
+/**
+ * Generate code for CODE_BLOCK node using AI
+ */
+workflowGenerationRouter.post(
+  "/code-generate",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { prompt, language = "typescript", exampleOutput, context = {} } = req.body;
+
+      if (!prompt) {
+        throw new AppError("Prompt is required", 400);
+      }
+
+      // Import code generation service
+      const { generateCustomCode } = await import("../services/codeGenerationService");
+
+      // Generate code
+      const result = await generateCustomCode({
+        requirement: prompt,
+        context: context,
+        existingNodes: [],
+        language: language,
+        exampleOutput: exampleOutput,
+      });
+
+      res.json({
+        code: result.code,
+        dependencies: result.dependencies,
+        explanation: result.explanation,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 workflowGenerationRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;

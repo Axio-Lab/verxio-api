@@ -360,6 +360,7 @@ model Workflow {
 
   nodes       Node[]
   connections Connection[]
+  plan        WorkflowPlan?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -400,6 +401,7 @@ enum NodeType {
   FIRECRAWL
   APIFY
   CODE_BLOCK
+  PLAN
 }
 
 model Node {
@@ -468,4 +470,22 @@ model WorkflowGeneration {
   @@index([workflowId])
   @@index([status])
   @@map("workflow_generations")
+}
+
+model WorkflowPlan {
+  id        String   @id @default(cuid())
+  workflowId String  @unique
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  conversationHistory Json     @default("[]") // Array of messages
+  status              String   @default("planning") // planning, ready, generating, completed
+  generatedPrompt     String?
+  workflowStructure   Json?    // Proposed workflow structure
+  approvedAt          DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workflowId])
+  @@map("workflow_plans")
 }

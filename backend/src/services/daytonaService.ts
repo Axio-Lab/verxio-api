@@ -11,6 +11,7 @@ export interface CreateSandboxParams {
 export interface ExecuteOptions {
   timeout?: number;
   envVars?: Record<string, string>;
+  language?: string; // "typescript" | "javascript" | "python"
 }
 
 export interface ExecutionResult {
@@ -68,7 +69,7 @@ export const uploadFile = async (
 };
 
 /**
- * Executes TypeScript code in a Daytona sandbox
+ * Executes code in a Daytona sandbox (supports TypeScript, JavaScript, Python)
  */
 export const executeCode = async (
   sandboxId: string,
@@ -80,23 +81,38 @@ export const executeCode = async (
 
   const startTime = Date.now();
   const timeout = options.timeout || daytonaConfig.maxExecutionTime;
+  const language = options.language || "typescript";
 
   try {
-    // Write code to a temporary file
-    const tempFile = `/tmp/code-${Date.now()}.ts`;
-    await uploadFile(sandboxId, tempFile, code);
+    // Determine file extension based on language
+    let fileExtension: string;
+    if (language === "python") {
+      fileExtension = "py";
+    } else if (language === "javascript") {
+      fileExtension = "js";
+    } else {
+      // TypeScript (default)
+      fileExtension = "ts";
+    }
 
-    // Install dependencies if package.json exists or if dependencies are specified
-    // For now, we'll compile and run TypeScript directly
-    // In the future, we can check for package.json and install dependencies
+    // Write code to a temporary file with appropriate extension
+    const codeFile = `/tmp/code-${Date.now()}.${fileExtension}`;
+    await uploadFile(sandboxId, codeFile, code);
 
-    // Compile and run TypeScript using ts-node or tsx
-    // First, check if ts-node or tsx is available, otherwise use tsc + node
-    const compileCommand = `npx -y tsx "${tempFile}"`;
+    // Set execution command based on language
+    let executeCommand: string;
+    if (language === "python") {
+      executeCommand = `python3 "${codeFile}"`;
+    } else if (language === "javascript") {
+      executeCommand = `node "${codeFile}"`;
+    } else {
+      // TypeScript (default)
+      executeCommand = `npx -y tsx "${codeFile}"`;
+    }
 
     // Execute with timeout
     const response = await Promise.race([
-      sandbox.process.executeCommand(compileCommand),
+      sandbox.process.executeCommand(executeCommand),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Execution timeout")), timeout)
       ),
