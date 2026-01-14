@@ -3,7 +3,7 @@
 import type { NodeProps } from "@xyflow/react";
 import { WebhookIcon } from "lucide-react";
 import { memo, useState } from "react";
-import { BaseExecutionNode } from "../actions/https-request/base-execution-node";
+import { BaseTriggerNode } from "../triggers/manual-trigger/base-trigger-node";
 import { WebhookDialog, WebhookFormValues } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
 import { useNodeStatus } from "../hooks/use-node-status";
@@ -24,8 +24,8 @@ export const WebhookNode = memo((props: NodeProps) => {
   });
   const nodeData = (data || {}) as WebhookNodeData;
 
-  // Webhook description shows if it's configured (has secret) or not
-  const description = nodeData?.secret ? "Webhook configured" : "Not configured";
+  // Webhook description shows if it's configured
+  const description = nodeData?.secret ? "Configured with secret" : "Trigger via HTTP POST";
 
   const handleOpenSettings = () => {
     setDialogOpen(true);
@@ -40,14 +40,13 @@ export const WebhookNode = memo((props: NodeProps) => {
             data: {
               ...node.data,
               ...values,
+              configured: true,
             },
           };
         }
         return node;
       })
     );
-    // Note: Change detection will pick up this update automatically via the interval check
-    // The save button will become active once changes are detected
   };
 
   return (
@@ -59,17 +58,15 @@ export const WebhookNode = memo((props: NodeProps) => {
         defaultValues={nodeData}
         nodeId={props.id}
       />
-      <BaseExecutionNode
+      <BaseTriggerNode
         {...props}
         icon={WebhookIcon}
-        name="Webhook"
+        name="Webhook Trigger"
         description={description}
         status={nodeStatus}
         output={output}
         onSettings={handleOpenSettings}
         onDoubleClick={handleOpenSettings}
-        iconColor="!text-purple-600 dark:!text-purple-400"
-        handleColor="!border-purple-500 !bg-purple-500"
       />
     </>
   );

@@ -59,13 +59,9 @@ export const WebhookDialog = ({
   const workflowId = params?.workflow as string;
   const [copied, setCopied] = useState(false);
 
-  // Generate webhook URL
-  const baseUrl =
-    typeof window !== "undefined"
-      ? `${window.location.protocol}//${window.location.host}`
-      : "http://localhost:8080";
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   const webhookUrl =
-    workflowId && nodeId ? `${baseUrl}/workflow/webhook/${workflowId}/${nodeId}` : "";
+    workflowId && nodeId ? `${apiBaseUrl}/api/webhooks/webhook/${workflowId}/${nodeId}` : "";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

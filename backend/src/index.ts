@@ -18,6 +18,7 @@ import { googleFormRouter } from "./routes/triggers/google-form";
 import { airtableRouter } from "./routes/triggers/airtable";
 import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
+import { webhookTriggerRouter } from "./routes/triggers/webhook";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
@@ -136,6 +137,7 @@ app.use("/api/webhooks", googleFormRouter);
 app.use("/api/webhooks", airtableRouter);
 app.use("/api/webhooks", stripeRouter);
 app.use("/api/webhooks/telegram", telegramRouter);
+app.use("/api/webhooks/webhook", webhookTriggerRouter);
 
 // API routes
 // app.use('/health', healthRouter);

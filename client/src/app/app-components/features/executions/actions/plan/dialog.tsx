@@ -19,7 +19,20 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, Trash2, Send, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  Trash2,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Paperclip,
+  X,
+  FileText,
+  ImageIcon,
+} from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -80,7 +93,10 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
   const [thinkingDots, setThinkingDots] = useState("");
   const [isPromptExpanded, setIsPromptExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(formSchema),
@@ -152,28 +168,133 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
     }
   };
 
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate file types (images, PDFs, text files, etc.)
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+      "text/markdown",
+      "application/json",
+      "text/csv",
+    ];
+
+    const validFiles = files.filter((file) => {
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`${file.name}: Unsupported file type`);
+        return false;
+      }
+      // Max 10MB per file
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name}: File too large (max 10MB)`);
+        return false;
+      }
+      return true;
+    });
+
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Remove a selected file
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleSendMessage = async () => {
-    if (!message.trim() || !workflowId) return;
+    if ((!message.trim() && selectedFiles.length === 0) || !workflowId) return;
 
     const userMessage = message.trim();
+    const filesToUpload = [...selectedFiles];
     setMessage("");
+    setSelectedFiles([]);
     setIsSending(true);
 
-    // Add user message to UI immediately
+    // Add user message to UI immediately (with file names if any)
+    const attachmentNames = filesToUpload.map((f) => ({
+      fileId: "",
+      fileName: f.name,
+      fileType: f.type,
+    }));
+
     const newUserMessage: ConversationMessage = {
       role: "user",
-      content: userMessage,
+      content: userMessage || "(Attached files)",
       timestamp: new Date().toISOString(),
+      attachments: attachmentNames.length > 0 ? attachmentNames : undefined,
     };
     setConversationHistory((prev) => [...prev, newUserMessage]);
 
     try {
+      // If we have files, upload them first
+      let uploadedAttachments: Array<{
+        fileId: string;
+        fileName: string;
+        fileType: string;
+        content?: string;
+      }> = [];
+
+      if (filesToUpload.length > 0) {
+        setIsUploading(true);
+        try {
+          // Convert files to base64 for upload
+          const filesWithContent = await Promise.all(
+            filesToUpload.map(async (file) => ({
+              fileName: file.name,
+              fileType: file.type,
+              content: await fileToBase64(file),
+            }))
+          );
+
+          const uploadResponse = await authenticatedPost<{
+            files: Array<{
+              fileId: string;
+              fileName: string;
+              fileType: string;
+              extractedText?: string;
+            }>;
+          }>("/planning/upload", {
+            workflowId,
+            files: filesWithContent,
+          });
+
+          uploadedAttachments = uploadResponse.files;
+        } catch (uploadError) {
+          console.error("Failed to upload files:", uploadError);
+          toast.error("Failed to upload files. Sending message without attachments.");
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
       const response = await authenticatedPost<{
         response: string;
         conversationHistory: ConversationMessage[];
       }>("/planning/message", {
         workflowId,
-        message: userMessage,
+        message: userMessage || "Please analyze the attached files.",
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
       });
 
       setConversationHistory(response.conversationHistory);
@@ -397,7 +518,7 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-lg sm:text-xl">Plan Workflow with AI</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Brainstorm and ideate your workflow with Claude. Upload API docs, images, or documents
+            Brainstorm and ideate your workflow with Verxio. Upload API docs, images, or documents
             to provide context. When ready, approve to generate the workflow.
           </DialogDescription>
         </DialogHeader>
@@ -487,8 +608,22 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
                             </p>
                           )}
                           {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mt-2 text-xs opacity-75 truncate">
-                              Attachments: {msg.attachments.map((a) => a.fileName).join(", ")}
+                            <div className="mt-2 pt-2 border-t border-current/20">
+                              <div className="flex flex-wrap gap-1">
+                                {msg.attachments.map((a, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center gap-1 bg-background/20 rounded px-1.5 py-0.5 text-[10px]"
+                                  >
+                                    {a.fileType?.startsWith("image/") ? (
+                                      <ImageIcon className="h-2.5 w-2.5" />
+                                    ) : (
+                                      <FileText className="h-2.5 w-2.5" />
+                                    )}
+                                    <span className="truncate max-w-[80px]">{a.fileName}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -509,8 +644,57 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
                 )}
               </div>
 
+              {/* Selected Files Preview */}
+              {selectedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded-lg border">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs border"
+                    >
+                      {file.type.startsWith("image/") ? (
+                        <ImageIcon className="h-3 w-3 text-muted-foreground" />
+                      ) : (
+                        <FileText className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      <span className="truncate max-w-[100px] sm:max-w-[150px]">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="ml-1 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Message Input */}
               <div className="flex gap-2">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.txt,.md,.json,.csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                {/* File upload button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending || isUploading || !workflowId}
+                  className="h-[60px] sm:h-[80px] w-10 sm:w-12 flex-shrink-0"
+                  title="Attach files (images, PDFs, docs)"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
                 <Textarea
                   placeholder="Describe what you want to automate..."
                   value={message}
@@ -525,14 +709,17 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
                   className="text-sm min-h-[60px] sm:min-h-[80px] resize-none"
                   disabled={isSending || !workflowId}
                 />
+
                 <Button
                   type="button"
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || isSending || !workflowId}
+                  disabled={
+                    (!message.trim() && selectedFiles.length === 0) || isSending || !workflowId
+                  }
                   size="icon"
                   className="h-[60px] sm:h-[80px] w-10 sm:w-12 flex-shrink-0"
                 >
-                  {isSending ? (
+                  {isSending || isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4" />

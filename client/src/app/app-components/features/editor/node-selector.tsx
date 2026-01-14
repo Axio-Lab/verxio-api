@@ -86,6 +86,12 @@ const triggerNodes: NodeTypeOption[] = [
     description: "Triggers the workflow when a Telegram message is received.",
     icon: "/logo/telegram.svg",
   },
+  {
+    type: NodeType.WEBHOOK,
+    label: "Webhook Trigger",
+    description: "Triggers the workflow when an HTTP request is received.",
+    icon: WebhookIcon,
+  },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -94,12 +100,6 @@ const executionNodes: NodeTypeOption[] = [
     label: "HTTP Request",
     description: "Make an HTTP request to a URL",
     icon: GlobeIcon,
-  },
-  {
-    type: NodeType.WEBHOOK,
-    label: "Webhook",
-    description: "Receive HTTP requests from external services",
-    icon: WebhookIcon,
   },
   {
     type: NodeType.OPENAI,
@@ -452,7 +452,8 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Webhook",
+            label: "Webhook Trigger",
+            variables: "webhook",
           },
           type: NodeType.WEBHOOK,
           position: flowPosition,
@@ -807,18 +808,13 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
           ) : (
             paginatedNodes.map((node) => {
               const Icon = node.icon;
-              const isWebhook = node.type === NodeType.WEBHOOK;
               const isTrigger = node.category === "trigger";
               const bgColor = isTrigger
                 ? "bg-blue-100 dark:bg-blue-900/20 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30"
-                : isWebhook
-                  ? "bg-purple-100 dark:bg-purple-900/20 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/30"
-                  : "bg-green-100 dark:bg-green-900/20 group-hover:bg-green-200 dark:group-hover:bg-green-900/30";
+                : "bg-green-100 dark:bg-green-900/20 group-hover:bg-green-200 dark:group-hover:bg-green-900/30";
               const iconColor = isTrigger
                 ? "text-blue-600 dark:text-blue-400"
-                : isWebhook
-                  ? "text-purple-600 dark:text-purple-400"
-                  : "text-green-600 dark:text-green-400";
+                : "text-green-600 dark:text-green-400";
 
               return (
                 <div
