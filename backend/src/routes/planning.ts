@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from "express";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
 import {
-  getOrCreateWorkflowPlan,
   getWorkflowPlan,
   sendPlanningMessage,
-  generatePromptFromConversation,
-  clearConversation,
-  processUploadedFiles,
+  sendPlanningMessageStreaming,
+  generateWorkflowPrompt,
+  clearPlanningConversation,
+  recordSuccessfulGeneration,
+  getUserInsights,
 } from "../services/planningService";
 import { prisma as prismaClient } from "../lib/prisma";
 
@@ -92,6 +93,7 @@ planningRouter.post("/message", async (req: Request, res: Response, next: NextFu
 
     const result = await sendPlanningMessage({
       workflowId,
+      userId: user.id,
       message: message.trim(),
       attachments,
       model,
@@ -100,6 +102,8 @@ planningRouter.post("/message", async (req: Request, res: Response, next: NextFu
     res.json({
       response: result.response,
       conversationHistory: result.conversationHistory,
+      workflowModified: result.workflowModified,
+      toolsUsed: result.toolsUsed,
     });
   } catch (error) {
     next(error);
@@ -107,13 +111,81 @@ planningRouter.post("/message", async (req: Request, res: Response, next: NextFu
 });
 
 /**
+ * POST /planning/message/stream
+ * Send message in planning conversation with SSE streaming
+ */
+planningRouter.post("/message/stream", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const { workflowId, message, attachments, model } = req.body;
+
+    if (!workflowId) {
+      throw new AppError("Workflow ID is required", 400);
+    }
+
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
+      throw new AppError("Message is required", 400);
+    }
+
+    // Verify workflow belongs to user
+    const workflow = await prismaClient.workflow.findFirst({
+      where: {
+        id: workflowId,
+        userId: user.id,
+      },
+    });
+
+    if (!workflow) {
+      throw new AppError("Workflow not found", 404);
+    }
+
+    // Set up SSE headers
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+
+    try {
+      // Stream events from agent
+      for await (const event of sendPlanningMessageStreaming({
+        workflowId,
+        userId: user.id,
+        message: message.trim(),
+        attachments,
+        model,
+      })) {
+        // Send event to client
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+
+      // Send completion event
+      res.write(`data: ${JSON.stringify({ type: "complete" })}\n\n`);
+    } catch (error) {
+      // Send error event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          error: error instanceof Error ? error.message : String(error),
+        })}\n\n`
+      );
+    }
+
+    // End the stream
+    res.end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /planning/generate-prompt
- * Generate prompt from conversation
+ * Generate prompt from conversation using AI analysis
  */
 planningRouter.post("/generate-prompt", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
-    const { workflowId, model } = req.body;
+    const { workflowId } = req.body;
 
     if (!workflowId) {
       throw new AppError("Workflow ID is required", 400);
@@ -131,15 +203,12 @@ planningRouter.post("/generate-prompt", async (req: Request, res: Response, next
       throw new AppError("Workflow not found", 404);
     }
 
-    const result = await generatePromptFromConversation({
-      workflowId,
-      model,
-    });
+    const result = await generateWorkflowPrompt(workflowId, user.id);
 
     res.json({
-      prompt: result.prompt,
-      workflowStructure: result.workflowStructure,
-      credentials: result.credentials,
+      prompt: result.generatedPrompt,
+      summary: result.summary,
+      suggestedNodes: result.suggestedNodes,
     });
   } catch (error) {
     next(error);
@@ -181,10 +250,15 @@ planningRouter.post("/upload", async (req: Request, res: Response, next: NextFun
       throw new AppError("Files are required", 400);
     }
 
-    const processedFiles = await processUploadedFiles(files);
-
+    // Process files as attachments
     res.json({
-      files: processedFiles,
+      files: files.map((file: any) => ({
+        fileId: file.fileId || file.id,
+        fileName: file.fileName || file.name,
+        fileType: file.fileType || file.type,
+        url: file.url,
+        extractedText: file.extractedText || file.content,
+      })),
     });
   } catch (error) {
     next(error);
@@ -214,7 +288,7 @@ planningRouter.delete(
         throw new AppError("Workflow not found", 404);
       }
 
-      await clearConversation(workflowId);
+      await clearPlanningConversation(workflowId);
 
       res.json({
         success: true,
@@ -225,3 +299,60 @@ planningRouter.delete(
     }
   }
 );
+
+/**
+ * POST /planning/record-success
+ * Record a successful workflow generation for learning
+ */
+planningRouter.post("/record-success", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const { workflowId, description } = req.body;
+
+    if (!workflowId) {
+      throw new AppError("Workflow ID is required", 400);
+    }
+
+    // Verify workflow belongs to user
+    const workflow = await prismaClient.workflow.findFirst({
+      where: {
+        id: workflowId,
+        userId: user.id,
+      },
+    });
+
+    if (!workflow) {
+      throw new AppError("Workflow not found", 404);
+    }
+
+    await recordSuccessfulGeneration(
+      workflowId,
+      user.id,
+      description || workflow.name || "Unnamed workflow"
+    );
+
+    res.json({
+      success: true,
+      message: "Workflow pattern recorded for learning",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /planning/insights
+ * Get user's workflow insights based on their history
+ */
+planningRouter.get("/insights", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const insights = await getUserInsights(user.id);
+
+    res.json({
+      insights,
+    });
+  } catch (error) {
+    next(error);
+  }
+});

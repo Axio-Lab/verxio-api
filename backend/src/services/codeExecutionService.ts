@@ -204,7 +204,6 @@ export const executeCodeInSandbox = async (
 
         // Run npm install (this may take time)
         await sandbox.process.executeCommand("npm install");
-        console.log(`Installed dependencies: ${params.dependencies.join(", ")}`);
       } catch (installError) {
         console.warn("Dependency installation warning:", installError);
         // Continue anyway - code might work without all dependencies
@@ -220,7 +219,6 @@ export const executeCodeInSandbox = async (
         // Install Python packages using pip
         const pipInstallCmd = `pip install ${params.dependencies.join(" ")}`;
         await sandbox.process.executeCommand(pipInstallCmd);
-        console.log(`Installed Python dependencies: ${params.dependencies.join(", ")}`);
       } catch (installError) {
         console.warn("Python dependency installation warning:", installError);
         // Continue anyway - code might work without all dependencies
@@ -234,10 +232,6 @@ export const executeCodeInSandbox = async (
       availableVariables,
       language
     );
-
-    if (fixesApplied.length > 0) {
-      console.log(`[CodeExecution] Applied ${fixesApplied.length} fix(es) to code:`, fixesApplied);
-    }
 
     // Prepare language-specific code wrapper
     let codeWithExecution: string;

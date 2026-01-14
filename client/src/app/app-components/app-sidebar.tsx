@@ -6,6 +6,7 @@ import {
   HistoryIcon,
   KeyIcon,
   LogOutIcon,
+  PlugIcon,
   // Undo2Icon,
   StarIcon,
 } from "lucide-react";
@@ -46,6 +47,11 @@ const menuItems = [
         title: "Credentials",
         url: "/credentials",
         icon: <KeyIcon />,
+      },
+      {
+        title: "Connections",
+        url: "/connections",
+        icon: <PlugIcon />,
       },
     ],
   },

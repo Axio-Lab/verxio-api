@@ -1,7 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
-import { generateAutonomousWorkflow } from "../services/workflowGenerationService";
+import {
+  generateAutonomousWorkflow,
+  generateAutonomousWorkflowStreaming,
+} from "../services/workflowGenerationService";
 import { testCodeBlock, testWorkflowSegment } from "../services/codeTestingService";
 import { prisma as prismaClient } from "../lib/prisma";
 import { createId } from "@paralleldrive/cuid2";
@@ -90,10 +93,12 @@ workflowGenerationRouter.post(
 
         res.json({
           id: generation.id,
+          workflowId: result.workflowId,
           nodes: result.nodes,
           connections: result.connections,
           status: "completed",
           setupInstructions: result.setupInstructions,
+          summary: result.summary,
         });
       } catch (error) {
         // Update generation record with error
@@ -109,6 +114,141 @@ workflowGenerationRouter.post(
 
         throw error;
       }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /workflow-generation/generate/stream
+ * Generate an autonomous workflow with SSE streaming for real-time updates
+ */
+workflowGenerationRouter.post(
+  "/generate/stream",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { prompt, workflowId, model } = req.body;
+
+      if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+        throw new AppError("Prompt is required", 400);
+      }
+
+      // Set up SSE headers
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+
+      // Create workflow generation record
+      const generation = await prismaClient.workflowGeneration.create({
+        data: {
+          userId: user.id,
+          workflowId: workflowId || null,
+          prompt: prompt.trim(),
+          status: "generating",
+          generatedWorkflow: {},
+        },
+      });
+
+      // Send generation ID immediately
+      res.write(`data: ${JSON.stringify({ type: "generation_id", id: generation.id })}\n\n`);
+
+      try {
+        // Stream events from agent
+        for await (const event of generateAutonomousWorkflowStreaming({
+          prompt: prompt.trim(),
+          userId: user.id,
+          workflowId: workflowId || undefined,
+          model: (model as string) || "claude-sonnet-4-5-20250929",
+        })) {
+          // Send event to client
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+
+        // Update generation status
+        await prismaClient.workflowGeneration.update({
+          where: { id: generation.id },
+          data: { status: "completed" },
+        });
+
+        // Fetch the completed workflow to send back
+        const targetWorkflowId = workflowId || generation.workflowId;
+        if (targetWorkflowId) {
+          const workflow = await prismaClient.workflow.findUnique({
+            where: { id: targetWorkflowId },
+            include: {
+              nodes: { orderBy: { createdAt: "asc" } },
+              connections: true,
+            },
+          });
+
+          if (workflow) {
+            // Generate summary
+            const { generateWorkflowSummary } =
+              await import("../services/workflowGenerationService");
+            const nodes = workflow.nodes.map((node: any) => ({
+              id: node.id,
+              type: node.type,
+              data: node.data as Record<string, unknown>,
+              position: node.position as { x: number; y: number },
+            }));
+            const connections = workflow.connections.map((conn: any) => ({
+              id: conn.id,
+              source: conn.fromNodeId,
+              target: conn.toNodeId,
+              fromOutput: conn.fromOutput || "main",
+              toInput: conn.toInput || "main",
+            }));
+
+            // Send complete event with workflow data
+            res.write(
+              `data: ${JSON.stringify({
+                type: "complete",
+                generationId: generation.id,
+                data: {
+                  workflowId: targetWorkflowId,
+                  nodes,
+                  connections,
+                  summary: generateWorkflowSummary(nodes, connections, user.id),
+                },
+              })}\n\n`
+            );
+          } else {
+            res.write(
+              `data: ${JSON.stringify({ type: "complete", generationId: generation.id })}\n\n`
+            );
+          }
+        } else {
+          res.write(
+            `data: ${JSON.stringify({ type: "complete", generationId: generation.id })}\n\n`
+          );
+        }
+      } catch (error) {
+        // Update generation with error
+        await prismaClient.workflowGeneration.update({
+          where: { id: generation.id },
+          data: {
+            status: "failed",
+            generatedWorkflow: {
+              error: error instanceof Error ? error.message : String(error),
+            } as any,
+          },
+        });
+
+        // Send error event
+        res.write(
+          `data: ${JSON.stringify({
+            type: "error",
+            error: error instanceof Error ? error.message : String(error),
+          })}\n\n`
+        );
+      }
+
+      // End the stream
+      res.end();
     } catch (error) {
       next(error);
     }
@@ -220,11 +360,7 @@ workflowGenerationRouter.post(
 );
 
 /**
- * GET /workflow-generation/:id
- * Get workflow generation status and results
- */
-/**
- * Generate code for CODE_BLOCK node using AI
+ * Generate code for CODE_BLOCK node using Claude Agent
  */
 workflowGenerationRouter.post(
   "/code-generate",
@@ -237,17 +373,20 @@ workflowGenerationRouter.post(
         throw new AppError("Prompt is required", 400);
       }
 
-      // Import code generation service
-      const { generateCustomCode } = await import("../services/codeGenerationService");
+      // Use Claude Agent for code generation
+      const { generateCodeWithAgent } = await import("../services/claude-agent/claudeAgentService");
 
-      // Generate code
-      const result = await generateCustomCode({
+      const result = await generateCodeWithAgent({
+        userId: user.id,
         requirement: prompt,
         context: context,
-        existingNodes: [],
         language: language,
         exampleOutput: exampleOutput,
       });
+
+      if (!result.success) {
+        throw new AppError(result.error || "Failed to generate code", 500);
+      }
 
       res.json({
         code: result.code,

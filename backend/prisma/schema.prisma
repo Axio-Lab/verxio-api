@@ -265,6 +265,7 @@ model User {
   credentials          Credential[]
   googleOAuthToken     GoogleOAuthToken?
   workflowGenerations  WorkflowGeneration[]
+  userConnections      UserConnection[]
 
   @@map("user")
 }
@@ -358,9 +359,10 @@ model Workflow {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  nodes       Node[]
-  connections Connection[]
-  plan        WorkflowPlan?
+  nodes            Node[]
+  connections      Connection[]
+  plan             WorkflowPlan?
+  executionHistory ExecutionHistory[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -488,4 +490,79 @@ model WorkflowPlan {
 
   @@index([workflowId])
   @@map("workflow_plans")
+}
+
+// ============================================
+// User Connections (MCP Servers, Data Sources)
+// ============================================
+
+enum UserConnectionType {
+  MCP_SERVER      // External MCP server connection (Supabase, Notion, etc.)
+  DATABASE        // Direct database connection via MCP
+  DOCUMENTATION   // API docs, guides, references (OpenAPI specs, markdown)
+  API_ENDPOINT    // REST/GraphQL API documentation
+}
+
+model UserConnection {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        UserConnectionType
+  config      Json               // MCP config, connection string, server URL, etc.
+  metadata    Json?              // Additional info: schema, docs content, capabilities
+  isActive    Boolean            @default(true)
+  lastUsedAt  DateTime?
+  lastTestedAt DateTime?
+  testStatus  String?            // "success", "failed", "pending"
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([isActive])
+  @@map("user_connections")
+}
+
+// ============================================
+// Agent Learning and Execution History
+// ============================================
+
+model ExecutionHistory {
+  id            String   @id @default(cuid())
+  workflowId    String
+  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executionId   String   @unique  // Inngest execution ID
+  success       Boolean
+  duration      Int      // Duration in milliseconds
+  nodeMetrics   Json     // Performance data per node
+  errorContext  Json?    // Error details if failed
+  learnings     Json?    // Extracted patterns/insights
+  userFeedback  String?  // Optional user feedback
+  createdAt     DateTime @default(now())
+
+  @@index([workflowId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("execution_history")
+}
+
+model WorkflowPattern {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String?  // e.g., "Marketing", "DevOps", "Data Pipeline"
+  pattern     Json     // Node structure, connections template
+  tags        String[]
+  useCount    Int      @default(0)
+  successRate Float    @default(0)
+  isTemplate  Boolean  @default(false)  // If true, shown in template library
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([tags])
+  @@index([isTemplate])
+  @@map("workflow_patterns")
 }

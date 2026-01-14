@@ -1,0 +1,865 @@
+/**
+ * Verxio MCP Tools for Claude Agent
+ *
+ * These tools give Claude direct access to create, configure, and execute
+ * workflows in Verxio. They enable fully autonomous workflow automation.
+ */
+
+import { z } from "zod/v4";
+import { basePrismaClient } from "../../lib/prisma";
+import { NodeType } from "../../lib/node-types";
+import { inngest } from "../../inngest";
+import * as connectionService from "../connectionService";
+
+const prisma = basePrismaClient as any;
+
+// ============================================
+// Tool Type Definition
+// ============================================
+
+export interface VerxioTool {
+  name: string;
+  description: string;
+  inputSchema: z.ZodObject<any>;
+  execute: (args: any, context: ToolContext) => Promise<any>;
+}
+
+export interface ToolContext {
+  userId: string;
+  workflowId?: string;
+}
+
+// ============================================
+// Available Node Types for Reference
+// ============================================
+
+export const AVAILABLE_NODE_TYPES = {
+  // Triggers (start workflow execution)
+  triggers: [
+    { type: "MANUAL_TRIGGER", description: "Manually triggered workflow execution" },
+    { type: "MANUAL_INPUT", description: "Workflow that starts with user-provided input data" },
+    { type: "TIMED_TRIGGER", description: "Workflow triggered on a schedule (cron)" },
+    { type: "WEBHOOK", description: "Workflow triggered by HTTP POST request" },
+    { type: "GOOGLE_FORM_TRIGGER", description: "Triggered when a Google Form is submitted" },
+    { type: "STRIPE_TRIGGER", description: "Triggered by Stripe webhook events" },
+    { type: "AIRTABLE_TRIGGER", description: "Triggered by Airtable record changes" },
+    { type: "TELEGRAM_TRIGGER", description: "Triggered by incoming Telegram messages" },
+    { type: "WHATSAPP_TRIGGER", description: "Triggered by incoming WhatsApp messages" },
+  ],
+
+  // AI Models (generate content, analyze data)
+  ai: [
+    {
+      type: "ANTHROPIC",
+      description: "Claude AI for text generation and analysis",
+      requiredCredential: "ANTHROPIC",
+    },
+    { type: "OPENAI", description: "GPT models for text generation", requiredCredential: "OPENAI" },
+    {
+      type: "GEMINI",
+      description: "Google Gemini for multimodal AI tasks",
+      requiredCredential: "GEMINI",
+    },
+  ],
+
+  // Communication (send messages)
+  communication: [
+    { type: "DISCORD", description: "Send messages to Discord channels" },
+    { type: "SLACK", description: "Send messages to Slack channels" },
+    { type: "TELEGRAM", description: "Send Telegram messages", requiredCredential: "TELEGRAM" },
+    { type: "WHATSAPP", description: "Send WhatsApp messages" },
+    { type: "GMAIL", description: "Send emails via Gmail", requiredOAuth: "GOOGLE" },
+  ],
+
+  // Google Workspace (document operations)
+  google: [
+    { type: "GOOGLE_DOCS", description: "Create/edit Google Docs", requiredOAuth: "GOOGLE" },
+    { type: "GOOGLE_SHEETS", description: "Read/write Google Sheets", requiredOAuth: "GOOGLE" },
+    { type: "GOOGLE_SLIDES", description: "Create/edit Google Slides", requiredOAuth: "GOOGLE" },
+    { type: "GOOGLE_DRIVE", description: "Manage files in Google Drive", requiredOAuth: "GOOGLE" },
+    { type: "GOOGLE_CALENDAR", description: "Manage calendar events", requiredOAuth: "GOOGLE" },
+    { type: "GOOGLE_MEET", description: "Create Google Meet links", requiredOAuth: "GOOGLE" },
+  ],
+
+  // Data & APIs
+  data: [
+    { type: "HTTP_REQUEST", description: "Make HTTP requests to any API" },
+    {
+      type: "AIRTABLE",
+      description: "Read/write Airtable records",
+      requiredCredential: "AIRTABLE",
+    },
+    { type: "FIRECRAWL", description: "Web scraping and crawling" },
+    { type: "APIFY", description: "Run Apify actors for web automation" },
+  ],
+
+  // Logic & Code
+  logic: [
+    { type: "DECIDER", description: "Conditional branching based on data" },
+    { type: "CODE_BLOCK", description: "Execute custom TypeScript code" },
+    { type: "PLAN", description: "AI-powered planning and decision making" },
+  ],
+
+  // Media
+  media: [{ type: "ELEVENLABS", description: "Text-to-speech with ElevenLabs" }],
+};
+
+// ============================================
+// Tool: List Available Node Types
+// ============================================
+
+export const listNodeTypesTool: VerxioTool = {
+  name: "listNodeTypes",
+  description: "List all available node types in Verxio with their descriptions and requirements",
+  inputSchema: z.object({
+    category: z
+      .enum(["triggers", "ai", "communication", "google", "data", "logic", "media", "all"])
+      .optional(),
+  }),
+  execute: async ({ category }) => {
+    if (category && category !== "all") {
+      return {
+        category,
+        nodes: AVAILABLE_NODE_TYPES[category as keyof typeof AVAILABLE_NODE_TYPES],
+      };
+    }
+    return AVAILABLE_NODE_TYPES;
+  },
+};
+
+// ============================================
+// Tool: Create Workflow
+// ============================================
+
+export const createWorkflowTool: VerxioTool = {
+  name: "createWorkflow",
+  description: "Create a new workflow in Verxio with a name and optional description",
+  inputSchema: z.object({
+    name: z.string().min(1).max(100).describe("Name for the new workflow"),
+    description: z.string().optional().describe("Optional description of what this workflow does"),
+  }),
+  execute: async ({ name, description }, context) => {
+    const workflow = await prisma.workflow.create({
+      data: {
+        name: name.trim(),
+        userId: context.userId,
+        nodes: {
+          create: {
+            name: NodeType.INITIAL,
+            type: NodeType.INITIAL,
+            position: { x: 0, y: 0 },
+            data: description ? { description } : {},
+          },
+        },
+      },
+      include: {
+        nodes: true,
+        connections: true,
+      },
+    });
+
+    return {
+      success: true,
+      workflowId: workflow.id,
+      name: workflow.name,
+      initialNodeId: workflow.nodes[0]?.id,
+      message: `Created workflow "${name}" with ID ${workflow.id}`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Get Workflow
+// ============================================
+
+export const getWorkflowTool: VerxioTool = {
+  name: "getWorkflow",
+  description: "Get details of a workflow including all nodes and connections",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow to retrieve"),
+  }),
+  execute: async ({ workflowId }, context) => {
+    const workflow = await prisma.workflow.findFirst({
+      where: {
+        id: workflowId,
+        userId: context.userId,
+      },
+      include: {
+        nodes: {
+          orderBy: { createdAt: "asc" },
+        },
+        connections: true,
+      },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    return {
+      success: true,
+      workflow: {
+        id: workflow.id,
+        name: workflow.name,
+        nodes: workflow.nodes.map((n: any) => ({
+          id: n.id,
+          name: n.name,
+          type: n.type,
+          position: n.position,
+          data: n.data,
+        })),
+        connections: workflow.connections.map((c: any) => ({
+          id: c.id,
+          source: c.fromNodeId,
+          target: c.toNodeId,
+          sourceHandle: c.fromOutput,
+          targetHandle: c.toInput,
+        })),
+      },
+    };
+  },
+};
+
+// ============================================
+// Tool: Add Node
+// ============================================
+
+export const addNodeTool: VerxioTool = {
+  name: "addNode",
+  description: "Add a new node to a workflow",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow"),
+    nodeType: z.string().describe("Type of node (e.g., ANTHROPIC, GOOGLE_SHEETS, CODE_BLOCK)"),
+    name: z.string().describe("Display name for the node"),
+    position: z
+      .object({
+        x: z.number(),
+        y: z.number(),
+      })
+      .optional()
+      .describe("Position on canvas (will auto-calculate if not provided)"),
+    data: z.record(z.string(), z.any()).optional().describe("Node configuration data"),
+  }),
+  execute: async ({ workflowId, nodeType, name, position, data }, context) => {
+    // Verify workflow belongs to user
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: context.userId },
+      include: { nodes: true },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    // Auto-calculate position if not provided
+    const calculatedPosition = position || {
+      x: Math.max(...workflow.nodes.map((n: any) => n.position?.x || 0), 0) + 300,
+      y: workflow.nodes.length * 100,
+    };
+
+    const node = await prisma.node.create({
+      data: {
+        workflowId,
+        name,
+        type: nodeType as any,
+        position: calculatedPosition,
+        data: data || {},
+      },
+    });
+
+    return {
+      success: true,
+      nodeId: node.id,
+      nodeType: node.type,
+      name: node.name,
+      position: node.position,
+      message: `Added ${nodeType} node "${name}" with ID ${node.id}`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Configure Node
+// ============================================
+
+export const configureNodeTool: VerxioTool = {
+  name: "configureNode",
+  description: "Configure a node's settings, prompts, credentials, and other parameters",
+  inputSchema: z.object({
+    nodeId: z.string().describe("ID of the node to configure"),
+    config: z.record(z.string(), z.any()).describe("Configuration data to set/merge"),
+    credentialId: z.string().optional().describe("ID of credential to attach to node"),
+  }),
+  execute: async ({ nodeId, config, credentialId }, context) => {
+    // Get node and verify ownership
+    const node = await prisma.node.findFirst({
+      where: { id: nodeId },
+      include: { workflow: true },
+    });
+
+    if (!node || node.workflow.userId !== context.userId) {
+      return { success: false, error: "Node not found or access denied" };
+    }
+
+    // Merge config with existing data
+    const existingData = (node.data as Record<string, any>) || {};
+    const newData = { ...existingData, ...config };
+
+    const updateData: any = { data: newData };
+    if (credentialId) {
+      // Verify credential belongs to user
+      const credential = await prisma.credential.findFirst({
+        where: { id: credentialId, userId: context.userId },
+      });
+      if (!credential) {
+        return { success: false, error: "Credential not found or access denied" };
+      }
+      updateData.credentialId = credentialId;
+    }
+
+    const updatedNode = await prisma.node.update({
+      where: { id: nodeId },
+      data: updateData,
+    });
+
+    return {
+      success: true,
+      nodeId: updatedNode.id,
+      updatedConfig: newData,
+      message: `Configured node ${nodeId} with new settings`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Connect Nodes
+// ============================================
+
+export const connectNodesTool: VerxioTool = {
+  name: "connectNodes",
+  description: "Connect two nodes to define execution flow",
+  inputSchema: z.object({
+    sourceNodeId: z.string().describe("ID of the source node (output)"),
+    targetNodeId: z.string().describe("ID of the target node (input)"),
+    sourceHandle: z.string().optional().default("main").describe("Source output handle"),
+    targetHandle: z.string().optional().default("main").describe("Target input handle"),
+  }),
+  execute: async ({ sourceNodeId, targetNodeId, sourceHandle, targetHandle }, context) => {
+    // Get both nodes and verify they're in same workflow owned by user
+    const [sourceNode, targetNode] = await Promise.all([
+      prisma.node.findFirst({ where: { id: sourceNodeId }, include: { workflow: true } }),
+      prisma.node.findFirst({ where: { id: targetNodeId }, include: { workflow: true } }),
+    ]);
+
+    if (!sourceNode || !targetNode) {
+      return { success: false, error: "One or both nodes not found" };
+    }
+
+    if (sourceNode.workflowId !== targetNode.workflowId) {
+      return { success: false, error: "Nodes must be in the same workflow" };
+    }
+
+    if (sourceNode.workflow.userId !== context.userId) {
+      return { success: false, error: "Access denied to this workflow" };
+    }
+
+    // Check for existing connection
+    const existingConnection = await prisma.connection.findFirst({
+      where: {
+        fromNodeId: sourceNodeId,
+        toNodeId: targetNodeId,
+        fromOutput: sourceHandle || "main",
+        toInput: targetHandle || "main",
+      },
+    });
+
+    if (existingConnection) {
+      return {
+        success: true,
+        connectionId: existingConnection.id,
+        message: "Connection already exists",
+      };
+    }
+
+    const connection = await prisma.connection.create({
+      data: {
+        workflowId: sourceNode.workflowId,
+        fromNodeId: sourceNodeId,
+        toNodeId: targetNodeId,
+        fromOutput: sourceHandle || "main",
+        toInput: targetHandle || "main",
+      },
+    });
+
+    return {
+      success: true,
+      connectionId: connection.id,
+      message: `Connected ${sourceNode.name} -> ${targetNode.name}`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Execute Workflow
+// ============================================
+
+export const executeWorkflowTool: VerxioTool = {
+  name: "executeWorkflow",
+  description: "Trigger execution of a workflow",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow to execute"),
+    inputData: z
+      .record(z.string(), z.any())
+      .optional()
+      .describe("Optional input data for the workflow"),
+    triggerNodeId: z.string().optional().describe("Specific trigger node to start from"),
+  }),
+  execute: async ({ workflowId, inputData, triggerNodeId }, context) => {
+    // Verify workflow ownership
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: context.userId },
+      include: { nodes: true },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    // Find trigger node
+    let triggerNode = triggerNodeId
+      ? workflow.nodes.find((n: any) => n.id === triggerNodeId)
+      : workflow.nodes.find((n: any) =>
+          ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
+        );
+
+    if (!triggerNode) {
+      return { success: false, error: "No suitable trigger node found in workflow" };
+    }
+
+    // Send Inngest event to trigger workflow
+    const eventResult = await inngest.send({
+      name: "workflow/trigger",
+      data: {
+        workflowId,
+        userId: context.userId,
+        triggerNodeId: triggerNode.id,
+        initialData: inputData || {},
+        triggeredBy: "agent",
+      },
+    });
+
+    return {
+      success: true,
+      executionId: eventResult.ids?.[0] || null,
+      workflowId,
+      triggerNodeId: triggerNode.id,
+      message: `Triggered workflow "${workflow.name}" execution`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Get Credentials
+// ============================================
+
+export const getCredentialsTool: VerxioTool = {
+  name: "getCredentials",
+  description: "List available credentials for the user, optionally filtered by type",
+  inputSchema: z.object({
+    type: z
+      .string()
+      .optional()
+      .describe("Filter by credential type (e.g., ANTHROPIC, OPENAI, TELEGRAM)"),
+  }),
+  execute: async ({ type }, context) => {
+    const where: any = { userId: context.userId };
+    if (type) {
+      where.type = type;
+    }
+
+    const credentials = await prisma.credential.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      success: true,
+      credentials,
+      count: credentials.length,
+    };
+  },
+};
+
+// ============================================
+// Tool: Check Credential
+// ============================================
+
+export const checkCredentialTool: VerxioTool = {
+  name: "checkCredential",
+  description: "Check if user has a valid credential for a specific integration type",
+  inputSchema: z.object({
+    integrationType: z
+      .string()
+      .describe("Type of integration (e.g., ANTHROPIC, OPENAI, GOOGLE, TELEGRAM)"),
+  }),
+  execute: async ({ integrationType }, context) => {
+    // Check for regular credentials
+    const credential = await prisma.credential.findFirst({
+      where: {
+        userId: context.userId,
+        type: integrationType,
+      },
+      select: { id: true, name: true, type: true },
+    });
+
+    // Check for Google OAuth if needed
+    if (integrationType === "GOOGLE" || integrationType.startsWith("GOOGLE_")) {
+      const googleOAuth = await prisma.googleOAuthToken.findFirst({
+        where: { userId: context.userId },
+        select: { id: true, scope: true },
+      });
+
+      if (googleOAuth) {
+        return {
+          exists: true,
+          type: "oauth",
+          credentialType: "GOOGLE_OAUTH",
+          scopes: googleOAuth.scope,
+          message: "Google OAuth is configured",
+        };
+      }
+    }
+
+    if (credential) {
+      return {
+        exists: true,
+        type: "credential",
+        credentialId: credential.id,
+        credentialName: credential.name,
+        credentialType: credential.type,
+        message: `Found ${integrationType} credential: ${credential.name}`,
+      };
+    }
+
+    return {
+      exists: false,
+      credentialType: integrationType,
+      setupUrl: `/credentials/new?type=${integrationType}`,
+      message: `Missing ${integrationType} credential. User needs to add it at /credentials/new`,
+      instructions: getCredentialSetupInstructions(integrationType),
+    };
+  },
+};
+
+// ============================================
+// Tool: Request Credential
+// ============================================
+
+export const requestCredentialTool: VerxioTool = {
+  name: "requestCredential",
+  description: "Request user to add a missing credential with specific instructions",
+  inputSchema: z.object({
+    integrationType: z.string().describe("Type of credential needed"),
+    reason: z.string().describe("Why this credential is needed"),
+    requiredScopes: z.array(z.string()).optional().describe("Required OAuth scopes if applicable"),
+  }),
+  execute: async ({ integrationType, reason, requiredScopes }) => {
+    return {
+      action: "REQUEST_CREDENTIAL",
+      integrationType,
+      reason,
+      requiredScopes,
+      setupUrl: `/credentials/new?type=${integrationType}`,
+      instructions: getCredentialSetupInstructions(integrationType),
+      message: `Please add a ${integrationType} credential to continue. ${reason}`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Get Connections (MCP, Database, Docs)
+// ============================================
+
+export const getConnectionsTool: VerxioTool = {
+  name: "getConnections",
+  description: "Get user's configured connections (MCP servers, databases, documentation)",
+  inputSchema: z.object({
+    type: z.enum(["MCP_SERVER", "DATABASE", "DOCUMENTATION", "API_ENDPOINT", "all"]).optional(),
+    activeOnly: z.boolean().optional().default(true),
+  }),
+  execute: async ({ type, activeOnly }, context) => {
+    const where: any = { userId: context.userId };
+    if (type && type !== "all") {
+      where.type = type;
+    }
+    if (activeOnly) {
+      where.isActive = true;
+    }
+
+    const connections = await prisma.userConnection.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        type: true,
+        isActive: true,
+        testStatus: true,
+        lastUsedAt: true,
+      },
+      orderBy: { lastUsedAt: "desc" },
+    });
+
+    return {
+      success: true,
+      connections,
+      count: connections.length,
+    };
+  },
+};
+
+// ============================================
+// Tool: Search Documentation
+// ============================================
+
+export const searchDocumentationTool: VerxioTool = {
+  name: "searchDocumentation",
+  description: "Search user's connected documentation for relevant information",
+  inputSchema: z.object({
+    query: z.string().describe("Search query"),
+    connectionIds: z
+      .array(z.string())
+      .optional()
+      .describe("Specific documentation connections to search"),
+  }),
+  execute: async ({ query, connectionIds }, context) => {
+    const results = await connectionService.searchDocumentation(
+      context.userId,
+      query,
+      connectionIds
+    );
+
+    return {
+      success: true,
+      query,
+      results,
+      count: results.length,
+    };
+  },
+};
+
+// ============================================
+// Tool: Generate Code Block
+// ============================================
+
+export const generateCodeTool: VerxioTool = {
+  name: "generateCode",
+  description:
+    "Generate TypeScript code for a CODE_BLOCK node based on requirements. Use this when you need to create custom data transformations or logic.",
+  inputSchema: z.object({
+    requirement: z.string().describe("Clear description of what the code should do"),
+    availableInputs: z
+      .record(z.string(), z.any())
+      .optional()
+      .describe("Available variables from previous nodes and their structure"),
+    expectedOutput: z.record(z.string(), z.any()).optional().describe("Expected output structure"),
+  }),
+  execute: async ({ requirement, availableInputs, expectedOutput }) => {
+    // Generate code based on requirement and available inputs
+    // The agent calling this tool should provide context about available inputs
+
+    const inputVars = availableInputs ? Object.keys(availableInputs) : [];
+    const inputDocs =
+      inputVars.length > 0
+        ? inputVars
+            .map(
+              (name) =>
+                `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
+            )
+            .join("\n")
+        : "  // No specific inputs defined";
+
+    const outputDocs = expectedOutput
+      ? `Expected output: ${JSON.stringify(expectedOutput, null, 2)}`
+      : "Return an object with your computed results";
+
+    // Generate code template that follows the correct pattern
+    const code = `/**
+ * CODE_BLOCK: ${requirement}
+ * 
+ * Available inputs from previous nodes:
+${inputDocs}
+ * 
+ * ${outputDocs}
+ */
+export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>> {
+  // Access data from previous nodes via inputs.variableName
+${inputVars.length > 0 ? inputVars.map((name) => `  const ${name} = inputs.${name};`).join("\n") : "  // const previousData = inputs.previousNodeName;"}
+  
+  // Implement: ${requirement}
+  // TODO: Add your logic here
+  
+  // Return results (will be accessible as inputs.thisNodeName.yourKey in next nodes)
+  return {
+    success: true,
+    result: null, // Replace with actual result
+  };
+}`;
+
+    return {
+      success: true,
+      code,
+      requirement,
+      availableInputs: inputVars,
+      message: `Generated CODE_BLOCK template for: ${requirement}. Complete the implementation by replacing the TODO section with actual logic.`,
+      instructions: [
+        "1. Access previous node data via inputs.variableName",
+        "2. NEVER use 'context' - always use 'inputs'",
+        "3. Return a plain object with your results",
+        "4. Handle errors by throwing them",
+      ],
+    };
+  },
+};
+
+// ============================================
+// Tool: Delete Node
+// ============================================
+
+export const deleteNodeTool: VerxioTool = {
+  name: "deleteNode",
+  description: "Delete a node from a workflow",
+  inputSchema: z.object({
+    nodeId: z.string().describe("ID of the node to delete"),
+  }),
+  execute: async ({ nodeId }, context) => {
+    const node = await prisma.node.findFirst({
+      where: { id: nodeId },
+      include: { workflow: true },
+    });
+
+    if (!node || node.workflow.userId !== context.userId) {
+      return { success: false, error: "Node not found or access denied" };
+    }
+
+    if (node.type === "INITIAL") {
+      return { success: false, error: "Cannot delete the initial node" };
+    }
+
+    // Delete connections first, then node
+    await prisma.connection.deleteMany({
+      where: {
+        OR: [{ fromNodeId: nodeId }, { toNodeId: nodeId }],
+      },
+    });
+
+    await prisma.node.delete({ where: { id: nodeId } });
+
+    return {
+      success: true,
+      message: `Deleted node ${node.name} (${nodeId})`,
+    };
+  },
+};
+
+// ============================================
+// Tool: List User Workflows
+// ============================================
+
+export const listWorkflowsTool: VerxioTool = {
+  name: "listWorkflows",
+  description: "List all workflows for the current user",
+  inputSchema: z.object({
+    limit: z.number().optional().default(10).describe("Maximum number of workflows to return"),
+    search: z.string().optional().describe("Search by workflow name"),
+  }),
+  execute: async ({ limit, search }, context) => {
+    const where: any = { userId: context.userId };
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+
+    const workflows = await prisma.workflow.findMany({
+      where,
+      take: limit,
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: { nodes: true, connections: true },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      workflows: workflows.map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        nodeCount: w._count.nodes,
+        connectionCount: w._count.connections,
+      })),
+      count: workflows.length,
+    };
+  },
+};
+
+// ============================================
+// Helper: Get Credential Setup Instructions
+// ============================================
+
+function getCredentialSetupInstructions(type: string): string {
+  const instructions: Record<string, string> = {
+    ANTHROPIC:
+      "Go to https://console.anthropic.com to get your API key. Create a new API key in the API Keys section.",
+    OPENAI:
+      "Visit https://platform.openai.com/api-keys to create an API key. You'll need a paid account.",
+    GEMINI: "Get your API key from https://makersuite.google.com/app/apikey",
+    TELEGRAM:
+      "1. Open Telegram and search for @BotFather\n2. Send /newbot and follow instructions\n3. Copy the bot token provided",
+    AIRTABLE:
+      "Go to https://airtable.com/create/tokens to create a personal access token with the required scopes.",
+    GOOGLE: "Use the 'Connect Google Account' button to authorize access to Google services.",
+    ELEVENLABS: "Get your API key from https://elevenlabs.io/app/settings/api-keys",
+  };
+
+  return (
+    instructions[type] ||
+    `Please obtain the API key or credentials for ${type} from the service provider's website.`
+  );
+}
+
+// ============================================
+// Export All Tools
+// ============================================
+
+export const verxioTools: VerxioTool[] = [
+  listNodeTypesTool,
+  createWorkflowTool,
+  getWorkflowTool,
+  addNodeTool,
+  configureNodeTool,
+  connectNodesTool,
+  executeWorkflowTool,
+  getCredentialsTool,
+  checkCredentialTool,
+  requestCredentialTool,
+  getConnectionsTool,
+  searchDocumentationTool,
+  generateCodeTool,
+  deleteNodeTool,
+  listWorkflowsTool,
+];
+
+export default verxioTools;

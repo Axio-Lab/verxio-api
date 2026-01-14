@@ -11,6 +11,22 @@ import { getSession } from "@/lib/auth-client";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
+ * Get authentication headers for use with raw fetch (e.g., streaming)
+ */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const session = await getSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (session && "data" in session && session.data?.user) {
+    headers["X-User-Email"] = session.data.user.email || "";
+  }
+
+  return headers;
+}
+
+/**
  * Authenticated fetch wrapper that includes Better Auth session
  */
 export async function authenticatedFetch(

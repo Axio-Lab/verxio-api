@@ -19,30 +19,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Loader2,
-  Sparkles,
-  Trash2,
-  Send,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check,
-  Paperclip,
-  X,
-  FileText,
-  ImageIcon,
-} from "lucide-react";
+import { Loader2, Sparkles, Trash2, Send, Paperclip, X, FileText, ImageIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { authenticatedGet, authenticatedPost, authenticatedDelete } from "@/lib/api-client";
+import {
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedDelete,
+  getAuthHeaders,
+} from "@/lib/api-client";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { useReactFlow } from "@xyflow/react";
-import type { Edge } from "@xyflow/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const formSchema = z.object({
   variables: z
@@ -80,23 +71,47 @@ interface Props {
 export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
   const params = useParams();
   const workflowId = (params?.id || params?.workflow) as string;
-  const { setNodes, setEdges, fitView } = useReactFlow();
+  const queryClient = useQueryClient();
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [isGeneratingWorkflow, setIsGeneratingWorkflow] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [thinkingDots, setThinkingDots] = useState("");
-  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [agentProgress, setAgentProgress] = useState<Array<{ status: string; toolName?: string }>>(
+    []
+  );
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Map tool names to user-friendly descriptions
+  const getProgressMessage = (toolName: string, input?: any): string => {
+    const toolMessages: Record<string, string> = {
+      createWorkflow: "Creating new workflow",
+      getWorkflow: "Reading existing workflow",
+      addNode: `Adding ${input?.type?.replace(/_/g, " ") || "node"} node`,
+      configureNode: `Configuring ${input?.nodeType?.replace(/_/g, " ") || "node"} settings`,
+      connectNodes: "Connecting workflow nodes",
+      getCredentials: "Checking available credentials",
+      requestCredential: "Preparing credential requirements",
+      generateCode: "Generating custom code block",
+    };
+    return toolMessages[toolName] || `Processing: ${toolName}`;
+  };
+
+  // Tools that indicate workflow creation is happening
+  const WORKFLOW_TOOLS = [
+    "createWorkflow",
+    "addNode",
+    "configureNode",
+    "connectNodes",
+    "deleteNode",
+  ];
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(formSchema),
@@ -153,12 +168,8 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
 
       if (response.plan && response.conversationHistory) {
         setConversationHistory(response.conversationHistory);
-        if (response.plan.generatedPrompt) {
-          setGeneratedPrompt(response.plan.generatedPrompt);
-        }
       } else {
         setConversationHistory([]);
-        setGeneratedPrompt(null);
       }
     } catch (error) {
       console.error("Failed to load conversation history:", error);
@@ -288,16 +299,111 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
         }
       }
 
-      const response = await authenticatedPost<{
-        response: string;
-        conversationHistory: ConversationMessage[];
-      }>("/planning/message", {
-        workflowId,
-        message: userMessage || "Please analyze the attached files.",
-        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+      // Use streaming endpoint for real-time progress
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const authHeaders = await getAuthHeaders();
+
+      const response = await fetch(`${baseUrl}/planning/message/stream`, {
+        method: "POST",
+        headers: authHeaders,
+        credentials: "include",
+        body: JSON.stringify({
+          workflowId,
+          message: userMessage || "Please analyze the attached files.",
+          attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+        }),
       });
 
-      setConversationHistory(response.conversationHistory);
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantResponse = "";
+      let workflowModified = false;
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
+
+          for (const line of lines) {
+            try {
+              const jsonStr = line.replace("data: ", "").trim();
+              if (!jsonStr) continue;
+
+              const event = JSON.parse(jsonStr);
+
+              // Handle tool_use events - show progress
+              if (event.type === "tool_use" && event.data?.name) {
+                const toolName = event.data.name;
+
+                // If workflow tool is used, switch to workflow creation mode
+                if (WORKFLOW_TOOLS.includes(toolName)) {
+                  setIsCreatingWorkflow(true);
+                  workflowModified = true;
+                }
+
+                const message = getProgressMessage(toolName, event.data.input);
+                setAgentProgress((prev) => [...prev.slice(-4), { status: message, toolName }]);
+              }
+
+              // Collect message text
+              if (event.type === "message" && event.data?.text && !event.data.partial) {
+                assistantResponse += event.data.text;
+              }
+
+              // Final result
+              if (event.type === "result" && event.data?.result) {
+                assistantResponse = event.data.result;
+              }
+
+              // Conversation history update from server
+              if (event.type === "history" && event.data?.conversationHistory) {
+                setConversationHistory(event.data.conversationHistory);
+              }
+            } catch {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+
+      // If we got a response but no history update, add it manually
+      if (assistantResponse) {
+        setConversationHistory((prev) => {
+          // Check if the last message is already from assistant
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg?.role === "assistant") {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              role: "assistant" as const,
+              content: assistantResponse,
+              timestamp: new Date().toISOString(),
+            },
+          ];
+        });
+      }
+
+      // If workflow was modified, show success message
+      if (workflowModified) {
+        setAgentProgress((prev) => [
+          ...prev.slice(-4),
+          { status: "Workflow created successfully!" },
+        ]);
+
+        // Invalidate the query
+        await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+
+        toast.success("Workflow created! Click 'Save Plan' to update the canvas.");
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
       toast.error("Failed to send message. Please try again.");
@@ -305,184 +411,8 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
       setConversationHistory((prev) => prev.slice(0, -1));
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleGeneratePrompt = async () => {
-    if (!workflowId) return;
-
-    setIsGeneratingPrompt(true);
-    try {
-      const response = await authenticatedPost<{
-        prompt: string;
-        workflowStructure: {
-          description: string;
-          nodes: Array<{ type: string; purpose: string }>;
-          credentials: Array<{ type: string; name: string; description: string }>;
-        };
-        credentials: Array<{ type: string; name: string; description: string }>;
-      }>("/planning/generate-prompt", {
-        workflowId,
-      });
-
-      setGeneratedPrompt(response.prompt);
-      setIsPromptExpanded(false); // Start collapsed for new prompts
-      toast.success("Prompt generated successfully!");
-    } catch (error) {
-      console.error("Failed to generate prompt:", error);
-      toast.error("Failed to generate prompt. Please try again.");
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
-  const pollGenerationStatus = async (generationId: string) => {
-    const maxAttempts = 60; // Poll for up to 60 seconds
-    let attempts = 0;
-
-    const poll = async (): Promise<void> => {
-      if (attempts >= maxAttempts) {
-        setIsGeneratingWorkflow(false);
-        toast.error("Workflow generation timed out. Please try again.");
-        return;
-      }
-
-      try {
-        const response = await authenticatedGet<{
-          id: string;
-          status: string;
-          nodes?: Array<{
-            id: string;
-            type: string;
-            data: Record<string, unknown>;
-            position: { x: number; y: number };
-          }>;
-          connections?: Array<{
-            id: string;
-            source: string;
-            target: string;
-            fromOutput?: string;
-            toInput?: string;
-          }>;
-        }>(`/workflow-generation/${generationId}`);
-
-        if (response.status === "completed" && response.nodes && response.connections) {
-          // Add nodes to canvas
-          const approvedNodes = response.nodes;
-          const approvedConnections = response.connections;
-
-          // Transform nodes to React Flow format with proper structure
-          // Ensure all required fields are present for proper saving
-          const newNodes = approvedNodes.map((node: any) => {
-            const nodeLabel = node.data?.label || node.data?.name || node.id;
-            return {
-              id: node.id,
-              type: node.type,
-              data: {
-                ...node.data,
-                // Ensure label is set for proper display and saving
-                label: nodeLabel,
-                // Ensure name is also set (used during save)
-                name: nodeLabel,
-              },
-              position: node.position || { x: 0, y: 0 },
-            };
-          });
-
-          const nodeIds = new Set(newNodes.map((n) => n.id));
-          const validConnections = approvedConnections.filter((conn: any) => {
-            return nodeIds.has(conn.source) && nodeIds.has(conn.target);
-          });
-
-          const newEdges: Edge[] = validConnections.map((conn: any, index: number) => {
-            const normalizeHandle = (handle: any): string | undefined => {
-              if (
-                !handle ||
-                handle === "null" ||
-                handle === "main" ||
-                handle === "" ||
-                handle === null
-              ) {
-                return undefined;
-              }
-              return handle;
-            };
-
-            return {
-              id: conn.id || `edge-${conn.source}-${conn.target}-${Date.now()}-${index}`,
-              source: conn.source,
-              target: conn.target,
-              sourceHandle: normalizeHandle(conn.fromOutput || conn.sourceHandle),
-              targetHandle: normalizeHandle(conn.toInput || conn.targetHandle),
-              deletable: true,
-              selectable: true,
-            };
-          });
-
-          setNodes((nodes) => [...nodes, ...newNodes]);
-          setEdges((edges) => [...edges, ...newEdges]);
-
-          // Center view on new nodes
-          setTimeout(() => {
-            fitView({ padding: 0.2, duration: 400 });
-          }, 100);
-
-          setIsGeneratingWorkflow(false);
-          toast.success("Workflow generated and added to canvas!");
-          onOpenChange(false);
-        } else if (response.status === "failed") {
-          setIsGeneratingWorkflow(false);
-          toast.error("Workflow generation failed. Please try again.");
-        } else {
-          // Still generating, poll again
-          attempts++;
-          setTimeout(poll, 1000);
-        }
-      } catch (error) {
-        console.error("Failed to poll generation status:", error);
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 1000);
-        } else {
-          setIsGeneratingWorkflow(false);
-          toast.error("Failed to check generation status. Please try again.");
-        }
-      }
-    };
-
-    poll();
-  };
-
-  const handleApproveAndGenerate = async () => {
-    if (!generatedPrompt || !workflowId) {
-      toast.error("Please generate a prompt first");
-      return;
-    }
-
-    setIsGeneratingWorkflow(true);
-    try {
-      // Call workflow generation API with the generated prompt
-      const response = await authenticatedPost<{
-        id: string;
-        status: string;
-      }>("/workflow-generation/generate", {
-        prompt: generatedPrompt,
-        workflowId,
-        mode: "generate",
-      });
-
-      if (response.status === "completed") {
-        // If already completed, fetch and add to canvas
-        await pollGenerationStatus(response.id);
-      } else {
-        // Poll for completion
-        toast.info("Workflow generation started. Please wait...");
-        await pollGenerationStatus(response.id);
-      }
-    } catch (error) {
-      console.error("Failed to generate workflow:", error);
-      toast.error("Failed to start workflow generation. Please try again.");
-      setIsGeneratingWorkflow(false);
+      setIsCreatingWorkflow(false);
+      setAgentProgress([]);
     }
   };
 
@@ -492,7 +422,6 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
     try {
       await authenticatedDelete(`/planning/workflow/${workflowId}/clear`);
       setConversationHistory([]);
-      setGeneratedPrompt(null);
       setShowClearConfirm(false);
       toast.success("Conversation cleared");
     } catch (error) {
@@ -502,12 +431,18 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
   };
 
   const handleSubmit = async (values: PlanFormValues) => {
+    setIsSaving(true);
     try {
       await Promise.resolve(onSubmit(values));
-      onOpenChange(false);
-      toast.success("Plan node configured");
-      form.reset();
+
+      // Always refresh the page to ensure canvas is updated
+      toast.success("Workflow updated! Refreshing...");
+      setTimeout(() => {
+        // Navigate to the workflow page to refresh
+        window.location.href = `/workflows/${workflowId}`;
+      }, 300);
     } catch (error) {
+      setIsSaving(false);
       // Error handling is done in the parent component
     }
   };
@@ -629,13 +564,42 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
                         </div>
                       </div>
                     ))}
-                    {isSending && (
+                    {isSending && !isCreatingWorkflow && (
                       <div className="flex justify-start">
                         <div className="bg-card border border-border shadow-sm rounded-lg p-2 sm:p-3">
                           <p className="text-xs sm:text-sm text-muted-foreground">
-                            Verxio is thinking
+                            Verxio is planning
                             <span className="inline-block w-8">{thinkingDots}</span>
                           </p>
+                        </div>
+                      </div>
+                    )}
+                    {isCreatingWorkflow && agentProgress.length > 0 && (
+                      <div className="flex justify-start">
+                        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 sm:p-4 min-w-[250px]">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                            <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">
+                              Creating Workflow...
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {agentProgress.map((progress, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 text-xs text-muted-foreground"
+                              >
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                    idx === agentProgress.length - 1
+                                      ? "bg-purple-500 animate-pulse"
+                                      : "bg-green-500"
+                                  }`}
+                                />
+                                <span>{progress.status}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -727,114 +691,20 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
                 </Button>
               </div>
 
-              {/* Generated Prompt Preview - Collapsible */}
-              {generatedPrompt && (
-                <div className="border rounded-lg bg-blue-50 dark:bg-blue-950/30 overflow-hidden">
-                  <div
-                    className="flex items-center justify-between p-2 sm:p-3 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors gap-2"
-                    onClick={() => setIsPromptExpanded(!isPromptExpanded)}
-                  >
-                    <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                      {isPromptExpanded ? (
-                        <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <p className="text-xs sm:text-sm font-medium truncate">Generated Prompt</p>
-                      {!isPromptExpanded && (
-                        <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline">
-                          (click to expand)
-                        </span>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(generatedPrompt);
-                        setIsCopied(true);
-                        toast.success("Prompt copied to clipboard");
-                        setTimeout(() => setIsCopied(false), 2000);
-                      }}
-                    >
-                      {isCopied ? (
-                        <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {isPromptExpanded && (
-                    <div className="px-2 sm:px-4 pb-2 sm:pb-4 border-t border-blue-100 dark:border-blue-900/50">
-                      <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words pt-2 sm:pt-3 max-h-[150px] sm:max-h-[250px] overflow-y-auto">
-                        {generatedPrompt}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center pt-2 border-t">
+              <div className="flex justify-start pt-2 border-t">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowClearConfirm(true)}
-                  disabled={conversationHistory.length === 0}
-                  className="w-full sm:w-auto text-xs sm:text-sm"
+                  disabled={conversationHistory.length === 0 || isSending}
+                  className="text-xs sm:text-sm"
                 >
                   <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Clear Conversation</span>
                   <span className="sm:hidden">Clear</span>
                 </Button>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGeneratePrompt}
-                    disabled={conversationHistory.length === 0 || isGeneratingPrompt}
-                    className="w-full sm:w-auto text-xs sm:text-sm"
-                  >
-                    {isGeneratingPrompt ? (
-                      <>
-                        <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                        <span className="hidden sm:inline">Generating...</span>
-                        <span className="sm:hidden">Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline">Generate Prompt</span>
-                        <span className="sm:hidden">Generate Prompt</span>
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleApproveAndGenerate}
-                    disabled={!generatedPrompt || isGeneratingWorkflow}
-                    className="bg-primary w-full sm:w-auto text-xs sm:text-sm"
-                  >
-                    {isGeneratingWorkflow ? (
-                      <>
-                        <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                        <span className="hidden sm:inline">Generating Workflow...</span>
-                        <span className="sm:hidden">Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="hidden sm:inline">Approve & Generate Workflow</span>
-                        <span className="sm:hidden">Approve & Generate</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
               </div>
             </div>
 
@@ -842,13 +712,13 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
               <Button
                 type="submit"
                 size="sm"
-                disabled={form.formState.isSubmitting}
+                disabled={isSaving}
                 className="w-full sm:w-auto text-xs sm:text-sm"
               >
-                {form.formState.isSubmitting && (
+                {isSaving && (
                   <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                 )}
-                Save Configuration
+                {isSaving ? "Saving..." : "Save Plan"}
               </Button>
             </DialogFooter>
           </form>

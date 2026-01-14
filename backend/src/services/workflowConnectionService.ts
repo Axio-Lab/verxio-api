@@ -362,7 +362,6 @@ export const ensureExecutionChain = (
         fromOutput: "main",
         toInput: "main",
       });
-      console.log(`Added connection: trigger ${primaryTrigger.id} -> ${firstActionInOrder.id}`);
     }
 
     // Connect actions sequentially
@@ -389,13 +388,11 @@ export const ensureExecutionChain = (
             fromOutput: "main",
             toInput: "main",
           });
-          console.log(`Added sequential connection: ${current.id} -> ${next.id}`);
         }
       }
     }
   } else if (actions.length > 0) {
     // If no execution order found (isolated nodes), connect all actions sequentially
-    console.log("No execution order found, connecting all actions sequentially");
     // Connect trigger to first action
     const firstAction = actions[0];
     if (
@@ -422,7 +419,6 @@ export const ensureExecutionChain = (
           fromOutput: "main",
           toInput: "main",
         });
-        console.log(`Added fallback connection: ${current.id} -> ${next.id}`);
       }
     }
   }

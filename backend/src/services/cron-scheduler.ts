@@ -79,10 +79,6 @@ export async function scheduleTimedTrigger(
   // Check if the trigger is enabled
   const isEnabled =
     nodeData.enabled !== false && nodeData.enabled !== "false" && nodeData.enabled !== 0;
-  if (!isEnabled) {
-    console.log(`[cron-scheduler] Timed trigger ${nodeId} is disabled, not scheduling`);
-    return;
-  }
 
   // Get schedule configuration
   const scheduleType = nodeData.scheduleType || "interval";
@@ -112,8 +108,6 @@ export async function scheduleTimedTrigger(
   // Create and schedule the cron job
   // This creates a timer that fires at the specified schedule
   const job = cron.schedule(cronExpr, async () => {
-    console.log(`[cron-scheduler] Triggering workflow ${workflowId} via cron for node ${nodeId}`);
-
     try {
       // Send event to Inngest to trigger the workflow
       // This is non-blocking and efficient
@@ -143,10 +137,6 @@ export async function scheduleTimedTrigger(
 
   // Store the job so we can cancel it later
   activeCronJobs.set(nodeId, job);
-
-  console.log(
-    `[cron-scheduler] Scheduled cron job for workflow ${workflowId}, node ${nodeId} with expression: ${cronExpr}`
-  );
 }
 
 /**
@@ -157,7 +147,6 @@ export function cancelTimedTrigger(nodeId: string): void {
   if (job) {
     job.stop();
     activeCronJobs.delete(nodeId);
-    console.log(`[cron-scheduler] Cancelled cron job for node ${nodeId}`);
   }
 }
 
@@ -172,8 +161,6 @@ export function cancelTimedTrigger(nodeId: string): void {
  * - Startup time increases with number of workflows, but is acceptable
  */
 export async function initializeCronScheduler(): Promise<void> {
-  console.log("[cron-scheduler] Initializing cron scheduler...");
-
   try {
     // Find all workflows with TIMED_TRIGGER nodes
     // This is a one-time query on server startup
@@ -190,10 +177,6 @@ export async function initializeCronScheduler(): Promise<void> {
     // Filter to only workflows that have timed trigger nodes
     const workflowsWithTimedTriggers = allWorkflows.filter(
       (workflow: any) => workflow.nodes && workflow.nodes.length > 0
-    );
-
-    console.log(
-      `[cron-scheduler] Found ${workflowsWithTimedTriggers.length} workflow(s) with timed triggers`
     );
 
     // Schedule cron jobs for each active timed trigger
@@ -216,10 +199,6 @@ export async function initializeCronScheduler(): Promise<void> {
         }
       }
     }
-
-    console.log(
-      `[cron-scheduler] Initialized ${scheduledCount} active cron job(s) (total workflows: ${workflowsWithTimedTriggers.length})`
-    );
   } catch (error) {
     console.error("[cron-scheduler] Error initializing cron scheduler:", error);
   }

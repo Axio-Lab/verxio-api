@@ -120,16 +120,6 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
       {} as Record<string, unknown>
     );
 
-    console.log(
-      `[CODE_BLOCK] Executing code for node ${nodeId} with inputs:`,
-      JSON.stringify(sanitizedInputs, null, 2)
-    );
-    console.log(
-      `[CODE_BLOCK] Available variables: ${Object.keys(inputsForExecution)
-        .filter((k) => k !== "credentials")
-        .join(", ")}`
-    );
-
     // Get language from node data (default to "typescript")
     const language = data.language || "typescript";
 

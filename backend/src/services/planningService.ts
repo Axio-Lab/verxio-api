@@ -1,17 +1,21 @@
-import Anthropic from "@anthropic-ai/sdk";
+/**
+ * Planning Service
+ *
+ * Uses Claude Agent SDK for workflow planning conversations
+ * with self-learning capabilities to improve suggestions over time.
+ */
+
+import {
+  chatWithAgent,
+  generateSmartPrompt,
+  type AgentStreamEvent,
+} from "./claude-agent/claudeAgentService";
 import { prisma as prismaClient } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { getWorkflowSchema } from "./workflowSchemaService";
-import Handlebars from "handlebars";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
-
-// Register Handlebars helpers
-Handlebars.registerHelper("json", (context) => {
-  return new Handlebars.SafeString(JSON.stringify(context, null, 2));
-});
+import {
+  getLearningContext,
+  recordWorkflowPattern,
+  getWorkflowInsights,
+} from "./workflowLearningService";
 
 export interface ConversationMessage {
   role: "user" | "assistant";
@@ -96,10 +100,22 @@ export const getWorkflowPlan = async (workflowId: string): Promise<WorkflowPlanD
 };
 
 /**
- * Send a planning message to Claude and get response
+ * Send a planning message to Claude Agent and get response
+ * Includes learning context for improved suggestions
  */
+// Tools that modify the workflow
+const WORKFLOW_MODIFYING_TOOLS = [
+  "createWorkflow",
+  "addNode",
+  "configureNode",
+  "connectNodes",
+  "deleteNode",
+  "deleteConnection",
+];
+
 export const sendPlanningMessage = async (options: {
   workflowId: string;
+  userId: string;
   message: string;
   attachments?: Array<{
     fileId: string;
@@ -109,7 +125,12 @@ export const sendPlanningMessage = async (options: {
     extractedText?: string;
   }>;
   model?: string;
-}): Promise<{ response: string; conversationHistory: ConversationMessage[] }> => {
+}): Promise<{
+  response: string;
+  conversationHistory: ConversationMessage[];
+  workflowModified: boolean;
+  toolsUsed: string[];
+}> => {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
@@ -118,335 +139,282 @@ export const sendPlanningMessage = async (options: {
   const plan = await getOrCreateWorkflowPlan(options.workflowId);
   const conversationHistory = plan.conversationHistory;
 
-  // Get workflow schema for context
-  const workflowSchema = getWorkflowSchema();
+  // Get learning context for personalized suggestions
+  const learningContext = await getLearningContext(options.userId, options.message);
 
-  // Add user message to conversation
-  const userMessage: ConversationMessage = {
-    role: "user",
-    content: options.message,
-    timestamp: new Date().toISOString(),
-    attachments: options.attachments,
-  };
-
-  const updatedHistory = [...conversationHistory, userMessage];
-
-  // Build system prompt with workflow schema
-  const systemPrompt = `You are an expert workflow automation consultant helping users plan and design workflows that completely and efficiently automate non-technical tasks.
-
-Your role:
-- **Business Consultant**: Understand user needs and translate them into workflow solutions
-- **Workflow Architect**: Design efficient, user-friendly workflows using available nodes
-- **Technical Advisor**: Explain how workflows will work and what's needed
-
-WORKFLOW SCHEMA (Your complete knowledge base):
-${JSON.stringify(workflowSchema, null, 2)}
-
-KEY PRINCIPLES:
-1. **Focus on non-technical task automation**: Help users automate business tasks without requiring technical knowledge
-2. **Use available nodes**: Reference the workflow schema to suggest appropriate nodes and patterns
-3. **Explain clearly**: Describe how the workflow will work in simple terms
-4. **Identify requirements**: Help identify what credentials, data, and setup are needed
-5. **Suggest improvements**: Propose optimizations and best practices
-6. **Be collaborative**: Ask clarifying questions and iterate on the plan
-
-CONVERSATION STYLE:
-- Be friendly and helpful
-- Ask clarifying questions when needed
-- Explain workflow structure clearly
-- Reference specific nodes from the schema when suggesting solutions
-- Provide examples of how nodes work together
-- Help break down complex tasks into workflow steps
-
-When the user and you both agree the plan is ready, indicate that the workflow can be generated.`;
-
-  // Build messages array for Claude
-  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-
-  // Add conversation history (convert to Claude format)
-  for (const msg of conversationHistory) {
-    if (msg.role === "user") {
-      let content = msg.content;
-      if (msg.attachments && msg.attachments.length > 0) {
-        content += `\n\n[Attachments: ${msg.attachments.map((a) => a.fileName).join(", ")}]`;
-        // Add extracted text if available
-        for (const att of msg.attachments) {
-          if (att.extractedText) {
-            content += `\n\n${att.fileName} content:\n${att.extractedText}`;
-          }
-        }
-      }
-      messages.push({ role: "user", content });
-    } else {
-      messages.push({ role: "assistant", content: msg.content });
-    }
-  }
-
-  // Add current user message
-  let currentUserContent = options.message;
+  // Add user message with attachments
+  let userMessage = options.message;
   if (options.attachments && options.attachments.length > 0) {
-    currentUserContent += `\n\n[Attachments: ${options.attachments.map((a) => a.fileName).join(", ")}]`;
+    userMessage += `\n\n[Attachments: ${options.attachments.map((a) => a.fileName).join(", ")}]`;
     for (const att of options.attachments) {
       if (att.extractedText) {
-        currentUserContent += `\n\n${att.fileName} content:\n${att.extractedText}`;
+        userMessage += `\n\n${att.fileName} content:\n${att.extractedText}`;
       }
     }
   }
-  messages.push({ role: "user", content: currentUserContent });
 
-  // Call Claude
-  const selectedModel = options.model || "claude-sonnet-4-5-20250929";
-  const response = await anthropic.messages.create({
-    model: selectedModel,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: messages as any,
-  });
-
+  // Collect response text from agent and track tool usage
   let assistantResponse = "";
-  if (response.content[0].type === "text") {
-    assistantResponse = response.content[0].text;
+  const toolsUsed: string[] = [];
+  let workflowModified = false;
+
+  for await (const event of chatWithAgent({
+    userId: options.userId,
+    workflowId: options.workflowId,
+    message: userMessage,
+    conversationHistory,
+    learningContext,
+  })) {
+    if (event.type === "message" && event.data.text && !event.data.partial) {
+      assistantResponse += event.data.text;
+    }
+
+    if (event.type === "result" && event.data.result) {
+      assistantResponse = event.data.result;
+    }
+
+    // Track tool usage
+    if (event.type === "tool_use" && event.data.name) {
+      toolsUsed.push(event.data.name);
+      if (WORKFLOW_MODIFYING_TOOLS.includes(event.data.name)) {
+        workflowModified = true;
+      }
+    }
   }
 
-  // Add assistant response to conversation
-  const assistantMessage: ConversationMessage = {
-    role: "assistant",
-    content: assistantResponse,
-    timestamp: new Date().toISOString(),
-  };
+  // Update conversation history
+  const updatedHistory: ConversationMessage[] = [
+    ...conversationHistory,
+    {
+      role: "user",
+      content: options.message,
+      timestamp: new Date().toISOString(),
+      attachments: options.attachments,
+    },
+    {
+      role: "assistant",
+      content: assistantResponse,
+      timestamp: new Date().toISOString(),
+    },
+  ];
 
-  const finalHistory = [...updatedHistory, assistantMessage];
-
-  // Update WorkflowPlan in database
+  // Save updated conversation history
   await prismaClient.workflowPlan.update({
     where: { workflowId: options.workflowId },
     data: {
-      conversationHistory: finalHistory as any,
+      conversationHistory: updatedHistory as any,
+      updatedAt: new Date(),
     },
   });
 
   return {
     response: assistantResponse,
-    conversationHistory: finalHistory,
+    conversationHistory: updatedHistory,
+    workflowModified,
+    toolsUsed,
   };
 };
 
 /**
- * Generate comprehensive workflow prompt from conversation history
+ * Send a planning message with streaming support
+ * Includes learning context for improved suggestions
  */
-export const generatePromptFromConversation = async (options: {
+export async function* sendPlanningMessageStreaming(options: {
   workflowId: string;
-  model?: string;
-}): Promise<{
-  prompt: string;
-  workflowStructure: {
-    description: string;
-    nodes: Array<{ type: string; purpose: string }>;
-    credentials: Array<{ type: string; name: string; description: string }>;
-  };
-  credentials: Array<{ type: string; name: string; description: string }>;
-}> => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not configured");
-  }
-
-  const plan = await getWorkflowPlan(options.workflowId);
-  if (!plan || !plan.conversationHistory || plan.conversationHistory.length === 0) {
-    throw new Error("No conversation history found for workflow plan");
-  }
-
-  const workflowSchema = getWorkflowSchema();
-
-  // Build conversation summary
-  const conversationSummary = plan.conversationHistory
-    .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
-    .join("\n\n");
-
-  const systemPrompt = `You are an expert workflow automation architect. Your task is to generate a comprehensive, detailed prompt that will be used to generate a workflow blueprint.
-
-Based on the planning conversation, create a prompt that:
-1. Clearly describes the user's requirements
-2. Includes context from the conversation
-3. References the workflow schema for node selection
-4. Specifies the workflow structure
-5. Lists required credentials
-6. Provides enough detail for accurate workflow generation
-
-WORKFLOW SCHEMA:
-${JSON.stringify(workflowSchema, null, 2)}
-
-Return a JSON object with this structure:
-{
-  "prompt": "Comprehensive prompt for workflow generation",
-  "workflowStructure": {
-    "description": "Description of the workflow",
-    "nodes": [{"type": "NODE_TYPE", "purpose": "What this node does"}],
-    "credentials": [{"type": "credential_type", "name": "credential_name", "description": "Why this credential is needed"}]
-  },
-  "credentials": [{"type": "credential_type", "name": "credential_name", "description": "Why this credential is needed"}]
-}`;
-
-  const userPrompt = `Based on this planning conversation, generate a comprehensive workflow generation prompt:
-
-${conversationSummary}
-
-Generate a detailed prompt that captures all requirements and context from this conversation.`;
-
-  const selectedModel = options.model || "claude-sonnet-4-5-20250929";
-  const response = await anthropic.messages.create({
-    model: selectedModel,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  let responseText = "";
-  if (response.content[0].type === "text") {
-    responseText = response.content[0].text;
-  }
-
-  // Extract JSON from response (may be wrapped in markdown)
-  let jsonText = responseText;
-  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    jsonText = jsonMatch[1];
-  } else {
-    const codeMatch = responseText.match(/```\s*([\s\S]*?)\s*```/);
-    if (codeMatch) {
-      jsonText = codeMatch[1];
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(jsonText.trim());
-    const prompt = parsed.prompt || responseText;
-    const workflowStructure = parsed.workflowStructure || {
-      description: "",
-      nodes: [],
-      credentials: [],
-    };
-    const credentials = parsed.credentials || [];
-
-    // Update WorkflowPlan with generated prompt
-    await prismaClient.workflowPlan.update({
-      where: { workflowId: options.workflowId },
-      data: {
-        generatedPrompt: prompt,
-        workflowStructure: workflowStructure as any,
-        status: "ready",
-      },
-    });
-
-    return {
-      prompt,
-      workflowStructure,
-      credentials,
-    };
-  } catch (error) {
-    // If JSON parsing fails, use the full response as prompt
-    const prompt = responseText;
-    await prismaClient.workflowPlan.update({
-      where: { workflowId: options.workflowId },
-      data: {
-        generatedPrompt: prompt,
-        workflowStructure: Prisma.JsonNull as any,
-        status: "ready",
-      },
-    });
-
-    return {
-      prompt,
-      workflowStructure: {
-        description: "",
-        nodes: [],
-        credentials: [],
-      },
-      credentials: [],
-    };
-  }
-};
-
-/**
- * Clear conversation history for a workflow plan
- */
-export const clearConversation = async (workflowId: string): Promise<void> => {
-  await prismaClient.workflowPlan.update({
-    where: { workflowId },
-    data: {
-      conversationHistory: [] as any,
-      status: "planning",
-      generatedPrompt: null,
-      workflowStructure: Prisma.JsonNull as any,
-      approvedAt: null,
-    },
-  });
-};
-
-/**
- * Process uploaded files and extract text content
- * For images: Use Claude Vision API
- * For PDFs: Extract text (would need pdf-parse library)
- * For text files: Read directly
- */
-export const processUploadedFiles = async (
-  files: Array<{
-    fileId: string;
-    fileName: string;
-    fileType: string;
-    url?: string;
-    buffer?: Buffer;
-  }>
-): Promise<
-  Array<{
+  userId: string;
+  message: string;
+  attachments?: Array<{
     fileId: string;
     fileName: string;
     fileType: string;
     url?: string;
     extractedText?: string;
-  }>
-> => {
-  const processedFiles = [];
-
-  for (const file of files) {
-    let extractedText: string | undefined;
-
-    // Handle images with Claude Vision API
-    if (file.fileType.startsWith("image/")) {
-      try {
-        // For images, we'll use Claude Vision API
-        // Note: This requires base64 encoding of the image
-        // For now, we'll just note that text extraction is available
-        extractedText = "[Image content - can be analyzed with Claude Vision API]";
-      } catch (error) {
-        console.error(`Error processing image ${file.fileName}:`, error);
-      }
-    }
-    // Handle PDFs (would need pdf-parse or similar)
-    else if (file.fileType === "application/pdf") {
-      // TODO: Implement PDF text extraction
-      // Would need: npm install pdf-parse
-      extractedText = "[PDF content - text extraction not yet implemented]";
-    }
-    // Handle text files
-    else if (
-      file.fileType.startsWith("text/") ||
-      file.fileType === "application/json" ||
-      file.fileType === "application/yaml"
-    ) {
-      // If we have buffer, convert to string
-      if (file.buffer) {
-        extractedText = file.buffer.toString("utf-8");
-      }
-    }
-
-    processedFiles.push({
-      fileId: file.fileId,
-      fileName: file.fileName,
-      fileType: file.fileType,
-      url: file.url,
-      extractedText,
-    });
+  }>;
+  model?: string;
+}): AsyncGenerator<AgentStreamEvent> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  return processedFiles;
+  // Get or create plan
+  const plan = await getOrCreateWorkflowPlan(options.workflowId);
+  const conversationHistory = plan.conversationHistory;
+
+  // Get learning context for personalized suggestions
+  const learningContext = await getLearningContext(options.userId, options.message);
+
+  // Add user message with attachments
+  let userMessage = options.message;
+  if (options.attachments && options.attachments.length > 0) {
+    userMessage += `\n\n[Attachments: ${options.attachments.map((a) => a.fileName).join(", ")}]`;
+    for (const att of options.attachments) {
+      if (att.extractedText) {
+        userMessage += `\n\n${att.fileName} content:\n${att.extractedText}`;
+      }
+    }
+  }
+
+  let assistantResponse = "";
+
+  // Stream events from agent
+  for await (const event of chatWithAgent({
+    userId: options.userId,
+    workflowId: options.workflowId,
+    message: userMessage,
+    conversationHistory,
+    learningContext,
+  })) {
+    // Collect response for history
+    if (event.type === "message" && event.data.text && !event.data.partial) {
+      assistantResponse += event.data.text;
+    } else if (event.type === "result" && event.data.result) {
+      assistantResponse = event.data.result;
+    }
+
+    // Yield event to caller
+    yield event;
+  }
+
+  // Update conversation history after streaming completes
+  const updatedHistory: ConversationMessage[] = [
+    ...conversationHistory,
+    {
+      role: "user",
+      content: options.message,
+      timestamp: new Date().toISOString(),
+      attachments: options.attachments,
+    },
+    {
+      role: "assistant",
+      content: assistantResponse,
+      timestamp: new Date().toISOString(),
+    },
+  ];
+
+  await prismaClient.workflowPlan.update({
+    where: { workflowId: options.workflowId },
+    data: {
+      conversationHistory: updatedHistory as any,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Generate final workflow prompt from conversation history
+ * Uses AI to analyze conversation and create an optimized prompt
+ */
+export const generateWorkflowPrompt = async (
+  workflowId: string,
+  userId: string
+): Promise<{
+  generatedPrompt: string;
+  summary?: string;
+  suggestedNodes?: string[];
+}> => {
+  const plan = await getWorkflowPlan(workflowId);
+  if (!plan) {
+    throw new Error("Workflow plan not found");
+  }
+
+  // Use smart prompt generation with the agent
+  const { prompt, summary, suggestedNodes } = await generateSmartPrompt({
+    userId,
+    workflowId,
+    conversationHistory: plan.conversationHistory,
+  });
+
+  // Save generated prompt with workflow structure
+  await prismaClient.workflowPlan.update({
+    where: { workflowId },
+    data: {
+      generatedPrompt: prompt,
+      workflowStructure: {
+        description: summary,
+        nodes: suggestedNodes.map((type) => ({ type, purpose: "" })),
+        credentials: [],
+      } as any,
+      status: "ready",
+    },
+  });
+
+  return {
+    generatedPrompt: prompt,
+    summary,
+    suggestedNodes,
+  };
+};
+
+/**
+ * Record successful workflow generation for learning
+ */
+export const recordSuccessfulGeneration = async (
+  workflowId: string,
+  userId: string,
+  description: string
+): Promise<void> => {
+  const plan = await getWorkflowPlan(workflowId);
+  const conversationSummary = plan?.conversationHistory
+    .slice(-2)
+    .map((m) => m.content)
+    .join(" | ");
+
+  await recordWorkflowPattern({
+    userId,
+    workflowId,
+    description,
+    conversationSummary,
+  });
+
+  // Update plan status
+  await prismaClient.workflowPlan.update({
+    where: { workflowId },
+    data: { status: "completed" },
+  });
+};
+
+/**
+ * Get user's workflow insights
+ */
+export const getUserInsights = async (userId: string) => {
+  return getWorkflowInsights(userId);
+};
+
+/**
+ * Mark workflow plan as approved and ready for generation
+ */
+export const approveWorkflowPlan = async (workflowId: string): Promise<void> => {
+  await prismaClient.workflowPlan.update({
+    where: { workflowId },
+    data: {
+      status: "ready",
+      approvedAt: new Date(),
+    },
+  });
+};
+
+/**
+ * Update workflow plan status
+ */
+export const updateWorkflowPlanStatus = async (
+  workflowId: string,
+  status: "planning" | "ready" | "generating" | "completed"
+): Promise<void> => {
+  await prismaClient.workflowPlan.update({
+    where: { workflowId },
+    data: { status },
+  });
+};
+
+/**
+ * Clear workflow plan conversation history
+ */
+export const clearPlanningConversation = async (workflowId: string): Promise<void> => {
+  await prismaClient.workflowPlan.update({
+    where: { workflowId },
+    data: {
+      conversationHistory: [],
+      status: "planning",
+    },
+  });
 };

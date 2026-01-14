@@ -350,23 +350,15 @@ export const updateWorkflowData = async (
   // Optimized by removing redundant verification queries to improve performance
   const workflow = await (prismaClient as any).$transaction(
     async (tx: any) => {
-      // Delete all existing connections first (explicit deletion for safety)
-      const deletedConnections = await tx.connection.deleteMany({
+      // Delete all existing connections first (must delete before nodes due to foreign key)
+      await tx.connection.deleteMany({
         where: { workflowId: id },
       });
 
-      // Delete all existing nodes (connections should already be deleted, but this ensures cleanup)
-      const deletedNodes = await tx.node.deleteMany({
+      // Delete all existing nodes
+      await tx.node.deleteMany({
         where: { workflowId: id },
       });
-
-      // Log deletion for debugging
-      console.log(
-        `[WorkflowService] Deleted ${deletedNodes.count} nodes and ${deletedConnections.count} connections for workflow ${id}`
-      );
-
-      // Note: Removed verification query to optimize transaction speed
-      // The transaction will fail if deletion doesn't work, so verification is redundant
 
       // Prepare update data
       const updateData: any = {};
@@ -453,10 +445,6 @@ export const updateWorkflowData = async (
               const oldId = nodesToProcess[i].id?.trim();
               if (oldId && idMap.has(oldId)) {
                 nodesToProcess[i].id = idMap.get(oldId)!;
-                console.log(
-                  `[WorkflowService] Remapped node ID from ${oldId} to ${nodesToProcess[i].id}`
-                );
-
                 // Update nodeIds set
                 nodeIds.delete(oldId);
                 nodeIds.add(nodesToProcess[i].id);
@@ -518,12 +506,6 @@ export const updateWorkflowData = async (
             // Filter out any nodes that failed validation (shouldn't happen, but safety check)
             return node.id && node.type;
           });
-
-        // Log what we're about to create
-        console.log(
-          `[WorkflowService] Attempting to create ${nodesToCreate.length} nodes for workflow ${id}`,
-          nodesToCreate.map((n) => ({ id: n.id, type: n.type, name: n.name }))
-        );
 
         // Use createMany to create nodes with their IDs
         // We delete all nodes first, so there should be no duplicates
@@ -613,11 +595,6 @@ export const updateWorkflowData = async (
             fromOutput: conn.sourceHandle || "main",
             toInput: conn.targetHandle || "main",
           }));
-
-          // Log what we're about to create
-          console.log(
-            `[WorkflowService] Attempting to create ${connectionsToCreate.length} connections for workflow ${id}`
-          );
 
           // We delete all connections first, so there should be no duplicates
           // Remove skipDuplicates to ensure we catch any issues instead of silently failing

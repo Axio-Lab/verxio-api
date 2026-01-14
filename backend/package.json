@@ -31,6 +31,8 @@
     "@ai-sdk/anthropic": "^3.0.2",
     "@ai-sdk/google": "^3.0.1",
     "@ai-sdk/openai": "^3.0.2",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.7",
+    "@anthropic-ai/claude-code": "^2.1.7",
     "@anthropic-ai/sdk": "^0.71.2",
     "@daytonaio/sdk": "^0.129.0",
     "@elevenlabs/elevenlabs-js": "^2.30.0",
@@ -66,7 +68,8 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "toposort": "^2.0.2",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

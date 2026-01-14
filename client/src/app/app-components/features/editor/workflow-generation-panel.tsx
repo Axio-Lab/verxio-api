@@ -11,27 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { authenticatedPost, authenticatedGet } from "@/lib/api-client";
-import { useReactFlow, addEdge, type Edge } from "@xyflow/react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-// Available Claude models for workflow generation
-const CLAUDE_MODELS = [
-  { value: "claude-opus-4-1-20250805", label: "Claude Opus 4.1" },
-  { value: "claude-opus-4-20250514", label: "Claude Opus 4" },
-  { value: "claude-opus-4-5-20251101", label: "Claude Opus 4.5" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-] as const;
+import { authenticatedPost, getAuthHeaders } from "@/lib/api-client";
+import { useReactFlow, type Edge } from "@xyflow/react";
+import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface ExistingNode {
   id: string;
@@ -69,27 +54,39 @@ interface GeneratedConnection {
   toInput?: string;
 }
 
-interface SetupInstruction {
-  type: "credential" | "configuration" | "oauth";
-  nodeId?: string;
-  nodeType?: string;
-  nodeLabel?: string;
-  message: string;
-  priority: "high" | "medium" | "low";
-  action?: {
-    type: "open_node" | "add_credential" | "connect_oauth";
-    nodeId?: string;
-    credentialType?: string;
-    credentialName?: string;
-  };
+interface WorkflowSummary {
+  nodesCreated: Array<{
+    id: string;
+    type: string;
+    name: string;
+  }>;
+  credentialsRequired: Array<{
+    type: string;
+    nodeId: string;
+    nodeName: string;
+    setupUrl: string;
+  }>;
+  fieldsToUpdate: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    instruction: string;
+  }>;
+  flowDescription: string;
 }
 
 interface GeneratedWorkflow {
-  id: string;
+  workflowId: string;
   nodes: GeneratedNode[];
   connections: GeneratedConnection[];
+  summary?: WorkflowSummary;
+}
+
+interface AgentProgress {
   status: string;
-  setupInstructions?: SetupInstruction[];
+  detail?: string;
+  toolName?: string;
+  nodeType?: string;
 }
 
 export const WorkflowGenerationPanel = ({
@@ -98,15 +95,31 @@ export const WorkflowGenerationPanel = ({
   workflowId,
   mode = "generate",
   existingNodes = [],
-  existingConnections = [],
 }: WorkflowGenerationPanelProps) => {
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState<string>("claude-3-5-sonnet-latest");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAddingToCanvas, setIsAddingToCanvas] = useState(false);
-  const [generationId, setGenerationId] = useState<string | null>(null);
-  const [generatedWorkflow, setGeneratedWorkflow] = useState<GeneratedWorkflow | null>(null);
-  const { setNodes, setEdges, fitView, getViewport } = useReactFlow();
+  const [summary, setSummary] = useState<WorkflowSummary | null>(null);
+  const [agentProgress, setAgentProgress] = useState<AgentProgress[]>([]);
+  const { setNodes, setEdges, fitView } = useReactFlow();
+  const queryClient = useQueryClient();
+
+  // Map tool names to user-friendly descriptions
+  const getProgressMessage = (toolName: string, input?: any): string => {
+    const toolMessages: Record<string, string> = {
+      createWorkflow: "Creating new workflow",
+      getWorkflow: "Reading existing workflow",
+      addNode: `Adding ${input?.type?.replace(/_/g, " ") || "node"} node`,
+      configureNode: `Configuring ${input?.nodeType?.replace(/_/g, " ") || "node"} settings`,
+      connectNodes: "Connecting workflow nodes",
+      getCredentials: "Checking available credentials",
+      requestCredential: "Preparing credential requirements",
+      generateCode: "Generating custom code block",
+      Read: "Reading documentation",
+      Grep: "Searching codebase",
+      WebSearch: "Researching best practices",
+    };
+    return toolMessages[toolName] || `Processing: ${toolName}`;
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -115,382 +128,397 @@ export const WorkflowGenerationPanel = ({
     }
 
     setIsGenerating(true);
-    setGenerationId(null);
-    setGeneratedWorkflow(null);
+    setSummary(null);
+    setAgentProgress([{ status: "Verxio Agent is analyzing your request..." }]);
 
     try {
-      // Call workflow generation API
-      const data = await authenticatedPost<GeneratedWorkflow>("/workflow-generation/generate", {
-        prompt: prompt.trim(),
-        workflowId: workflowId || undefined,
-        model: model || "claude-sonnet-4-5-20250929",
-        editMode: mode === "edit",
-        existingNodes:
-          mode === "edit" && existingNodes
-            ? existingNodes.map((n) => ({
-                type: n.type,
-                data: n.data || {},
-              }))
-            : undefined,
+      // Use streaming endpoint for real-time progress
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const authHeaders = await getAuthHeaders();
+
+      const response = await fetch(`${baseUrl}/workflow-generation/generate/stream`, {
+        method: "POST",
+        headers: authHeaders,
+        credentials: "include", // Include cookies for Better Auth session
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          workflowId: workflowId || undefined,
+          editMode: mode === "edit",
+          existingNodes:
+            mode === "edit" && existingNodes
+              ? existingNodes.map((n) => ({
+                  type: n.type,
+                  data: n.data || {},
+                }))
+              : undefined,
+        }),
       });
 
-      setGenerationId(data.id);
-      setGeneratedWorkflow(data);
+      if (!response.ok) {
+        throw new Error("Failed to start workflow generation");
+      }
 
-      if (data.status === "completed") {
-        toast.success("Workflow generated successfully!");
-        setIsGenerating(false);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let resultData: GeneratedWorkflow | null = null;
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
+
+          for (const line of lines) {
+            try {
+              const jsonStr = line.replace("data: ", "").trim();
+              if (!jsonStr) continue;
+
+              const event = JSON.parse(jsonStr);
+
+              // Handle different event types
+              if (event.type === "tool_use") {
+                const message = getProgressMessage(event.data.name, event.data.input);
+                setAgentProgress((prev) => [
+                  ...prev.slice(-4), // Keep last 5 messages
+                  { status: message, toolName: event.data.name },
+                ]);
+              } else if (event.type === "message" && event.data.text) {
+                // Show thinking/reasoning in progress
+                if (event.data.text.length < 100) {
+                  setAgentProgress((prev) => [
+                    ...prev.slice(-4),
+                    { status: event.data.text.substring(0, 80) + "..." },
+                  ]);
+                }
+              } else if (event.type === "status") {
+                setAgentProgress((prev) => [
+                  ...prev.slice(-4),
+                  { status: `Agent ${event.data.status}` },
+                ]);
+              } else if (event.type === "result" && event.data) {
+                // Final result with workflow data
+                resultData = event.data;
+              } else if (event.type === "complete" && event.data) {
+                resultData = event.data;
+              }
+            } catch {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+
+      // Process the final result
+      if (resultData && resultData.nodes) {
+        setAgentProgress((prev) => [...prev.slice(-4), { status: "Adding workflow to canvas..." }]);
+
+        // Add nodes to canvas
+        addNodesToCanvas(resultData.nodes, resultData.connections);
+
+        // Invalidate workflow query
+        if (resultData.workflowId) {
+          await queryClient.invalidateQueries({ queryKey: ["workflow", resultData.workflowId] });
+        }
+        if (workflowId) {
+          await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+        }
+
+        // Show summary
+        if (resultData.summary) {
+          setSummary(resultData.summary);
+        }
+
+        toast.success(
+          mode === "edit" ? "Workflow updated successfully" : "Workflow generated successfully"
+        );
       } else {
-        toast.info("Workflow generation started. Please wait...");
-        // Poll for completion
-        pollGenerationStatus(data.id);
+        // Fallback to non-streaming if no result from stream
+        const data = await authenticatedPost<GeneratedWorkflow>("/workflow-generation/generate", {
+          prompt: prompt.trim(),
+          workflowId: workflowId || undefined,
+          editMode: mode === "edit",
+          existingNodes:
+            mode === "edit" && existingNodes
+              ? existingNodes.map((n) => ({ type: n.type, data: n.data || {} }))
+              : undefined,
+        });
+
+        addNodesToCanvas(data.nodes, data.connections);
+
+        if (data.workflowId) {
+          await queryClient.invalidateQueries({ queryKey: ["workflow", data.workflowId] });
+        }
+        if (workflowId) {
+          await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+        }
+
+        if (data.summary) {
+          setSummary(data.summary);
+        }
+
+        toast.success(
+          mode === "edit" ? "Workflow updated successfully" : "Workflow generated successfully"
+        );
       }
     } catch (error) {
       console.error("Workflow generation error:", error);
       toast.error(
         error instanceof Error ? error.message : "Failed to generate workflow. Please try again."
       );
+    } finally {
       setIsGenerating(false);
+      setAgentProgress([]);
     }
   };
 
-  const pollGenerationStatus = async (id: string) => {
-    const maxAttempts = 60; // 60 seconds max
-    let attempts = 0;
+  const addNodesToCanvas = (nodes: GeneratedNode[], connections: GeneratedConnection[]) => {
+    // Convert generated nodes to React Flow format
+    const newNodes = nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      data: node.data,
+      position: node.position || { x: 0, y: 0 },
+    }));
 
-    const interval = setInterval(async () => {
-      attempts++;
-      try {
-        const data = await authenticatedGet<GeneratedWorkflow>(`/workflow-generation/${id}`);
-        // Merge nodes and connections from root level if generatedWorkflow is nested
-        const workflowData: GeneratedWorkflow = {
-          ...data,
-          nodes: data.nodes || (data as any).generatedWorkflow?.nodes || [],
-          connections: data.connections || (data as any).generatedWorkflow?.connections || [],
-          setupInstructions: data.setupInstructions || (data as any).setupInstructions,
-        };
-        setGeneratedWorkflow(workflowData);
+    // Validate connections
+    const nodeIds = new Set(newNodes.map((n) => n.id));
+    const validConnections = connections.filter((conn) => {
+      return nodeIds.has(conn.source) && nodeIds.has(conn.target);
+    });
 
-        if (data.status === "completed") {
-          clearInterval(interval);
-          setIsGenerating(false);
-          toast.success("Workflow generated successfully!");
-        } else if (data.status === "failed") {
-          clearInterval(interval);
-          setIsGenerating(false);
-          toast.error("Workflow generation failed. Please try again.");
-        } else if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          toast.error("Workflow generation timed out. Please try again.");
+    // Convert connections to edges
+    const newEdges: Edge[] = validConnections.map((conn, index) => {
+      const normalizeHandle = (handle: any): string | undefined => {
+        if (!handle || handle === "null" || handle === "main" || handle === "") {
+          return undefined;
         }
-      } catch (error) {
-        clearInterval(interval);
-        setIsGenerating(false);
-        console.error("Error polling generation status:", error);
-      }
-    }, 1000);
+        return handle;
+      };
 
-    // Cleanup on unmount or dialog close
-    return () => clearInterval(interval);
+      return {
+        id: conn.id || `edge-${conn.source}-${conn.target}-${Date.now()}-${index}`,
+        source: conn.source,
+        target: conn.target,
+        sourceHandle: normalizeHandle(conn.fromOutput),
+        targetHandle: normalizeHandle(conn.toInput),
+        deletable: true,
+        selectable: true,
+      };
+    });
+
+    // Update canvas
+    if (mode === "edit") {
+      setNodes(newNodes);
+      setEdges(newEdges);
+    } else {
+      setNodes((nodes) => [...nodes, ...newNodes]);
+      setEdges((edges) => [...edges, ...newEdges]);
+    }
+
+    // Fit view to show new nodes
+    setTimeout(() => {
+      fitView({
+        padding: 0.25,
+        duration: 500,
+        includeHiddenNodes: false,
+        nodes: newNodes.map((n) => ({ id: n.id })),
+        minZoom: 0.5,
+        maxZoom: 1.5,
+      });
+    }, 150);
   };
 
-  const handleApprove = async () => {
-    if (!generationId || !generatedWorkflow) {
-      return;
-    }
-
-    setIsAddingToCanvas(true);
-    try {
-      // Get approved workflow data
-      const result = await authenticatedPost<{
-        nodes: GeneratedNode[];
-        connections: GeneratedConnection[];
-      }>(`/workflow-generation/${generationId}/approve`);
-      const { nodes: approvedNodes, connections: approvedConnections } = result;
-
-      // Nodes are already positioned around origin (0, 0) from backend
-      // Backend's calculateWorkflowPositions centers the layout around origin
-      // So we can use positions directly, or keep them as-is
-      // Convert generated nodes to React Flow format
-      const newNodes = approvedNodes.map((node: any) => {
-        const position = node.position || { x: 0, y: 0 };
-
-        return {
-          id: node.id,
-          type: node.type,
-          data: node.data,
-          position,
-        };
-      });
-
-      // Validate that all connection sources and targets exist in newNodes
-      const nodeIds = new Set(newNodes.map((n) => n.id));
-      const validConnections = approvedConnections.filter((conn: any) => {
-        const sourceExists = nodeIds.has(conn.source);
-        const targetExists = nodeIds.has(conn.target);
-        if (!sourceExists) {
-          console.warn(`Connection source node not found: ${conn.source}`);
-        }
-        if (!targetExists) {
-          console.warn(`Connection target node not found: ${conn.target}`);
-        }
-        return sourceExists && targetExists;
-      });
-
-      // Convert connections to edges (matching React Flow format from editor.tsx)
-      // Note: React Flow uses sourceHandle/targetHandle for connection points
-      // If handles are undefined, React Flow will use default handles
-      const newEdges: Edge[] = validConnections.map((conn: any, index: number) => {
-        // Map fromOutput/toInput to sourceHandle/targetHandle
-        // React Flow expects handle IDs or undefined (uses default)
-        const sourceHandle = conn.fromOutput || conn.sourceHandle;
-        const targetHandle = conn.toInput || conn.targetHandle;
-
-        // Helper to normalize handle values - convert "null", "main", empty string to undefined
-        const normalizeHandle = (handle: any): string | undefined => {
-          if (
-            !handle ||
-            handle === "null" ||
-            handle === "main" ||
-            handle === "" ||
-            handle === null
-          ) {
-            return undefined;
-          }
-          return handle;
-        };
-
-        return {
-          id: conn.id || `edge-${conn.source}-${conn.target}-${Date.now()}-${index}`,
-          source: conn.source,
-          target: conn.target,
-          // Use undefined if handle is "main", "null", empty, or null - React Flow will use default handles
-          sourceHandle: normalizeHandle(sourceHandle),
-          targetHandle: normalizeHandle(targetHandle),
-          deletable: true,
-          selectable: true,
-        };
-      });
-
-      // In edit mode, replace existing workflow with generated workflow
-      // In generate mode, add new nodes to existing workflow
-      if (mode === "edit") {
-        // Replace all nodes and edges with the generated workflow (no deduplication)
-        // This ensures the AI-generated workflow completely replaces the existing one
-        setNodes(newNodes);
-        setEdges(newEdges);
-      } else {
-        // Generate mode: add new nodes to existing workflow
-        setNodes((nodes) => {
-          const updated = [...nodes, ...newNodes];
-          return updated;
-        });
-
-        setEdges((edges) => {
-          const updated = [...edges, ...newEdges];
-          return updated;
-        });
-      }
-
-      // Center the view on the newly added nodes after a short delay
-      // This ensures nodes are rendered before fitView is called
-      // Use fitViewOptions to center both horizontally and vertically
-      setTimeout(() => {
-        // Get current viewport to ensure nodes stay within bounds
-        const currentViewport = getViewport();
-
-        // Fit view to show all new nodes, ensuring they're within viewport
-        fitView({
-          padding: 0.25, // 25% padding around nodes for better visual spacing
-          duration: 500, // Smooth animation
-          includeHiddenNodes: false,
-          nodes: newNodes.map((n) => ({ id: n.id })),
-          minZoom: 0.5, // Don't zoom in too much
-          maxZoom: 1.5, // Don't zoom out too much
-        });
-
-        setIsAddingToCanvas(false);
-
-        // Note: Change detection will automatically detect the changes
-        // The save button will be enabled once changes are detected
-      }, 150);
-
-      toast.success(
-        mode === "edit" ? "Workflow updated on canvas!" : "Workflow added to your canvas!"
-      );
-      onOpenChange(false);
-      setPrompt("");
-      setGeneratedWorkflow(null);
-      setGenerationId(null);
-    } catch (error) {
-      console.error("Error approving workflow:", error);
-      setIsAddingToCanvas(false);
-      toast.error("Failed to add workflow to canvas. Please try again.");
-    }
+  const handleClose = () => {
+    onOpenChange(false);
+    setPrompt("");
+    setSummary(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
-        {isAddingToCanvas && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-              <p className="text-sm font-medium">Adding nodes to canvas...</p>
-              <p className="text-xs text-muted-foreground">Please wait</p>
-            </div>
-          </div>
-        )}
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-600" />
-            {mode === "edit" ? "Edit Workflow with AI" : "Generate Workflow with AI"}
+            {summary
+              ? "Workflow Generated"
+              : mode === "edit"
+                ? "Edit Workflow with AI"
+                : "Generate Workflow with AI"}
           </DialogTitle>
           <DialogDescription>
-            {mode === "edit"
-              ? "Describe clearly the changes you want to make to your workflow, and Verxio will update it for you."
-              : "Describe clearly the workflow you want to create, and Verxio will generate it for you using existing nodes or custom code blocks."}
+            {summary
+              ? "Your workflow has been added to the canvas. Review the summary below."
+              : mode === "edit"
+                ? "Describe clearly the changes you want to make to your workflow."
+                : "Describe clearly the workflow you want to create."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 space-y-4 mt-4 overflow-hidden">
-          <div className="flex-shrink-0 space-y-4">
-            <div>
-              <Label htmlFor="model" className="text-sm font-medium mb-2 block">
-                Claude Model
-              </Label>
-              <Select value={model} onValueChange={setModel} disabled={isGenerating}>
-                <SelectTrigger id="model" className="w-full">
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLAUDE_MODELS.map((modelOption) => (
-                    <SelectItem key={modelOption.value} value={modelOption.value}>
-                      {modelOption.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Choose the Claude model to use for workflow generation. More capable models may
-                produce better results but take longer.
-              </p>
-            </div>
+          {/* Generation Form - shown when no summary */}
+          {!summary && (
+            <div className="flex-shrink-0 space-y-4">
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Powered by Verxio Agent. The agent automatically configures nodes and handles
+                credentials.
+              </div>
 
-            <div>
-              <label htmlFor="prompt" className="text-sm font-medium mb-2 block">
-                {mode === "edit" ? "Describe Changes to Your Workflow" : "Describe Your Workflow"}
-              </label>
-              <Textarea
-                id="prompt"
-                placeholder={
-                  mode === "edit"
-                    ? "e.g., Add a step to send an email after the Slack message, or update the Airtable node to include more fields..."
-                    : "e.g., Create a workflow that sends a Slack message when a new Airtable record is added..."
-                }
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[120px]"
-                disabled={isGenerating}
-              />
-            </div>
-          </div>
-
-          {isGenerating && (
-            <div className="flex items-center justify-center py-8">
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                <p className="text-sm text-muted-foreground">Generating workflow...</p>
-                {generationId && (
-                  <p className="text-xs text-muted-foreground">This may take a few moments</p>
-                )}
+              <div>
+                <label htmlFor="prompt" className="text-sm font-medium mb-2 block">
+                  {mode === "edit" ? "Describe Changes" : "Describe Your Workflow"}
+                </label>
+                <Textarea
+                  id="prompt"
+                  placeholder={
+                    mode === "edit"
+                      ? "e.g., Add a step to send an email after the Slack message..."
+                      : "e.g., Create a workflow that sends a Slack message when a new Airtable record is added..."
+                  }
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[120px]"
+                  disabled={isGenerating}
+                />
               </div>
             </div>
           )}
 
-          {generatedWorkflow && generatedWorkflow.status === "completed" && (
-            <div className="flex-1 overflow-y-auto space-y-4">
-              {/* Setup Instructions */}
-              {generatedWorkflow.setupInstructions &&
-                generatedWorkflow.setupInstructions.length > 0 && (
-                  <div className="border rounded-md p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <svg
-                          className="h-5 w-5 text-amber-600 dark:text-amber-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                          />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                          Setup Required
-                        </h3>
-                        <ul className="space-y-2">
-                          {generatedWorkflow.setupInstructions.map((instruction, index) => (
-                            <li
-                              key={index}
-                              className="text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
-                            >
-                              <span className="text-amber-600 dark:text-amber-400 mt-0.5">•</span>
-                              <span>{instruction.message}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {/* Loading State with Real-time Progress */}
+          {isGenerating && (
+            <div className="flex flex-col items-center justify-center py-6">
+              <div className="flex flex-col items-center gap-4 w-full max-w-md">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <p className="text-sm font-medium text-foreground">
+                  {mode === "edit"
+                    ? "Verxio Agent is updating your workflow"
+                    : "Verxio Agent is building your workflow"}
+                </p>
 
-              {/* Workflow Preview */}
+                {/* Progress Messages */}
+                <div className="w-full space-y-2 bg-muted/50 rounded-lg p-3 max-h-[200px] overflow-y-auto">
+                  {agentProgress.length > 0 ? (
+                    agentProgress.map((progress, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-2 text-xs ${
+                          idx === agentProgress.length - 1
+                            ? "text-foreground font-medium"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {idx === agentProgress.length - 1 ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        )}
+                        <span>{progress.status}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                      <span>Initializing agent...</span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  The agent is autonomously configuring your workflow
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Summary - shown after generation */}
+          {summary && (
+            <div className="flex-1 overflow-y-auto space-y-4">
+              {/* Flow Description */}
               <div className="border rounded-md p-4 bg-muted/50">
-                <h3 className="text-sm font-semibold mb-3">Generated Workflow Preview</h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Nodes ({generatedWorkflow.nodes.length}):
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {generatedWorkflow.nodes.map((node) => (
-                        <span
-                          key={node.id}
-                          className="px-2 py-1 bg-background border rounded text-xs"
-                        >
-                          {(typeof node.data.label === "string" ? node.data.label : null) ||
-                            node.type}
-                        </span>
-                      ))}
+                <h3 className="text-sm font-semibold mb-2">Flow Overview</h3>
+                <p className="text-sm text-muted-foreground font-mono">{summary.flowDescription}</p>
+              </div>
+
+              {/* Nodes Created */}
+              <div className="border rounded-md p-4">
+                <h3 className="text-sm font-semibold mb-3">
+                  Nodes Created ({summary.nodesCreated.length})
+                </h3>
+                <div className="space-y-2">
+                  {summary.nodesCreated.map((node) => (
+                    <div key={node.id} className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">-</span>
+                      <span>{node.name}</span>
+                      <span className="text-xs text-muted-foreground">({node.type})</span>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Connections ({generatedWorkflow.connections.length}):
-                    </p>
-                    <div className="text-xs text-muted-foreground">
-                      {generatedWorkflow.connections.length > 0
-                        ? `${generatedWorkflow.connections.length} connections between nodes`
-                        : "No connections"}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
+
+              {/* Credentials Required */}
+              {summary.credentialsRequired.length > 0 && (
+                <div className="border rounded-md p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900">
+                  <h3 className="text-sm font-semibold mb-3 text-amber-900 dark:text-amber-100">
+                    Credentials Required
+                  </h3>
+                  <div className="space-y-3">
+                    {summary.credentialsRequired.map((cred, index) => (
+                      <div key={index} className="flex items-start gap-2 text-sm">
+                        <span className="text-amber-600 dark:text-amber-400 mt-0.5">-</span>
+                        <div className="flex-1">
+                          <span className="text-amber-800 dark:text-amber-200">
+                            Add {cred.type} credential for &quot;{cred.nodeName}&quot;
+                          </span>
+                          <Link
+                            href={cred.setupUrl}
+                            className="ml-2 text-xs text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1"
+                          >
+                            Set up <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fields to Update */}
+              {summary.fieldsToUpdate.length > 0 && (
+                <div className="border rounded-md p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                  <h3 className="text-sm font-semibold mb-3 text-blue-900 dark:text-blue-100">
+                    Configuration Required
+                  </h3>
+                  <div className="space-y-3">
+                    {summary.fieldsToUpdate.map((field, index) => (
+                      <div key={index} className="flex items-start gap-2 text-sm">
+                        <span className="text-blue-600 dark:text-blue-400 mt-0.5">-</span>
+                        <div className="text-blue-800 dark:text-blue-200">
+                          <span className="font-medium">{field.nodeName}</span>: {field.instruction}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Success message */}
+              {summary.credentialsRequired.length === 0 && summary.fieldsToUpdate.length === 0 && (
+                <div className="border rounded-md p-4 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    All nodes have been configured and are ready to use.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         <DialogFooter className="flex-shrink-0 mt-4">
-          {generatedWorkflow && generatedWorkflow.status === "completed" ? (
-            <Button type="button" onClick={handleApprove}>
-              Add to Canvas
+          {summary ? (
+            <Button type="button" onClick={handleClose}>
+              Close
             </Button>
           ) : (
             <Button
