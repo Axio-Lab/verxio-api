@@ -114,7 +114,7 @@ export default function Home() {
                 Explore Loyalty Deals
               </a>
               <a
-                href="/merchant"
+                href="/loyalty-deal"
                 className="rounded-full border border-gray-200 bg-white px-5 py-3 text-center text-sm font-semibold text-textPrimary transition-transform hover:-translate-y-0.5"
               >
                 Create a Business Account

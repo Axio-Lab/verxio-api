@@ -12,7 +12,7 @@ import { useSearchQuery } from "@/hooks/useSearchParams";
 const navLinks = [
   { href: "/explore", label: "Explore" },
   { href: "#", label: "Trade", disabled: true, badge: "Coming soon" },
-  { href: "/merchant", label: "For Businesses" },
+  { href: "/loyalty-deal", label: "For Businesses" },
 ];
 
 export default function Navbar() {

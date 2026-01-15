@@ -3,12 +3,14 @@
 import {
   CreditCardIcon,
   FolderOpenIcon,
-  HistoryIcon,
+  GiftIcon,
   KeyIcon,
   LogOutIcon,
   PlugIcon,
-  // Undo2Icon,
   StarIcon,
+  StoreIcon,
+  UserIcon,
+  HeartHandshakeIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -42,6 +44,16 @@ const menuItems = [
         title: "Credentials",
         url: "/credentials",
         icon: <KeyIcon />,
+      },
+      {
+        title: "Loyalty Deal",
+        url: "/loyalty-deal",
+        icon: <HeartHandshakeIcon />,
+      },
+      {
+        title: "Loyalty Program",
+        url: "/loyalty-program",
+        icon: <GiftIcon />,
       },
       {
         title: "Connections",
@@ -135,6 +147,24 @@ export const AppSidebar = () => {
       <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Profile"
+              isActive={isActive("/profile")}
+              asChild
+              className={cn(
+                "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
+                !isActive("/profile") && "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
+                isActive("/profile") &&
+                  "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
+              )}
+            >
+              <Link href="/profile" prefetch>
+                <UserIcon className="w-4 h-4 text-primary" />
+                <span className="font-bold group-data-[collapsible=icon]:hidden">Profile</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Upgrade Plan"

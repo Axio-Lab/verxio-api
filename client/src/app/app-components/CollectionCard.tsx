@@ -116,7 +116,7 @@ export default function CollectionCard({
 
       <div className="flex items-center gap-2">
         <Link
-          href={`/merchant/${id}`}
+          href={`/loyalty-deal/${id}`}
           className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-center text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary"
         >
           View details

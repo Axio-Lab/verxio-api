@@ -10,7 +10,11 @@ import ImageUpload from "./ImageUpload";
 import VoucherTypeSelect from "./VoucherTypeSelect";
 import { useCreateDeal, type CreateDealData } from "../../hooks/useDeals";
 
-export default function CreateDealForm() {
+interface CreateDealFormProps {
+  noCard?: boolean;
+}
+
+export default function CreateDealForm({ noCard = false }: CreateDealFormProps) {
   const { user } = useAuthWithVerxioUser();
   const createDeal = useCreateDeal();
 
@@ -176,11 +180,15 @@ export default function CreateDealForm() {
   };
 
   return (
-    <div className="card-surface p-6">
-      <h3 className="text-xl font-semibold text-textPrimary">Create Deal Collection</h3>
-      <p className="mt-2 text-sm text-textSecondary">
-        Upload brand assets, define voucher/coupon details, and publish deal to the marketplace.
-      </p>
+    <div className={noCard ? "" : "card-surface p-6"}>
+      {!noCard && (
+        <>
+          <h3 className="text-xl font-semibold text-textPrimary">Create Deal Collection</h3>
+          <p className="mt-2 text-sm text-textSecondary">
+            Upload brand assets, define voucher/coupon details, and publish deal to the marketplace.
+          </p>
+        </>
+      )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <input
           placeholder="Collection Name"
