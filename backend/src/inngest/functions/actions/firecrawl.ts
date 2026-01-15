@@ -76,7 +76,7 @@ const firecrawlRequest = async (
   apiKey: string,
   method: "GET" | "POST" = "POST",
   body?: Record<string, unknown>,
-  version: "v1" | "v2" = "v1"
+  version = "v2"
 ): Promise<any> => {
   const baseUrl = `https://api.firecrawl.dev/${version}`;
   const url = `${baseUrl}${endpoint}`;
@@ -123,6 +123,23 @@ const firecrawlRequest = async (
       errorMessage = "Firecrawl rate limit exceeded. Please try again later.";
     } else if (response.status === 402) {
       errorMessage = "Firecrawl subscription required. Please upgrade your plan.";
+    } else if (response.status === 400) {
+      // Check for common unsupported sites
+      const unsupportedSites = [
+        "youtube.com",
+        "facebook.com",
+        "instagram.com",
+        "twitter.com",
+        "x.com",
+        "linkedin.com",
+      ];
+      const urlLower = url.toLowerCase();
+      const blockedSite = unsupportedSites.find((site) => urlLower.includes(site));
+      if (blockedSite) {
+        errorMessage = `Cannot scrape ${blockedSite} - this site blocks web scraping. Consider using their official API instead.`;
+      } else {
+        errorMessage = `Firecrawl cannot scrape this URL. The site may block scraping or require authentication. Error: ${errorMessage}`;
+      }
     }
 
     throw new NonRetriableError(errorMessage);
@@ -199,11 +216,25 @@ export const firecrawlExecutor: NodeExecutor<FirecrawlData> = async ({
             url,
           };
 
-          // Add scrape options
+          // Build formats array for v2 API
+          // In v2, screenshot is part of formats array, not a separate parameter
+          const formats: string[] = [];
+
           if (data.formats && data.formats.length > 0) {
-            requestBody.formats = data.formats;
+            formats.push(...data.formats);
+          } else {
+            // Default to markdown format
+            formats.push("markdown");
           }
 
+          // Add screenshot to formats if requested (v2 API change)
+          if (data.screenshot === true && !formats.includes("screenshot")) {
+            formats.push("screenshot");
+          }
+
+          requestBody.formats = formats;
+
+          // v2 API uses "includeTags" and "excludeTags" inside a nested object
           if (data.includeTags && data.includeTags.length > 0) {
             requestBody.includeTags = data.includeTags;
           }
@@ -216,12 +247,10 @@ export const firecrawlExecutor: NodeExecutor<FirecrawlData> = async ({
             requestBody.onlyMainContent = data.onlyMainContent;
           }
 
-          if (data.screenshot !== undefined) {
-            requestBody.screenshot = data.screenshot;
-          }
-
+          // v2 API: waitFor is now inside "actions" as a wait action
+          // but we can still use timeout parameter
           if (data.waitFor !== undefined) {
-            requestBody.waitFor = data.waitFor;
+            requestBody.timeout = data.waitFor;
           }
 
           if (data.actions && data.actions.length > 0) {

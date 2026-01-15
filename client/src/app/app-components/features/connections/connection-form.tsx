@@ -716,7 +716,9 @@ function DocumentationConfigSection({ form }: { form: any }) {
     <div className="space-y-4 pt-6 border-t">
       <div>
         <h3 className="text-sm font-medium">Documentation Configuration</h3>
-        <p className="text-sm text-muted-foreground">Add API documentation for Claude AI context</p>
+        <p className="text-sm text-muted-foreground">
+          Add API documentation for Verxio Agent context
+        </p>
       </div>
       <FormField
         control={form.control}

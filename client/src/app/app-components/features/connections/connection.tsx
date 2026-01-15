@@ -91,7 +91,7 @@ export const ConnectionsHeader = ({ disabled }: { disabled?: boolean }) => {
   return (
     <EntityHeader
       title="Connections"
-      description="Connect data sources for Claude AI agent"
+      description="Connect data sources for Verxio Agent"
       newButtonLabel="New Connection"
       onNew={handleNew}
       disabled={disabled}
@@ -208,7 +208,7 @@ export const ConnectionsEmptyView = ({
 }) => {
   return (
     <EmptyView
-      message="No connections found. Add data sources for Claude AI to access."
+      message="No connections found. Add data sources for Verxio Agent to access."
       onNew={onCreateConnection}
       isCreating={isCreating}
     />

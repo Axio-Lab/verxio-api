@@ -31,18 +31,13 @@ import {
 
 const menuItems = [
   {
-    title: "Workflows",
+    title: "Main",
     items: [
       {
         title: "Workflows",
         url: "/workflows",
         icon: <FolderOpenIcon />,
       },
-    ],
-  },
-  {
-    title: "Credentials",
-    items: [
       {
         title: "Credentials",
         url: "/credentials",
@@ -55,16 +50,6 @@ const menuItems = [
       },
     ],
   },
-  // {
-  //   title: "Settings",
-  //   items: [
-  //     {
-  //       title: "Go Back",
-  //       url: "/merchant",
-  //       icon: <Undo2Icon />,
-  //     },
-  //   ],
-  // },
 ];
 
 export const AppSidebar = () => {

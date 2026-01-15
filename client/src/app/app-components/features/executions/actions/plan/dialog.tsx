@@ -66,9 +66,16 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: PlanFormValues) => void;
   defaultValues?: Partial<PlanFormValues>;
+  onRefreshCanvas?: () => Promise<void>;
 }
 
-export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const PlanDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+  onRefreshCanvas,
+}: Props) => {
   const params = useParams();
   const workflowId = (params?.id || params?.workflow) as string;
   const queryClient = useQueryClient();
@@ -435,15 +442,22 @@ export const PlanDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }:
     try {
       await Promise.resolve(onSubmit(values));
 
-      // Always refresh the page to ensure canvas is updated
-      toast.success("Workflow updated! Refreshing...");
-      setTimeout(() => {
-        // Navigate to the workflow page to refresh
-        window.location.href = `/workflows/${workflowId}`;
-      }, 300);
+      // Refresh the canvas without page reload
+      if (onRefreshCanvas) {
+        toast.success("Updating canvas...");
+        await onRefreshCanvas();
+        toast.success("Workflow updated!");
+      } else {
+        // Fallback: invalidate query and close
+        await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+        toast.success("Plan saved!");
+      }
+
+      onOpenChange(false);
+      setIsSaving(false);
     } catch (error) {
       setIsSaving(false);
-      // Error handling is done in the parent component
+      toast.error("Failed to save plan");
     }
   };
 
