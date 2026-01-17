@@ -1,16 +1,15 @@
 "use client";
 
 import {
+  BarChart3Icon,
   CreditCardIcon,
   FolderOpenIcon,
-  GiftIcon,
   KeyIcon,
   LogOutIcon,
   PlugIcon,
   SparklesIcon,
   StarIcon,
   UserIcon,
-  HeartHandshakeIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -51,19 +50,14 @@ const menuItems = [
         icon: <KeyIcon />,
       },
       {
-        title: "Loyalty Deal",
-        url: "/loyalty-deal",
-        icon: <HeartHandshakeIcon />,
-      },
-      {
-        title: "Loyalty Program",
-        url: "/loyalty-program",
-        icon: <GiftIcon />,
-      },
-      {
         title: "Connections",
         url: "/connections",
         icon: <PlugIcon />,
+      },
+      {
+        title: "Analytics",
+        url: "/analytics",
+        icon: <BarChart3Icon />,
       },
     ],
   },
@@ -130,9 +124,9 @@ export const AppSidebar = () => {
                       className={cn(
                         "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
                         !isActive(subItem.url) &&
-                        "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
+                          "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
                         isActive(subItem.url) &&
-                        "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
+                          "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
                       )}
                     >
                       <Link href={subItem.url} prefetch>
@@ -161,7 +155,7 @@ export const AppSidebar = () => {
                 "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
                 !isActive("/profile") && "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
                 isActive("/profile") &&
-                "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
+                  "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
               )}
             >
               <Link href="/profile" prefetch>
@@ -177,7 +171,7 @@ export const AppSidebar = () => {
                 "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
                 "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]"
               )}
-              onClick={() => { }}
+              onClick={() => {}}
             >
               <StarIcon className="w-4 h-4" />
               <span className="font-bold group-data-[collapsible=icon]:hidden">Upgrade Plan</span>
@@ -190,7 +184,7 @@ export const AppSidebar = () => {
                 "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
                 "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]"
               )}
-              onClick={() => { }}
+              onClick={() => {}}
             >
               <CreditCardIcon className="w-4 h-4" />
               <span className="font-bold group-data-[collapsible=icon]:hidden">Billing Portal</span>

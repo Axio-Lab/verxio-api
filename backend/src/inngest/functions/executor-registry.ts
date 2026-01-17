@@ -28,6 +28,9 @@ import { elevenlabsExecutor } from "./actions/elevenlabs";
 import { firecrawlExecutor } from "./actions/firecrawl";
 import { apifyExecutor } from "./actions/apify";
 import { codeBlockExecutor } from "./actions/code-block";
+import { designExecutor } from "./actions/design";
+import { loyaltyDealExecutor } from "./actions/loyalty-deal";
+import { loyaltyProgramExecutor } from "./actions/loyalty-program";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -67,6 +70,12 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.CODE_BLOCK]: codeBlockExecutor as NodeExecutor,
   // PLAN is a special node type for planning - it doesn't execute in workflows
   [NodeType.PLAN]: (async () => ({ result: "PLAN nodes are not executed" })) as NodeExecutor,
+  // DESIGN node for AI image generation using Gemini
+  [NodeType.DESIGN]: designExecutor as NodeExecutor,
+  // LOYALTY_DEAL node for managing loyalty deals
+  [NodeType.LOYALTY_DEAL]: loyaltyDealExecutor as NodeExecutor,
+  // LOYALTY_PROGRAM node for managing loyalty programs
+  [NodeType.LOYALTY_PROGRAM]: loyaltyProgramExecutor as NodeExecutor,
 };
 
 /**

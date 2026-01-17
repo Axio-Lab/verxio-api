@@ -25,6 +25,7 @@ import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
 import { planningRouter } from "./routes/planning";
+import analyticsRouter from "./routes/analytics";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -112,6 +113,13 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+// Serve generated images as static files
+import path from "path";
+app.use(
+  "/generated-images",
+  express.static(path.join(process.cwd(), "public", "generated-images"))
+);
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
@@ -150,6 +158,7 @@ app.use("/workflow", workflowRouter);
 app.use("/workflow/airtable-webhook", airtableWebhookRouter);
 app.use("/workflow-generation", workflowGenerationRouter);
 app.use("/planning", planningRouter);
+app.use("/analytics", analyticsRouter);
 app.use("/credential", credentialRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);

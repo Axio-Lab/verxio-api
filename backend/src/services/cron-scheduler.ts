@@ -1,6 +1,7 @@
 import * as cron from "node-cron";
 import { inngest } from "../inngest";
 import { basePrismaClient } from "../lib/prisma";
+import { cleanupOldImages } from "../lib/imageStorage";
 
 const prisma = basePrismaClient as any;
 
@@ -202,6 +203,9 @@ export async function initializeCronScheduler(): Promise<void> {
   } catch (error) {
     console.error("[cron-scheduler] Error initializing cron scheduler:", error);
   }
+
+  // Schedule image cleanup job
+  scheduleImageCleanup();
 }
 
 /**
@@ -222,4 +226,24 @@ export function getCronSchedulerStats(): {
     activeJobs: activeCronJobs.size,
     memoryUsage: process.memoryUsage(),
   };
+}
+
+/**
+ * Schedule image cleanup cron job
+ * Runs every 30 minutes to clean up old generated images
+ */
+function scheduleImageCleanup(): void {
+  // Cron expression: "*/30 * * * *" = every 30 minutes
+  cron.schedule("*/30 * * * *", async () => {
+    try {
+      const deletedCount = cleanupOldImages(24); // Clean up images older than 24 hours
+      if (deletedCount > 0) {
+        console.log(`[image-cleanup] Cleaned up ${deletedCount} old image(s)`);
+      }
+    } catch (error) {
+      console.error("[image-cleanup] Error cleaning up old images:", error);
+    }
+  });
+
+  console.log("[image-cleanup] Scheduled image cleanup to run every 30 minutes");
 }

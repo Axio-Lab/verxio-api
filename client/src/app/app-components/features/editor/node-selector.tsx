@@ -9,6 +9,7 @@ import {
   GitBranchIcon,
   Keyboard,
   Code2,
+  Palette,
 } from "lucide-react";
 import {
   Sheet,
@@ -229,6 +230,27 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Brainstorm and ideate workflows with AI. Have conversations, upload API docs/images, and generate workflows based on your planning.",
     icon: Sparkles,
+  },
+  {
+    type: NodeType.DESIGN,
+    label: "Design Agent",
+    description:
+      "AI-powered design tool. Generate images, create presentations, social media posts, logos, and more with Gemini's image generation.",
+    icon: Palette,
+  },
+  {
+    type: NodeType.LOYALTY_DEAL,
+    label: "Loyalty Deal",
+    description:
+      "Manage loyalty deals and vouchers. Get stats, create deals, lookup vouchers, add quantity, extend expiry dates.",
+    icon: "/logo/verxioIcon.svg",
+  },
+  {
+    type: NodeType.LOYALTY_PROGRAM,
+    label: "Loyalty Program",
+    description:
+      "Manage loyalty programs. Create programs, issue passes, gift/revoke points, get member stats.",
+    icon: "/logo/verxioIcon.svg",
   },
 ];
 
@@ -748,6 +770,44 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             variables: "plan",
           },
           type: NodeType.PLAN,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.DESIGN) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Design Agent",
+            variables: "design",
+          },
+          type: NodeType.DESIGN,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.LOYALTY_DEAL) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Loyalty Deal",
+            variables: "loyaltyDeal",
+            action: "get_stats",
+          },
+          type: NodeType.LOYALTY_DEAL,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.LOYALTY_PROGRAM) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Loyalty Program",
+            variables: "loyaltyProgram",
+            action: "get_programs",
+          },
+          type: NodeType.LOYALTY_PROGRAM,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

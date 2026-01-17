@@ -18,6 +18,13 @@ import { basePrismaClient } from "../../lib/prisma";
 import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
+import {
+  createTrace,
+  endTrace,
+  logSpan,
+  type TraceContext,
+  type TraceMetadata,
+} from "../opikService";
 
 const prisma = basePrismaClient as any;
 
@@ -34,6 +41,8 @@ export interface AgentQueryOptions {
   model?: string;
   maxTurns?: number;
   abortController?: AbortController;
+  /** Type of agent query for Opik tracing categorization */
+  traceType?: TraceMetadata["traceType"];
 }
 
 export interface AgentStreamEvent {
@@ -151,7 +160,18 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     model = "claude-sonnet-4-5-20250929",
     maxTurns = 10,
     abortController,
+    traceType = "agent_query",
   } = options;
+
+  // Create Opik trace for observability
+  const traceContext = createTrace(traceType, {
+    userId,
+    workflowId,
+    traceType,
+    model,
+    promptLength: prompt.length,
+    hasConversationHistory: !!conversationHistory?.length,
+  });
 
   // Create tool context
   const toolContext: ToolContext = { userId, workflowId };
@@ -184,6 +204,10 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${prompt}`;
   }
 
+  let lastResult: any = null;
+  let hasError = false;
+  let errorMessage: string | undefined;
+
   try {
     // Start the query
     const result: Query = query({
@@ -206,13 +230,33 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
 
     // Stream messages
     for await (const message of result) {
+      // Capture result for tracing
+      if (message.type === "result") {
+        lastResult = message;
+      }
       yield* processSDKMessage(message);
     }
   } catch (error: any) {
+    hasError = true;
+    errorMessage = error.message;
     yield {
       type: "error",
       data: { message: error.message, stack: error.stack },
     };
+  } finally {
+    // End the Opik trace with final metrics
+    await endTrace(traceContext, {
+      success: !hasError,
+      output: lastResult,
+      error: errorMessage,
+      usage: lastResult?.usage
+        ? {
+            inputTokens: lastResult.usage.input_tokens,
+            outputTokens: lastResult.usage.output_tokens,
+          }
+        : undefined,
+      cost: lastResult?.total_cost_usd,
+    });
   }
 }
 
@@ -391,6 +435,7 @@ export async function generateWorkflowWithAgent(
       userId,
       workflowId: existingWorkflowId,
       maxTurns: 20, // Allow more turns for complex workflows
+      traceType: "workflow_generation",
     })) {
       if (event.type === "tool_result" && !event.data.inProgress) {
         const result = event.data.result;
@@ -516,6 +561,7 @@ export async function* chatWithAgent(options: {
     workflowId: options.workflowId,
     conversationHistory: options.conversationHistory,
     maxTurns: 15,
+    traceType: "chat",
   })) {
     yield event;
   }
@@ -556,6 +602,7 @@ Do not include any other text outside these sections.`;
     userId: options.userId,
     workflowId: options.workflowId,
     maxTurns: 5,
+    traceType: "smart_prompt",
   });
 
   const responseText = result.result || "";
@@ -658,6 +705,7 @@ Generate ONLY the code, no explanations. The code should be production-ready and
       prompt: codeGenPrompt,
       userId,
       maxTurns: 5,
+      traceType: "code_generation",
     });
 
     if (!result.success) {

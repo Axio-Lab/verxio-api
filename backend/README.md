@@ -139,6 +139,36 @@ The backend infrastructure powering the Verxio ecosystem. It enables:
 - Secure, API-key–protected access
 - Express + Prisma–powered services
 
+---
+
+## Environment Variables
+
+The following environment variables are required for full functionality:
+
+### Opik (Agent Observability & Optimization)
+
+```bash
+# Opik API key from https://www.comet.com/opik
+OPIK_API_KEY=your_opik_api_key
+
+# Optional: Opik project name (defaults to "verxio-agent")
+OPIK_PROJECT=verxio-agent
+```
+
+Opik enables LLM observability, tracing, and prompt optimization for the Verxio Agent.
+
+### Gemini (Design Agent Image Generation)
+
+```bash
+# Gemini API key from https://aistudio.google.com/apikey
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Gemini enables AI-powered image generation for the Design Agent node using Nano Banana models:
+
+- `gemini-2.5-flash-image`: Fast, efficient image generation
+- `gemini-3-pro-image-preview`: Advanced features, up to 4K resolution, thinking mode
+
 🔗 Links:
 
 - website: https://deals.verxio.xyz

@@ -404,6 +404,9 @@ enum NodeType {
   APIFY
   CODE_BLOCK
   PLAN
+  DESIGN
+  LOYALTY_DEAL
+  LOYALTY_PROGRAM
 }
 
 model Node {

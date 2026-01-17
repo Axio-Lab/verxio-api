@@ -89,7 +89,6 @@ export default function VibePage() {
           </button>
         </div>
       </form>
-
     </main>
   );
 }

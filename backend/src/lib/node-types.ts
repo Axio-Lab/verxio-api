@@ -35,6 +35,9 @@ export const NodeType = {
   APIFY: "APIFY",
   CODE_BLOCK: "CODE_BLOCK",
   PLAN: "PLAN",
+  DESIGN: "DESIGN",
+  LOYALTY_DEAL: "LOYALTY_DEAL",
+  LOYALTY_PROGRAM: "LOYALTY_PROGRAM",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

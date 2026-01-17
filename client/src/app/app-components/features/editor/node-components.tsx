@@ -37,6 +37,9 @@ import { FirecrawlNode } from "@/app/app-components/features/executions/actions/
 import { ApifyNode } from "@/app/app-components/features/executions/actions/apify/node";
 import { CodeBlockNode } from "@/app/app-components/features/executions/actions/code-block/node";
 import { PlanNode } from "@/app/app-components/features/executions/actions/plan/node";
+import { DesignNode } from "@/app/app-components/features/executions/actions/design/node";
+import { LoyaltyDealNode } from "@/app/app-components/features/executions/actions/loyalty-deal/node";
+import { LoyaltyProgramNode } from "@/app/app-components/features/executions/actions/loyalty-program/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -71,6 +74,9 @@ export const NodeComponents = {
   [NodeType.APIFY]: ApifyNode,
   [NodeType.CODE_BLOCK]: CodeBlockNode,
   [NodeType.PLAN]: PlanNode,
+  [NodeType.DESIGN]: DesignNode,
+  [NodeType.LOYALTY_DEAL]: LoyaltyDealNode,
+  [NodeType.LOYALTY_PROGRAM]: LoyaltyProgramNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;
