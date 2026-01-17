@@ -28,16 +28,16 @@ export function useUser(email: string | undefined) {
         return { success: false, error: "Email is required" };
       }
       const response = await fetch(`${API_BASE_URL}/user/${encodeURIComponent(email)}`);
-      
+
       if (response.status === 404) {
         return { success: false, error: "User not found" };
       }
-      
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: "Failed to fetch user" }));
         throw new Error(error.error || "Failed to fetch user");
       }
-      
+
       return response.json();
     },
     enabled: !!email, // Only run if email exists

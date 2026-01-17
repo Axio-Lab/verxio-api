@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+// import { ConditionalNavbar, ConditionalFooter } from "./app-components/ConditionalNavbar";
+import { RouteGuard } from "./app-components/RouteGuard";
 import Providers from "./providers";
-import { DealProvider } from "./context/DealContext";
+import { Toaster } from "@/components/ui/sonner";
+import { NuqsProvider } from "@/lib/nuqs-adapter";
+import { Provider as JotaiProvider } from "jotai";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -18,9 +20,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Verxio Deals",
+  title: "Verxio: AI workflow automation copilot for businesses",
   description:
-    "Discover unbeatable deals, collect and trade vouchers from merchants worldwide with Verxio Deals built on the Verxio Loyalty API.",
+    "Verxio is an AI-powered assistant that helps you design, run, and manage automated workflows alongside you",
 };
 
 export default function RootLayout({
@@ -35,11 +37,14 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <DealProvider>
-            <Navbar />
-            {children}
-            <Footer />
-          </DealProvider>
+          <NuqsProvider>
+            <RouteGuard>
+              {/* <ConditionalNavbar /> */}
+              <JotaiProvider>{children}</JotaiProvider>
+              {/* <ConditionalFooter /> */}
+            </RouteGuard>
+            <Toaster />
+          </NuqsProvider>
         </Providers>
       </body>
     </html>

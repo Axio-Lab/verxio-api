@@ -1,0 +1,10 @@
+# Ignore all generated image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+
+# But keep this directory in git (via .gitkeep)
+!.gitkeep
+!.gitignore
