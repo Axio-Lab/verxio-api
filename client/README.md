@@ -21,7 +21,7 @@ npm run dev
 - `/deals/[id]` Deal details with claim/trade CTAs
 - `/trade` Peer-to-peer voucher trading
 - `/profile` Wallet, vouchers, trades
-- `/merchant` Merchant dashboard (create/manage/analytics placeholders)
+- `/merchant` Merchant dashboard (create/manage placeholders)
 - `/login` Privy login placeholder
 
 ### Theming

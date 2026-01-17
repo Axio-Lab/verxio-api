@@ -91,7 +91,6 @@ Everything businesses need, out of the box:
 - Batch voucher minting
 - Inventory and expiry management
 - Pre-sales for immediate liquidity
-- Real-time analytics and dashboards
 - API-first, platform-agnostic
 
 ---
