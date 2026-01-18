@@ -840,7 +840,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             <div className="flex flex-col text-left items-start flex-1">
               <span className="font-semibold text-sm text-foreground">Generate with AI</span>
               <span className="text-xs text-muted-foreground">
-                Describe your workflow and let Claude create it
+                Describe your workflow and let Verxio agent create it for you
               </span>
             </div>
           </button>
