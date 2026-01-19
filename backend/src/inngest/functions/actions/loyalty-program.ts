@@ -3,6 +3,7 @@ import { loyaltyProgramChannel } from "@/inngest/channels/loyalty-program";
 import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
 import * as loyaltyService from "@/services/loyaltyService";
+import type { Tier } from "@/services/loyaltyService";
 
 // Define the possible actions for loyalty program node
 type LoyaltyProgramAction =
@@ -30,8 +31,10 @@ type LoyaltyProgramData = {
   // For issue_pass, gift_points, revoke_points
   programAddress?: string;
   recipientEmail?: string;
+  passAddress?: string; // For gift_points and revoke_points
   pointsToGift?: number;
   pointsToRevoke?: number;
+  giftAction?: string; // For gift_points - the action name
   // For get_program_details
   collectionAddress?: string;
 };
@@ -39,15 +42,18 @@ type LoyaltyProgramData = {
 // Helper to publish status updates
 const publishStatus = async (
   publish: any,
+  step: any,
   nodeId: string,
   status: "loading" | "error" | "success"
 ) => {
-  await publish(
-    loyaltyProgramChannel().status({
-      nodeId,
-      status,
-    })
-  );
+  await step.run(`publish-status-${nodeId}`, async () => {
+    await publish(
+      loyaltyProgramChannel().status({
+        nodeId,
+        status,
+      })
+    );
+  });
 };
 
 // Helper to compile string values with Handlebars
@@ -65,22 +71,24 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
   userId,
 }) => {
   try {
-    await publishStatus(publish, nodeId, "loading");
+    await publishStatus(publish, step, nodeId, "loading");
 
     const variablesName = data.variables || "loyaltyProgram";
 
     if (!data.action) {
-      await publishStatus(publish, nodeId, "error");
+      await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError("LOYALTY_PROGRAM node: Action is required");
-      await publish(
-        loyaltyProgramChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: { message: error.message },
-          },
-        })
-      );
+      await step.run(`publish-error-${nodeId}`, async () => {
+        await publish(
+          loyaltyProgramChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: { message: error.message },
+            },
+          })
+        );
+      });
       throw error;
     }
 
@@ -114,33 +122,42 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
         }
 
         // Parse tiers if provided
-        let tiers;
+        let tiers: Tier[] | undefined;
         if (data.tiers) {
           try {
-            tiers = JSON.parse(compileValue(data.tiers, context));
+            const parsed = JSON.parse(compileValue(data.tiers, context));
+            tiers = Array.isArray(parsed) ? parsed : undefined;
           } catch {
             tiers = undefined;
           }
         }
 
-        let rewardTiers;
+        let rewardTiers: Tier[] | undefined;
         if (data.rewardTiers) {
           try {
-            rewardTiers = JSON.parse(compileValue(data.rewardTiers, context));
+            const parsed = JSON.parse(compileValue(data.rewardTiers, context));
+            rewardTiers = Array.isArray(parsed) ? parsed : undefined;
           } catch {
             rewardTiers = undefined;
           }
         }
 
+        // Convert pointsPerAction to Record<string, number>
+        const pointsPerAction: Record<string, number> = data.pointsPerAction
+          ? { default: data.pointsPerAction }
+          : { default: 10 };
+
         const createResult = await step.run("create-loyalty-program", async () => {
           return loyaltyService.createLoyaltyProgram({
             creatorEmail: userEmail,
-            programName,
-            programDescription,
-            imageUrl: compileValue(data.programImageUrl, context),
-            pointsPerAction: data.pointsPerAction || 10,
-            tiers,
-            rewardTiers,
+            loyaltyProgramName: programName,
+            imageUri: compileValue(data.programImageUrl, context),
+            metadata: {
+              organizationName: programDescription || programName,
+              description: programDescription,
+            },
+            pointsPerAction,
+            tiers: tiers || [],
           });
         });
         result = createResult;
@@ -155,10 +172,12 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
           programAddresses.push(compileValue(data.programAddress, context));
         } else if (userEmail) {
           // Get all program addresses for user
-          const programs = await step.run("fetch-programs-for-members", async () => {
+          const programsResult = await step.run("fetch-programs-for-members", async () => {
             return loyaltyService.getUserLoyaltyPrograms(userEmail);
           });
-          programAddresses.push(...programs.map((p: any) => p.programPublicKey));
+          if (programsResult.success && Array.isArray(programsResult.programs)) {
+            programAddresses.push(...programsResult.programs.map((p: any) => p.programPublicKey));
+          }
         }
 
         if (programAddresses.length === 0) {
@@ -188,9 +207,11 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
 
         const issueResult = await step.run("issue-loyalty-pass", async () => {
           return loyaltyService.issueLoyaltyPassBlockchain({
-            creatorEmail: userEmail,
+            loyaltyProgramAddress: programAddress,
             recipientEmail,
-            collectionAddress: programAddress,
+            passName: "Loyalty Pass",
+            organizationName: "",
+            authorityEmail: userEmail,
           });
         });
         result = issueResult;
@@ -204,9 +225,15 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
             "LOYALTY_PROGRAM get_program_details: collectionAddress is required"
           );
         }
+        if (!userEmail) {
+          throw new NonRetriableError("LOYALTY_PROGRAM get_program_details: userEmail is required");
+        }
 
         const details = await step.run("get-program-details", async () => {
-          return loyaltyService.getLoyaltyProgramDetails({ collectionAddress });
+          return loyaltyService.getLoyaltyProgramDetails({
+            creatorEmail: userEmail,
+            programPublicKey: collectionAddress,
+          });
         });
         result = { programDetails: details };
         break;
@@ -245,13 +272,19 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
             "LOYALTY_PROGRAM gift_points: pointsToGift must be greater than 0"
           );
         }
+        const passAddress = compileValue(data.passAddress, context);
+        if (!passAddress) {
+          throw new NonRetriableError("LOYALTY_PROGRAM gift_points: passAddress is required");
+        }
+        const giftAction = compileValue(data.giftAction, context) || "gift";
 
         const giftResult = await step.run("gift-loyalty-points", async () => {
           return loyaltyService.giftLoyaltyPointsBlockchain({
-            creatorEmail: userEmail,
-            memberEmail: recipientEmail,
+            passAddress,
+            pointsToGift: data.pointsToGift!,
+            action: giftAction,
             collectionAddress: programAddress,
-            points: data.pointsToGift!,
+            authorityEmail: userEmail,
           });
         });
         result = giftResult;
@@ -276,13 +309,17 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
             "LOYALTY_PROGRAM revoke_points: pointsToRevoke must be greater than 0"
           );
         }
+        const passAddress = compileValue(data.passAddress, context);
+        if (!passAddress) {
+          throw new NonRetriableError("LOYALTY_PROGRAM revoke_points: passAddress is required");
+        }
 
         const revokeResult = await step.run("revoke-loyalty-points", async () => {
           return loyaltyService.revokeLoyaltyPointsBlockchain({
-            creatorEmail: userEmail,
-            memberEmail: recipientEmail,
+            passAddress,
+            pointsToRevoke: data.pointsToRevoke!,
             collectionAddress: programAddress,
-            points: data.pointsToRevoke!,
+            authorityEmail: userEmail,
           });
         });
         result = revokeResult;
@@ -293,7 +330,7 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
         throw new NonRetriableError(`LOYALTY_PROGRAM: Unknown action "${data.action}"`);
     }
 
-    await publishStatus(publish, nodeId, "success");
+    await publishStatus(publish, step, nodeId, "success");
 
     const output = {
       ...context,
@@ -305,30 +342,34 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
     };
 
     // Publish output to realtime channel
-    await publish(
-      loyaltyProgramChannel().output({
-        nodeId,
-        output,
-      })
-    );
+    await step.run(`publish-output-${nodeId}`, async () => {
+      await publish(
+        loyaltyProgramChannel().output({
+          nodeId,
+          output,
+        })
+      );
+    });
 
     return output;
   } catch (error) {
-    await publishStatus(publish, nodeId, "error");
+    await publishStatus(publish, step, nodeId, "error");
 
     // Publish error output to realtime channel
-    await publish(
-      loyaltyProgramChannel().output({
-        nodeId,
-        output: {
-          ...context,
-          error: {
-            message: error instanceof Error ? error.message : "Unknown error",
-            stack: error instanceof Error ? error.stack : undefined,
+    await step.run(`publish-error-${nodeId}`, async () => {
+      await publish(
+        loyaltyProgramChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: error instanceof Error ? error.message : "Unknown error",
+              stack: error instanceof Error ? error.stack : undefined,
+            },
           },
-        },
-      })
-    );
+        })
+      );
+    });
 
     if (error instanceof NonRetriableError) {
       throw error;

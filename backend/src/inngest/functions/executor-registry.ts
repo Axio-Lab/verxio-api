@@ -29,6 +29,7 @@ import { firecrawlExecutor } from "./actions/firecrawl";
 import { apifyExecutor } from "./actions/apify";
 import { codeBlockExecutor } from "./actions/code-block";
 import { designExecutor } from "./actions/design";
+import { designProExecutor } from "./actions/designPro";
 import { loyaltyDealExecutor } from "./actions/loyalty-deal";
 import { loyaltyProgramExecutor } from "./actions/loyalty-program";
 import { manualInputExecutor } from "./triggers/manual-input";
@@ -72,6 +73,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.PLAN]: (async () => ({ result: "PLAN nodes are not executed" })) as NodeExecutor,
   // DESIGN node for AI image generation using Gemini
   [NodeType.DESIGN]: designExecutor as NodeExecutor,
+  // DESIGN_PRO node for advanced image editing with chat and reference images
+  [NodeType.DESIGN_PRO]: designProExecutor as NodeExecutor,
   // LOYALTY_DEAL node for managing loyalty deals
   [NodeType.LOYALTY_DEAL]: loyaltyDealExecutor as NodeExecutor,
   // LOYALTY_PROGRAM node for managing loyalty programs

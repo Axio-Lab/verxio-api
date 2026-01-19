@@ -1,0 +1,173 @@
+# Video Generation Guide for Claude Code
+
+This guide provides comprehensive specifications for creating JSON-formatted prompts for VIDEO nodes (when implemented). All VIDEO node prompts must be JSON strings with detailed video specifications.
+
+## JSON Prompt Structure
+
+When creating a VIDEO node, the `prompt` field must be a JSON string containing all video specifications. The JSON structure should follow this format:
+
+```json
+{
+  "context": "You are an expert video production specialist...",
+  "inputVariable": "{{$json.content}}",
+  "metadata": {
+    "video_type": "commercial/documentary/social media/presentation/educational/entertainment",
+    "duration_seconds": 30,
+    "primary_purpose": "marketing/education/storytelling/promotional"
+  },
+  "camera": {
+    "angles": [
+      "wide shot/medium shot/close-up/extreme close-up/overhead/low angle/high angle/dutch angle"
+    ],
+    "movement": "static/pans/tilts/dolly/tracking/zoom/steadicam/handheld/crane/gimbal",
+    "framing": "rule of thirds/center/symmetrical/asymmetrical",
+    "lens": "wide angle/standard/telephoto/fisheye/macro",
+    "focal_length": "mm equivalent",
+    "aperture": "f-stop description (wide open/medium/stopped down)"
+  },
+  "lighting": {
+    "setup": "three-point/key light only/natural/studio/mixed",
+    "direction": "front/45-degree side/90-degree side/back/top/bottom/rim",
+    "quality": "hard light/soft light/diffused/dramatic/even",
+    "intensity": "bright/moderate/low/moody",
+    "color_temperature": "warm (3200K)/neutral (5600K)/cool (6500K)/mixed",
+    "time_of_day": "golden hour/blue hour/daytime/night/interior",
+    "dynamic_range": "high/low/compressed/expanded"
+  },
+  "depth": {
+    "focus": "shallow depth of field/deep focus/rack focus",
+    "foreground_elements": ["Description of foreground elements"],
+    "midground_elements": ["Description of midground elements"],
+    "background_elements": ["Description of background elements"],
+    "bokeh": "present/absent/pronounced/subtle"
+  },
+  "color_grading": {
+    "look": "natural/cinematic/vibrant/desaturated/monochrome/vintage/teal and orange/cool tones/warm tones",
+    "contrast": "high/medium/low/flat",
+    "saturation": "highly saturated/moderate/desaturated",
+    "shadows": "crushed/lifted/detailed",
+    "highlights": "blown out/preserved/rolled off",
+    "color_tone": "warm/cool/neutral/custom",
+    "lut": "if applicable, describe color grading LUT or preset"
+  },
+  "movement": {
+    "subject_movement": "static/slow movement/fast movement/smooth/erratic",
+    "camera_movement": "static/panning/tilting/dollying/tracking/orbiting/crane",
+    "motion_blur": "present/absent/pronounced/subtle",
+    "speed": "real-time/slow motion/fast motion/timelapse"
+  },
+  "transitions": {
+    "type": "cut/crossfade/dissolve/wipe/slide/fade in/fade out/morph/match cut",
+    "style": "smooth/jarring/dynamic/static",
+    "timing": "quick/moderate/slow"
+  },
+  "audio": {
+    "music": {
+      "present": true/false,
+      "style": "upbeat/cinematic/ambient/energetic/calm/background",
+      "volume": "dominant/balanced/background",
+      "tempo": "slow/moderate/fast"
+    },
+    "sound_effects": ["list of sound effects needed"],
+    "voiceover": {
+      "present": true/false,
+      "style": "narrator/voice of god/testimonial/conversational",
+      "tone": "professional/friendly/authoritative/casual"
+    },
+    "ambient_sound": "present/absent/minimal/pronounced"
+  },
+  "composition": {
+    "aspect_ratio": "16:9/9:16/1:1/21:9/4:3",
+    "framing": "rule of thirds/center/symmetrical",
+    "negative_space": "minimal/moderate/extensive",
+    "leading_lines": "present/absent/description"
+  },
+  "style": {
+    "visual_aesthetic": "cinematic/documentary/vlog/commercial/social media/professional/artistic",
+    "pacing": "slow/moderate/fast/rapid cuts",
+    "edit_style": "continuity/montage/jump cuts/smooth transitions",
+    "overall_tone": "serious/playful/dramatic/informative/inspirational"
+  },
+  "technical_specs": {
+    "resolution": "4K/2K/1080p/720p",
+    "frame_rate": "24fps/30fps/60fps/120fps",
+    "codec": "H.264/H.265/ProRes",
+    "quality": "high/medium/low"
+  },
+  "generation_parameters": {
+    "prompt": "Detailed technical prompt for video generation",
+    "keywords": ["keyword1", "keyword2", "keyword3"],
+    "shot_list": [
+      {
+        "sequence": 1,
+        "description": "Opening wide shot",
+        "duration": 5,
+        "camera_angle": "wide shot",
+        "movement": "slow pan"
+      }
+    ]
+  }
+}
+```
+
+## Usage Notes for Claude Code
+
+1. **Always use JSON format**: The `prompt` field in VIDEO nodes must be a JSON string
+
+2. **Template variables**: Use Handlebars syntax {{$json.variableName}} or {{context.field}} within JSON string values
+
+3. **Shot lists**: For multi-scene videos, include a detailed shot_list in generation_parameters
+
+4. **Maintain consistency**: When creating multiple video segments (e.g., video series), keep the same technical specs and color grading across all segments
+
+5. **Duration**: Specify duration_seconds in metadata - this helps determine pacing and content amount
+
+6. **Audio considerations**: Consider whether music, voiceover, or sound effects are needed based on video type
+
+## Example: Short Social Media Video Prompt
+
+```json
+{
+  "context": "You are an expert social media video creator",
+  "inputVariable": "{{$json.content}}",
+  "metadata": {
+    "video_type": "social media",
+    "duration_seconds": 15,
+    "primary_purpose": "marketing"
+  },
+  "camera": {
+    "angles": ["medium shot"],
+    "movement": "static",
+    "framing": "rule of thirds"
+  },
+  "lighting": {
+    "setup": "key light",
+    "quality": "soft light",
+    "intensity": "bright"
+  },
+  "color_grading": {
+    "look": "vibrant",
+    "contrast": "high",
+    "saturation": "highly saturated"
+  },
+  "movement": {
+    "subject_movement": "smooth",
+    "camera_movement": "static"
+  },
+  "transitions": {
+    "type": "cut",
+    "style": "smooth"
+  },
+  "audio": {
+    "music": {
+      "present": true,
+      "style": "upbeat",
+      "volume": "background"
+    }
+  },
+  "generation_parameters": {
+    "prompt": "Create a vibrant 15-second social media video showing: {{content.main_message}}",
+    "keywords": ["social media", "vibrant", "engaging", "modern"]
+  }
+}
+```

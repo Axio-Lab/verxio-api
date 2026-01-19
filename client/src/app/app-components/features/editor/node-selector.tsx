@@ -239,6 +239,13 @@ const executionNodes: NodeTypeOption[] = [
     icon: Palette,
   },
   {
+    type: NodeType.DESIGN_PRO,
+    label: "Design Agent Pro",
+    description:
+      "Advanced image editing with multi-turn conversations, reference images (up to 14), high-resolution output (1K/2K/4K), and Google Search grounding. Edit existing images, maintain character consistency, and iterate through conversational editing.",
+    icon: Palette,
+  },
+  {
     type: NodeType.LOYALTY_DEAL,
     label: "Loyalty Deal",
     description:
@@ -786,6 +793,20 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
+      } else if (selection.type === NodeType.DESIGN_PRO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Design Agent Pro",
+            variables: "designPro",
+            mode: "generate",
+            model: "gemini-3-pro-image-preview",
+          },
+          type: NodeType.DESIGN_PRO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
       } else if (selection.type === NodeType.LOYALTY_DEAL) {
         const newNode = {
           id: createId(),
@@ -840,7 +861,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             <div className="flex flex-col text-left items-start flex-1">
               <span className="font-semibold text-sm text-foreground">Generate with AI</span>
               <span className="text-xs text-muted-foreground">
-                Describe your workflow and let Claude create it
+                Describe your workflow and let Verxio agent create it for you
               </span>
             </div>
           </button>

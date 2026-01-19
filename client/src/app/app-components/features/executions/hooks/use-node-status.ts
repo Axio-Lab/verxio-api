@@ -246,6 +246,16 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const designSub = useInngestSubscription({
+    refreshToken: createRefreshToken("design"),
+    enabled: true,
+  });
+
+  const designProSub = useInngestSubscription({
+    refreshToken: createRefreshToken("designPro"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -277,6 +287,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(gmailSub.data || []),
       ...(airtableSub.data || []),
       ...(elevenlabsSub.data || []),
+      ...(designSub.data || []),
+      ...(designProSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -307,6 +319,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     gmailSub.data,
     airtableSub.data,
     elevenlabsSub.data,
+    designSub.data,
+    designProSub.data,
   ]);
 
   // Filter and update status for this specific node

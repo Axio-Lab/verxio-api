@@ -135,6 +135,33 @@ export interface ConversationMessage {
   imageMimeType?: string;
 }
 
+export interface ReferenceImage {
+  base64: string;
+  mimeType: string;
+  type?: "object" | "human";
+}
+
+export interface ImageChatOptions {
+  model?: ImageModel;
+  responseModalities?: string[];
+  imageConfig?: {
+    aspectRatio?: AspectRatio;
+    imageSize?: ImageSize;
+  };
+  tools?: Array<{ googleSearch?: {} }>;
+}
+
+export interface EditWithReferencesOptions {
+  prompt: string;
+  baseImage?: string; // Base image to edit (optional)
+  baseImageMimeType?: string;
+  referenceImages?: ReferenceImage[]; // Up to 14 total
+  model?: ImageModel;
+  aspectRatio?: AspectRatio;
+  imageSize?: ImageSize;
+  useGoogleSearch?: boolean;
+}
+
 /**
  * Generate an image from a text prompt
  */
@@ -481,6 +508,254 @@ export async function multiTurnEdit(options: {
       success: false,
       error: error instanceof Error ? error.message : String(error),
       updatedHistory: options.conversationHistory,
+    };
+  }
+}
+
+/**
+ * Create an image chat session for multi-turn editing
+ */
+export async function createImageChat(
+  options: ImageChatOptions
+): Promise<{ chat: any; chatId: string }> {
+  try {
+    const ai = getGeminiClient();
+    const model = options.model || "gemini-3-pro-image-preview";
+
+    const config: any = {
+      responseModalities: options.responseModalities || ["TEXT", "IMAGE"],
+    };
+
+    if (options.imageConfig) {
+      config.imageConfig = {};
+      if (options.imageConfig.aspectRatio) {
+        config.imageConfig.aspectRatio = options.imageConfig.aspectRatio;
+      }
+      if (options.imageConfig.imageSize && model === "gemini-3-pro-image-preview") {
+        config.imageConfig.imageSize = options.imageConfig.imageSize;
+      }
+    }
+
+    if (options.tools) {
+      config.tools = options.tools;
+    }
+
+    const chat = await ai.chats.create({
+      model,
+      config,
+    });
+
+    // Generate a unique chat ID
+    const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    return { chat, chatId };
+  } catch (error) {
+    console.error("Error creating image chat:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send a message to an existing chat session
+ */
+export async function sendChatMessage(
+  chat: any,
+  message: string,
+  imageConfig?: {
+    aspectRatio?: AspectRatio;
+    imageSize?: ImageSize;
+  },
+  useGoogleSearch?: boolean
+): Promise<GenerateImageResult> {
+  try {
+    const config: any = {
+      responseModalities: ["TEXT", "IMAGE"],
+    };
+
+    if (imageConfig) {
+      config.imageConfig = {};
+      if (imageConfig.aspectRatio) {
+        config.imageConfig.aspectRatio = imageConfig.aspectRatio;
+      }
+      if (imageConfig.imageSize) {
+        config.imageConfig.imageSize = imageConfig.imageSize;
+      }
+    }
+
+    if (useGoogleSearch) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    const response = await chat.sendMessage({
+      message,
+      config,
+    });
+
+    // Extract image and text from response
+    let imageBase64: string | undefined;
+    let mimeType: string | undefined;
+    let text: string | undefined;
+
+    if (response.candidates && response.candidates[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if ((part as any).text) {
+          text = (text || "") + (part as any).text;
+        } else if ((part as any).inlineData) {
+          imageBase64 = (part as any).inlineData.data;
+          mimeType = (part as any).inlineData.mimeType;
+        }
+      }
+    }
+
+    if (!imageBase64 && !text) {
+      return {
+        success: false,
+        error: "No response from model",
+      };
+    }
+
+    return {
+      success: true,
+      imageBase64,
+      mimeType: mimeType || "image/png",
+      text,
+    };
+  } catch (error) {
+    console.error("Error sending chat message:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Edit image with reference images (up to 14: 6 objects + 5 humans)
+ */
+export async function editImageWithReferences(
+  options: EditWithReferencesOptions
+): Promise<GenerateImageResult> {
+  try {
+    const ai = getGeminiClient();
+    const model = options.model || "gemini-3-pro-image-preview";
+
+    // Validate reference image count
+    if (options.referenceImages && options.referenceImages.length > 14) {
+      return {
+        success: false,
+        error: "Maximum 14 reference images allowed (6 objects + 5 humans)",
+      };
+    }
+
+    // Count by type
+    if (options.referenceImages) {
+      const objectCount = options.referenceImages.filter(
+        (img) => img.type === "object" || !img.type
+      ).length;
+      const humanCount = options.referenceImages.filter((img) => img.type === "human").length;
+
+      if (objectCount > 6) {
+        return {
+          success: false,
+          error: "Maximum 6 object reference images allowed",
+        };
+      }
+      if (humanCount > 5) {
+        return {
+          success: false,
+          error: "Maximum 5 human reference images allowed",
+        };
+      }
+    }
+
+    // Build config
+    const config: any = {
+      responseModalities: ["TEXT", "IMAGE"],
+    };
+
+    if (options.aspectRatio || options.imageSize) {
+      config.imageConfig = {};
+      if (options.aspectRatio) {
+        config.imageConfig.aspectRatio = options.aspectRatio;
+      }
+      if (options.imageSize) {
+        config.imageConfig.imageSize = options.imageSize;
+      }
+    }
+
+    if (options.useGoogleSearch) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    // Build contents array
+    const contents: any[] = [];
+
+    // Add text prompt first
+    contents.push({ text: options.prompt });
+
+    // Add base image if provided
+    if (options.baseImage) {
+      contents.push({
+        inlineData: {
+          mimeType: options.baseImageMimeType || "image/png",
+          data: options.baseImage,
+        },
+      });
+    }
+
+    // Add reference images
+    if (options.referenceImages) {
+      for (const refImage of options.referenceImages) {
+        contents.push({
+          inlineData: {
+            mimeType: refImage.mimeType || "image/png",
+            data: refImage.base64,
+          },
+        });
+      }
+    }
+
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config,
+    });
+
+    // Extract image and text from response
+    let imageBase64: string | undefined;
+    let mimeType: string | undefined;
+    let text: string | undefined;
+
+    if (response.candidates && response.candidates[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if ((part as any).text) {
+          text = (text || "") + (part as any).text;
+        } else if ((part as any).inlineData) {
+          imageBase64 = (part as any).inlineData.data;
+          mimeType = (part as any).inlineData.mimeType;
+        }
+      }
+    }
+
+    if (!imageBase64) {
+      return {
+        success: false,
+        text,
+        error: "No image was generated. The model may have declined the request.",
+      };
+    }
+
+    return {
+      success: true,
+      imageBase64,
+      mimeType: mimeType || "image/png",
+      text,
+    };
+  } catch (error) {
+    console.error("Error editing image with references:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
