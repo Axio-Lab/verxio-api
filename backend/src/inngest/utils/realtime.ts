@@ -18,13 +18,11 @@ export async function getNodeStatusSubscriptionTokens(): Promise<
   // Generate tokens for all channels in parallel
   const tokenPromises = Object.entries(nodeStatusChannels).map(async ([key, channel]) => {
     // Design Pro channel has an additional "chat" topic
-    const topics =
-      key === "designPro"
-        ? (["status", "output", "chat"] as const)
-        : (["status", "output"] as const);
+    const topics: ("status" | "output" | "chat")[] =
+      key === "designPro" ? ["status", "output", "chat"] : ["status", "output"];
     const token = await getSubscriptionToken(inngest, {
       channel: channel(),
-      topics,
+      topics: topics as ("status" | "output")[],
     });
     return [key, token] as [NodeStatusChannelKey, Realtime.Subscribe.Token];
   });
