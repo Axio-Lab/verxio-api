@@ -32,6 +32,8 @@ import { firecrawlChannel } from "./firecrawl";
 import { apifyChannel } from "./apify";
 import { codeBlockChannel } from "./code-block";
 import { manualInputChannel } from "./manual-input";
+import { designChannel } from "./design";
+import { designProChannel } from "./designPro";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -64,6 +66,8 @@ export const nodeStatusChannels = {
   firecrawl: firecrawlChannel,
   apify: apifyChannel,
   codeBlock: codeBlockChannel,
+  design: designChannel,
+  designPro: designProChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -100,4 +104,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   firecrawl: "firecrawl-execution",
   apify: "apify-execution",
   codeBlock: "code-block-execution",
+  design: "design-execution",
+  designPro: "design-pro-execution",
 };

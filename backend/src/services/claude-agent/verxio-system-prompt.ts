@@ -5,7 +5,7 @@
  * workflow patterns, and autonomous operation guidelines.
  */
 
-import { AVAILABLE_NODE_TYPES } from "./verxio-mcp-tools";
+import { AVAILABLE_NODE_TYPES, createMultipleDesignNodesTool } from "./verxio-mcp-tools";
 
 // ============================================
 // Node Types Documentation
@@ -125,6 +125,35 @@ const NODE_TYPES_DOCUMENTATION = `
 
 **ELEVENLABS**
 - Fields: { variables: string, text: string (REQUIRED), voiceId: string, modelId?: string, credentialId: string }
+
+**DESIGN**
+- Fields: { variables: string, prompt: string (REQUIRED - must be JSON format), model?: string, aspectRatio?: string, template?: string }
+- **CRITICAL:** The "prompt" field must be a JSON string containing comprehensive image specifications. See guides/image-generation-guide.txt for structure.
+- Models: "gemini-2.5-flash-image" (default), "gemini-3-pro-image-preview"
+- Aspect ratios: "1:1", "16:9", "9:16", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "21:9"
+- Templates: "instagram_post", "instagram_story", "twitter_post", "twitter_header", "facebook_post", "linkedin_post", "presentation_slide", "youtube_thumbnail", "logo"
+- Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, template?: string, imageUrl: string, imageFilename: string }
+- **Multi-image:** When user needs multiple images (e.g., presentation slides, image series), use createMultipleDesignNodesTool to create multiple DESIGN nodes connected in sequence
+- **JSON Prompt Format:** All prompts must be JSON strings with sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
+- **Reference guides:** See guides/image-generation-guide.txt for detailed JSON prompt structure and examples
+
+**DESIGN_PRO**
+- Fields: { variables: string, prompt: string (REQUIRED - must be JSON format), mode?: "generate"|"edit"|"chat"|"editWithReferences", model?: string, aspectRatio?: string, imageSize?: "1K"|"2K"|"4K", template?: string, sourceImage?: string, sourceImageMimeType?: string, referenceImages?: Array<{image: string, mimeType?: string, type?: "object"|"human"}>, useGoogleSearch?: boolean, thinkingMode?: boolean, conversationHistory?: Array<{role: string, content: string}> }
+- **Modes:**
+  - "generate": Text-to-image generation (same as DESIGN)
+  - "edit": Edit existing image with text prompt (requires sourceImage)
+  - "chat": Multi-turn conversational editing (maintains conversation state)
+  - "editWithReferences": Edit with up to 14 reference images (6 objects + 5 humans)
+- **CRITICAL:** The "prompt" field must be a JSON string (same format as DESIGN)
+- Models: "gemini-3-pro-image-preview" (default, recommended), "gemini-2.5-flash-image"
+- Image sizes: "1K", "2K", "4K" (Pro model only)
+- **Reference Images:** Up to 14 total (6 object images + 5 human images). Can be URLs, base64, or {{previousNode.imageUrl}}
+- **Source Image:** For edit modes, can be URL, base64, or {{previousNode.imageUrl}}
+- **Chat Mode:** Use for iterative editing. Conversation history is maintained in node output
+- **Google Search:** Enable with useGoogleSearch: true for grounding and fact verification
+- Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, imageSize?: string, imageUrl: string, imageFilename: string, conversationHistory?: Array (chat mode only) }
+- **When to use:** Use DESIGN_PRO for advanced editing, reference images, high-res output (1K/2K/4K), multi-turn conversations, or when you need Google Search grounding
+- **When to use DESIGN:** Use DESIGN for simple text-to-image generation
 `;
 
 // ============================================
@@ -587,6 +616,14 @@ When creating or configuring nodes, you MUST:
 2. If exists: Use credentialId in node config
 3. If missing: requestCredential with setup instructions
 \`\`\`
+
+**Image Generation (DESIGN Nodes):**
+- **Guide Files:** Reference guides/image-generation-guide.txt for comprehensive JSON prompt structure
+- **Multi-Image Tool:** Use createMultipleDesignNodesTool when user needs multiple images (slides, series, campaigns)
+- **JSON Format:** All DESIGN node prompts must be JSON strings - see guide for structure with sections: context, composition, color_profile, lighting, technical_specs, generation_parameters, etc.
+- **Autonomous Analysis:** When user provides content and requests images/slides, analyze content to determine optimal number of images OR follow explicit count
+- **Consistency:** For multiple images, maintain same styling parameters across all, only vary content
+- **Post-Generation:** Consider actions like adding to Google Slides, packaging for download based on context
 
 ## Response Style
 

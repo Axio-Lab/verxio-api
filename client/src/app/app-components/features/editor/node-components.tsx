@@ -38,6 +38,7 @@ import { ApifyNode } from "@/app/app-components/features/executions/actions/apif
 import { CodeBlockNode } from "@/app/app-components/features/executions/actions/code-block/node";
 import { PlanNode } from "@/app/app-components/features/executions/actions/plan/node";
 import { DesignNode } from "@/app/app-components/features/executions/actions/design/node";
+import { DesignProNode } from "@/app/app-components/features/executions/actions/design-pro/node";
 import { LoyaltyDealNode } from "@/app/app-components/features/executions/actions/loyalty-deal/node";
 import { LoyaltyProgramNode } from "@/app/app-components/features/executions/actions/loyalty-program/node";
 
@@ -75,6 +76,7 @@ export const NodeComponents = {
   [NodeType.CODE_BLOCK]: CodeBlockNode,
   [NodeType.PLAN]: PlanNode,
   [NodeType.DESIGN]: DesignNode,
+  [NodeType.DESIGN_PRO]: DesignProNode,
   [NodeType.LOYALTY_DEAL]: LoyaltyDealNode,
   [NodeType.LOYALTY_PROGRAM]: LoyaltyProgramNode,
 } as const satisfies NodeTypes;

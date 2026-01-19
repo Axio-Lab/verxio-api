@@ -1,0 +1,288 @@
+# Image Generation Guide for Claude Code
+
+This guide provides comprehensive specifications for creating JSON-formatted prompts for DESIGN nodes. All DESIGN node prompts must be JSON strings with detailed image specifications.
+
+## JSON Prompt Structure
+
+When creating a DESIGN node, the `prompt` field must be a JSON string containing all image specifications. The JSON structure should follow this format:
+
+```json
+{
+  "context": "You are an expert visual designer...",
+  "inputVariable": "{{$json.content}}",
+  "metadata": {
+    "confidence_score": "high/medium/low",
+    "image_type": "photograph/digital art/illustration/graphic design/mixed media",
+    "primary_purpose": "marketing/editorial/social media/product/portrait/landscape/abstract"
+  },
+  "composition": {
+    "rule_applied": "rule of thirds/golden ratio/center composition/symmetry/asymmetry",
+    "aspect_ratio": "16:9",
+    "layout": "grid/single subject/multi-element/layered",
+    "focal_points": ["Primary focal point", "Secondary focal point if present"],
+    "visual_hierarchy": "Description of how eye moves through the image",
+    "balance": "symmetric/asymmetric/radial"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {
+        "color": "Specific color name",
+        "hex": "#000000",
+        "percentage": "approximate percentage",
+        "role": "background/accent/primary subject"
+      }
+    ],
+    "color_palette": "complementary/analogous/triadic/monochromatic/split-complementary",
+    "temperature": "warm/cool/neutral",
+    "saturation": "highly saturated/moderate/desaturated/black and white",
+    "contrast": "high contrast/medium contrast/low contrast/soft"
+  },
+  "lighting": {
+    "type": "natural window/artificial/mixed/studio/practical lights",
+    "source_count": "single source/multiple sources",
+    "direction": "front/45-degree side/90-degree side/back/top/bottom/diffused from above",
+    "directionality": "highly directional/moderately directional/diffused/omni-directional",
+    "quality": "hard light/soft light/dramatic/even/gradient/sculpted",
+    "intensity": "bright/moderate/low/moody/high-key/low-key",
+    "contrast_ratio": "high contrast/medium contrast/low contrast",
+    "mood": "cheerful/dramatic/mysterious/calm/energetic/professional/casual",
+    "shadows": {
+      "type": "harsh defined edges/soft gradual edges/minimal/dramatic/absent",
+      "density": "deep black/gray/transparent/faint",
+      "placement": "under subject/on wall/from objects/cast patterns",
+      "length": "short/medium/long"
+    },
+    "highlights": {
+      "treatment": "blown out/preserved/subtle/dramatic/specular",
+      "placement": "on face/hair/clothing/background"
+    },
+    "ambient_fill": "present/absent",
+    "light_temperature": "warm (golden)/neutral/cool (blue)"
+  },
+  "technical_specs": {
+    "medium": "digital photography/3D render/digital painting/vector/photo manipulation/mixed",
+    "style": "realistic/hyperrealistic/stylized/minimalist/maximalist/abstract/surreal",
+    "texture": "smooth/grainy/sharp/soft/painterly/glossy/matte",
+    "sharpness": "tack sharp/slightly soft/deliberately soft/bokeh effect",
+    "grain": "none/film grain/digital noise/intentional grain",
+    "depth_of_field": "shallow/medium/deep",
+    "perspective": "straight on/low angle/high angle/dutch angle/isometric/one-point/two-point"
+  },
+  "artistic_elements": {
+    "genre": "portrait/landscape/abstract/conceptual/commercial/editorial/street/fine art",
+    "influences": ["Identified artistic movement or style influence"],
+    "mood": "energetic/calm/dramatic/playful/sophisticated/raw/polished",
+    "atmosphere": "Description of overall feeling and emotional impact",
+    "visual_style": "clean/cluttered/minimal/busy/organic/geometric/fluid/structured"
+  },
+  "typography": {
+    "present": true/false,
+    "fonts": [
+      {
+        "type": "sans-serif/serif/script/display/handwritten",
+        "weight": "thin/light/regular/medium/bold/black",
+        "characteristics": "modern/vintage/playful/serious/technical"
+      }
+    ],
+    "placement": "overlay/integrated/border/corner",
+    "integration": "subtle/prominent/dominant/background"
+  },
+  "subject_analysis": {
+    "primary_subject": "Main subject description",
+    "positioning": "center/left/right/top/bottom/rule of thirds placement",
+    "scale": "close-up/medium/full/environmental/macro",
+    "interaction": "isolated/interacting with environment/multiple subjects",
+    "facial_expression": {
+      "mouth": "closed smile/open smile/slight smile/neutral/serious/pursed",
+      "smile_intensity": "no smile/subtle/moderate/broad/wide",
+      "eyes": "direct gaze/looking away/squinting/wide/relaxed/intense",
+      "eyebrows": "raised/neutral/furrowed/relaxed",
+      "overall_emotion": "happy/content/serious/playful/confident/approachable/guarded/warm/cold",
+      "authenticity": "genuine/posed/candid/formal/natural"
+    },
+    "hair": {
+      "length": "pixie/short/chin-length/shoulder-length/mid-back/long/very long",
+      "cut": "blunt/layered/shaggy/undercut/fade/tapered/disconnected",
+      "texture": "straight/wavy/curly/coily/kinky",
+      "texture_quality": "smooth/coarse/fine/thick/thin",
+      "natural_imperfections": "flyaways/frizz/uneven sections/growth patterns/cowlicks",
+      "styling": "sleek/tousled/wet look/blow-dried/natural/product-heavy/messy/textured",
+      "part": "center/side/deep side/no part/zigzag",
+      "volume": "flat/moderate volume/voluminous"
+    },
+    "hands_and_gestures": {
+      "left_hand": "Exact position and gesture",
+      "right_hand": "Exact position and gesture",
+      "finger_positions": "Specific details",
+      "hand_tension": "relaxed/tense/natural/posed/rigid",
+      "naturalness": "organic casual gesture/deliberately posed/caught mid-motion/static formal pose"
+    },
+    "body_positioning": {
+      "posture": "standing/sitting/leaning/lying",
+      "angle": "facing camera/45 degree turn/profile/back to camera",
+      "weight_distribution": "leaning left/right/centered/shifted",
+      "shoulders": "level/tilted/rotated/hunched/back"
+    },
+    "background": {
+      "setting_type": "indoor/outdoor/studio/natural environment",
+      "spatial_depth": "shallow/medium/deep",
+      "elements_detailed": [
+        {
+          "item": "Specific object name",
+          "position": "left/right/center/top/bottom",
+          "distance": "foreground/midground/background",
+          "size": "dominant/medium/small",
+          "condition": "new/worn/vintage/pristine",
+          "specific_features": "Detailed features"
+        }
+      ],
+      "wall_surface": {
+        "material": "painted drywall/concrete/brick/wood paneling/tile/wallpaper/plaster",
+        "surface_treatment": "smooth paint/textured paint/raw concrete/polished concrete",
+        "texture": "perfectly smooth/slightly textured/rough/patterned/brushed",
+        "finish": "matte/satin/glossy/flat",
+        "color": "Specific color with undertones",
+        "features": "clean/water stains/vertical streaks/cracks/patches/fixtures",
+        "wear_indicators": "pristine/aged/weathered/industrial/residential"
+      },
+      "floor_surface": {
+        "material": "wood/tile/carpet/concrete/grass",
+        "color": "Specific color",
+        "pattern": "solid/checkered/striped/herringbone"
+      },
+      "background_treatment": "blurred/sharp/minimal/detailed/gradient/textured"
+    }
+  },
+  "generation_parameters": {
+    "prompts": [
+      "Detailed technical prompt for recreating this style",
+      "Alternative angle or variation prompt"
+    ],
+    "keywords": ["keyword1", "keyword2", "keyword3"],
+    "technical_settings": "Recommended camera/render settings",
+    "post_processing": "Color grading, filters, or editing techniques"
+  }
+}
+```
+
+## Reference Images (DESIGN_PRO Only)
+
+DESIGN_PRO nodes support up to 14 reference images for advanced editing:
+- **Object images**: Up to 6 images of objects to include in the final image
+- **Human images**: Up to 5 images of humans to maintain character consistency
+- **Total maximum**: 14 reference images
+
+**Specifying Reference Images in JSON:**
+```json
+{
+  "referenceImages": [
+    {
+      "image": "{{design1.imageUrl}}",
+      "type": "object"
+    },
+    {
+      "image": "base64...",
+      "mimeType": "image/jpeg",
+      "type": "human"
+    }
+  ]
+}
+```
+
+**Image Sources:**
+- Previous node outputs: Use Handlebars templates like `{{design1.imageUrl}}`
+- URLs: Direct image URLs (will be fetched automatically)
+- Base64: Raw base64 encoded strings
+
+## Editing Modes (DESIGN_PRO)
+
+DESIGN_PRO supports multiple modes:
+
+### Generate Mode
+- Same as DESIGN node - text-to-image generation
+- Use for: Creating new images from scratch
+
+### Edit Mode
+- Edit an existing image with text prompts
+- Requires: `sourceImage` field (URL, base64, or {{previousNode.imageUrl}})
+- Use for: Single edits like "change text to Spanish", "add a logo", "adjust colors"
+
+### Chat Mode
+- Multi-turn conversational editing
+- Maintains conversation history for iterative improvements
+- Use for: Complex editing workflows where user wants to refine images through conversation
+- Example workflow:
+  1. First DESIGN_PRO (generate): Create initial image
+  2. Second DESIGN_PRO (chat): "Change the text to Spanish"
+  3. Third DESIGN_PRO (chat): "Make the background darker"
+  4. Each turn builds on previous conversation
+
+### Edit With References Mode
+- Edit with reference images (up to 14)
+- Use for: Creating composite images, maintaining character consistency, mixing multiple elements
+- Example: "Create a group photo of these people making funny faces" with 5 reference human images
+
+## Usage Notes for Claude Code
+
+1. **Always use JSON format**: The `prompt` field in DESIGN/DESIGN_PRO nodes must be a JSON string (use JSON.stringify() or similar)
+
+2. **Template variables**: Use Handlebars syntax {{$json.variableName}} or {{context.field}} within JSON string values
+
+3. **Required vs Optional**: Include all relevant sections, but omit sections that don't apply to the image type
+
+4. **Maintain consistency**: When creating multiple images (e.g., presentation slides), keep the same structure and styling parameters across all images, only varying content-specific fields
+
+5. **Presentation slides**: For slide generation, use aspect_ratio "16:9" and consider using "presentation_slide" template
+
+6. **Content extraction**: When user provides content, extract relevant sections and create appropriate prompts for each slide/image
+
+7. **Choosing DESIGN vs DESIGN_PRO**:
+   - Use DESIGN for simple text-to-image generation
+   - Use DESIGN_PRO for: editing existing images, multi-turn conversations, reference images, high-res output (1K/2K/4K), Google Search grounding
+
+8. **Multi-turn editing**: For iterative improvements, use DESIGN_PRO in chat mode. Chain multiple DESIGN_PRO nodes, each in chat mode, to build on previous edits
+
+## Example: Presentation Slide Prompt
+
+```json
+{
+  "context": "You are an expert presentation designer creating professional slides",
+  "inputVariable": "{{$json.slideContent}}",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "16:9",
+    "layout": "single subject",
+    "visual_hierarchy": "Title at top, content in center, supporting elements balanced"
+  },
+  "color_profile": {
+    "temperature": "cool",
+    "saturation": "moderate",
+    "contrast": "medium contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {
+        "type": "sans-serif",
+        "weight": "bold",
+        "characteristics": "modern"
+      }
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a professional presentation slide with: {{slideContent.title}} as the main heading and {{slideContent.body}} as supporting text. Use clean, modern design with ample white space.",
+    "keywords": ["professional", "modern", "clean", "presentation", "slide"]
+  }
+}
+```

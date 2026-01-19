@@ -841,6 +841,151 @@ function getCredentialSetupInstructions(type: string): string {
 }
 
 // ============================================
+// Tool: Create Multiple Design Nodes
+// ============================================
+
+export const createMultipleDesignNodesTool: VerxioTool = {
+  name: "createMultipleDesignNodes",
+  description:
+    "Create multiple DESIGN nodes in sequence for generating multiple images (e.g., presentation slides, image series). Each node receives a JSON-formatted prompt from the imageSpecs array. Nodes are connected sequentially.",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow"),
+    imageSpecs: z
+      .array(
+        z.object({
+          prompt: z
+            .string()
+            .describe("JSON-formatted prompt string (REQUIRED - must be valid JSON)"),
+          variables: z
+            .string()
+            .optional()
+            .describe("Variable name for this node's output (defaults to design1, design2, etc.)"),
+          aspectRatio: z.string().optional().describe("Aspect ratio (e.g., '16:9', '1:1', '9:16')"),
+          template: z
+            .string()
+            .optional()
+            .describe("Template type (e.g., 'presentation_slide', 'instagram_post')"),
+          model: z
+            .string()
+            .optional()
+            .describe("Model to use (defaults to gemini-2.5-flash-image)"),
+        })
+      )
+      .min(1)
+      .describe("Array of image specifications, one per node"),
+    variablesPrefix: z
+      .string()
+      .optional()
+      .describe("Prefix for variable names (defaults to 'design')"),
+  }),
+  execute: async ({ workflowId, imageSpecs, variablesPrefix = "design" }, context) => {
+    // Verify workflow belongs to user
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: context.userId },
+      include: { nodes: true },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    const nodeIds: string[] = [];
+    const variableNames: string[] = [];
+
+    // Calculate starting position
+    const maxX = Math.max(...workflow.nodes.map((n: any) => n.position?.x || 0), 0);
+    const startX = maxX + 300;
+
+    // Create nodes sequentially
+    for (let i = 0; i < imageSpecs.length; i++) {
+      const spec = imageSpecs[i];
+      const variableName = spec.variables || `${variablesPrefix}${i + 1}`;
+      const nodeName = `Design ${i + 1}`;
+
+      // Validate prompt is JSON
+      let parsedPrompt;
+      try {
+        parsedPrompt = JSON.parse(spec.prompt);
+      } catch (error) {
+        return {
+          success: false,
+          error: `Image spec ${i + 1}: prompt must be valid JSON string. Use JSON.stringify() when creating prompts.`,
+        };
+      }
+
+      // Calculate position (vertical stacking)
+      const position = {
+        x: startX,
+        y: i * 150,
+      };
+
+      // Create node data
+      const nodeData: Record<string, any> = {
+        variables: variableName,
+        prompt: spec.prompt, // Store as JSON string
+      };
+
+      if (spec.aspectRatio) {
+        nodeData.aspectRatio = spec.aspectRatio;
+      }
+      if (spec.template) {
+        nodeData.template = spec.template;
+      }
+      if (spec.model) {
+        nodeData.model = spec.model;
+      }
+
+      // Create the node
+      const node = await prisma.node.create({
+        data: {
+          workflowId,
+          name: nodeName,
+          type: "DESIGN",
+          position,
+          data: nodeData,
+        },
+      });
+
+      nodeIds.push(node.id);
+      variableNames.push(variableName);
+
+      // Connect to previous node if not the first
+      if (i > 0) {
+        const previousNodeId = nodeIds[i - 1];
+
+        // Check if connection already exists
+        const existingConnection = await prisma.connection.findFirst({
+          where: {
+            fromNodeId: previousNodeId,
+            toNodeId: node.id,
+          },
+        });
+
+        if (!existingConnection) {
+          await prisma.connection.create({
+            data: {
+              workflowId,
+              fromNodeId: previousNodeId,
+              toNodeId: node.id,
+              fromOutput: "main",
+              toInput: "main",
+            },
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      nodeIds,
+      variableNames,
+      count: nodeIds.length,
+      message: `Created ${nodeIds.length} DESIGN nodes connected in sequence. Variable names: ${variableNames.join(", ")}`,
+    };
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -860,6 +1005,7 @@ export const verxioTools: VerxioTool[] = [
   generateCodeTool,
   deleteNodeTool,
   listWorkflowsTool,
+  createMultipleDesignNodesTool,
 ];
 
 export default verxioTools;
