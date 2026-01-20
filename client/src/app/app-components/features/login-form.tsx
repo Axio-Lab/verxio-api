@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { signIn } from "@/lib/auth-client";
+import { signIn, sendVerificationEmail } from "@/lib/auth-client";
 import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,6 +32,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthWithVerxioUser();
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
@@ -48,6 +49,15 @@ export function LoginForm() {
     router.prefetch("/workflows");
   }, [router]);
 
+  // Check for verified parameter and show success message
+  useEffect(() => {
+    if (searchParams.get("verified") === "true") {
+      toast.success("Email verified successfully! You can now log in.");
+      // Clean up URL
+      router.replace("/login");
+    }
+  }, [searchParams, router]);
+
   // Redirect if already authenticated - use replace for instant navigation
   useEffect(() => {
     if (isAuthenticated) {
@@ -57,14 +67,40 @@ export function LoginForm() {
 
   const onSubmit = async (values: FormSchema) => {
     try {
-      const result = await signIn.email({
-        email: values.email,
-        password: values.password,
-      });
+      const result = await signIn.email(
+        {
+          email: values.email,
+          password: values.password,
+        },
+        {
+          onError: async (ctx) => {
+            // Handle email verification error
+            if (ctx.error.status === 403) {
+              // Automatically send verification email and redirect to check-email page
+              try {
+                await sendVerificationEmail({
+                  email: values.email,
+                  callbackURL: `${window.location.origin}/login?verified=true`,
+                });
+                toast.success("Verification email sent! Please check your inbox.");
+                // Redirect to check-email page
+                router.push(`/check-email?email=${encodeURIComponent(values.email)}`);
+              } catch (error: any) {
+                console.error("Failed to send verification email:", error);
+                // If sending fails, show error but still redirect
+                toast.error("Email verification required. Redirecting to verification page...");
+                router.push(`/check-email?email=${encodeURIComponent(values.email)}`);
+              }
+            } else {
+              toast.error(ctx.error.message || "Login failed. Please check your credentials.");
+            }
+          },
+        }
+      );
 
       // Better Auth returns { data, error } structure
       if (result?.error) {
-        toast.error(result.error.message || "Login failed. Please check your credentials.");
+        // Error already handled in onError callback
         return;
       }
 

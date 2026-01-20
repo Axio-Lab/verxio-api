@@ -24,11 +24,20 @@ export const betterAuthMiddleware = async (req: Request, res: Response, next: Ne
         id: true,
         email: true,
         name: true,
+        emailVerified: true,
       },
     });
 
     if (!betterAuthUser) {
       throw new AppError("User not found. Please ensure you are logged in.", 401);
+    }
+
+    // Check if email is verified
+    if (!betterAuthUser.emailVerified) {
+      throw new AppError(
+        "Email verification required. Please verify your email address before accessing this resource.",
+        403
+      );
     }
 
     // Attach user info to request for use in routes

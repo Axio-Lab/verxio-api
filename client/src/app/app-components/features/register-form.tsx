@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { signUp, signIn } from "@/lib/auth-client";
+import { signUp, signIn, signOut } from "@/lib/auth-client";
 import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -55,7 +55,7 @@ export function RegisterForm() {
     router.prefetch("/workflows");
   }, [router]);
 
-  // Redirect if already authenticated and VerxioUser is created - use replace for instant navigation
+  // Redirect if already authenticated (with verified email) and VerxioUser is created
   useEffect(() => {
     if (isAuthenticated && verxioUser) {
       router.replace("/workflows");
@@ -76,8 +76,17 @@ export function RegisterForm() {
         return;
       }
 
-      toast.success("Setting up your Verxio profile...");
-      router.push("/workflows");
+      // Sign out immediately to prevent auto-login (email verification required)
+      try {
+        await signOut();
+      } catch (signOutError) {
+        console.warn("Failed to sign out after registration:", signOutError);
+        // Continue anyway - we'll check email verification status in auth hooks
+      }
+
+      // Redirect to check-email page with email parameter
+      toast.success("Account created! Please check your email to verify your account.");
+      router.push(`/check-email?email=${encodeURIComponent(values.email)}`);
     } catch (error: any) {
       console.error("Registration error:", error);
       const errorMessage =

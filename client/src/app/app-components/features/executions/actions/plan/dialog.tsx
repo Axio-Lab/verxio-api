@@ -85,6 +85,7 @@ export const PlanDialog = ({
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [thinkingDots, setThinkingDots] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -426,6 +427,7 @@ export const PlanDialog = ({
   const handleClearConversation = async () => {
     if (!workflowId) return;
 
+    setIsClearing(true);
     try {
       await authenticatedDelete(`/planning/workflow/${workflowId}/clear`);
       setConversationHistory([]);
@@ -434,6 +436,8 @@ export const PlanDialog = ({
     } catch (error) {
       console.error("Failed to clear conversation:", error);
       toast.error("Failed to clear conversation");
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -749,11 +753,16 @@ export const PlanDialog = ({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowClearConfirm(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowClearConfirm(false)}
+                disabled={isClearing}
+              >
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleClearConversation}>
-                Clear
+              <Button variant="destructive" onClick={handleClearConversation} disabled={isClearing}>
+                {isClearing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isClearing ? "Clearing..." : "Clear"}
               </Button>
             </DialogFooter>
           </DialogContent>

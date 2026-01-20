@@ -6,6 +6,9 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { getCredential } from "@/services/credentialService";
 import { CredentialType } from "@/services/credentialService";
+import { basePrismaClient } from "@/lib/prisma";
+
+const prisma = basePrismaClient as any;
 
 // Register Handlebars helpers
 Handlebars.registerHelper("json", (context) => {
@@ -91,8 +94,65 @@ type OpenAITriggerData = {
   systemPrompt?: string;
   userPrompt?: string;
   variablesName?: string;
+  variables?: string; // Support both field names
   credentialId?: string; // ID of the credential to use
 };
+
+// Helper to convert node name to camelCase variable name
+function toCamelCase(str: string): string {
+  return str
+    .trim()
+    .replace(/[^a-zA-Z0-9\s]/g, "") // Remove special characters
+    .split(/\s+/)
+    .map((word, index) => {
+      if (index === 0) {
+        return word.charAt(0).toLowerCase() + word.slice(1).toLowerCase();
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join("");
+}
+
+// Helper to get variable name with priority: variablesName > variables > node.name > default
+async function getVariableName(
+  data: OpenAITriggerData,
+  nodeId: string,
+  defaultName: string,
+  step: any
+): Promise<string> {
+  // Priority 1: Check variablesName field
+  if (data.variablesName) {
+    return data.variablesName;
+  }
+
+  // Priority 2: Check variables field (for compatibility with system prompt)
+  if (data.variables) {
+    return data.variables;
+  }
+
+  // Priority 3: Fetch node and use its name (convert to camelCase)
+  try {
+    const node = await step.run(`get-node-${nodeId}`, async () => {
+      return await prisma.node.findUnique({
+        where: { id: nodeId },
+        select: { name: true },
+      });
+    });
+
+    if (node?.name) {
+      const camelCaseName = toCamelCase(node.name);
+      if (camelCaseName) {
+        return camelCaseName;
+      }
+    }
+  } catch (error) {
+    // If fetching node fails, continue to default
+    console.warn(`Failed to fetch node ${nodeId} for variable name:`, error);
+  }
+
+  // Priority 4: Use default (node type)
+  return defaultName;
+}
 
 // Helper to publish status updates
 const publishStatus = async (
@@ -119,9 +179,10 @@ export const openaiTriggerExecutor: NodeExecutor<OpenAITriggerData> = async ({
   try {
     await publishStatus(publish, nodeId, "loading");
 
-    if (!data.variablesName) {
+    const variablesName = await getVariableName(data, nodeId, "openai", step);
+    if (!data.userPrompt) {
       await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError("OpenAI node: Variable name is required");
+      const error = new NonRetriableError("OpenAI node: User prompt is required");
       await publish(
         openaiChannel().output({
           nodeId,
@@ -288,7 +349,7 @@ export const openaiTriggerExecutor: NodeExecutor<OpenAITriggerData> = async ({
       await publishStatus(publish, nodeId, "success");
       const result = {
         ...context,
-        [data.variablesName]: {
+        [variablesName]: {
           text,
         },
       };
