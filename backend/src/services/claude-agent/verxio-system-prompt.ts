@@ -23,6 +23,10 @@ const NODE_TYPES_DOCUMENTATION = `
 **MANUAL_INPUT**
 - Fields: { variables: string, prompt: string }
 - Description: Workflow starts with user-provided input data
+- Output: The user's input value is stored directly under the variable name (NOT nested in an object)
+- Example: If variables="cityInput" and user enters "Lagos", output is: { cityInput: "Lagos", prompt: "..." }
+- Access: Use inputs.cityInput directly (the value is a string/number, not an object)
+- CRITICAL: Do NOT use inputs.cityInput.prompt - the value is direct, not nested!
 
 **TIMED_TRIGGER**
 - Fields: { scheduleType: "interval"|"daily"|"weekly"|"monthly"|"cron", intervalHours?: number, intervalMinutes?: number, cronExpression?: string, enabled: boolean }
@@ -262,6 +266,15 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 - Outputs: { files: [{ id, name, mimeType }], success }
 - Template: {{driveFiles.files[0].name}}
 
+### Triggers (Uses "variables" field)
+
+**MANUAL_INPUT** (if variables: "cityInput")
+- Outputs: The user input value directly (string/number/etc.) - NOT nested in an object
+- Example output: { cityInput: "Lagos", prompt: "Enter city name" }
+- Template: {{cityInput}} - Access the value directly (it's a string, not an object)
+- CRITICAL: Do NOT use {{cityInput.prompt}} - the value is direct, not nested!
+- In CODE_BLOCK: const city = inputs.cityInput; (direct value access)
+
 ### Data Nodes (Uses "variables" field)
 
 **HTTP_REQUEST** (if variables: "apiResponse")
@@ -299,6 +312,9 @@ const VARIABLE_FLOW_DOCS = `
 1. Each node stores its output under its variable name
 2. Subsequent nodes access data via: inputs.variableName.outputKey
 3. Template syntax for node configs: {{variableName.outputKey}}
+4. **EXCEPTION: MANUAL_INPUT** - Outputs the value directly (not nested):
+   - If variables="cityInput" and user enters "Lagos", access as: inputs.cityInput (returns "Lagos" directly)
+   - Do NOT use: inputs.cityInput.prompt (this will fail - cityInput is a string, not an object)
 
 ### Variable Naming Convention
 - Use descriptive names: "userData", "apiResponse", "sheetData", "extractedReceipt"
@@ -311,13 +327,15 @@ const VARIABLE_FLOW_DOCS = `
 - "Hello {{userData.name}}, your balance is {{balanceCheck.amount}}"
 - "Date: {{receiptData.date}}, Amount: {{receiptData.amount}}"
 - "Summary: {{aiAnalysis.text}}"
+- "City: {{cityInput}}" - MANUAL_INPUT: Access value directly (not {{cityInput.prompt}})
 
 **In Structured Fields** (arrays, objects):
 - Google Sheets values: "[[{{extract.date}}, {{extract.item}}, {{extract.price}}]]"
 - HTTP body: { "user": "{{trigger.userId}}", "data": "{{aiAnalysis.text}}" } (use .text for AI nodes, or specific field for other nodes)
 
 **In CODE_BLOCK**:
-- Access via: inputs.variableName.key
+- Access via: inputs.variableName.key (for objects)
+- For MANUAL_INPUT: Access directly - const city = inputs.cityInput; (value is direct, not nested)
 - NEVER use: context.variableName (undefined!)
 `;
 
@@ -350,9 +368,14 @@ const message = inputs.telegramTrigger.message.text;
 const apiData = inputs.httpCall.httpResponse.data;
 const sheetValues = inputs.sheetData.values;
 
+// CORRECT - MANUAL_INPUT: Access value directly (not nested)
+const city = inputs.cityInput; // Returns "Lagos" directly (string)
+const userPrompt = inputs.userPrompt; // Direct value access
+
 // WRONG - These cause ReferenceError
 const message = context.telegramTrigger.message.text; // context undefined!
 const apiData = telegramTrigger.message.text; // variable not defined!
+const city = inputs.cityInput.prompt; // WRONG! cityInput is a string, not an object!
 \`\`\`
 
 ### Example: Processing Data
