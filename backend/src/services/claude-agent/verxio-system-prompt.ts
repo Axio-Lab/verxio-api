@@ -43,19 +43,25 @@ const NODE_TYPES_DOCUMENTATION = `
 ### AI Models (Text Generation & Analysis)
 
 **ANTHROPIC**
-- Fields: { variables: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
+- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
+  - variables is OPTIONAL - defaults to node name if not provided
 - Models: "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
+- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
 
 **OPENAI**
-- Fields: { variables: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), temperature?: number, credentialId: string }
+- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), temperature?: number, credentialId: string }
+  - variables is OPTIONAL - defaults to node name if not provided
 - Models: "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
+- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
 
 **GEMINI**
-- Fields: { variables: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
+- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
+  - variables is OPTIONAL - defaults to node name if not provided
 - Models: "gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
+- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
 
 ### Communication (Messaging)
 
@@ -219,11 +225,9 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 
 **ANTHROPIC / OPENAI / GEMINI**
 - If variables: "aiAnalysis", outputs stored under that name
-- Outputs: { output: "generated text", model, usage }
+- Outputs: { text: "generated text" }
 - Template examples (assuming variables: "aiAnalysis"):
-  - {{aiAnalysis.output}} - The generated text response
-  - {{aiAnalysis.model}} - Model used
-  - {{aiAnalysis.usage.inputTokens}} - Tokens used
+  - {{aiAnalysis.text}} - The generated text response (REQUIRED - use this field)
 
 ### Communication Actions (Uses "variables" field)
 
@@ -306,11 +310,11 @@ const VARIABLE_FLOW_DOCS = `
 **In Text Fields** (messages, prompts):
 - "Hello {{userData.name}}, your balance is {{balanceCheck.amount}}"
 - "Date: {{receiptData.date}}, Amount: {{receiptData.amount}}"
-- "Summary: {{aiAnalysis.output}}"
+- "Summary: {{aiAnalysis.text}}"
 
 **In Structured Fields** (arrays, objects):
 - Google Sheets values: "[[{{extract.date}}, {{extract.item}}, {{extract.price}}]]"
-- HTTP body: { "user": "{{trigger.userId}}", "data": "{{previousNode.output}}" }
+- HTTP body: { "user": "{{trigger.userId}}", "data": "{{aiAnalysis.text}}" } (use .text for AI nodes, or specific field for other nodes)
 
 **In CODE_BLOCK**:
 - Access via: inputs.variableName.key
@@ -571,12 +575,12 @@ When creating or configuring nodes, you MUST:
 - variables: Output variable name
 - credentialId: Telegram bot credential ID
 - chatId: Ask user to provide (cannot be guessed)
-- message: Format nicely with variable interpolation using {{nodeName.output}}
+- message: Format nicely with variable interpolation using {{nodeName.text}} (for AI nodes) or {{nodeName.fieldName}} (for other nodes)
 
 **Communication (Discord/Slack):**
 - variables: Output variable name
 - webhookUrl: Ask user to provide
-- message: Format nicely with variable interpolation using {{nodeName.output}}
+- message: Format nicely with variable interpolation using {{nodeName.text}} (for AI nodes) or {{nodeName.fieldName}} (for other nodes)
 
 **HTTP Request:**
 - variables: Output variable name
@@ -598,10 +602,15 @@ When creating or configuring nodes, you MUST:
   - GOOGLE_FORM_TRIGGER: "googleForm" -> {{googleForm.payload.answers}}
   - STRIPE_TRIGGER: "stripe" -> {{stripe.event}}, {{stripe.data}}
   - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.message}}
-- ACTION NODES use the "variables" field value:
-  - If ANTHROPIC has variables: "aiResponse" -> {{aiResponse.output}}
+- ACTION NODES use the "variables" field value (or node name if not set):
+  - If ANTHROPIC node named "viralIdea" (no variables field) -> {{viralIdea.text}}
+  - If ANTHROPIC has variables: "aiResponse" -> {{aiResponse.text}}
   - If GOOGLE_SHEETS has variables: "sheetData" -> {{sheetData.values}}
   - If TELEGRAM has variables: "telegramSend" -> {{telegramSend.messageId}}
+- **AI NODES (GEMINI, ANTHROPIC, OPENAI)**: Output variable name priority:
+  1. Explicit variables field value (if provided)
+  2. Node display name converted to camelCase (example: "Viral Idea" -> "viralIdea")
+  3. Node type as fallback (example: "gemini", "anthropic", "openai")
 
 **Telegram Trigger Media Detection**
 - {{telegram.message.type}} returns: "text", "photo", "video", "audio", "voice", "document", "sticker", etc.

@@ -56,9 +56,9 @@ const mcpServerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
-// Database config schema
+// Database config schema - flexible to support any database type
 const databaseConfigSchema = z.object({
-  provider: z.enum(["postgresql", "mysql", "sqlite", "mongodb", "supabase"]),
+  provider: z.string().min(1, "Provider is required"), // Allow any provider name
   connectionString: z.string().optional(),
   host: z.string().optional(),
   port: z.coerce.number().optional(),
@@ -66,8 +66,22 @@ const databaseConfigSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   ssl: z.boolean().default(false),
+  // Supabase specific
   supabaseUrl: z.string().optional(),
   supabaseKey: z.string().optional(),
+  // Firebase specific
+  firebaseProjectId: z.string().optional(),
+  firebaseApiKey: z.string().optional(),
+  firebaseAuthDomain: z.string().optional(),
+  firebaseStorageBucket: z.string().optional(),
+  firebaseMessagingSenderId: z.string().optional(),
+  firebaseAppId: z.string().optional(),
+  firebaseServiceAccountKey: z.string().optional(),
+  // Prisma specific
+  prismaSchemaPath: z.string().optional(),
+  prismaConnectionString: z.string().optional(),
+  // Generic additional config (for any other database types)
+  additionalConfig: z.string().optional(), // JSON string for flexible config
 });
 
 // Documentation config schema
@@ -131,16 +145,26 @@ export function ConnectionForm({ connection, isEditing = false }: ConnectionForm
         apiKey: "",
       },
       databaseConfig: {
-        provider: "supabase",
+        provider: "",
         connectionString: "",
         host: "",
         port: 5432,
         database: "",
         username: "",
         password: "",
-        ssl: true,
+        ssl: false,
         supabaseUrl: "",
         supabaseKey: "",
+        firebaseProjectId: "",
+        firebaseApiKey: "",
+        firebaseAuthDomain: "",
+        firebaseStorageBucket: "",
+        firebaseMessagingSenderId: "",
+        firebaseAppId: "",
+        firebaseServiceAccountKey: "",
+        prismaSchemaPath: "",
+        prismaConnectionString: "",
+        additionalConfig: "",
       },
       documentationConfig: {
         sourceType: "url",
@@ -204,7 +228,7 @@ export function ConnectionForm({ connection, isEditing = false }: ConnectionForm
 
       case ConnectionType.DATABASE:
         config = {
-          provider: data.databaseConfig?.provider || "supabase",
+          provider: data.databaseConfig?.provider || "",
           connectionString: data.databaseConfig?.connectionString,
           host: data.databaseConfig?.host,
           port: data.databaseConfig?.port,
@@ -212,8 +236,22 @@ export function ConnectionForm({ connection, isEditing = false }: ConnectionForm
           username: data.databaseConfig?.username,
           password: data.databaseConfig?.password,
           ssl: data.databaseConfig?.ssl,
+          // Supabase
           supabaseUrl: data.databaseConfig?.supabaseUrl,
           supabaseKey: data.databaseConfig?.supabaseKey,
+          // Firebase
+          firebaseProjectId: data.databaseConfig?.firebaseProjectId,
+          firebaseApiKey: data.databaseConfig?.firebaseApiKey,
+          firebaseAuthDomain: data.databaseConfig?.firebaseAuthDomain,
+          firebaseStorageBucket: data.databaseConfig?.firebaseStorageBucket,
+          firebaseMessagingSenderId: data.databaseConfig?.firebaseMessagingSenderId,
+          firebaseAppId: data.databaseConfig?.firebaseAppId,
+          firebaseServiceAccountKey: data.databaseConfig?.firebaseServiceAccountKey,
+          // Prisma
+          prismaSchemaPath: data.databaseConfig?.prismaSchemaPath,
+          prismaConnectionString: data.databaseConfig?.prismaConnectionString,
+          // Additional config
+          additionalConfig: data.databaseConfig?.additionalConfig,
         };
         break;
 
@@ -316,7 +354,7 @@ export function ConnectionForm({ connection, isEditing = false }: ConnectionForm
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="My Supabase Database" {...field} />
+                      <Input placeholder="My Database Connection" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -488,7 +526,7 @@ function McpServerConfigSection({ form }: { form: any }) {
                 <FormLabel>Arguments (one per line)</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder={"@supabase/mcp-server\n--url\nhttps://your-project.supabase.co"}
+                    placeholder={"@modelcontextprotocol/server-example\n--api-key\nyour-api-key"}
                     className="font-mono text-sm resize-none"
                     rows={4}
                     {...field}
@@ -542,23 +580,52 @@ function DatabaseConfigSection({ form }: { form: any }) {
             <Select value={field.value} onValueChange={field.onChange}>
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select provider" />
+                  <SelectValue placeholder="Select or type provider name" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 <SelectItem value="supabase">Supabase</SelectItem>
+                <SelectItem value="firebase">Firebase</SelectItem>
+                <SelectItem value="prisma">Prisma</SelectItem>
                 <SelectItem value="postgresql">PostgreSQL</SelectItem>
                 <SelectItem value="mysql">MySQL</SelectItem>
                 <SelectItem value="mongodb">MongoDB</SelectItem>
                 <SelectItem value="sqlite">SQLite</SelectItem>
+                <SelectItem value="mssql">Microsoft SQL Server</SelectItem>
+                <SelectItem value="oracle">Oracle</SelectItem>
+                <SelectItem value="redis">Redis</SelectItem>
+                <SelectItem value="cassandra">Cassandra</SelectItem>
+                <SelectItem value="custom">Custom / Other</SelectItem>
               </SelectContent>
             </Select>
+            <FormDescription>
+              Select a provider or use "Custom / Other" for any database type
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
       />
 
-      {provider === "supabase" ? (
+      {/* Custom provider input */}
+      {provider === "custom" && (
+        <FormField
+          control={form.control}
+          name="databaseConfig.provider"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Custom Provider Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., PlanetScale, Neon, Turso" {...field} />
+              </FormControl>
+              <FormDescription>Enter the name of your database provider</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Supabase Configuration */}
+      {provider === "supabase" && (
         <>
           <FormField
             control={form.control}
@@ -589,7 +656,140 @@ function DatabaseConfigSection({ form }: { form: any }) {
             )}
           />
         </>
-      ) : (
+      )}
+
+      {/* Firebase Configuration */}
+      {provider === "firebase" && (
+        <>
+          <FormField
+            control={form.control}
+            name="databaseConfig.firebaseProjectId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Firebase Project ID</FormLabel>
+                <FormControl>
+                  <Input placeholder="my-project-id" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="databaseConfig.firebaseApiKey"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Firebase API Key</FormLabel>
+                <FormControl>
+                  <Input type="password" placeholder="AIza..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="databaseConfig.firebaseAuthDomain"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Auth Domain (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="my-project.firebaseapp.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="databaseConfig.firebaseStorageBucket"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Storage Bucket (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="my-project.appspot.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="databaseConfig.firebaseServiceAccountKey"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Service Account Key (JSON)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder='{"type":"service_account","project_id":"..."}'
+                    className="font-mono text-sm resize-none"
+                    rows={6}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>Paste your Firebase service account JSON key</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </>
+      )}
+
+      {/* Prisma Configuration */}
+      {provider === "prisma" && (
+        <>
+          <FormField
+            control={form.control}
+            name="databaseConfig.prismaSchemaPath"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Prisma Schema Path</FormLabel>
+                <FormControl>
+                  <Input placeholder="./prisma/schema.prisma" {...field} />
+                </FormControl>
+                <FormDescription>Path to your Prisma schema file</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="databaseConfig.prismaConnectionString"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Connection String</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="postgresql://user:password@host:5432/db"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Database connection string (from DATABASE_URL or .env)
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </>
+      )}
+
+      {/* Standard Database Configuration (for PostgreSQL, MySQL, MongoDB, etc.) */}
+      {(provider === "postgresql" ||
+        provider === "mysql" ||
+        provider === "mongodb" ||
+        provider === "sqlite" ||
+        provider === "mssql" ||
+        provider === "oracle" ||
+        provider === "redis" ||
+        provider === "cassandra" ||
+        provider === "custom") && (
         <>
           <FormField
             control={form.control}
@@ -700,6 +900,31 @@ function DatabaseConfigSection({ form }: { form: any }) {
             )}
           />
         </>
+      )}
+
+      {/* Additional Config for Custom Providers */}
+      {provider === "custom" && (
+        <FormField
+          control={form.control}
+          name="databaseConfig.additionalConfig"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Additional Configuration (JSON)</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder='{"key": "value", "option": "setting"}'
+                  className="font-mono text-sm resize-none"
+                  rows={4}
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Optional JSON configuration for custom database providers
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       )}
     </div>
   );

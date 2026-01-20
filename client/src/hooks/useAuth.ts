@@ -11,12 +11,18 @@ import { useEffect } from "react";
 export function useAuth() {
   const { data: session, isPending, error } = useSession();
 
+  // Check if user is verified (Better Auth includes emailVerified in user object)
+  const isEmailVerified = session?.user?.emailVerified === true;
+  // User is only considered authenticated if they have a session AND email is verified
+  const isAuthenticated = !!session?.user && isEmailVerified;
+
   return {
     session,
     user: session?.user,
     isLoading: isPending,
     error,
-    isAuthenticated: !!session?.user,
+    isAuthenticated,
+    isEmailVerified,
     signIn,
     signUp,
     signOut,

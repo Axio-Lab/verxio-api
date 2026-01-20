@@ -12,10 +12,18 @@ import { VerxioLoader } from "./VerxioLoader";
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, isEmailVerified } = useAuth();
 
   // Routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/forgot-password", "/reset-password", "/"];
+  const publicRoutes = [
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+    "/verify-email",
+    "/check-email",
+    "/",
+  ];
   const isPublicRoute = publicRoutes.some((route) => {
     if (route === "/") {
       // Exact match for home page
@@ -31,11 +39,18 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Check if user has session but email is not verified
+    if (user && !isEmailVerified) {
+      // User is logged in but email not verified - redirect to login with message
+      router.replace("/login");
+      return;
+    }
+
     // Redirect to login if not authenticated
     if (!isAuthenticated) {
       router.replace("/login");
     }
-  }, [isAuthenticated, isLoading, isPublicRoute, pathname, router]);
+  }, [isAuthenticated, isLoading, isPublicRoute, pathname, router, user, isEmailVerified]);
 
   // Show loader while checking authentication
   if (isLoading) {

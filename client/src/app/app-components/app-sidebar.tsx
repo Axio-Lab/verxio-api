@@ -32,11 +32,11 @@ const menuItems = [
   {
     title: "Main",
     items: [
-      {
-        title: "Vibe",
-        url: "/vibe",
-        icon: <SparklesIcon />,
-      },
+      // {
+      //   title: "Vibe",
+      //   url: "/vibe",
+      //   icon: <SparklesIcon />,
+      // },
       {
         title: "Workflows",
         url: "/workflows",

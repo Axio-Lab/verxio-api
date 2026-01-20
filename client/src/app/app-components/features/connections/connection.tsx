@@ -46,7 +46,7 @@ export const connectionTypeOptions = [
   {
     value: ConnectionType.MCP_SERVER,
     label: "MCP Server",
-    description: "Connect to external MCP servers (Supabase, Notion, custom)",
+    description: "Connect to any MCP server (custom or third-party)",
     icon: Server,
     color: "bg-purple-500/10 text-purple-500",
   },
