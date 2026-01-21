@@ -5,7 +5,7 @@
  * workflow patterns, and autonomous operation guidelines.
  */
 
-import { AVAILABLE_NODE_TYPES, createMultipleDesignNodesTool } from "./verxio-mcp-tools";
+import { AVAILABLE_NODE_TYPES } from "./verxio-mcp-tools";
 
 // ============================================
 // Node Types Documentation
