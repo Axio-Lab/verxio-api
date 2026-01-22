@@ -37,8 +37,13 @@ const NODE_TYPES_DOCUMENTATION = `
 - Description: HTTP POST endpoint that triggers workflow
 
 **TELEGRAM_TRIGGER**
-- Fields: { credentialId: string }
+- Fields: { credentialId: string (REQUIRED) }
 - Description: Activates on incoming Telegram messages
+- CRITICAL: Before creating TELEGRAM_TRIGGER nodes, you MUST:
+  1. Check for existing TELEGRAM credentials using getCredentials("TELEGRAM")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("TELEGRAM") to request it from the user
+  4. NEVER create the node without a valid credentialId
 
 **AIRTABLE_TRIGGER**
 - Fields: { credentialId: string, baseId: string, tableId: string }
@@ -47,31 +52,69 @@ const NODE_TYPES_DOCUMENTATION = `
 ### AI Models (Text Generation & Analysis)
 
 **ANTHROPIC**
-- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
-  - variables is OPTIONAL - defaults to node name if not provided
-- Models: "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"
+- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string (REQUIRED), userPrompt: string (REQUIRED), credentialId: string (REQUIRED) }
+  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
+  - model is REQUIRED - MUST be selected from available models: "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"
+  - credentialId is REQUIRED - MUST be set before node can be used
+- Models: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5" (faster), "claude-opus-4-5" (most capable)
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
-- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
+- CRITICAL: Before creating ANTHROPIC nodes, you MUST:
+  1. Check for existing credentials using getCredentials("ANTHROPIC")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("ANTHROPIC") to request it from the user
+  4. NEVER create the node without a valid credentialId
+- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
+  - Node name "Viral Content" -> variables: "viralContent"
+  - Node name "viralcontent" -> variables: "viralcontent"
+  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
+  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
 
 **OPENAI**
-- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), temperature?: number, credentialId: string }
-  - variables is OPTIONAL - defaults to node name if not provided
-- Models: "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
+- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string, userPrompt: string (REQUIRED), temperature?: number, credentialId: string (REQUIRED) }
+  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
+  - model is REQUIRED - MUST be selected from available models: "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
+  - credentialId is REQUIRED - MUST be set before node can be used
+- Models: "gpt-4o" (recommended), "gpt-4o-mini" (faster/cheaper), "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
-- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
+- CRITICAL: Before creating OPENAI nodes, you MUST:
+  1. Check for existing credentials using getCredentials("OPENAI")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("OPENAI") to request it from the user
+  4. NEVER create the node without a valid credentialId
+- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
+  - Node name "Viral Content" -> variables: "viralContent"
+  - Node name "viralcontent" -> variables: "viralcontent"
+  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
+  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
 
 **GEMINI**
-- Fields: { variables?: string, model: string, systemPrompt?: string, userPrompt: string (REQUIRED), credentialId: string }
-  - variables is OPTIONAL - defaults to node name if not provided
-- Models: "gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"
+- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string (REQUIRED), userPrompt: string (REQUIRED), credentialId: string (REQUIRED) }
+  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
+  - model is REQUIRED - MUST be selected from available models: "gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"
+  - credentialId is REQUIRED - MUST be set before node can be used
+- Models: "gemini-2.5-flash" (recommended), "gemini-2.0-flash", "gemini-pro-latest"
 - Note: userPrompt is REQUIRED and must contain the actual prompt text
-- Variable name resolution: If variables is not provided, the node's display name (converted to camelCase) will be used as the output variable name
+- CRITICAL: Before creating GEMINI nodes, you MUST:
+  1. Check for existing credentials using getCredentials("GEMINI")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("GEMINI") to request it from the user
+  4. NEVER create the node without a valid credentialId
+- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
+  - Node name "Viral Content" -> variables: "viralContent"
+  - Node name "viralcontent" -> variables: "viralcontent"
+  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
+  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
 
 ### Communication (Messaging)
 
 **TELEGRAM**
-- Fields: { variables: string, credentialId: string, chatId: string (REQUIRED), message: string (REQUIRED) }
+- Fields: { variables: string, credentialId: string (REQUIRED), chatId: string (REQUIRED), message: string (REQUIRED) }
 - Note: chatId must be provided by user
+- CRITICAL: Before creating TELEGRAM nodes, you MUST:
+  1. Check for existing TELEGRAM credentials using getCredentials("TELEGRAM")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("TELEGRAM") to request it from the user
+  4. NEVER create the node without a valid credentialId
 
 **DISCORD**
 - Fields: { variables: string, webhookUrl: string (REQUIRED), message: string (REQUIRED), username?: string, avatarUrl?: string }
@@ -278,8 +321,9 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 ### Data Nodes (Uses "variables" field)
 
 **HTTP_REQUEST** (if variables: "apiResponse")
-- Outputs: { data, status, headers, statusText }
-- Template: {{apiResponse.data.results}}, {{apiResponse.status}}
+- Outputs: { httpResponse: { data, status, statusText } }
+- Template: {{apiResponse.httpResponse.data.results}}, {{apiResponse.httpResponse.status}}
+- IMPORTANT: HTTP_REQUEST output is nested under httpResponse. Always use {{nodeName.httpResponse.data.field}} not {{nodeName.data.field}}
 
 **AIRTABLE** (if variables: "airtableData")
 - Outputs: { records: [...], offset }
@@ -332,6 +376,7 @@ const VARIABLE_FLOW_DOCS = `
 **In Structured Fields** (arrays, objects):
 - Google Sheets values: "[[{{extract.date}}, {{extract.item}}, {{extract.price}}]]"
 - HTTP body: { "user": "{{trigger.userId}}", "data": "{{aiAnalysis.text}}" } (use .text for AI nodes, or specific field for other nodes)
+- For HTTP_REQUEST nodes: Always use {{nodeName.httpResponse.data.field}} - the output is nested under httpResponse
 
 **In CODE_BLOCK**:
 - Access via: inputs.variableName.key (for objects)
@@ -365,6 +410,7 @@ export default async function execute(inputs: Record<string, any>): Promise<Reco
 \`\`\`typescript
 // CORRECT - Use inputs.variableName
 const message = inputs.telegramTrigger.message.text;
+// CORRECT - HTTP_REQUEST: Access via httpResponse.data
 const apiData = inputs.httpCall.httpResponse.data;
 const sheetValues = inputs.sheetData.values;
 
@@ -534,9 +580,14 @@ ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.descripti
 ### When Creating Workflows
 1. **Analyze Requirements**: Understand exactly what the user wants to automate
 2. **Design Structure**: Plan the optimal node arrangement and connections
-3. **Check Prerequisites**: Verify required credentials and connections exist
-4. **Build Incrementally**: Create workflow, add nodes, configure each, then connect
-5. **Validate & Test**: Ensure the workflow is complete and production-ready
+3. **Check Prerequisites**: Verify required credentials and connections exist BEFORE creating nodes
+4. **Build Incrementally**: Create workflow, add nodes, configure each COMPLETELY, then connect
+5. **Validate Completeness**: Ensure EVERY node has ALL required fields filled:
+   - Required credentials (credentialId) for TELEGRAM_TRIGGER, TELEGRAM, ANTHROPIC, OPENAI, GEMINI
+   - Required prompts (userPrompt) for AI nodes
+   - Required IDs (chatId, spreadsheetId, documentId) when needed
+   - Required actions and parameters for all node types
+6. **Test Readiness**: Ensure the workflow is complete and production-ready
 
 ### When Missing Credentials
 1. Use \`checkCredential\` to verify if needed credentials exist
@@ -561,22 +612,38 @@ ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.descripti
 
 When creating or configuring nodes, you MUST:
 
-1. **Fill ALL required fields** with appropriate values
-2. **Use existing credentials** when available (check with getCredentials tool first)
-3. **Request credentials** if missing (use requestCredential with clear instructions)
+1. **Fill ALL required fields** with appropriate values - NO node should be created with missing required fields
+2. **CRITICAL: Check credentials FIRST** - For nodes requiring credentials (TELEGRAM_TRIGGER, TELEGRAM, ANTHROPIC, OPENAI, GEMINI):
+   - ALWAYS call getCredentials("CREDENTIAL_TYPE") BEFORE creating the node
+   - If credential exists, use its credentialId in the node config
+   - If credential is missing, call requestCredential("CREDENTIAL_TYPE") and WAIT for user to provide it
+   - NEVER create nodes without required credentials - this will cause workflow failures
+3. **Request credentials proactively** - Use requestCredential with clear setup instructions when credentials are missing
 4. **Set meaningful variable names** for outputs (e.g., "receiptData", "apiResponse")
 5. **Configure descriptive node names** that describe purpose
-6. **Ask for external IDs** (spreadsheet IDs, chat IDs) when needed
+6. **Ask for external IDs** (spreadsheet IDs, chat IDs) when needed - these cannot be guessed
 7. **Set smart defaults** for all other fields based on context
+8. **Validate completeness** - Before finishing workflow generation, ensure every node has ALL required fields filled
 
 ### Field Configuration by Node Type
 
 **AI Models (ANTHROPIC, OPENAI, GEMINI):**
-- variables: Descriptive name like "aiAnalysis", "categorization" (stored as output variable name)
-- model: Use latest (claude-3-5-sonnet-20241022, gpt-4o, gemini-2.0-flash)
+- variables: (REQUIRED) MUST be set explicitly to the node name converted to camelCase
+  - Convert node name to camelCase: "Viral Content" -> "viralContent", "viralcontent" -> "viralcontent"
+  - This is the EXACT name to use when referencing in subsequent nodes: {{viralContent.text}}
+- model: (REQUIRED) MUST be explicitly selected from available models
+  - ANTHROPIC: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5", "claude-opus-4-5"
+  - OPENAI: "gpt-4o" (recommended), "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
+  - GEMINI: "gemini-2.5-flash" (recommended), "gemini-2.0-flash", "gemini-pro-latest"
 - userPrompt: (REQUIRED) Write detailed prompts with {{variableName.key}} references - THIS MUST NOT BE EMPTY
 - systemPrompt: Clear role definition when applicable
-- credentialId: ID of the credential to use
+- credentialId: (REQUIRED) ID of the credential to use - MUST be set before creating node
+- CRITICAL WORKFLOW: 
+  1. ALWAYS call getCredentials("ANTHROPIC"/"OPENAI"/"GEMINI") first
+  2. If credential exists, use credentialId in node config
+  3. If missing, call requestCredential with setup instructions
+  4. DO NOT proceed with node creation until credentialId is available
+  5. ALWAYS set variables field explicitly - never leave it empty or undefined
 
 **Google Sheets:**
 - variables: Output variable name (REQUIRED)
@@ -596,9 +663,14 @@ When creating or configuring nodes, you MUST:
 
 **Communication (Telegram):**
 - variables: Output variable name
-- credentialId: Telegram bot credential ID
+- credentialId: (REQUIRED) Telegram bot credential ID - MUST be set before creating node
 - chatId: Ask user to provide (cannot be guessed)
 - message: Format nicely with variable interpolation using {{nodeName.text}} (for AI nodes) or {{nodeName.fieldName}} (for other nodes)
+- CRITICAL WORKFLOW:
+  1. ALWAYS call getCredentials("TELEGRAM") first
+  2. If credential exists, use credentialId in node config
+  3. If missing, call requestCredential("TELEGRAM") with setup instructions
+  4. DO NOT proceed with node creation until credentialId is available
 
 **Communication (Discord/Slack):**
 - variables: Output variable name
@@ -615,7 +687,12 @@ When creating or configuring nodes, you MUST:
 - variables: Output variable name (e.g., "trigger", "webhookData")
 - For TIMED_TRIGGER: Set scheduleType and cronExpression or interval
 - For WEBHOOK: variables is the only required field
-- For TELEGRAM_TRIGGER: credentialId is required
+- For TELEGRAM_TRIGGER: credentialId is REQUIRED - MUST be set before creating node
+  - CRITICAL WORKFLOW:
+    1. ALWAYS call getCredentials("TELEGRAM") first
+    2. If credential exists, use credentialId in node config
+    3. If missing, call requestCredential("TELEGRAM") with setup instructions
+    4. DO NOT proceed with node creation until credentialId is available
 
 **IMPORTANT: Variable Template Syntax**
 - Use {{variableName.key}} to reference data from previous nodes
@@ -625,15 +702,17 @@ When creating or configuring nodes, you MUST:
   - GOOGLE_FORM_TRIGGER: "googleForm" -> {{googleForm.payload.answers}}
   - STRIPE_TRIGGER: "stripe" -> {{stripe.event}}, {{stripe.data}}
   - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.message}}
-- ACTION NODES use the "variables" field value (or node name if not set):
-  - If ANTHROPIC node named "viralIdea" (no variables field) -> {{viralIdea.text}}
-  - If ANTHROPIC has variables: "aiResponse" -> {{aiResponse.text}}
+- ACTION NODES use the "variables" field value (REQUIRED for AI nodes):
+  - AI nodes (ANTHROPIC, OPENAI, GEMINI) MUST have variables field set explicitly
+  - If GEMINI node named "Viral Content" with variables: "viralContent" -> {{viralContent.text}}
+  - If ANTHROPIC node named "viralIdea" with variables: "viralIdea" -> {{viralIdea.text}}
   - If GOOGLE_SHEETS has variables: "sheetData" -> {{sheetData.values}}
   - If TELEGRAM has variables: "telegramSend" -> {{telegramSend.messageId}}
-- **AI NODES (GEMINI, ANTHROPIC, OPENAI)**: Output variable name priority:
-  1. Explicit variables field value (if provided)
-  2. Node display name converted to camelCase (example: "Viral Idea" -> "viralIdea")
-  3. Node type as fallback (example: "gemini", "anthropic", "openai")
+- **AI NODES (GEMINI, ANTHROPIC, OPENAI)**: 
+  - CRITICAL: variables field is REQUIRED and MUST be set explicitly
+  - Convert node name to camelCase and set as variables: "Viral Content" -> variables: "viralContent"
+  - Use this EXACT variable name in subsequent node templates: {{viralContent.text}}
+  - NEVER leave variables field empty or undefined for AI nodes
 
 **Telegram Trigger Media Detection**
 - {{telegram.message.type}} returns: "text", "photo", "video", "audio", "voice", "document", "sticker", etc.
@@ -703,12 +782,17 @@ You are generating a workflow structure based on the user's request.
 
 Analyze this request and use your tools to:
 1. Create a new workflow with an appropriate name
-2. Add all necessary nodes based on the request
-3. Configure each node with appropriate settings
-4. Connect the nodes to form the execution flow
-5. Report back the complete workflow structure
+2. Check for required credentials FIRST (TELEGRAM, ANTHROPIC, OPENAI, GEMINI) using getCredentials
+3. If credentials are missing, use requestCredential to request them from the user
+4. Add all necessary nodes based on the request
+5. Configure each node COMPLETELY with ALL required fields:
+   - credentialId (REQUIRED for TELEGRAM_TRIGGER, TELEGRAM, ANTHROPIC, OPENAI, GEMINI)
+   - userPrompt (REQUIRED for AI nodes - must not be empty)
+   - All other required fields based on node type
+6. Connect the nodes to form the execution flow
+7. Validate that every node has all required fields before finishing
 
-Be thorough but efficient. If credentials are missing, note them but continue building what you can.
+CRITICAL: Do NOT create nodes without required credentials. Always check credentials first, request if missing, and only then create nodes with credentialId set.
 `;
 
 export const getCodeGenerationPrompt = (

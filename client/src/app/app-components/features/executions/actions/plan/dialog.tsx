@@ -36,14 +36,8 @@ import ReactMarkdown from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
 
 const formSchema = z.object({
-  variables: z
-    .string()
-    .min(1, { message: "Variable name is required" })
-    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, {
-      message:
-        "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores",
-    }),
-  label: z.string().min(1, { message: "Label is required" }),
+  // PLAN nodes don't execute, so variables and label are not needed
+  // Removed to give more space to the conversation interface
 });
 
 export type PlanFormValues = z.infer<typeof formSchema>;
@@ -123,10 +117,7 @@ export const PlanDialog = ({
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      variables: defaultValues.variables || "plan",
-      label: defaultValues.label || "Plan Workflow",
-    },
+    defaultValues: {},
   });
 
   // Load conversation history when dialog opens
@@ -444,7 +435,8 @@ export const PlanDialog = ({
   const handleSubmit = async (values: PlanFormValues) => {
     setIsSaving(true);
     try {
-      await Promise.resolve(onSubmit(values));
+      // PLAN nodes don't need variables/label, but we still call onSubmit for consistency
+      await Promise.resolve(onSubmit(values || {}));
 
       // Refresh the canvas without page reload
       if (onRefreshCanvas) {
@@ -478,49 +470,8 @@ export const PlanDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-3 sm:space-y-4 mt-2 sm:mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
-              {/* Form fields in a responsive grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <FormField
-                  control={form.control}
-                  name="variables"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs sm:text-sm">Variable Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="plan" className="text-sm h-8 sm:h-10" />
-                      </FormControl>
-                      <FormDescription className="text-[10px] sm:text-xs hidden sm:block">
-                        The variable name to store the result.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="label"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs sm:text-sm">Label</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Plan Workflow"
-                          className="text-sm h-8 sm:h-10"
-                        />
-                      </FormControl>
-                      <FormDescription className="text-[10px] sm:text-xs hidden sm:block">
-                        Display name for this plan node.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Chat Interface */}
-              <div className="border rounded-lg p-2 sm:p-4 bg-muted/30 min-h-[200px] sm:min-h-[300px] max-h-[40vh] sm:max-h-[400px] overflow-y-auto flex flex-col">
+              {/* Chat Interface - Full width now that variables/label are removed */}
+              <div className="border rounded-lg p-2 sm:p-4 bg-muted/30 min-h-[300px] sm:min-h-[400px] max-h-[50vh] sm:max-h-[500px] overflow-y-auto flex flex-col">
                 {isLoadingHistory ? (
                   <div className="flex items-center justify-center h-full min-h-[150px]">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -682,9 +633,15 @@ export const PlanDialog = ({
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSendMessage();
+                      if (
+                        (message.trim() || selectedFiles.length > 0) &&
+                        !isSending &&
+                        workflowId
+                      ) {
+                        handleSendMessage();
+                      }
                     }
                   }}
                   rows={2}

@@ -133,12 +133,23 @@ export const listNodeTypesTool: VerxioTool = {
 
 export const createWorkflowTool: VerxioTool = {
   name: "createWorkflow",
-  description: "Create a new workflow in Verxio with a name and optional description",
+  description:
+    "Create a new workflow in Verxio with a name and optional description. WARNING: If workflowId exists in context, DO NOT use this tool - use the existing workflowId instead.",
   inputSchema: z.object({
     name: z.string().min(1).max(100).describe("Name for the new workflow"),
     description: z.string().optional().describe("Optional description of what this workflow does"),
   }),
   execute: async ({ name, description }, context) => {
+    // CRITICAL: If workflowId exists in context, this means we're working on an existing workflow
+    // Do NOT create a new workflow - the agent should use the existing workflowId
+    if (context.workflowId) {
+      return {
+        success: false,
+        error: `Cannot create a new workflow. You are already working on an existing workflow with ID: ${context.workflowId}. Use this workflowId when adding nodes instead of creating a new workflow.`,
+        existingWorkflowId: context.workflowId,
+        suggestion: `Use getWorkflow("${context.workflowId}") to see the current workflow, then use addNode with workflowId: "${context.workflowId}" to add nodes to the existing workflow.`,
+      };
+    }
     const workflow = await prisma.workflow.create({
       data: {
         name: name.trim(),
@@ -224,6 +235,56 @@ export const getWorkflowTool: VerxioTool = {
 // Tool: Add Node
 // ============================================
 
+// Helper function to check required credentials for node types
+async function validateRequiredCredentials(
+  nodeType: string,
+  data: Record<string, any> | undefined,
+  userId: string
+): Promise<{ valid: boolean; error?: string; requiredCredentialType?: string }> {
+  // Map of node types to required credential types
+  const requiredCredentials: Record<string, string> = {
+    TELEGRAM_TRIGGER: "TELEGRAM",
+    TELEGRAM: "TELEGRAM",
+    ANTHROPIC: "ANTHROPIC",
+    OPENAI: "OPENAI",
+    GEMINI: "GEMINI",
+  };
+
+  const requiredCredentialType = requiredCredentials[nodeType];
+  if (!requiredCredentialType) {
+    return { valid: true }; // No credential required for this node type
+  }
+
+  // Check if credentialId is provided in data
+  const credentialId = data?.credentialId;
+  if (!credentialId) {
+    return {
+      valid: false,
+      error: `${nodeType} node requires a credentialId. Please use getCredentials("${requiredCredentialType}") to find an existing credential, or use requestCredential("${requiredCredentialType}") to request one from the user.`,
+      requiredCredentialType,
+    };
+  }
+
+  // Verify the credential exists and belongs to the user
+  const credential = await prisma.credential.findFirst({
+    where: {
+      id: credentialId,
+      userId: userId,
+      type: requiredCredentialType,
+    },
+  });
+
+  if (!credential) {
+    return {
+      valid: false,
+      error: `Credential ${credentialId} not found or does not match required type ${requiredCredentialType}. Please use getCredentials("${requiredCredentialType}") to find a valid credential.`,
+      requiredCredentialType,
+    };
+  }
+
+  return { valid: true };
+}
+
 export const addNodeTool: VerxioTool = {
   name: "addNode",
   description: "Add a new node to a workflow",
@@ -249,6 +310,56 @@ export const addNodeTool: VerxioTool = {
 
     if (!workflow) {
       return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    // Validate required credentials before creating node
+    const credentialValidation = await validateRequiredCredentials(nodeType, data, context.userId);
+    if (!credentialValidation.valid) {
+      return {
+        success: false,
+        error: credentialValidation.error,
+        requiredCredentialType: credentialValidation.requiredCredentialType,
+        suggestion: `Use getCredentials("${credentialValidation.requiredCredentialType}") to find existing credentials, or requestCredential("${credentialValidation.requiredCredentialType}") to request one.`,
+      };
+    }
+
+    // Validate that AI nodes have variables and model fields set
+    const aiNodeTypes = ["ANTHROPIC", "OPENAI", "GEMINI"];
+    if (aiNodeTypes.includes(nodeType)) {
+      const variables = data?.variables;
+      if (!variables || typeof variables !== "string" || variables.trim() === "") {
+        // Convert node name to camelCase as fallback
+        const camelCaseName = name
+          .replace(/([A-Z])/g, " $1")
+          .toLowerCase()
+          .trim()
+          .replace(/\s+(\w)/g, (_: string, c: string) => c.toUpperCase())
+          .replace(/^./, (c: string) => c.toLowerCase());
+
+        return {
+          success: false,
+          error: `${nodeType} node requires a 'variables' field. The variables field must be set explicitly to the node name converted to camelCase.`,
+          suggestion: `Set variables field to "${camelCaseName}" (converted from node name "${name}"). Use this exact variable name when referencing in subsequent nodes: {{${camelCaseName}.text}}`,
+          recommendedVariables: camelCaseName,
+        };
+      }
+
+      // Validate model field is set
+      const model = data?.model;
+      if (!model || typeof model !== "string" || model.trim() === "") {
+        const availableModels: Record<string, string[]> = {
+          ANTHROPIC: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"],
+          OPENAI: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+          GEMINI: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"],
+        };
+
+        return {
+          success: false,
+          error: `${nodeType} node requires a 'model' field. The model must be explicitly selected from available models.`,
+          suggestion: `Set model field to one of: ${availableModels[nodeType]?.join(", ") || "available models"}. Recommended: ${availableModels[nodeType]?.[0] || "latest"}`,
+          availableModels: availableModels[nodeType] || [],
+        };
+      }
     }
 
     // Auto-calculate position if not provided
@@ -305,16 +416,50 @@ export const configureNodeTool: VerxioTool = {
     const existingData = (node.data as Record<string, any>) || {};
     const newData = { ...existingData, ...config };
 
+    // If credentialId is provided in config, use it
+    const finalCredentialId = credentialId || config.credentialId || existingData.credentialId;
+
+    // Validate required credentials for this node type
+    const credentialValidation = await validateRequiredCredentials(
+      node.type,
+      { ...newData, credentialId: finalCredentialId },
+      context.userId
+    );
+    if (!credentialValidation.valid) {
+      return {
+        success: false,
+        error: credentialValidation.error,
+        requiredCredentialType: credentialValidation.requiredCredentialType,
+        suggestion: `Use getCredentials("${credentialValidation.requiredCredentialType}") to find existing credentials, or requestCredential("${credentialValidation.requiredCredentialType}") to request one.`,
+      };
+    }
+
     const updateData: any = { data: newData };
-    if (credentialId) {
-      // Verify credential belongs to user
+    if (finalCredentialId) {
+      // Verify credential belongs to user and matches required type
+      const requiredCredentials: Record<string, string> = {
+        TELEGRAM_TRIGGER: "TELEGRAM",
+        TELEGRAM: "TELEGRAM",
+        ANTHROPIC: "ANTHROPIC",
+        OPENAI: "OPENAI",
+        GEMINI: "GEMINI",
+      };
+      const requiredCredentialType = requiredCredentials[node.type];
+
       const credential = await prisma.credential.findFirst({
-        where: { id: credentialId, userId: context.userId },
+        where: {
+          id: finalCredentialId,
+          userId: context.userId,
+          ...(requiredCredentialType ? { type: requiredCredentialType } : {}),
+        },
       });
       if (!credential) {
-        return { success: false, error: "Credential not found or access denied" };
+        return {
+          success: false,
+          error: `Credential not found or does not match required type${requiredCredentialType ? ` ${requiredCredentialType}` : ""}`,
+        };
       }
-      updateData.credentialId = credentialId;
+      updateData.credentialId = finalCredentialId;
     }
 
     const updatedNode = await prisma.node.update({

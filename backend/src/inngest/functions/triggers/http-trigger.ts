@@ -113,7 +113,7 @@ export const httpTriggerExecutor: NodeExecutor<HttpTriggerData> = async ({
 
       const options: KyOptions = {
         method,
-        timeout: 30000,
+        timeout: 60000,
       };
 
       // Add body and headers for POST, PUT, PATCH requests

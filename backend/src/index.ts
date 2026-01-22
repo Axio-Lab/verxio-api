@@ -36,6 +36,10 @@ dotenv.config();
 
 const app: express.Application = express();
 
+// Trust proxy - required when behind reverse proxy (ngrok, load balancer, etc.)
+// This allows Express to correctly identify client IPs from X-Forwarded-For headers
+app.set("trust proxy", true);
+
 // Security middleware
 app.use(helmet());
 

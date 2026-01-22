@@ -773,8 +773,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Plan Workflow",
-            variables: "plan",
+            // PLAN nodes don't need variables or label - they're just for planning
           },
           type: NodeType.PLAN,
           position: flowPosition,
