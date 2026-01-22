@@ -21,8 +21,6 @@ import * as connectionService from "../connectionService";
 import {
   createTrace,
   endTrace,
-  logSpan,
-  type TraceContext,
   type TraceMetadata,
 } from "../opikService";
 
