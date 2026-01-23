@@ -1,19 +1,68 @@
-# Verxio API
+<div align="center">
+  
+  **Verxio is an autonomous self-learning copilot that turns every repeat task into a no-code agentic workflow**
+</div>
 
-**Visual workflow automation platform with real-time execution monitoring and integrations for Airtable, Google Workspace, AI models, messaging platforms, and more.**
+<div align="center">
+As an AI-powered assistant, Verxio helps you design, run, and manage automated workflows.
+</div>
 
-## Overview
+---
 
-Verxio API is a no-code workflow automation platform that enables users to build, execute, and monitor complex workflows through a visual node-based interface. Built with Inngest for reliable workflow orchestration, it provides real-time status updates, Handlebars templating for data transformation, and seamless integrations with popular services.
+```mermaid
+
+flowchart TB
+    subgraph Frontend["Frontend (Next.js)"]
+        VibePage[Vibe Page]
+        WorkflowEditor[Workflow Editor]
+        PlanNode[Plan Node Chat]
+        AnalyticsPage[Analytics Dashboard]
+    end
+    
+    subgraph AgentService["Claude Agent Service"]
+        runAgentQuery[runAgentQuery]
+        chatWithAgent[chatWithAgent]
+        generateCode[generateCodeWithAgent]
+        generateWorkflow[generateWorkflowWithAgent]
+        generateSmartPrompt[generateSmartPrompt]
+    end
+    
+    subgraph OpikLayer["Opik Integration Layer"]
+        OpikService[opikService.ts]
+        PromptOptimizer[promptOptimizer.ts]
+        AnalyticsService[analyticsService.ts]
+    end
+    
+    subgraph Opik["Opik Platform"]
+        Traces[Traces DB]
+        Metrics[Metrics]
+        Optimizer[Agent Optimizer]
+    end
+    
+    VibePage --> runAgentQuery
+    WorkflowEditor --> generateWorkflow
+    WorkflowEditor --> chatWithAgent
+    PlanNode --> chatWithAgent
+    WorkflowEditor --> generateCode
+    
+    runAgentQuery --> OpikService
+    chatWithAgent --> OpikService
+    generateCode --> OpikService
+    generateWorkflow --> OpikService
+    generateSmartPrompt --> OpikService
+    
+    OpikService --> Traces
+    OpikService --> Metrics
+    PromptOptimizer --> Optimizer
+    
+    AnalyticsService --> Traces
+    AnalyticsService --> Metrics
+    AnalyticsPage --> AnalyticsService
+
+```
+
+
 
 
 ## Features
-
-- **Visual Workflow Builder**: Drag-and-drop interface powered by React Flow
-- **Real-time Execution**: Live status updates via Inngest Realtime WebSocket subscriptions
-- **Variable Templating**: Handlebars templating for dynamic data passing between nodes
-- **Rich Integrations**: 
-  - **Triggers**: Airtable, Google Forms, Stripe, Telegram, Webhooks, Timed, Manual
-  - **Actions**: Airtable, Google Workspace (Drive, Sheets, Docs, Calendar, Meet, Slides, Gmail), AI (OpenAI, Anthropic, Gemini), Messaging (Telegram, WhatsApp, Slack, Discord), HTTP Requests
-- **Conditional Logic**: Decider nodes for branching workflows
-- **Context Propagation**: Automatic data flow between connected nodes
+TBD
