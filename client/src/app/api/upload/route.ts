@@ -9,19 +9,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type (images and gifs)
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
+    // Validate file type (images, videos, and audio)
+    // Use flexible validation: allow any MIME type that starts with image/, video/, or audio/
+    // Also check file extension as fallback for cases where MIME type might be incorrect
+    const isValidMimeType =
+      file.type.startsWith("image/") ||
+      file.type.startsWith("video/") ||
+      file.type.startsWith("audio/");
+
+    // Fallback: check file extension if MIME type is empty or invalid
+    const fileName = file.name.toLowerCase();
+    const validExtensions = [
+      // Images
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".webp",
+      ".svg",
+      ".bmp",
+      ".ico",
+      // Videos
+      ".mp4",
+      ".webm",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".flv",
+      ".wmv",
+      ".m4v",
+      // Audio
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".m4a",
+      ".aac",
+      ".flac",
+      ".wma",
+      ".opus",
+    ];
+    const hasValidExtension = validExtensions.some((ext) => fileName.endsWith(ext));
+
+    if (!isValidMimeType && !hasValidExtension) {
       return NextResponse.json(
-        { error: "Invalid file type. Only images and GIFs are allowed." },
+        { error: "Invalid file type. Only images, videos, and audio files are allowed." },
         { status: 400 }
       );
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Validate file size (max 50MB for video/audio, 10MB for images)
+    const isImage = file.type.startsWith("image/");
+    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024; // 10MB for images, 50MB for video/audio
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "File size exceeds 10MB limit." }, { status: 400 });
+      return NextResponse.json(
+        { error: `File size exceeds ${isImage ? "10MB" : "50MB"} limit.` },
+        { status: 400 }
+      );
     }
 
     const pinataJwt = process.env.PINATA_JWT;

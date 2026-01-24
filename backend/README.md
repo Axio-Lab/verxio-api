@@ -168,6 +168,15 @@ Gemini enables AI-powered image generation for the Design Agent node using Nano 
 - `gemini-2.5-flash-image`: Fast, efficient image generation
 - `gemini-3-pro-image-preview`: Advanced features, up to 4K resolution, thinking mode
 
+### Remotion (Video Generation)
+
+```bash
+# Remotion render server URL (defaults to http://localhost:3001)
+REMOTION_SERVER_URL=http://localhost:3001
+```
+
+Remotion enables AI-powered video generation for the Remotion node. The render server should be running separately and accessible at the specified URL.
+
 🔗 Links:
 
 - website: https://deals.verxio.xyz

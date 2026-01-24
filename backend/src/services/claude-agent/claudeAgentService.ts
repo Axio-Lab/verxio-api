@@ -245,9 +245,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       error: errorMessage,
       usage: lastResult?.usage
         ? {
-            inputTokens: lastResult.usage.input_tokens,
-            outputTokens: lastResult.usage.output_tokens,
-          }
+          inputTokens: lastResult.usage.input_tokens,
+          outputTokens: lastResult.usage.output_tokens,
+        }
         : undefined,
       cost: lastResult?.total_cost_usd,
     });
@@ -482,7 +482,7 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 - Google: Sheets, Docs, Slides, Drive, Calendar
 - Data: HTTP, Airtable, Firecrawl
 - Logic: Code blocks, Decider
-- Media: DESIGN (image generation), ElevenLabs (text-to-speech)
+- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation)
 
 ## Autonomous Image Generation
 
@@ -507,6 +507,20 @@ When users request images, slides, or visuals:
 - Chat mode: Maintains conversation state for iterative editing
 - Image sizes: 1K, 2K, 4K available with Pro model
 - Google Search: Enable for grounding and fact verification
+
+**REMOTION Node Details:**
+- Use REMOTION for AI-powered video generation using Remotion framework
+- Users provide a text description of the video they want to create
+- Supports multiple video formats: 16:9 (landscape), 9:16 (portrait), 1:1 (square), 4:3, 21:9 (ultrawide)
+- Can add background audio (optional) with volume control
+- Can add multiple assets (images, videos, audio) with scene descriptions
+- Claude automatically generates Remotion code based on the description
+- Video parameters (duration, fps, dimensions) are auto-detected from the prompt
+- Output Structure:
+  - The node outputs a variable (default: "remotion") containing an object with videoUrl (string) and success (boolean)
+  - Also outputs videoUrl directly for convenience
+  - To access in subsequent nodes: Use inputs.[variableName].videoUrl or inputs.videoUrl
+  - Example: If variable name is "remotion", access via inputs.remotion.videoUrl or inputs.videoUrl
 
 ## Response Guidelines
 - Keep responses SHORT and focused (2-4 paragraphs max)
@@ -694,12 +708,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-          .map((name) => {
-            const value = context[name];
-            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-          })
-          .join("\n")
+        .map((name) => {
+          const value = context[name];
+          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+        })
+        .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

@@ -101,7 +101,16 @@ export const AVAILABLE_NODE_TYPES = {
   ],
 
   // Media
-  media: [{ type: "ELEVENLABS", description: "Text-to-speech with ElevenLabs" }],
+  media: [
+    { type: "ELEVENLABS", description: "Text-to-speech with ElevenLabs" },
+    {
+      type: "REMOTION",
+      description:
+        "Generate motion videos using AI-powered Remotion code generation. Supports assets, background audio, and various video formats.",
+    },
+    { type: "DESIGN", description: "AI image generation" },
+    { type: "DESIGN_PRO", description: "Advanced AI image generation with editing capabilities" },
+  ],
 };
 
 // ============================================

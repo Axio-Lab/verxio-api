@@ -408,6 +408,7 @@ enum NodeType {
   DESIGN_PRO
   LOYALTY_DEAL
   LOYALTY_PROGRAM
+  REMOTION
 }
 
 model Node {
