@@ -33,11 +33,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { DESIGN_MODELS, DESIGN_TEMPLATES, ASPECT_RATIOS } from "../design/dialog";
+import { DESIGN_TEMPLATES, ASPECT_RATIOS } from "../design/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Available Gemini image models (only Pro model for Design Agent Pro)
+const DESIGN_PRO_MODELS = [
+  { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image (High Quality)" },
+] as const;
+
 // Extract values for zod enums
-const MODEL_VALUES = DESIGN_MODELS.map((m) => m.value) as [string, ...string[]];
+const MODEL_VALUES = DESIGN_PRO_MODELS.map((m) => m.value) as [string, ...string[]];
 const TEMPLATE_VALUES = DESIGN_TEMPLATES.map((t) => t.value) as [string, ...string[]];
 const ASPECT_RATIO_VALUES = ASPECT_RATIOS.map((a) => a.value) as [string, ...string[]];
 
@@ -48,7 +53,7 @@ const MODES = [
 ] as const;
 
 const IMAGE_SIZES = [
-  { value: "1K", label: "1K (Standard)" },
+  { value: "1K", label: "1K (Standard - Default)" },
   { value: "2K", label: "2K (High Quality)" },
   { value: "4K", label: "4K (Ultra High Quality)" },
 ] as const;
@@ -117,7 +122,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
       model: defaultValues.model || "gemini-3-pro-image-preview",
       template: defaultValues.template || "none",
       aspectRatio: defaultValues.aspectRatio || "1:1",
-      imageSize: defaultValues.imageSize,
+      imageSize: defaultValues.imageSize || "1K",
       prompt: defaultValues.prompt || "",
       sourceImage: defaultValues.sourceImage || "",
       sourceImageMimeType: defaultValues.sourceImageMimeType || "",
@@ -328,7 +333,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         model: defaultValues.model || "gemini-3-pro-image-preview",
         template: defaultValues.template || "none",
         aspectRatio: defaultValues.aspectRatio || "1:1",
-        imageSize: defaultValues.imageSize,
+        imageSize: defaultValues.imageSize || "1K",
         prompt: defaultValues.prompt || "",
         sourceImage: sourceImageValue, // Store original (URL, base64, or asset:filename placeholder)
         sourceImageMimeType: defaultValues.sourceImageMimeType || "",
@@ -562,7 +567,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {DESIGN_MODELS.map((model) => (
+                        {DESIGN_PRO_MODELS.map((model) => (
                           <SelectItem key={model.value} value={model.value}>
                             {model.label}
                           </SelectItem>
@@ -646,18 +651,15 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                   <FormItem>
                     <FormLabel>Image Size (Pro Only)</FormLabel>
                     <Select
-                      onValueChange={(value) =>
-                        field.onChange(value === "default" ? undefined : value)
-                      }
-                      value={field.value || "default"}
+                      onValueChange={field.onChange}
+                      value={field.value || "1K"}
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Default (Auto)" />
+                          <SelectValue placeholder="1K (Standard - Default)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="default">Default (Auto)</SelectItem>
                         {IMAGE_SIZES.map((size) => (
                           <SelectItem key={size.value} value={size.value}>
                             {size.label}
@@ -666,7 +668,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      High-resolution output (1K/2K/4K) for Pro model only.
+                      <strong>Default is 1K (Standard)</strong> - select 2K or 4K for High-resolution output.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

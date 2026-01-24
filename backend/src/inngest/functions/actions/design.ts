@@ -145,10 +145,9 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
       }
 
       // Generate image OUTSIDE of step.run to avoid storing base64 in Inngest step output
-      // This is critical - Inngest has a step output size limit and base64 images exceed it
       result = await generateImage({
         prompt: compiledPrompt,
-        model: (data.model as any) || "gemini-2.5-flash-image",
+        model: "gemini-2.5-flash-image", // Only Flash Image model supported
         aspectRatio,
         template: data.template,
       });

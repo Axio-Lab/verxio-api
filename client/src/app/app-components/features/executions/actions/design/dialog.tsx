@@ -33,10 +33,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
-// Available Gemini image models
+// Available Gemini image models (only Flash Image for regular Design node)
 export const DESIGN_MODELS = [
   { value: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image (Fast)" },
-  { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image (High Quality)" },
 ] as const;
 
 // Available templates with aspect ratios
