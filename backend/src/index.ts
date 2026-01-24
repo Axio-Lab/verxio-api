@@ -38,7 +38,9 @@ const app: express.Application = express();
 
 // Trust proxy - required when behind reverse proxy (ngrok, load balancer, etc.)
 // This allows Express to correctly identify client IPs from X-Forwarded-For headers
-app.set("trust proxy", true);
+// Set to 1 to trust only the first proxy (safer than true which trusts all proxies)
+// If behind multiple proxies, set to the number of proxies (e.g., 2 for load balancer + ngrok)
+app.set("trust proxy", 1);
 
 // Security middleware
 app.use(helmet());
@@ -113,8 +115,8 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve generated images as static files
 import path from "path";

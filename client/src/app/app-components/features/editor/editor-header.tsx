@@ -99,10 +99,24 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
 
       // Normalize data objects for comparison (sort keys for consistent comparison)
       // Exclude internal scheduling fields that are added by the backend
+      // Also exclude asset fields (sourceImage, referenceImages) that are stored separately as assets
       const normalizeData = (data: any) => {
         if (!data || typeof data !== "object") return data;
         // Remove internal fields that shouldn't affect the comparison
-        const { scheduledEventId, scheduledEventTime, lastRunTime, cancelled, ...cleanData } = data;
+        const {
+          scheduledEventId,
+          scheduledEventTime,
+          lastRunTime,
+          cancelled,
+          sourceImage, // Stored as asset, not in node.data
+          sourceImageFilename, // Stored as asset, not in node.data
+          sourceImageMimeType, // Stored as asset, not in node.data
+          referenceImages, // Stored as assets, not in node.data
+          assets, // REMOTION assets stored separately
+          backgroundAudio, // REMOTION audio stored separately
+          backgroundAudioFilename, // REMOTION audio stored separately
+          ...cleanData
+        } = data;
         const sorted = Object.keys(cleanData)
           .sort()
           .reduce((acc, key) => {
