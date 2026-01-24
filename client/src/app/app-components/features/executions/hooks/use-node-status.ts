@@ -14,6 +14,7 @@ interface useNodeStatusOptions {
 const mapInngestStatusToNodeStatus = (inngestStatus: string): NodeStatus => {
   switch (inngestStatus) {
     case "loading":
+    case "rendering": // Remotion-specific status
       return "loading";
     case "success":
       return "success";
@@ -256,6 +257,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const remotionSub = useInngestSubscription({
+    refreshToken: createRefreshToken("remotion"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -289,6 +295,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(elevenlabsSub.data || []),
       ...(designSub.data || []),
       ...(designProSub.data || []),
+      ...(remotionSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -321,6 +328,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     elevenlabsSub.data,
     designSub.data,
     designProSub.data,
+    remotionSub.data,
   ]);
 
   // Filter and update status for this specific node

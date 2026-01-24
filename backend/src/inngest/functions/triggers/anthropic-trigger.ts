@@ -362,7 +362,7 @@ export const anthropicTriggerExecutor: NodeExecutor<AnthropicTriggerData> = asyn
 
     try {
       const { steps } = await step.ai.wrap("generate-genrate-text", generateText, {
-        model: anthropicClient(data.model || "claude-3-5-sonnet-20241022"),
+        model: anthropicClient(data.model || "claude-sonnet-4-5"),
         prompt: userPrompt,
         system: systemPrompt,
         experimental_telemetry: {

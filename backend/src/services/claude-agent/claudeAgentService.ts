@@ -18,11 +18,7 @@ import { basePrismaClient } from "../../lib/prisma";
 import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
-import {
-  createTrace,
-  endTrace,
-  type TraceMetadata,
-} from "../opikService";
+import { createTrace, endTrace, type TraceMetadata } from "../opikService";
 
 const prisma = basePrismaClient as any;
 
@@ -486,7 +482,7 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 - Google: Sheets, Docs, Slides, Drive, Calendar
 - Data: HTTP, Airtable, Firecrawl
 - Logic: Code blocks, Decider
-- Media: DESIGN (image generation), ElevenLabs (text-to-speech)
+- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation)
 
 ## Autonomous Image Generation
 
@@ -512,6 +508,20 @@ When users request images, slides, or visuals:
 - Image sizes: 1K, 2K, 4K available with Pro model
 - Google Search: Enable for grounding and fact verification
 
+**REMOTION Node Details:**
+- Use REMOTION for AI-powered video generation using Remotion framework
+- Users provide a text description of the video they want to create
+- Supports multiple video formats: 16:9 (landscape), 9:16 (portrait), 1:1 (square), 4:3, 21:9 (ultrawide)
+- Can add background audio (optional) with volume control
+- Can add multiple assets (images, videos, audio) with scene descriptions
+- Claude automatically generates Remotion code based on the description
+- Video parameters (duration, fps, dimensions) are auto-detected from the prompt
+- Output Structure:
+  - The node outputs a variable (default: "remotion") containing an object with videoUrl (string) and success (boolean)
+  - Also outputs videoUrl directly for convenience
+  - To access in subsequent nodes: Use inputs.[variableName].videoUrl or inputs.videoUrl
+  - Example: If variable name is "remotion", access via inputs.remotion.videoUrl or inputs.videoUrl
+
 ## Response Guidelines
 - Keep responses SHORT and focused (2-4 paragraphs max)
 - Use bullet points for lists
@@ -535,21 +545,31 @@ When user says "build it", "create the workflow", "let's do it", "yes", "go ahea
 3. Note any required credentials
 4. Then IMMEDIATELY use your tools to build the workflow
 
-## CRITICAL: Building Workflows
-When building a workflow, you MUST:
-1. Use the CURRENT WORKFLOW ID provided in the context (do NOT call createWorkflow - the workflow already exists)
-2. Call addNode with the workflow ID for each node you want to add
-3. Call configureNode to set up each node's data (prompts, credentials, settings)
-4. Call connectNodes to connect nodes in sequence
-5. After all nodes are added and connected, confirm to the user what was created
+## CRITICAL: Building/Updating Workflows
+When building or updating a workflow from the plan node, you MUST:
+1. **ALWAYS use the EXISTING WORKFLOW ID** provided in the context - the workflow already exists on the canvas
+2. **NEVER call createWorkflow** - this will create a duplicate workflow and break the canvas
+3. **REPLACE existing nodes** - If the workflow already has nodes, you should:
+   - First, delete existing nodes using deleteNode (if needed to replace them)
+   - Then add new nodes using addNode with the existing workflowId
+   - This ensures the new workflow replaces the old one on the canvas
+4. Call addNode with the workflow ID for each node you want to add
+5. Call configureNode to set up each node's data (prompts, credentials, settings, model - model is REQUIRED for AI nodes)
+6. Call connectNodes to connect nodes in sequence
+7. After all nodes are added and connected, confirm to the user what was created/updated
 
-Example sequence for adding a Telegram trigger and Gemini AI node:
+Example sequence for replacing/adding nodes:
+- getWorkflow(workflowId: "<current_workflow_id>") - Check existing nodes
+- deleteNode(nodeId: "<old_node_id>") - Delete old nodes if replacing
 - addNode(workflowId: "<current_workflow_id>", nodeType: "TELEGRAM_TRIGGER", name: "Telegram Trigger", data: {...})
-- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {...})
+- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-2.5-flash", ...})
+- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-2.5-flash", userPrompt: "...", credentialId: "..."})
 - connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
 
 ## Important
 - ALWAYS use the current workflow ID when adding nodes - do NOT create a new workflow
+- When generating a new workflow, REPLACE existing nodes to avoid duplicates on canvas
+- Model field is REQUIRED for all AI nodes (ANTHROPIC, OPENAI, GEMINI) - must be explicitly set
 - If user hasn't described what they want yet, ask what they'd like to automate
 - Focus on understanding their needs before proposing solutions
 `;
@@ -565,7 +585,7 @@ export async function* chatWithAgent(options: {
   };
 }): AsyncGenerator<AgentStreamEvent> {
   // Build enhanced prompt with planning context and learning insights
-  let enhancedPrompt = `${PLANNING_SYSTEM_CONTEXT}\n\n**IMPORTANT: You are working on an EXISTING workflow. The workflow ID is: ${options.workflowId}**\nWhen adding nodes, you MUST use this exact workflow ID: "${options.workflowId}"\n\n`;
+  let enhancedPrompt = `${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
 
   // Add learning context if available
   if (options.learningContext?.similarWorkflows?.length) {

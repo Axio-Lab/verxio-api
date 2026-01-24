@@ -252,20 +252,20 @@ model Deal {
 
 // Better Auth Models
 model User {
-  id                String             @id @default(cuid())
-  name              String
-  email             String             @unique
-  emailVerified     Boolean            @default(false)
-  image             String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  sessions          Session[]
-  accounts          Account[]
-  workflows            Workflow[]
-  credentials          Credential[]
-  googleOAuthToken     GoogleOAuthToken?
-  workflowGenerations  WorkflowGeneration[]
-  userConnections      UserConnection[]
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  emailVerified       Boolean              @default(false)
+  image               String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  sessions            Session[]
+  accounts            Account[]
+  workflows           Workflow[]
+  credentials         Credential[]
+  googleOAuthToken    GoogleOAuthToken?
+  workflowGenerations WorkflowGeneration[]
+  userConnections     UserConnection[]
 
   @@map("user")
 }
@@ -334,7 +334,7 @@ model Credential {
 }
 
 model GoogleOAuthToken {
-  id   String @id @default(cuid())
+  id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -408,6 +408,7 @@ enum NodeType {
   DESIGN_PRO
   LOYALTY_DEAL
   LOYALTY_PROGRAM
+  REMOTION
 }
 
 model Node {
@@ -428,9 +429,32 @@ model Node {
 
   outputConnections Connection[] @relation("FromNode")
   inputConnections  Connection[] @relation("ToNode")
+  assets            NodeAsset[] // Assets stored separately to avoid transaction timeouts
 
   @@index([workflowId])
   @@map("nodes")
+}
+
+model NodeAsset {
+  id     String @id @default(cuid())
+  nodeId String
+  node   Node   @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  filename          String
+  fileType          String // "image" | "video" | "audio"
+  fileData          String // base64 data URL or URL
+  sceneDescription  String?
+  startTime         Float?
+  position          Json? // { x?: number, y?: number }
+  size              Json? // { width?: number, height?: number }
+  isBackgroundAudio Boolean @default(false)
+  volume            Float? // For background audio
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nodeId])
+  @@map("node_assets")
 }
 
 model Connection {
@@ -462,10 +486,10 @@ model WorkflowGeneration {
   userId            String
   workflowId        String?
   prompt            String
-  generatedWorkflow Json     // Stores the generated workflow blueprint (nodes + connections)
-  customCodeBlocks  Json?    // Stores custom code for CODE_BLOCK nodes
+  generatedWorkflow Json // Stores the generated workflow blueprint (nodes + connections)
+  customCodeBlocks  Json? // Stores custom code for CODE_BLOCK nodes
   status            String   @default("pending") // pending, generating, testing, completed, failed
-  testResults       Json?    // Stores test results from Daytona sandboxes
+  testResults       Json? // Stores test results from Daytona sandboxes
   daytonaSandboxIds String[] // Array of Daytona sandbox IDs used for testing/execution
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -479,16 +503,16 @@ model WorkflowGeneration {
 }
 
 model WorkflowPlan {
-  id        String   @id @default(cuid())
-  workflowId String  @unique
+  id         String   @id @default(cuid())
+  workflowId String   @unique
   workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  
-  conversationHistory Json     @default("[]") // Array of messages
-  status              String   @default("planning") // planning, ready, generating, completed
+
+  conversationHistory Json      @default("[]") // Array of messages
+  status              String    @default("planning") // planning, ready, generating, completed
   generatedPrompt     String?
-  workflowStructure   Json?    // Proposed workflow structure
+  workflowStructure   Json? // Proposed workflow structure
   approvedAt          DateTime?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -501,27 +525,27 @@ model WorkflowPlan {
 // ============================================
 
 enum UserConnectionType {
-  MCP_SERVER      // External MCP server connection (Supabase, Notion, etc.)
-  DATABASE        // Direct database connection via MCP
-  DOCUMENTATION   // API docs, guides, references (OpenAPI specs, markdown)
-  API_ENDPOINT    // REST/GraphQL API documentation
+  MCP_SERVER // External MCP server connection (Supabase, Notion, etc.)
+  DATABASE // Direct database connection via MCP
+  DOCUMENTATION // API docs, guides, references (OpenAPI specs, markdown)
+  API_ENDPOINT // REST/GraphQL API documentation
 }
 
 model UserConnection {
-  id          String             @id @default(cuid())
-  userId      String
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  type        UserConnectionType
-  config      Json               // MCP config, connection string, server URL, etc.
-  metadata    Json?              // Additional info: schema, docs content, capabilities
-  isActive    Boolean            @default(true)
-  lastUsedAt  DateTime?
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  type         UserConnectionType
+  config       Json // MCP config, connection string, server URL, etc.
+  metadata     Json? // Additional info: schema, docs content, capabilities
+  isActive     Boolean            @default(true)
+  lastUsedAt   DateTime?
   lastTestedAt DateTime?
-  testStatus  String?            // "success", "failed", "pending"
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  testStatus   String? // "success", "failed", "pending"
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@index([userId])
   @@index([type])
@@ -534,17 +558,17 @@ model UserConnection {
 // ============================================
 
 model ExecutionHistory {
-  id            String   @id @default(cuid())
-  workflowId    String
-  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  executionId   String   @unique  // Inngest execution ID
-  success       Boolean
-  duration      Int      // Duration in milliseconds
-  nodeMetrics   Json     // Performance data per node
-  errorContext  Json?    // Error details if failed
-  learnings     Json?    // Extracted patterns/insights
-  userFeedback  String?  // Optional user feedback
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  workflowId   String
+  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executionId  String   @unique // Inngest execution ID
+  success      Boolean
+  duration     Int // Duration in milliseconds
+  nodeMetrics  Json // Performance data per node
+  errorContext Json? // Error details if failed
+  learnings    Json? // Extracted patterns/insights
+  userFeedback String? // Optional user feedback
+  createdAt    DateTime @default(now())
 
   @@index([workflowId])
   @@index([success])
@@ -556,12 +580,12 @@ model WorkflowPattern {
   id          String   @id @default(cuid())
   name        String
   description String
-  category    String?  // e.g., "Marketing", "DevOps", "Data Pipeline"
-  pattern     Json     // Node structure, connections template
+  category    String? // e.g., "Marketing", "DevOps", "Data Pipeline"
+  pattern     Json // Node structure, connections template
   tags        String[]
   useCount    Int      @default(0)
   successRate Float    @default(0)
-  isTemplate  Boolean  @default(false)  // If true, shown in template library
+  isTemplate  Boolean  @default(false) // If true, shown in template library
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -115,7 +115,7 @@ export const TelegramTriggerDialog = ({
         // Provide helpful error message for HTTPS requirement
         if (result.description?.includes("HTTPS") || result.description?.includes("bad webhook")) {
           throw new Error(
-            "Telegram requires HTTPS URLs for webhooks. Make sure your API URL uses HTTPS (e.g., ngrok for local development)."
+            "Telegram requires HTTPS URLs for webhooks. Make sure your API URL uses HTTPS."
           );
         }
         throw new Error(result.description || "Failed to set webhook");

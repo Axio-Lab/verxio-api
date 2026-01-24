@@ -68,8 +68,9 @@ function transformConnection(connection: any): ConnectionResponse {
   };
 }
 
-// Helper function to transform workflow with connections
-function transformWorkflow(workflow: any): WorkflowResponse {
+// Helper function to transform workflow WITHOUT merging assets (for execution)
+// This prevents large base64 data from being in node.data during execution
+function transformWorkflowForExecution(workflow: any): any {
   return {
     id: workflow.id,
     name: workflow.name,
@@ -77,6 +78,56 @@ function transformWorkflow(workflow: any): WorkflowResponse {
     createdAt: workflow.createdAt,
     updatedAt: workflow.updatedAt,
     nodes: workflow.nodes || [],
+    connections: (workflow.connections || []).map(transformConnection),
+  };
+}
+
+// Helper function to transform workflow with connections
+// Merges assets back into node.data for Remotion nodes (for frontend compatibility)
+function transformWorkflow(workflow: any): WorkflowResponse {
+  const transformedNodes = (workflow.nodes || []).map((node: any) => {
+    // For Remotion nodes, merge assets back into node.data
+    if (node.type === "REMOTION" && node.assets && node.assets.length > 0) {
+      const nodeData = { ...(node.data || {}) };
+
+      // Find background audio asset
+      const backgroundAudioAsset = node.assets.find((a: any) => a.isBackgroundAudio);
+      if (backgroundAudioAsset) {
+        nodeData.backgroundAudio = backgroundAudioAsset.fileData;
+        nodeData.backgroundAudioFilename = backgroundAudioAsset.filename;
+        nodeData.backgroundAudioVolume = backgroundAudioAsset.volume ?? 0.7;
+      }
+
+      // Find regular assets
+      const regularAssets = node.assets.filter((a: any) => !a.isBackgroundAudio);
+      if (regularAssets.length > 0) {
+        nodeData.assets = regularAssets.map((asset: any) => ({
+          file: asset.fileData,
+          filename: asset.filename,
+          type: asset.fileType,
+          sceneDescription: asset.sceneDescription || undefined,
+          startTime: asset.startTime ?? undefined,
+          position: asset.position || undefined,
+          size: asset.size || undefined,
+        }));
+      }
+
+      return {
+        ...node,
+        data: nodeData,
+      };
+    }
+
+    return node;
+  });
+
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    userId: workflow.userId,
+    createdAt: workflow.createdAt,
+    updatedAt: workflow.updatedAt,
+    nodes: transformedNodes,
     connections: (workflow.connections || []).map(transformConnection),
   };
 }
@@ -172,7 +223,7 @@ export const getWorkflows = async (
   // Get total count
   const total = await prismaClient.workflow.count({ where });
 
-  // Get workflows with nodes
+  // Get workflows with nodes and assets
   const workflows = await prismaClient.workflow.findMany({
     where,
     skip,
@@ -181,7 +232,11 @@ export const getWorkflows = async (
       createdAt: "desc",
     },
     include: {
-      nodes: true,
+      nodes: {
+        include: {
+          assets: true, // Include assets for Remotion nodes
+        },
+      },
       connections: true,
     },
   });
@@ -200,6 +255,40 @@ export const getWorkflows = async (
 /**
  * Get a single workflow by ID (with user validation)
  */
+// Get workflow for execution (doesn't merge assets to avoid large data in node.data)
+export const getWorkflowForExecution = async (id: string, userId: string): Promise<any> => {
+  if (!id) {
+    throw new AppError("Workflow ID is required", 400);
+  }
+
+  if (!userId) {
+    throw new AppError("User ID is required", 400);
+  }
+
+  const workflow = await prismaClient.workflow.findFirst({
+    where: {
+      id,
+      userId,
+    },
+    include: {
+      nodes: {
+        include: {
+          assets: true, // Include assets relation but DON'T merge into node.data
+        },
+      },
+      connections: true,
+    },
+  });
+
+  if (!workflow) {
+    throw new AppError("Workflow not found", 404);
+  }
+
+  // Return workflow WITHOUT merging assets into node.data
+  // This prevents large base64 data from being passed to executors
+  return transformWorkflowForExecution(workflow);
+};
+
 export const getWorkflow = async (id: string, userId: string): Promise<WorkflowResponse> => {
   if (!id) {
     throw new AppError("Workflow ID is required", 400);
@@ -215,7 +304,11 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
       userId, // Ensure user owns the workflow
     },
     include: {
-      nodes: true,
+      nodes: {
+        include: {
+          assets: true, // Include assets for Remotion nodes
+        },
+      },
       connections: true,
     },
   });
@@ -240,7 +333,11 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
       id,
     },
     include: {
-      nodes: true,
+      nodes: {
+        include: {
+          assets: true, // Include assets for Remotion nodes
+        },
+      },
       connections: true,
     },
   });
@@ -344,21 +441,55 @@ export const updateWorkflowData = async (
     throw new AppError("Connections must be an array", 400);
   }
 
+  // Extract assets from Remotion nodes before transaction (to avoid transaction timeout)
+  // Store them separately and merge back after transaction
+  const assetsByNodeId: Record<
+    string,
+    Array<{
+      filename: string;
+      fileType: string;
+      fileData: string;
+      sceneDescription?: string;
+      startTime?: number;
+      position?: any;
+      size?: any;
+      isBackgroundAudio: boolean;
+      volume?: number;
+    }>
+  > = {};
+
   // Use transaction to ensure atomicity
-  // Set timeout to 15 seconds (Accelerate's maximum limit) for workflows with many nodes/connections
-  // (default is 5 seconds which is too short for large workflows)
-  // Optimized by removing redundant verification queries to improve performance
+  // Set timeout to 15 seconds (Accelerate's hard limit - cannot be exceeded)
+  // For workflows with large data (e.g., Remotion nodes with base64 assets), we optimize by:
+  // - Removing redundant verification queries
+  // - Using efficient batch operations
+  // - Minimizing data serialization overhead
+  // - Storing assets separately outside node.data
   const workflow = await (prismaClient as any).$transaction(
     async (tx: any) => {
-      // Delete all existing connections first (must delete before nodes due to foreign key)
-      await tx.connection.deleteMany({
+      // Delete all existing connections, node assets, and nodes in parallel to optimize transaction speed
+      // This reduces transaction time, which is critical for workflows with large data (e.g., Remotion nodes with base64 assets)
+      // Note: Node assets are deleted via cascade when nodes are deleted, but we delete explicitly for clarity
+      // Get node IDs before deletion (for deleting associated assets)
+      const nodeIdsToDelete = await tx.node.findMany({
         where: { workflowId: id },
+        select: { id: true },
       });
+      const nodeIdArray = nodeIdsToDelete.map((n: { id: string }) => n.id);
 
-      // Delete all existing nodes
-      await tx.node.deleteMany({
-        where: { workflowId: id },
-      });
+      await Promise.all([
+        tx.connection.deleteMany({
+          where: { workflowId: id },
+        }),
+        nodeIdArray.length > 0
+          ? (tx as any).nodeAsset.deleteMany({
+              where: { nodeId: { in: nodeIdArray } },
+            })
+          : Promise.resolve(),
+        tx.node.deleteMany({
+          where: { workflowId: id },
+        }),
+      ]);
 
       // Prepare update data
       const updateData: any = {};
@@ -492,14 +623,70 @@ export const updateWorkflowData = async (
               throw new AppError(`Node ${node.id} is missing required type.`, 400);
             }
 
+            // Extract assets from Remotion node data to store separately (prevents transaction timeout)
+            const nodeData = node.data || {};
+            let assetsToStore: Array<{
+              filename: string;
+              fileType: string;
+              fileData: string;
+              sceneDescription?: string;
+              startTime?: number;
+              position?: any;
+              size?: any;
+              isBackgroundAudio: boolean;
+              volume?: number;
+            }> = [];
+
+            // Check if this is a Remotion node with assets
+            if (node.type === "REMOTION" && nodeData) {
+              // Extract background audio if present
+              if (nodeData.backgroundAudio && nodeData.backgroundAudioFilename) {
+                assetsToStore.push({
+                  filename: nodeData.backgroundAudioFilename,
+                  fileType: "audio",
+                  fileData: nodeData.backgroundAudio,
+                  isBackgroundAudio: true,
+                  volume: nodeData.backgroundAudioVolume ?? 0.7,
+                });
+                // Remove from node.data to keep it small
+                delete nodeData.backgroundAudio;
+                delete nodeData.backgroundAudioFilename;
+                delete nodeData.backgroundAudioVolume;
+              }
+
+              // Extract regular assets if present
+              if (Array.isArray(nodeData.assets) && nodeData.assets.length > 0) {
+                assetsToStore.push(
+                  ...nodeData.assets.map((asset: any) => ({
+                    filename: asset.filename,
+                    fileType: asset.type || "image",
+                    fileData: asset.file,
+                    sceneDescription: asset.sceneDescription,
+                    startTime: asset.startTime,
+                    position: asset.position,
+                    size: asset.size,
+                    isBackgroundAudio: false,
+                  }))
+                );
+                // Remove from node.data to keep it small
+                delete nodeData.assets;
+              }
+            }
+
+            // Store assets separately (not in the node object - Prisma doesn't recognize _assets)
+            if (assetsToStore.length > 0) {
+              assetsByNodeId[node.id.trim()] = assetsToStore;
+            }
+
             // Preserve the node ID from client so connections can reference it
+            // Note: Do NOT include _assets in the return object - it's stored separately in assetsByNodeId
             return {
               id: node.id.trim(), // Use client-provided ID, trim whitespace
               workflowId: id,
               name: (node.name || node.id).trim(),
               type: node.type as any, // Prisma will validate against the enum
               position: node.position || { x: 0, y: 0 },
-              data: node.data || {},
+              data: nodeData, // Store data without large assets
             };
           })
           .filter((node) => {
@@ -507,15 +694,22 @@ export const updateWorkflowData = async (
             return node.id && node.type;
           });
 
-        // Use createMany to create nodes with their IDs
+        // nodesToCreate already doesn't have _assets field (we never added it to the return object)
+        // Assets are stored in assetsByNodeId (declared outside transaction)
+        const nodesToCreateWithoutAssets = nodesToCreate;
+
+        // Use createMany to create nodes with their IDs (without large asset data)
         // We delete all nodes first, so there should be no duplicates
         // Remove skipDuplicates to ensure we catch any issues instead of silently failing
         const createResult = await tx.node.createMany({
-          data: nodesToCreate,
+          data: nodesToCreateWithoutAssets,
         });
 
+        // Note: Assets are NOT created here to avoid transaction timeout
+        // They will be created AFTER the transaction completes (see below)
+
         // Log for debugging - this is critical to understand what's happening
-        if (createResult.count !== nodesToCreate.length) {
+        if (createResult.count !== nodesToCreateWithoutAssets.length) {
           console.error(
             `[WorkflowService] CRITICAL: Created ${createResult.count} nodes but expected ${nodesToCreate.length} for workflow ${id}`
           );
@@ -526,7 +720,7 @@ export const updateWorkflowData = async (
           // Throw error instead of silently failing
           // Note: Removed verification query to optimize transaction speed
           throw new AppError(
-            `Failed to create all nodes. Expected ${nodesToCreate.length} but only created ${createResult.count}.`,
+            `Failed to create all nodes. Expected ${nodesToCreateWithoutAssets.length} but only created ${createResult.count}.`,
             500
           );
         }
@@ -631,10 +825,44 @@ export const updateWorkflowData = async (
       });
     },
     {
-      timeout: 15000, // 15 seconds timeout (Accelerate's maximum limit)
+      timeout: 15000, // 15 seconds timeout (Accelerate's hard limit - cannot be exceeded)
       maxWait: 10000, // Maximum time to wait for a transaction slot (10 seconds)
     }
   );
+
+  // Create assets AFTER transaction completes (to avoid timeout)
+  // This is safe because nodes are already created and have IDs
+  if (Object.keys(assetsByNodeId).length > 0) {
+    const allAssets = [];
+    for (const [nodeId, assets] of Object.entries(assetsByNodeId)) {
+      for (const asset of assets) {
+        allAssets.push({
+          nodeId,
+          filename: asset.filename,
+          fileType: asset.fileType,
+          fileData: asset.fileData,
+          sceneDescription: asset.sceneDescription || null,
+          startTime: asset.startTime ?? null,
+          position: asset.position || null,
+          size: asset.size || null,
+          isBackgroundAudio: asset.isBackgroundAudio,
+          volume: asset.volume ?? null,
+        });
+      }
+    }
+
+    if (allAssets.length > 0) {
+      // Create assets in batches to avoid overwhelming the database
+      // Process in chunks of 10 to balance performance and memory
+      const batchSize = 10;
+      for (let i = 0; i < allAssets.length; i += batchSize) {
+        const batch = allAssets.slice(i, i + batchSize);
+        await (prismaClient as any).nodeAsset.createMany({
+          data: batch,
+        });
+      }
+    }
+  }
 
   const transformedWorkflow = transformWorkflow(workflow);
 

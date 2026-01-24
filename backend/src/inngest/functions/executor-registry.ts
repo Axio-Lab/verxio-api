@@ -32,6 +32,7 @@ import { designExecutor } from "./actions/design";
 import { designProExecutor } from "./actions/designPro";
 import { loyaltyDealExecutor } from "./actions/loyalty-deal";
 import { loyaltyProgramExecutor } from "./actions/loyalty-program";
+import { remotionExecutor } from "./actions/remotion";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -79,6 +80,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.LOYALTY_DEAL]: loyaltyDealExecutor as NodeExecutor,
   // LOYALTY_PROGRAM node for managing loyalty programs
   [NodeType.LOYALTY_PROGRAM]: loyaltyProgramExecutor as NodeExecutor,
+  // REMOTION node for AI-powered video generation
+  [NodeType.REMOTION]: remotionExecutor as NodeExecutor,
 };
 
 /**

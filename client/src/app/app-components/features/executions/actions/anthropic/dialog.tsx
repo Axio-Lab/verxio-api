@@ -37,11 +37,9 @@ import Image from "next/image";
 
 // Available Anthropic Claude models
 const ANTHROPIC_MODELS = [
-  { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
-  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-  { value: "claude-3-opus-20240229", label: "Claude 3 Opus" },
-  { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
-  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+  { value: "claude-opus-4-5", label: "Claude Opus 4.5" },
 ] as const;
 
 export const ANTHROPIC_MODEL_VALUES = ANTHROPIC_MODELS.map((m) => m.value) as [string, ...string[]];
@@ -77,7 +75,7 @@ export const AnthropicDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
     resolver: zodResolver(formSchema),
     defaultValues: {
       variables: defaultValues.variables || "anthropic",
-      model: defaultValues.model || "claude-3-5-sonnet-20241022",
+      model: defaultValues.model || "claude-sonnet-4-5",
       userPrompt: defaultValues.userPrompt || "",
       systemPrompt: defaultValues.systemPrompt || "",
       credentialId: defaultValues.credentialId || undefined,
@@ -88,7 +86,7 @@ export const AnthropicDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
     if (open) {
       form.reset({
         variables: defaultValues.variables || "anthropic",
-        model: defaultValues.model || "claude-3-5-sonnet-20241022",
+        model: defaultValues.model || "claude-sonnet-4-5",
         userPrompt: defaultValues.userPrompt || "",
         systemPrompt: defaultValues.systemPrompt || "",
         credentialId: defaultValues.credentialId || undefined,

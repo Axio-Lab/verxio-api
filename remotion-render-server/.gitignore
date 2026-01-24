@@ -1,0 +1,7 @@
+node_modules/
+dist/
+outputs/
+temp-projects/
+*.mp4
+*.log
+.DS_Store

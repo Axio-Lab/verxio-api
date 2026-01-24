@@ -105,12 +105,9 @@ export const PlanNode = memo((props: NodeProps) => {
 
   const nodeData = props.data as any;
 
-  // Generate description based on configuration
+  // Generate description - PLAN nodes don't need label anymore
   const getDescription = () => {
-    if (!nodeData?.label) {
-      return "Configure to plan workflow with AI";
-    }
-    return nodeData.label as string;
+    return "Plan workflow with AI";
   };
 
   return (

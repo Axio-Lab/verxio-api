@@ -259,6 +259,13 @@ const executionNodes: NodeTypeOption[] = [
       "Manage loyalty programs. Create programs, issue passes, gift/revoke points, get member stats.",
     icon: "/logo/verxioIcon.svg",
   },
+  {
+    type: NodeType.REMOTION,
+    label: "Remotion",
+    description:
+      "Generate motion videos using AI-powered Remotion code generation. Add assets, background audio, and create professional videos.",
+    icon: "/logo/remotion.svg",
+  },
 ];
 
 export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {
@@ -773,8 +780,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Plan Workflow",
-            variables: "plan",
+            // PLAN nodes don't need variables or label - they're just for planning
           },
           type: NodeType.PLAN,
           position: flowPosition,
@@ -829,6 +835,20 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             action: "get_programs",
           },
           type: NodeType.LOYALTY_PROGRAM,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.REMOTION) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Remotion",
+            variables: "remotion",
+            prompt: "",
+            videoFormat: "16:9",
+          },
+          type: NodeType.REMOTION,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

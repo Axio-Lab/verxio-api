@@ -36,6 +36,7 @@ export const NodeType = {
   DESIGN_PRO: "DESIGN_PRO",
   LOYALTY_DEAL: "LOYALTY_DEAL",
   LOYALTY_PROGRAM: "LOYALTY_PROGRAM",
+  REMOTION: "REMOTION",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];
