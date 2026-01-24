@@ -245,9 +245,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       error: errorMessage,
       usage: lastResult?.usage
         ? {
-          inputTokens: lastResult.usage.input_tokens,
-          outputTokens: lastResult.usage.output_tokens,
-        }
+            inputTokens: lastResult.usage.input_tokens,
+            outputTokens: lastResult.usage.output_tokens,
+          }
         : undefined,
       cost: lastResult?.total_cost_usd,
     });
@@ -708,12 +708,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-        .map((name) => {
-          const value = context[name];
-          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-        })
-        .join("\n")
+          .map((name) => {
+            const value = context[name];
+            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+          })
+          .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

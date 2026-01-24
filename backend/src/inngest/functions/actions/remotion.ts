@@ -3,9 +3,10 @@ import { remotionChannel } from "@/inngest/channels/remotion";
 import { NonRetriableError } from "inngest";
 import { generateCodeWithAgent } from "@/services/claude-agent/claudeAgentService";
 import { loadRemotionSkills } from "@/services/claude-agent/remotion-skills";
+import { basePrismaClient } from "@/lib/prisma";
 
 type RemotionAsset = {
-  file: string; // base64 encoded file OR URL to file
+  file: string;
   filename: string;
   type: "image" | "video" | "audio";
   sceneDescription?: string;
@@ -18,13 +19,12 @@ type RemotionData = {
   variables?: string;
   prompt?: string;
   videoFormat?: "16:9" | "9:16" | "1:1" | "4:3" | "21:9";
-  backgroundAudio?: string; // base64 encoded OR URL to file
+  backgroundAudio?: string;
   backgroundAudioFilename?: string;
   backgroundAudioVolume?: number;
   assets?: RemotionAsset[];
 };
 
-// Video format to dimensions mapping
 const VIDEO_FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
@@ -33,7 +33,6 @@ const VIDEO_FORMAT_DIMENSIONS: Record<string, { width: number; height: number }>
   "21:9": { width: 2560, height: 1080 },
 };
 
-// Helper to publish status updates
 const publishStatus = async (
   publish: any,
   nodeId: string,
@@ -47,6 +46,43 @@ const publishStatus = async (
   );
 };
 
+const extractBase64FromDataUrl = (fileInput: string): string | null => {
+  if (!fileInput || fileInput.trim() === "") {
+    return null;
+  }
+  if (fileInput.startsWith("data:")) {
+    const base64Match = fileInput.match(/base64,(.+)/);
+    return base64Match ? base64Match[1] : null;
+  }
+  if (fileInput.length > 100 && !fileInput.startsWith("http")) {
+    return fileInput;
+  }
+  return null;
+};
+
+const fetchFileAsBase64 = async (fileInput: string): Promise<string | null> => {
+  if (!fileInput || fileInput.startsWith("http://") || fileInput.startsWith("https://")) {
+    try {
+      const response = await fetch(fileInput, {
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!response.ok) {
+        console.error(`Failed to fetch file from ${fileInput}: ${response.statusText}`);
+        return null;
+      }
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength === 0) {
+        return null;
+      }
+      return Buffer.from(buffer).toString("base64");
+    } catch (error) {
+      console.error(`Error fetching file from ${fileInput}:`, error);
+      return null;
+    }
+  }
+  return null;
+};
+
 export const remotionExecutor: NodeExecutor<RemotionData> = async ({
   data,
   nodeId,
@@ -58,224 +94,128 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
   try {
     await publishStatus(publish, nodeId, "loading");
 
-    const variablesName = data.variables || "remotion";
+    // CRITICAL: Extract ALL data into primitives IMMEDIATELY
+    // data should NOT contain assets (getWorkflowForExecution doesn't merge them)
+    // But we still extract to primitives to avoid any closure capture
+    const variablesName = String(data?.variables || "remotion");
+    const promptText = String(data?.prompt || "");
+    const videoFormat = String(data?.videoFormat || "16:9");
+    const renderServerUrl = String(process.env.REMOTION_SERVER_URL || "");
 
-    if (!data.prompt) {
+    if (!promptText) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError("REMOTION node: Prompt is required");
+      const minimalContext: Record<string, any> = {};
+      if (context) {
+        for (const key of Object.keys(context).slice(0, 3)) {
+          const val = context[key];
+          if (typeof val === "string" || (val && typeof val === "object" && "videoUrl" in val)) {
+            minimalContext[key] = val;
+          }
+        }
+      }
       await publish(
         remotionChannel().output({
           nodeId,
           output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
+            ...minimalContext,
+            error: { message: error.message },
           },
         })
       );
       throw error;
     }
 
-    const videoFormat = data.videoFormat || "16:9";
-    const defaultDimensions = VIDEO_FORMAT_DIMENSIONS[videoFormat];
-
-    // Build asset information for Claude prompt
-    let assetInfo = "";
-    const staticFiles: Record<string, string> = {};
-
-    // Helper function to fetch file from URL or use base64 directly
-    const fetchFileAsBase64 = async (fileInput: string): Promise<string | null> => {
-      if (!fileInput || fileInput.trim() === "") {
-        return null;
-      }
-
-      // Handle data URLs (data:image/png;base64,... or data:audio/mp3;base64,...)
-      if (fileInput.startsWith("data:")) {
-        const base64Match = fileInput.match(/base64,(.+)/);
-        return base64Match ? base64Match[1] : null;
-      }
-
-      // If it's a URL (http/https), fetch it and convert to base64
-      if (fileInput.startsWith("http://") || fileInput.startsWith("https://")) {
-        try {
-          const response = await fetch(fileInput, {
-            // Add timeout to prevent hanging
-            signal: AbortSignal.timeout(30000), // 30 second timeout
-          });
-          if (!response.ok) {
-            console.error(
-              `Failed to fetch file from ${fileInput}: ${response.statusText} (${response.status})`
-            );
-            return null;
-          }
-
-          // Check content length to ensure we're getting the full file
-          const contentLength = response.headers.get("content-length");
-          if (contentLength) {
-            console.log(`Fetching file of size: ${contentLength} bytes`);
-          }
-
-          const buffer = await response.arrayBuffer();
-
-          // Validate buffer is not empty
-          if (buffer.byteLength === 0) {
-            console.error(`Fetched file from ${fileInput} is empty`);
-            return null;
-          }
-
-          console.log(`Successfully fetched ${buffer.byteLength} bytes from ${fileInput}`);
-          const base64 = Buffer.from(buffer).toString("base64");
-
-          // Validate base64 is not empty
-          if (!base64 || base64.length === 0) {
-            console.error(`Base64 conversion resulted in empty string for ${fileInput}`);
-            return null;
-          }
-
-          return base64;
-        } catch (error) {
-          console.error(`Error fetching file from ${fileInput}:`, error);
-          if (error instanceof Error) {
-            console.error(`Error details: ${error.message}`);
-          }
-          return null;
-        }
-      }
-
-      // If it's a long string without http, assume it's already base64
-      // (for backward compatibility with existing nodes that have base64 stored)
-      if (fileInput.length > 100) {
-        return fileInput;
-      }
-
-      return null;
-    };
-
-    // Handle background audio - fetch if URL, use base64 if provided
-    if (data.backgroundAudio && data.backgroundAudioFilename) {
-      const audioVolume = data.backgroundAudioVolume ?? 0.7;
-      // Sanitize filename to avoid issues with special characters
-      const sanitizedFilename = data.backgroundAudioFilename.replace(/[<>:"/\\|?*]/g, "_").trim();
-      assetInfo += `Background audio:\n- ${sanitizedFilename}: Volume ${audioVolume}, plays from start (frame 0) to end of composition. Use <Audio> component from @remotion/media with staticFile('${sanitizedFilename}') and volume={${audioVolume}}.\n\n`;
-
-      // Extract base64 from data URL or fetch from URL
-      // If it's already a data URL, extract base64 directly (no step needed to avoid size limits)
-      let audioBase64: string | null = null;
-
-      if (data.backgroundAudio.startsWith("data:")) {
-        // Already a data URL - extract base64 directly (no step output)
-        const base64Match = data.backgroundAudio.match(/base64,(.+)/);
-        audioBase64 = base64Match ? base64Match[1] : null;
-      } else if (
-        data.backgroundAudio.startsWith("http://") ||
-        data.backgroundAudio.startsWith("https://")
-      ) {
-        // It's a URL - fetch it in a step (for backward compatibility with old Pinata URLs)
-        audioBase64 = await step.run("fetch-background-audio", async () => {
-          const result = await fetchFileAsBase64(data.backgroundAudio!);
-          if (!result) {
-            throw new Error(`Failed to fetch background audio from ${data.backgroundAudio}`);
-          }
-          return result;
-        });
-      } else {
-        // Assume it's already base64 (backward compatibility)
-        audioBase64 = data.backgroundAudio;
-      }
-
-      if (audioBase64) {
-        staticFiles[sanitizedFilename] = audioBase64;
-      } else {
-        throw new Error(`Failed to process background audio file: ${data.backgroundAudioFilename}`);
-      }
+    if (!renderServerUrl) {
+      throw new NonRetriableError("REMOTION server URL is not set");
     }
 
-    // Handle other assets - fetch if URL, use base64 if provided
-    if (data.assets && data.assets.length > 0) {
-      assetInfo += "Available assets:\n";
-      for (const asset of data.assets) {
-        const timing =
-          asset.startTime !== undefined
+    // Extract minimal context metadata (not values) - limit to prevent large context
+    const contextKeys = Object.keys(context || {}).slice(0, 5);
+    const contextMetadata: Array<{ key: string; hasVideoUrl: boolean; isString: boolean }> = [];
+    for (const key of contextKeys) {
+      const val = context?.[key];
+      contextMetadata.push({
+        key,
+        hasVideoUrl: Boolean(val && typeof val === "object" && val !== null && "videoUrl" in val),
+        isString: typeof val === "string",
+      });
+    }
+
+    // Store all as local primitives (will be captured in closure, but they're small)
+    const localPromptText = promptText;
+    const localVideoFormat = videoFormat;
+    const localRenderServerUrl = renderServerUrl;
+    const localNodeId = nodeId;
+    const localUserId = userId;
+    const localContextMetadata = contextMetadata;
+    const localVariablesName = variablesName;
+
+    // CRITICAL: Everything happens in ONE step
+    // data and context are NOT referenced inside step - only local primitives are used
+    // All large data (assets, code, skills) is loaded/generated INSIDE the step
+    const renderResult = await step.run("generate-and-render-video", async () => {
+      // Load assets from database (inside step - not in closure)
+      const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
+        where: { nodeId: localNodeId },
+      });
+
+      // Build asset info for prompt
+      let assetInfo = "";
+      const bgAudio = nodeAssets.find((a: any) => a.isBackgroundAudio);
+      if (bgAudio) {
+        const filename = bgAudio.filename.replace(/[<>:"/\\|?*]/g, "_").trim();
+        const volume = bgAudio.volume ?? 0.7;
+        assetInfo += `Background audio:\n- ${filename}: Volume ${volume}, plays from start (frame 0) to end of composition. Use <Audio> component from @remotion/media with staticFile('${filename}') and volume={${volume}}.\n\n`;
+      }
+
+      const regularAssets = nodeAssets.filter((a: any) => !a.isBackgroundAudio);
+      if (regularAssets.length > 0) {
+        assetInfo += "Available assets:\n";
+        for (const asset of regularAssets) {
+          const filename = asset.filename.replace(/[<>:"/\\|?*]/g, "_").trim();
+          const timing = asset.startTime
             ? `Appears at ${asset.startTime} seconds`
             : "Appears at 0 seconds";
-        const position = asset.position
-          ? `, positioned at (${asset.position.x ?? 0}, ${asset.position.y ?? 0})`
-          : "";
-        const size = asset.size
-          ? `, size ${asset.size.width ?? "auto"}x${asset.size.height ?? "auto"}`
-          : "";
-        const description = asset.sceneDescription
-          ? `\n  Description: "${asset.sceneDescription}"`
-          : "";
-
-        // Sanitize filename to avoid issues with special characters
-        const sanitizedAssetFilename = asset.filename.replace(/[<>:"/\\|?*]/g, "_").trim();
-        assetInfo += `- ${sanitizedAssetFilename} (${asset.type}): ${timing}${position}${size}.${description}\n`;
-
-        // Extract base64 from data URL or fetch from URL
-        // If it's already a data URL, extract base64 directly (no step needed to avoid size limits)
-        let assetBase64: string | null = null;
-
-        if (asset.file.startsWith("data:")) {
-          // Already a data URL - extract base64 directly (no step output)
-          const base64Match = asset.file.match(/base64,(.+)/);
-          assetBase64 = base64Match ? base64Match[1] : null;
-        } else if (asset.file.startsWith("http://") || asset.file.startsWith("https://")) {
-          // It's a URL - fetch it in a step (for backward compatibility with old Pinata URLs)
-          assetBase64 = await step.run(`fetch-asset-${sanitizedAssetFilename}`, async () => {
-            const result = await fetchFileAsBase64(asset.file);
-            if (!result) {
-              throw new Error(`Failed to fetch asset from ${asset.file}`);
-            }
-            return result;
-          });
-        } else {
-          // Assume it's already base64 (backward compatibility)
-          assetBase64 = asset.file;
+          const pos = asset.position
+            ? `, positioned at (${asset.position.x ?? 0}, ${asset.position.y ?? 0})`
+            : "";
+          const size = asset.size
+            ? `, size ${asset.size.width ?? "auto"}x${asset.size.height ?? "auto"}`
+            : "";
+          const desc = asset.sceneDescription ? `\n  Description: "${asset.sceneDescription}"` : "";
+          assetInfo += `- ${filename} (${asset.fileType}): ${timing}${pos}${size}.${desc}\n`;
         }
-
-        if (assetBase64) {
-          staticFiles[sanitizedAssetFilename] = assetBase64;
-        } else {
-          console.warn(`Failed to process asset file: ${asset.filename}`);
-        }
+        assetInfo +=
+          "\nUse staticFile('filename.ext') to reference each asset. Follow the scene descriptions to position and animate them correctly.\n";
       }
-      assetInfo +=
-        "\nUse staticFile('filename.ext') to reference each asset. Follow the scene descriptions to position and animate them correctly.\n";
-    }
 
-    // Build context string from previous node outputs
-    // Format it clearly so Claude knows how to access Remotion outputs
-    const contextString =
-      Object.keys(context).length > 0
-        ? Object.keys(context)
-          .map((key) => {
-            const value = context[key];
-            // If it's a Remotion output (has videoUrl and success), document it clearly
-            if (value && typeof value === "object" && "videoUrl" in value && "success" in value) {
-              return `- inputs.${key}.videoUrl: The rendered video URL (string) - Use this to access the video\n- inputs.${key}.success: Whether rendering succeeded (boolean)\n- inputs.${key}: Complete object with videoUrl and success properties`;
-            }
-            // For direct videoUrl (backward compatibility)
-            if (key === "videoUrl" && typeof value === "string") {
-              return `- inputs.videoUrl: The rendered video URL from Remotion node (string) - Use this to access the video directly`;
-            }
-            // For other outputs, show sample
-            const sample = JSON.stringify(value, null, 2).substring(0, 200);
-            return `- inputs.${key}: ${sample}${sample.length >= 200 ? "..." : ""}`;
-          })
-          .join("\n")
-        : "No specific inputs from previous nodes";
+      // Build context string from metadata
+      const contextString =
+        localContextMetadata.length > 0
+          ? localContextMetadata
+              .map((item) => {
+                if (item.hasVideoUrl) {
+                  return `- inputs.${item.key}.videoUrl: The rendered video URL (string)\n- inputs.${item.key}.success: Whether rendering succeeded (boolean)`;
+                }
+                if (item.key === "videoUrl" && item.isString) {
+                  return `- inputs.videoUrl: The rendered video URL from Remotion node (string)`;
+                }
+                return `- inputs.${item.key}: Available from previous node`;
+              })
+              .join("\n")
+          : "No specific inputs from previous nodes";
 
-    // Load Remotion skills and best practices
-    const skillsContent = await step.run("load-remotion-skills", async () => {
-      return await loadRemotionSkills();
-    });
+      // Load skills (inside step)
+      const skillsContent = await loadRemotionSkills();
 
-    // Build Remotion-specific prompt for Claude
-    const remotionPrompt = `Generate Remotion composition code for: ${data.prompt}
+      // Build prompt (inside step)
+      const defaultDims = VIDEO_FORMAT_DIMENSIONS[localVideoFormat];
+      const remotionPrompt = `Generate Remotion composition code for: ${localPromptText}
 
-Video format: ${videoFormat} (default dimensions: ${defaultDimensions.width}x${defaultDimensions.height} if not specified in prompt)
+⚠️ CRITICAL: You MUST follow all Remotion best practices and rules provided below. These are REQUIRED, not optional.
+
+Video format: ${localVideoFormat} (default dimensions: ${defaultDims.width}x${defaultDims.height} if not specified in prompt)
 
 ${assetInfo ? `${assetInfo}\n` : ""}
 
@@ -287,6 +227,20 @@ NOTE: If a Remotion node output is available, you can access the video URL using
 - inputs.videoUrl (direct access, also available)
 
 ${skillsContent}
+
+## CRITICAL: FOLLOW REMOTION BEST PRACTICES
+
+You MUST strictly follow all Remotion best practices and rules documented above. Key requirements:
+
+1. **ALWAYS use Remotion components**: Use <Img> from 'remotion' for images, <Video> and <Audio> from '@remotion/media' for media
+2. **NEVER use CSS animations**: All animations MUST be driven by useCurrentFrame() hook
+3. **Use staticFile() for assets**: Always use staticFile('filename.ext') to reference files from the public folder
+4. **Proper project structure**: Must include index.ts (with registerRoot), Root.tsx (with Composition), and composition component files
+5. **Animation patterns**: Use interpolate() for linear animations, spring() for natural motion, Sequence for timing
+6. **No third-party animations**: Disable all animations from third-party libraries, drive everything from useCurrentFrame()
+7. **Type safety**: Include proper TypeScript types for all components and props
+
+Refer to the detailed rules above for specific patterns (animations, assets, audio, sequencing, etc.).
 
 ## PROJECT STRUCTURE REQUIREMENTS:
 
@@ -326,105 +280,77 @@ IMPORTANT RULES:
 5. Do NOT add any code before or after the JSON
 6. The "files" object should contain all necessary Remotion files
 
-Generate complete, production-ready Remotion code. Include all files needed for the composition.`;
+## FINAL REMINDER:
+⚠️ CRITICAL: You MUST follow all Remotion best practices and rules provided below. These are REQUIRED, not optional.
 
-    // Generate Remotion code using Claude Agent
-    const codeResult = await step.run("generate-remotion-code", async () => {
-      return await generateCodeWithAgent({
-        userId,
+- Follow ALL Remotion best practices from the skills documentation above
+- Use Remotion components (<Img>, <Video>, <Audio>) - NEVER use native HTML elements
+- All animations MUST use useCurrentFrame() - NO CSS transitions/animations
+- Use staticFile() for all asset references
+- Ensure proper TypeScript types throughout
+- Use proper Remotion patterns (Sequence, spring, interpolate) as documented
+
+Generate complete, production-ready Remotion code that strictly adheres to all best practices. Include all files needed for the composition.`;
+
+      // Generate code (inside step - not stored in step output)
+      const codeResult = await generateCodeWithAgent({
+        userId: localUserId,
         requirement: remotionPrompt,
-        context: context,
+        context: {}, // Empty - all info in prompt string
         language: "typescript",
       });
-    });
 
-    if (!codeResult.success || !codeResult.code) {
-      await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError(
-        `Failed to generate Remotion code: ${codeResult.error || "Unknown error"}`
-      );
-      await publish(
-        remotionChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
-        })
-      );
-      throw error;
-    }
+      if (!codeResult.success || !codeResult.code) {
+        throw new Error(`Failed to generate Remotion code: ${codeResult.error || "Unknown error"}`);
+      }
 
-    // Parse the generated code to extract files
-    await publishStatus(publish, nodeId, "rendering");
-
-    const renderServerUrl = process.env.REMOTION_SERVER_URL;
-    if (!renderServerUrl) {
-      throw new NonRetriableError("REMOTION server URL is not set");
-    }
-    const renderResult = await step.run("render-video", async () => {
-      // codeResult.code is guaranteed to exist due to check above, but TypeScript needs explicit handling
-      let code = codeResult.code!;
-
-      // Remove common prefixes that Claude might add (e.g., "json\n", "```json\n", etc.)
-      code = code.trim();
-      if (code.startsWith("json\n")) {
-        code = code.substring(5);
-      } else if (code.startsWith("```json\n")) {
+      // Parse code (inside step)
+      let code = codeResult.code.trim();
+      if (code.startsWith("json\n")) code = code.substring(5);
+      else if (code.startsWith("```json\n")) {
         code = code.substring(8);
-        // Remove closing ```
-        if (code.endsWith("```")) {
-          code = code.substring(0, code.length - 3);
-        }
+        if (code.endsWith("```")) code = code.substring(0, code.length - 3);
       } else if (code.startsWith("```\n")) {
         code = code.substring(4);
-        // Remove closing ```
-        if (code.endsWith("```")) {
-          code = code.substring(0, code.length - 3);
-        }
+        if (code.endsWith("```")) code = code.substring(0, code.length - 3);
       }
       code = code.trim();
 
       let files: Record<string, string> = {};
 
-      // Try to extract files from function-wrapped code (Claude sometimes wraps in a function)
-      // Look for: const files = { ... } pattern
-      const filesVarMatch = code.match(/const\s+files\s*=\s*\{/);
-      if (filesVarMatch) {
+      // Extract files from function-wrapped code
+      const filesMatch = code.match(/const\s+files\s*=\s*\{/);
+      if (filesMatch) {
         try {
-          // Extract the files object by finding const files = { ... }
-          const startPos = filesVarMatch.index! + filesVarMatch[0].length - 1;
+          const start = filesMatch.index! + filesMatch[0].length - 1;
           let depth = 0;
           let inString = false;
-          let stringChar = "";
-          let i = startPos;
+          let strChar = "";
+          let i = start;
 
           while (i < code.length) {
             const char = code[i];
-            const prevChar = i > 0 ? code[i - 1] : "";
+            const prev = i > 0 ? code[i - 1] : "";
 
             if (!inString && (char === '"' || char === "'" || char === "`")) {
               inString = true;
-              stringChar = char;
-            } else if (inString && char === stringChar && prevChar !== "\\") {
+              strChar = char;
+            } else if (inString && char === strChar && prev !== "\\") {
               inString = false;
-              stringChar = "";
+              strChar = "";
             } else if (!inString) {
               if (char === "{") depth++;
               else if (char === "}") {
                 depth--;
                 if (depth === 0) {
-                  const filesStr = code.substring(startPos, i + 1);
+                  const filesStr = code.substring(start, i + 1);
                   try {
                     const parsed = new Function("return " + filesStr)();
                     if (parsed && typeof parsed === "object") {
                       files = parsed;
-                      // Unescape file contents
-                      for (const [fileName, fileContent] of Object.entries(files)) {
-                        if (typeof fileContent === "string") {
-                          files[fileName] = fileContent
+                      for (const [name, content] of Object.entries(files)) {
+                        if (typeof content === "string") {
+                          files[name] = (content as string)
                             .replace(/\\n/g, "\n")
                             .replace(/\\t/g, "\t")
                             .replace(/\\r/g, "\r")
@@ -434,7 +360,7 @@ Generate complete, production-ready Remotion code. Include all files needed for 
                       }
                     }
                   } catch (e) {
-                    console.error("[Remotion] Failed to parse files from function:", e);
+                    console.error("[Remotion] Failed to parse files:", e);
                   }
                   break;
                 }
@@ -442,21 +368,20 @@ Generate complete, production-ready Remotion code. Include all files needed for 
             }
             i++;
           }
-        } catch (extractError) {
-          console.error("[Remotion] Failed to extract files from function:", extractError);
+        } catch (e) {
+          console.error("[Remotion] Failed to extract files:", e);
         }
       }
 
-      // If we didn't extract files from function, try to parse as JSON
+      // Try JSON parse
       if (Object.keys(files).length === 0) {
         try {
           const parsed = JSON.parse(code);
           if (parsed.files && typeof parsed.files === "object") {
             files = parsed.files;
-            // Unescape any escaped newlines in file contents
-            for (const [fileName, fileContent] of Object.entries(files)) {
-              if (typeof fileContent === "string") {
-                files[fileName] = fileContent
+            for (const [name, content] of Object.entries(files)) {
+              if (typeof content === "string") {
+                files[name] = (content as string)
                   .replace(/\\n/g, "\n")
                   .replace(/\\t/g, "\t")
                   .replace(/\\r/g, "\r")
@@ -465,59 +390,66 @@ Generate complete, production-ready Remotion code. Include all files needed for 
               }
             }
           }
-        } catch (parseError) {
-          console.error("[Remotion] JSON parse error:", parseError);
-          console.error("[Remotion] Code preview:", code.substring(0, 200));
-          // Not JSON, try to parse file separators
-          const fileSeparatorRegex =
-            /=== FILE: (.+?) ===\n([\s\S]*?)(?=== END FILE ===|=== FILE:|$)/g;
+        } catch (e) {
+          // Try file separators
+          const sepRegex = /=== FILE: (.+?) ===\n([\s\S]*?)(?=== END FILE ===|=== FILE:|$)/g;
           let match;
-          while ((match = fileSeparatorRegex.exec(code)) !== null) {
-            const fileName = match[1]!.trim();
-            const fileContent = match[2]!.trim();
-            files[fileName] = fileContent;
+          while ((match = sepRegex.exec(code)) !== null) {
+            files[match[1]!.trim()] = match[2]!.trim();
           }
 
-          // If no files found with separators, try markdown code blocks
+          // Try markdown blocks
           if (Object.keys(files).length === 0) {
-            const codeBlockRegex =
-              /```(?:typescript|tsx|ts)?\s*(?:file=)?([^\n]+)?\n([\s\S]*?)```/g;
-            let codeMatch;
-            while ((codeMatch = codeBlockRegex.exec(code)) !== null) {
-              const fileName = codeMatch[1]?.trim() || "index.ts";
-              const fileContent = codeMatch[2]!.trim();
-              files[fileName] = fileContent;
+            const blockRegex = /```(?:typescript|tsx|ts)?\s*(?:file=)?([^\n]+)?\n([\s\S]*?)```/g;
+            let blockMatch;
+            while ((blockMatch = blockRegex.exec(code)) !== null) {
+              files[blockMatch[1]?.trim() || "index.ts"] = blockMatch[2]!.trim();
             }
           }
 
-          // Fallback: if still no files, treat entire code as index.ts
           if (Object.keys(files).length === 0) {
             files["index.ts"] = code;
           }
         }
       }
 
-      // Ensure we have at least index.ts
+      // Ensure index.ts exists
       if (!files["index.ts"] && !files["index.tsx"]) {
-        // Try to find any .ts or .tsx file
         const tsFile = Object.keys(files).find((f) => f.endsWith(".ts") || f.endsWith(".tsx"));
         if (tsFile) {
           files["index.ts"] = files[tsFile]!;
         } else {
-          // Last resort: use first file or entire code
-          const firstFile = Object.values(files)[0] || code;
-          files["index.ts"] = firstFile;
+          files["index.ts"] = Object.values(files)[0] || code;
         }
       }
 
-      const response = await fetch(`${renderServerUrl}/render`, {
+      // Build staticFiles from assets (inside step)
+      const staticFiles: Record<string, string> = {};
+      for (const asset of nodeAssets) {
+        const filename = asset.filename.replace(/[<>:"/\\|?*]/g, "_").trim();
+        let base64: string | null = null;
+
+        if (asset.fileData.startsWith("data:")) {
+          const match = asset.fileData.match(/base64,(.+)/);
+          base64 = match ? match[1] : null;
+        } else if (asset.fileData.startsWith("http://") || asset.fileData.startsWith("https://")) {
+          base64 = await fetchFileAsBase64(asset.fileData);
+        } else if (asset.fileData.length > 100) {
+          base64 = asset.fileData;
+        }
+
+        if (base64) {
+          staticFiles[filename] = base64;
+        }
+      }
+
+      // Render video (inside step)
+      const response = await fetch(`${localRenderServerUrl}/render`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           files,
-          staticFiles: Object.keys(staticFiles).length > 0 ? staticFiles : undefined,
+          ...(Object.keys(staticFiles).length > 0 ? { staticFiles } : {}),
         }),
       });
 
@@ -527,7 +459,7 @@ Generate complete, production-ready Remotion code. Include all files needed for 
       }
 
       const result = await response.json();
-      return result;
+      return result; // Only small { success, videoUrl } object
     });
 
     if (!renderResult.success || !renderResult.videoUrl) {
@@ -535,28 +467,42 @@ Generate complete, production-ready Remotion code. Include all files needed for 
       const error = new NonRetriableError(
         `Video rendering failed: ${renderResult.error || "Unknown error"}`
       );
+      const minimalContext: Record<string, any> = {};
+      if (context) {
+        for (const key of Object.keys(context).slice(0, 3)) {
+          const val = context[key];
+          if (typeof val === "string" || (val && typeof val === "object" && "videoUrl" in val)) {
+            minimalContext[key] = val;
+          }
+        }
+      }
       await publish(
         remotionChannel().output({
           nodeId,
           output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
+            ...minimalContext,
+            error: { message: error.message },
           },
         })
       );
       throw error;
     }
 
-    // Merge video URL into context
+    // Build output with minimal context
+    const outputContext: Record<string, any> = {};
+    if (context) {
+      for (const key of Object.keys(context).slice(0, 10)) {
+        outputContext[key] = context[key];
+      }
+    }
+
     const mergedOutput = {
-      ...context,
-      [variablesName]: {
+      ...outputContext,
+      [localVariablesName]: {
         videoUrl: renderResult.videoUrl,
         success: true,
       },
-      videoUrl: renderResult.videoUrl, // Also available directly
+      videoUrl: renderResult.videoUrl,
     };
 
     await publishStatus(publish, nodeId, "success");
@@ -572,14 +518,21 @@ Generate complete, production-ready Remotion code. Include all files needed for 
   } catch (error) {
     await publishStatus(publish, nodeId, "error");
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const minimalContext: Record<string, any> = {};
+    if (context) {
+      for (const key of Object.keys(context).slice(0, 3)) {
+        const val = context[key];
+        if (typeof val === "string" || (val && typeof val === "object" && "videoUrl" in val)) {
+          minimalContext[key] = val;
+        }
+      }
+    }
     await publish(
       remotionChannel().output({
         nodeId,
         output: {
-          ...context,
-          error: {
-            message: errorMessage,
-          },
+          ...minimalContext,
+          error: { message: errorMessage },
         },
       })
     );

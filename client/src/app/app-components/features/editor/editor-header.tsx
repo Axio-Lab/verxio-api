@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useAtomValue, useSetAtom } from "jotai";
 import { editorAtom, hasUnsavedChangesAtom } from "./atoms";
 import { NodeType } from "./node-types";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const EditorBreadcrumbs = ({ workflowId }: { workflowId: string }) => {
   return (
@@ -39,6 +40,7 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
   const editor = useAtomValue(editorAtom);
   const { data: workflow } = useWorkflow(workflowId);
   const saveWorkflow = useUpdateWorkflow();
+  const queryClient = useQueryClient();
   const [hasChanges, setHasChanges] = useState(false);
   const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -246,6 +248,10 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
         },
       });
 
+      // Update the query cache immediately with the saved workflow data
+      // This ensures checkForChanges compares against the latest saved state
+      queryClient.setQueryData(["workflow", workflowId], savedWorkflow);
+
       // Sync editor with saved workflow (IDs may have been remapped by backend)
       // This ensures the editor state matches the database state
       if (savedWorkflow && savedWorkflow.nodes) {
@@ -276,10 +282,11 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
         editor.setEdges(savedEdges);
       }
 
-      // Force a change check after a short delay to ensure hasChanges updates
+      // Force a change check immediately (query cache is already updated)
+      // Use a small delay to ensure editor state has been updated
       setTimeout(() => {
         checkForChanges();
-      }, 100);
+      }, 50);
     } catch (error) {
       // Error is handled by the mutation's onError callback
       console.error("Failed to save workflow:", error);

@@ -195,34 +195,31 @@ export const triggerWorkflow = inngest.createFunction(
     // Fetch and prepare workflow
     let workflow;
     try {
-      workflow = await step.run("prepare-workflow", async () => {
-        const fetchedWorkflow = await getWorkflow(workflowId, userId);
-        const connections = fetchedWorkflow.connections || [];
+      // Load workflow directly (not in step) to avoid serializing large workflow in step output
+      // This prevents "output_too_large" errors when Inngest tries to queue the execution
+      const { getWorkflowForExecution } = await import("../../services/workflowService");
+      const fetchedWorkflow = await getWorkflowForExecution(workflowId, userId);
+      const connections = fetchedWorkflow.connections || [];
 
-        // Find trigger node (pass connections to check if trigger is connected)
-        const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data, connections);
-        if (!triggerNode) {
-          throw new NonRetriableError("No trigger node found in workflow");
-        }
+      // Find trigger node (pass connections to check if trigger is connected)
+      const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data, connections);
+      if (!triggerNode) {
+        throw new NonRetriableError("No trigger node found in workflow");
+      }
 
-        // Find all reachable nodes from trigger
-        const reachableNodeIds = findReachableNodes(
-          triggerNode,
-          fetchedWorkflow.nodes,
-          connections
-        );
+      // Find all reachable nodes from trigger
+      const reachableNodeIds = findReachableNodes(triggerNode, fetchedWorkflow.nodes, connections);
 
-        // Filter to only connected nodes and sort topologically
-        const connectedNodes = fetchedWorkflow.nodes.filter((node: any) =>
-          reachableNodeIds.has(node.id)
-        );
-        const sortedNodes = topologicalSort(connectedNodes, connections);
+      // Filter to only connected nodes and sort topologically
+      const connectedNodes = fetchedWorkflow.nodes.filter((node: any) =>
+        reachableNodeIds.has(node.id)
+      );
+      const sortedNodes = topologicalSort(connectedNodes, connections);
 
-        return {
-          ...fetchedWorkflow,
-          nodes: sortedNodes,
-        };
-      });
+      workflow = {
+        ...fetchedWorkflow,
+        nodes: sortedNodes,
+      };
     } catch (error) {
       throw error;
     }
