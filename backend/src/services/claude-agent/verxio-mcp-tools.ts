@@ -583,8 +583,8 @@ export const executeWorkflowTool: VerxioTool = {
     let triggerNode = triggerNodeId
       ? workflow.nodes.find((n: any) => n.id === triggerNodeId)
       : workflow.nodes.find((n: any) =>
-          ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
-        );
+        ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
+      );
 
     if (!triggerNode) {
       return { success: false, error: "No suitable trigger node found in workflow" };
@@ -832,11 +832,11 @@ export const generateCodeTool: VerxioTool = {
     const inputDocs =
       inputVars.length > 0
         ? inputVars
-            .map(
-              (name) =>
-                `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
-            )
-            .join("\n")
+          .map(
+            (name) =>
+              `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
+          )
+          .join("\n")
         : "  // No specific inputs defined";
 
     const outputDocs = expectedOutput
@@ -1001,9 +1001,16 @@ function getCredentialSetupInstructions(type: string): string {
 export const createMultipleDesignNodesTool: VerxioTool = {
   name: "createMultipleDesignNodes",
   description:
-    "Create multiple DESIGN nodes in sequence for generating multiple images (e.g., presentation slides, image series). Each node receives a JSON-formatted prompt from the imageSpecs array. Nodes are connected sequentially.",
+    "Create multiple DESIGN or DESIGN_PRO nodes in sequence for generating multiple images (e.g., presentation slides, image series). Each node receives a JSON-formatted prompt from the imageSpecs array. Nodes are connected sequentially. Use DESIGN_PRO for higher quality output (1K/2K/4K resolution) or advanced features. Use DESIGN for standard quality output.",
   inputSchema: z.object({
     workflowId: z.string().describe("ID of the workflow"),
+    nodeType: z
+      .enum(["DESIGN", "DESIGN_PRO"])
+      .optional()
+      .default("DESIGN")
+      .describe(
+        "Node type: 'DESIGN' for standard quality (default), 'DESIGN_PRO' for higher quality (1K/2K/4K) and advanced features. Use DESIGN_PRO when user requests high quality, high resolution, or professional output."
+      ),
     imageSpecs: z
       .array(
         z.object({
@@ -1022,7 +1029,20 @@ export const createMultipleDesignNodesTool: VerxioTool = {
           model: z
             .string()
             .optional()
-            .describe("Model to use (defaults to gemini-2.5-flash-image)"),
+            .describe(
+              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3-pro-image-preview' (default, recommended)."
+            ),
+          // DESIGN_PRO specific fields
+          mode: z
+            .enum(["generate", "edit", "editWithReferences"])
+            .optional()
+            .describe("Mode for DESIGN_PRO nodes: 'generate' (default), 'edit', or 'editWithReferences'"),
+          imageSize: z
+            .enum(["1K", "2K", "4K"])
+            .optional()
+            .describe(
+              "Image size for DESIGN_PRO nodes: '1K' (default/standard), '2K' (high quality), '4K' (ultra high quality). Use 2K or 4K when user requests high quality output."
+            ),
         })
       )
       .min(1)
@@ -1030,9 +1050,12 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     variablesPrefix: z
       .string()
       .optional()
-      .describe("Prefix for variable names (defaults to 'design')"),
+      .describe("Prefix for variable names (defaults to 'design' or 'designPro' based on nodeType)"),
   }),
-  execute: async ({ workflowId, imageSpecs, variablesPrefix = "design" }, context) => {
+  execute: async (
+    { workflowId, imageSpecs, variablesPrefix, nodeType = "DESIGN" },
+    context
+  ) => {
     // Verify workflow belongs to user
     const workflow = await prisma.workflow.findFirst({
       where: { id: workflowId, userId: context.userId },
@@ -1050,11 +1073,14 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     const maxX = Math.max(...workflow.nodes.map((n: any) => n.position?.x || 0), 0);
     const startX = maxX + 300;
 
+    // Set default variables prefix based on node type
+    const defaultPrefix = variablesPrefix || (nodeType === "DESIGN_PRO" ? "designPro" : "design");
+
     // Create nodes sequentially
     for (let i = 0; i < imageSpecs.length; i++) {
       const spec = imageSpecs[i];
-      const variableName = spec.variables || `${variablesPrefix}${i + 1}`;
-      const nodeName = `Design ${i + 1}`;
+      const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
+      const nodeName = nodeType === "DESIGN_PRO" ? `Design Pro ${i + 1}` : `Design ${i + 1}`;
 
       // Validate prompt is JSON
       let parsedPrompt;
@@ -1089,12 +1115,33 @@ export const createMultipleDesignNodesTool: VerxioTool = {
         nodeData.model = spec.model;
       }
 
+      // Add DESIGN_PRO specific fields
+      if (nodeType === "DESIGN_PRO") {
+        // Set default mode to "generate" if not specified
+        nodeData.mode = spec.mode || "generate";
+
+        // Set default model to Pro model if not specified
+        if (!spec.model) {
+          nodeData.model = "gemini-3-pro-image-preview";
+        }
+
+        // Add imageSize if specified (defaults to 1K in backend)
+        if (spec.imageSize) {
+          nodeData.imageSize = spec.imageSize;
+        }
+      } else {
+        // For DESIGN nodes, set default model if not specified
+        if (!spec.model) {
+          nodeData.model = "gemini-2.5-flash-image";
+        }
+      }
+
       // Create the node
       const node = await prisma.node.create({
         data: {
           workflowId,
           name: nodeName,
-          type: "DESIGN",
+          type: nodeType,
           position,
           data: nodeData,
         },
@@ -1134,7 +1181,8 @@ export const createMultipleDesignNodesTool: VerxioTool = {
       nodeIds,
       variableNames,
       count: nodeIds.length,
-      message: `Created ${nodeIds.length} DESIGN nodes connected in sequence. Variable names: ${variableNames.join(", ")}`,
+      nodeType,
+      message: `Created ${nodeIds.length} ${nodeType} nodes connected in sequence. Variable names: ${variableNames.join(", ")}`,
     };
   },
 };

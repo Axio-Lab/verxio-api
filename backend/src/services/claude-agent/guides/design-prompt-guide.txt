@@ -1,0 +1,239 @@
+# The Ultimate Design Prompt Guide  
+### For Content, Business Branding, Flyers, Ads & Visual Assets
+
+---
+
+## Core Principle (Read This First)
+
+**Describe the scene — don't list keywords.**
+
+Image models work best when given **clear, descriptive language**, not disconnected tags.  
+A narrative paragraph almost always produces a more coherent, professional result than a keyword dump.
+
+**Bad:**  
+modern flyer, blue, bold, tech  
+
+**Good:**  
+A modern tech event flyer with a deep navy background, bold white typography, subtle geometric line patterns, and a confident, futuristic tone.
+
+---
+
+## The Universal Prompt Framework (Use This Every Time)
+
+Think in **layers**, not words.
+
+1. **Purpose & Intent** – Why does this image exist?
+2. **Subject** – What is the main focus?
+3. **Environment / Context** – Where does it live?
+4. **Style & Aesthetic** – Visual language & brand feel
+5. **Lighting & Mood** – Emotional tone
+6. **Composition & Camera** – Framing and layout
+7. **Technical Constraints** – Size, ratio, background, text rules
+
+---
+
+## Master Prompt Skeleton
+
+Create a [type of asset] intended for [purpose/audience].
+The main subject is [clear subject description].
+The environment/context is [setting or background].
+The visual style is [art style / brand vibe / reference].
+Lighting and mood feel [emotion + lighting type].
+Composition details include [camera angle / layout].
+Technical requirements: [aspect ratio, background, resolution, text accuracy].
+
+
+---
+
+## 1. Photorealistic Scenes
+
+**Best for:** Websites, hero sections, ads, lifestyle branding
+
+### Key Strategies
+- Use **photography language**
+- Specify **lens**, **lighting**, **depth of field**
+- Describe **textures and realism**
+
+### Prompt Template
+A photorealistic [shot type] of [subject].
+Captured with a [lens type], shallow depth of field.
+Lighting is [natural / studio / golden hour].
+Background includes [environment details].
+Ultra-realistic textures, cinematic realism.
+
+
+---
+
+## 2. Stylized Illustrations, Icons & Stickers
+
+**Best for:** Apps, flyers, social posts, merch, UI assets
+
+### Key Strategies
+- Explicitly define the **illustration style**
+- Describe **line weight** and **shading**
+- Always specify the **background**
+
+### Prompt Template
+A stylized illustration of [subject] in a [style] art style.
+Bold, clean outlines with [flat / cel / soft shading].
+Vibrant, cohesive color palette.
+Designed as a [sticker/icon/asset].
+Background should be [white / transparent].
+
+
+---
+
+## 3. Text-Accurate Designs (Logos, Flyers, Posters)
+
+**Best for:** Branding, marketing, business visuals
+
+### Key Strategies
+- State **exact text clearly**
+- Describe typography *style*, not font names
+- Define layout hierarchy
+
+### Prompt Template
+Create a professional [logo/flyer/poster] for [brand or purpose].
+Text must read exactly: "[EXACT TEXT]".
+Typography style: [bold / elegant / modern sans-serif].
+Layout is clean with strong visual hierarchy.
+Color palette: [colors].
+Aspect ratio: [1:1, A4, 4:5].
+
+
+**Tip:**  
+For best results, generate the text first, then generate the image using that text.
+
+---
+
+## 4. Product Mockups & Commercial Photography
+
+**Best for:** E-commerce, catalogs, ads
+
+### Key Strategies
+- Studio lighting setups
+- Clean backgrounds
+- Sharp product focus
+
+### Prompt Template
+A high-resolution commercial product photograph of [product].
+Studio-lit with soft, diffused lighting.
+Placed on a [surface material].
+Camera angle is [top-down / 45-degree / eye-level].
+Ultra-clean, professional, e-commerce ready.
+
+
+---
+
+## 5. Minimalist & Negative Space Design
+
+**Best for:** Flyers, presentations, ad backgrounds
+
+### Key Strategies
+- Intentionally describe **empty space**
+- Place subject off-center
+- Reserve space for text overlays
+
+### Prompt Template
+A minimalist composition featuring [single subject].
+Large areas of negative space for text placement.
+Soft, diffused lighting.
+Clean, modern, uncluttered aesthetic.
+
+
+---
+
+## 6. Sequential Art (Comics, Storyboards)
+
+**Best for:** Storytelling, ads, explainers
+
+### Key Strategies
+- Maintain character consistency
+- Describe each panel's intent
+- Specify art style clearly
+
+### Prompt Template
+Create a [number]-panel comic in a [art style].
+Panel 1 shows [scene].
+Panel 2 shows [action].
+Panel 3 shows [reaction or punchline].
+Consistent character design and mood throughout.
+
+
+---
+
+## 7. Image Editing & Manipulation
+
+### A. Adding or Removing Elements
+Describe the change clearly and naturally.
+
+Using the provided image, add [object].
+Ensure it matches the original lighting, scale, and perspective.
+
+
+### B. Inpainting (Targeted Edits)
+Change only [specific element].
+Keep everything else exactly the same.
+
+
+### C. Style Transfer
+Transform the provided image into the style of [artist or movement].
+Preserve original composition and structure.
+
+
+---
+
+## 8. Advanced Composition (Multiple Images)
+
+**Best for:** Product mockups, fashion, composites
+
+Combine the subject from image one with the environment/person from image two.
+Ensure lighting, shadows, and scale match naturally.
+
+
+---
+
+## 9. High-Fidelity Detail Preservation
+
+Use this when faces, logos, or branding must remain unchanged.
+
+Preserve all facial features and expressions exactly.
+Apply changes only to [specified area].
+Ensure realism and fabric/light interaction.
+
+
+---
+
+## 10. From Sketch to Finished Design
+
+Turn this rough sketch into a polished, finished image.
+Preserve original proportions and lines.
+Add realistic materials, lighting, and surface detail.
+
+
+---
+
+## Best Practices (Professional Level)
+
+- Be **hyper-specific**
+- Provide **context and intent**
+- Iterate conversationally
+- Use step-by-step instructions for complex scenes
+- Use **positive descriptions** instead of negative prompts
+- Control framing with photographic language
+
+---
+
+## Known Limitations
+
+- Best performance in supported languages (EN, FR, ES, DE, etc.)
+- Image output count may vary
+- Some models handle fewer reference images better
+- Text accuracy improves when text is generated first
+
+---
+
+## Final Rule
+
+**Prompt like a designer, not a search engine.**  
+If you can clearly imagine it, you can clearly prompt it.

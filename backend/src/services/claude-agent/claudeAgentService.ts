@@ -186,8 +186,8 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   // Get user context for system prompt
   const userContext = await getUserContext(userId, workflowId);
 
-  // Build system prompt
-  const systemPrompt = getVerxioSystemPrompt(userContext);
+  // Build system prompt (now async to load guide content)
+  const systemPrompt = await getVerxioSystemPrompt(userContext);
 
   // Build conversation context if exists
   let fullPrompt = prompt;
@@ -245,9 +245,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       error: errorMessage,
       usage: lastResult?.usage
         ? {
-            inputTokens: lastResult.usage.input_tokens,
-            outputTokens: lastResult.usage.output_tokens,
-          }
+          inputTokens: lastResult.usage.input_tokens,
+          outputTokens: lastResult.usage.output_tokens,
+        }
         : undefined,
       cost: lastResult?.total_cost_usd,
     });
@@ -488,25 +488,38 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 
 When users request images, slides, or visuals:
 1. **Analyze Content:** If user provides content (e.g., blog post, script), analyze it to determine optimal number of images/slides OR follow explicit count (e.g., "5 slides")
-2. **JSON Prompt Format:** All DESIGN node prompts must be JSON strings with comprehensive specifications (see guides/image-generation-guide.txt). Never use plain string prompts.
-3. **Multi-Image Pattern:** For presentations, slides, campaigns, or multiple images, use createMultipleDesignNodesTool to create multiple DESIGN nodes connected in sequence
-4. **Maintain Consistency:** When creating multiple images (e.g., presentation slides), keep the same structure and styling parameters across all images, only varying content-specific fields
-5. **Post-Generation Actions:** After images are generated, consider actions like adding to Google Slides, packaging for download, or organizing in specific structure based on user intent
+2. **Choose Node Type:** 
+   - Use **DESIGN** for standard quality output (default, faster, lower cost)
+   - Use **DESIGN_PRO** when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
+3. **JSON Prompt Format:** All DESIGN/DESIGN_PRO node prompts must be JSON strings with comprehensive specifications (see guides/image-generation-guide.txt). Never use plain string prompts.
+4. **Multi-Image Pattern:** For presentations, slides, campaigns, or multiple images, use createMultipleDesignNodesTool with nodeType parameter ("DESIGN" or "DESIGN_PRO") to create multiple nodes connected in sequence
+5. **Maintain Consistency:** When creating multiple images (e.g., presentation slides), keep the same structure and styling parameters across all images, only varying content-specific fields
+6. **Post-Generation Actions:** After images are generated, consider actions like adding to Google Slides, packaging for download, or organizing in specific structure based on user intent
 
 **DESIGN Node Details:**
 - Prompt field MUST be JSON string (use JSON.stringify() when creating)
 - Reference guides/image-generation-guide.txt for proper JSON structure
-- Aspect ratio: "16:9" for presentations, "1:1" for social posts
-- Template: "presentation_slide" for slides, other templates as appropriate
+- Reference guides/social-media-design-guide.txt for ready-made prompts for flyers, Instagram, ads, landing pages, and business branding
+- Aspect ratio: "16:9" for presentations, "1:1" for social posts, "9:16" for stories
+- Template: "presentation_slide" for slides, "instagram_post" for Instagram, other templates as appropriate
 - Output variables: design1, design2, etc. for sequential outputs
+- Model: "gemini-2.5-flash-image" (default, standard quality)
 
 **DESIGN_PRO Node Details:**
-- Use DESIGN_PRO for advanced features: image editing, multi-turn chat, reference images, high-res output
-- Modes: generate (text-to-image), edit (edit existing image), chat (conversational editing), editWithReferences (with up to 14 reference images)
+- Use DESIGN_PRO when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
+- Model: "gemini-3-pro-image-preview" (default, recommended for Pro)
+- Image size options: "1K" (default/standard), "2K" (high quality), "4K" (ultra high quality)
+- Set imageSize to "2K" or "4K" when user requests high quality output
+- For presentations requiring high quality, use DESIGN_PRO with imageSize: "2K" or "4K"
+- Modes: generate (text-to-image, default), edit (edit existing image), editWithReferences (with up to 14 reference images)
 - Reference images: Can be from previous nodes ({{design1.imageUrl}}), URLs, or base64
-- Chat mode: Maintains conversation state for iterative editing
-- Image sizes: 1K, 2K, 4K available with Pro model
 - Google Search: Enable for grounding and fact verification
+
+**Brand Consistency (CRITICAL for Business Branding):**
+- When creating multiple assets for the same brand (flyers, social posts, ads, etc.), ALWAYS establish brand foundation first
+- Use the Brand Foundation Prompt from social-media-design-guide.txt to lock in visual consistency
+- Maintain consistent colors, typography, and visual style across all branded assets
+- Reference the established brand identity when creating any subsequent branded content
 
 **REMOTION Node Details:**
 - Use REMOTION for AI-powered video generation using Remotion framework
@@ -708,12 +721,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-          .map((name) => {
-            const value = context[name];
-            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-          })
-          .join("\n")
+        .map((name) => {
+          const value = context[name];
+          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+        })
+        .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

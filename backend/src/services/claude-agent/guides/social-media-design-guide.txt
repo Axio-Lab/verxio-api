@@ -1,0 +1,941 @@
+# Ready-Made AI Design Prompts for Flyers, Instagram, Ads, Landing Pages & Business Branding
+
+**CRITICAL: JSON Format Requirement**
+
+All prompts in this guide MUST be converted to JSON format following the structure defined in image-generation-guide.txt. 
+
+**Required JSON Structure:**
+- `context`: Designer role and purpose
+- `metadata`: Image type and primary purpose
+- `composition`: Aspect ratio, layout, focal points, visual hierarchy, balance
+- `color_profile`: Dominant colors, palette, temperature, saturation, contrast
+- `lighting`: Type, quality, mood (for photorealistic assets)
+- `technical_specs`: Medium, style, texture, sharpness
+- `artistic_elements`: Genre, mood, visual style
+- `typography`: Font details, placement, integration (when text is present)
+- `generation_parameters`: The actual prompt text and keywords
+
+**Brand Consistency Rule:**
+When creating multiple assets for the same brand, establish brand foundation FIRST, then maintain EXACT same color_profile, technical_specs, and typography across all assets. Only vary the generation_parameters.prompt content.
+
+Each section below shows:
+1. **Natural Language Intent** - The design goal in plain language
+2. **JSON Format Example** - How to structure it as JSON for DESIGN/DESIGN_PRO nodes
+
+---
+
+## BRAND FOUNDATION PROMPT (USE FIRST)
+
+Use this once to lock in visual consistency across all assets. Convert to JSON format when creating DESIGN nodes.
+
+**Natural Language Intent:**
+Establish a consistent visual brand identity for a business.
+
+Brand name: [Brand Name]
+Industry: [Industry]
+Target audience: [Audience]
+Brand personality: [modern / luxury / bold / friendly / minimalist / playful]
+Primary colors: [colors]
+Secondary colors: [colors]
+Typography style: [clean sans-serif / elegant serif / bold display]
+Overall vibe: [emotional tone]
+
+Apply this identity consistently to all future visuals.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert brand designer establishing a visual identity",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "single subject",
+    "visual_hierarchy": "Brand elements clearly organized"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Primary Color]", "hex": "#XXXXXX", "percentage": "60%", "role": "primary"},
+      {"color": "[Secondary Color]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "color_palette": "complementary",
+    "temperature": "warm/cool/neutral",
+    "saturation": "moderate",
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "[minimalist/modern/luxury based on personality]",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [{
+      "type": "[sans-serif/serif/display based on style]",
+      "weight": "bold",
+      "characteristics": "[modern/elegant/bold based on personality]"
+    }],
+    "placement": "integrated",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a brand identity visual for [Brand Name] in the [Industry] industry targeting [Audience]. Brand personality: [personality]. Use primary color [color] and secondary color [color]. Typography style: [style]. Overall vibe: [tone]. This will serve as the foundation for all future branded assets.",
+    "keywords": ["brand identity", "consistent", "[personality]", "[industry]"]
+  }
+}
+```
+
+
+---
+
+## FLYER DESIGN PROMPTS
+
+### Event Flyer
+
+**Natural Language Intent:**
+Design a professional event flyer for [event name].
+
+Purpose: attract attendees and communicate value clearly.
+Audience: [target audience].
+
+Headline text: "[Main Headline]"
+Subtext: "[Supporting copy]"
+Date, time, location: [details]
+
+Visual style: [modern / bold / elegant].
+Color palette: [colors].
+Typography: bold headline, clean supporting text.
+
+Layout includes strong visual hierarchy and clear spacing.
+Aspect ratio: A4 / 4:5.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert event marketing designer creating a professional flyer",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "4:5",
+    "layout": "multi-element",
+    "focal_points": ["Main Headline", "Event Details"],
+    "visual_hierarchy": "Headline at top draws attention, event details in center, CTA at bottom",
+    "balance": "asymmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Primary Color]", "hex": "#XXXXXX", "percentage": "40%", "role": "background"},
+      {"color": "[Accent Color]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "temperature": "warm/cool/neutral",
+    "saturation": "moderate",
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "[modern/bold/elegant]",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"},
+      {"type": "sans-serif", "weight": "regular", "characteristics": "clean"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a professional event flyer for [event name] targeting [audience]. Headline: '[Main Headline]'. Subtext: '[Supporting copy]'. Include date, time, and location: [details]. Visual style: [modern/bold/elegant]. Use color palette: [colors]. Bold headline typography with clean supporting text. Strong visual hierarchy with clear spacing. Aspect ratio: 4:5.",
+    "keywords": ["event flyer", "professional", "[style]", "marketing"]
+  }
+}
+```
+
+
+---
+
+### Promotional Business Flyer
+
+**Natural Language Intent:**
+Create a clean, modern promotional flyer for a business.
+
+Business type: [business].
+Offer: "[discount / service / announcement]".
+
+Visual style is professional and brand-aligned.
+Use strong contrast, readable typography, and clear call-to-action.
+
+CTA text: "[Call to action]".
+Aspect ratio: A4 or 4:5.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert marketing designer creating a promotional flyer",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "4:5",
+    "layout": "single subject",
+    "focal_points": ["Offer/Call-to-action"],
+    "visual_hierarchy": "Offer prominently displayed, CTA clearly visible",
+    "balance": "asymmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "50%", "role": "background"},
+      {"color": "[Brand Accent]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a clean, modern promotional flyer for a [business type]. Offer: '[discount/service/announcement]'. Professional and brand-aligned visual style. Strong contrast, readable typography. Clear call-to-action: '[Call to action]'. Aspect ratio: 4:5.",
+    "keywords": ["promotional flyer", "business", "modern", "clean"]
+  }
+}
+```
+
+
+---
+
+## INSTAGRAM POST PROMPTS
+
+### Branded Feed Post
+
+**Natural Language Intent:**
+Create a square Instagram post for a brand.
+
+Purpose: brand awareness.
+Main message: "[short message]".
+
+Visual style: cohesive, scroll-stopping, social-media optimized.
+Bold typography, minimal clutter, strong focal point.
+Background supports readability.
+
+Aspect ratio: 1:1.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert social media designer creating Instagram content",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "single subject",
+    "focal_points": ["Main message text"],
+    "visual_hierarchy": "Message is the clear focal point, minimal distractions",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Color]", "hex": "#XXXXXX", "percentage": "70%", "role": "background"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "dominant"
+  },
+  "generation_parameters": {
+    "prompt": "Create a square Instagram post for brand awareness. Main message: '[short message]'. Cohesive, scroll-stopping, social-media optimized design. Bold typography, minimal clutter, strong focal point. Background supports text readability. Aspect ratio: 1:1.",
+    "keywords": ["Instagram", "social media", "brand awareness", "square"]
+  }
+}
+```
+
+
+---
+
+### Instagram Carousel (3–5 slides)
+
+**Natural Language Intent:**
+Create a 5-slide Instagram carousel.
+
+Slide 1: Hook headline — "[hook text]".
+Slide 2: Key benefit.
+Slide 3: Supporting detail.
+Slide 4: Social proof or feature.
+Slide 5: Call-to-action — "[CTA text]".
+
+Maintain consistent branding across all slides.
+Clean layout, bold typography, high contrast.
+Aspect ratio: 1:1.
+
+**JSON Format Example (for each slide):**
+```json
+{
+  "context": "You are an expert social media designer creating Instagram carousel content",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "single subject",
+    "focal_points": ["[Slide-specific content]"],
+    "visual_hierarchy": "Clear focal point with supporting elements",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "60%", "role": "background"},
+      {"color": "[Brand Accent]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create slide [number] of a 5-slide Instagram carousel. [Slide-specific content]. Maintain consistent branding with other slides. Clean layout, bold typography, high contrast. Aspect ratio: 1:1.",
+    "keywords": ["Instagram carousel", "social media", "consistent branding"]
+  }
+}
+```
+
+**Note:** Create multiple DESIGN nodes (one per slide) using createMultipleDesignNodesTool, maintaining the same color_profile, technical_specs, and typography across all slides, only varying the generation_parameters.prompt content.
+
+
+---
+
+### Instagram Story
+
+**Natural Language Intent:**
+Design an Instagram Story for a business promotion.
+
+Purpose: quick engagement.
+Main text: "[short headline]".
+Secondary text: "[supporting text]".
+
+Vertical layout, minimal text, high visual impact.
+Clear CTA: "Swipe Up" or "Learn More".
+
+Aspect ratio: 9:16.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert social media designer creating Instagram Story content",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "9:16",
+    "layout": "single subject",
+    "focal_points": ["Main headline", "CTA"],
+    "visual_hierarchy": "Headline at top, supporting text in middle, CTA at bottom",
+    "balance": "asymmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Color]", "hex": "#XXXXXX", "percentage": "80%", "role": "background"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create an Instagram Story for business promotion. Purpose: quick engagement. Main text: '[short headline]'. Secondary text: '[supporting text]'. Vertical layout, minimal text, high visual impact. Clear CTA: 'Swipe Up' or 'Learn More'. Aspect ratio: 9:16.",
+    "keywords": ["Instagram Story", "vertical", "engagement", "CTA"]
+  }
+}
+```
+
+
+---
+
+## AD DESIGN PROMPTS (PAID & ORGANIC)
+
+### Social Media Ad
+
+**Natural Language Intent:**
+Create a high-converting social media ad.
+
+Goal: [leads / sales / clicks].
+Audience: [target audience].
+
+Main message: "[benefit-driven headline]".
+CTA: "[Shop Now / Sign Up / Learn More]".
+
+Visual style is bold, attention-grabbing, and brand-aligned.
+Minimal text, strong focal point, clear CTA button area.
+
+Aspect ratio: 1:1 or 4:5.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert advertising designer creating high-converting social media ads",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "single subject",
+    "focal_points": ["Main message", "CTA button"],
+    "visual_hierarchy": "Message draws attention, CTA clearly visible and actionable",
+    "balance": "asymmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "50%", "role": "background"},
+      {"color": "[CTA Color]", "hex": "#XXXXXX", "percentage": "20%", "role": "accent"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "bold",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a high-converting social media ad. Goal: [leads/sales/clicks]. Audience: [target audience]. Main message: '[benefit-driven headline]'. CTA: '[Shop Now/Sign Up/Learn More]'. Bold, attention-grabbing, brand-aligned visual style. Minimal text, strong focal point, clear CTA button area. Aspect ratio: 1:1.",
+    "keywords": ["social media ad", "conversion", "[goal]", "CTA"]
+  }
+}
+```
+
+
+---
+
+### Display / Banner Ad
+
+**Natural Language Intent:**
+Design a clean digital banner ad.
+
+Brand: [brand name].
+Message: "[short headline]".
+CTA: "[CTA]".
+
+Simple layout, strong contrast, easy readability.
+Professional and trustworthy tone.
+
+Aspect ratio: 16:9 or banner format.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert digital advertising designer creating banner ads",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "16:9",
+    "layout": "single subject",
+    "focal_points": ["Message headline", "CTA"],
+    "visual_hierarchy": "Message and CTA clearly visible, professional layout",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Color]", "hex": "#XXXXXX", "percentage": "70%", "role": "background"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a clean digital banner ad for [brand name]. Message: '[short headline]'. CTA: '[CTA]'. Simple layout, strong contrast, easy readability. Professional and trustworthy tone. Aspect ratio: 16:9.",
+    "keywords": ["banner ad", "digital", "professional", "trustworthy"]
+  }
+}
+```
+
+
+---
+
+## LANDING PAGE VISUAL PROMPTS
+
+### Hero Section
+
+**Natural Language Intent:**
+Create a landing page hero image.
+
+Purpose: immediately communicate value.
+Headline text: "[headline]".
+Subheadline: "[supporting text]".
+
+Visual style: premium, professional, conversion-focused.
+Background supports text readability.
+Subject placed to allow negative space for copy.
+
+Aspect ratio: wide (16:9).
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert web designer creating landing page hero visuals",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "16:9",
+    "layout": "single subject",
+    "focal_points": ["Headline text"],
+    "visual_hierarchy": "Headline prominent, subheadline supporting, negative space for copy",
+    "balance": "asymmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "60%", "role": "background"}
+    ],
+    "contrast": "high contrast"
+  },
+  "lighting": {
+    "type": "studio",
+    "quality": "soft light",
+    "mood": "professional"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "realistic",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a landing page hero image. Purpose: immediately communicate value. Headline text: '[headline]'. Subheadline: '[supporting text]'. Premium, professional, conversion-focused visual style. Background supports text readability. Subject placed to allow negative space for copy. Aspect ratio: 16:9.",
+    "keywords": ["landing page", "hero", "conversion", "premium"]
+  }
+}
+```
+
+
+---
+
+### Feature Section Visual
+
+**Natural Language Intent:**
+Create a supporting visual for a landing page feature section.
+
+Feature: "[feature name]".
+Visual should clearly reinforce the benefit.
+
+Clean, modern, minimal design.
+Consistent with brand identity.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert web designer creating feature section visuals",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "single subject",
+    "focal_points": ["Feature visual"],
+    "visual_hierarchy": "Feature clearly displayed, supporting elements minimal",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "70%", "role": "background"}
+    ],
+    "contrast": "medium contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "generation_parameters": {
+    "prompt": "Create a supporting visual for a landing page feature section. Feature: '[feature name]'. Visual should clearly reinforce the benefit. Clean, modern, minimal design. Consistent with brand identity.",
+    "keywords": ["feature visual", "landing page", "minimal", "modern"]
+  }
+}
+```
+
+
+---
+
+## BUSINESS BRANDING PROMPTS
+
+### Logo Concept
+
+**Natural Language Intent:**
+Create a professional logo concept.
+
+Brand name: "[Brand Name]".
+Industry: [industry].
+
+Style: [modern / luxury / minimalist / bold].
+Color palette: [colors].
+Typography: clean, scalable, brand-appropriate.
+
+Design should be timeless and versatile.
+Aspect ratio: 1:1.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert logo designer creating a professional brand identity",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "center composition",
+    "focal_points": ["Brand name/logo mark"],
+    "visual_hierarchy": "Logo is the clear center focus",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Primary Color]", "hex": "#XXXXXX", "percentage": "50%", "role": "primary"},
+      {"color": "[Secondary Color]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "color_palette": "monochromatic",
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "vector",
+    "style": "[modern/luxury/minimalist/bold]",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "[modern/elegant/bold]"}
+    ],
+    "placement": "integrated",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a professional logo concept for '[Brand Name]' in the [industry] industry. Style: [modern/luxury/minimalist/bold]. Color palette: [colors]. Typography: clean, scalable, brand-appropriate. Design should be timeless and versatile. Aspect ratio: 1:1.",
+    "keywords": ["logo", "brand identity", "[style]", "[industry]"]
+  }
+}
+```
+
+
+---
+
+### Brand Social Kit
+
+**Natural Language Intent:**
+Create a cohesive brand social media kit.
+
+Includes:
+- Profile image
+- Post template
+- Story template
+
+Maintain consistent colors, typography, and spacing.
+Professional, recognizable, and scalable.
+
+**JSON Format Example (for each asset in the kit):**
+```json
+{
+  "context": "You are an expert brand designer creating cohesive social media assets",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "[1:1 for profile/post, 9:16 for story]",
+    "layout": "single subject",
+    "focal_points": ["Brand element"],
+    "visual_hierarchy": "Brand identity clearly displayed",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "60%", "role": "primary"},
+      {"color": "[Brand Secondary]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "color_palette": "complementary",
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "[sans-serif/serif]", "weight": "bold", "characteristics": "[brand style]"}
+    ],
+    "placement": "integrated",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create a [profile image/post template/story template] for brand social media kit. Maintain consistent colors, typography, and spacing with other kit assets. Professional, recognizable, and scalable design. Aspect ratio: [appropriate for asset type].",
+    "keywords": ["social media kit", "brand consistency", "cohesive", "professional"]
+  }
+}
+```
+
+**Note:** Create multiple DESIGN nodes (one per asset) using createMultipleDesignNodesTool, maintaining EXACT same color_profile, technical_specs, and typography across all assets to ensure brand consistency.
+
+
+---
+
+## SOCIAL MEDIA CONTENT PROMPTS
+
+### Quote Post
+
+**Natural Language Intent:**
+Design a branded quote post.
+
+Quote text: "[quote]".
+Style: elegant, readable, high contrast.
+
+Minimal distractions.
+Brand colors and typography applied consistently.
+Aspect ratio: 1:1.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert social media designer creating branded quote posts",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "center composition",
+    "focal_points": ["Quote text"],
+    "visual_hierarchy": "Quote is the clear center focus, minimal distractions",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "80%", "role": "background"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "[sans-serif/serif]", "weight": "bold", "characteristics": "elegant"}
+    ],
+    "placement": "overlay",
+    "integration": "dominant"
+  },
+  "generation_parameters": {
+    "prompt": "Design a branded quote post. Quote text: '[quote]'. Elegant, readable, high contrast style. Minimal distractions. Brand colors and typography applied consistently. Aspect ratio: 1:1.",
+    "keywords": ["quote post", "social media", "elegant", "readable"]
+  }
+}
+```
+
+
+---
+
+### Educational Post
+
+**Natural Language Intent:**
+Create an educational social media graphic.
+
+Topic: "[topic]".
+Present information clearly and visually.
+Use icons, hierarchy, and spacing.
+
+Professional, easy to understand, brand-aligned.
+Aspect ratio: 1:1.
+
+**JSON Format Example:**
+```json
+{
+  "context": "You are an expert educational content designer creating social media graphics",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "social media"
+  },
+  "composition": {
+    "aspect_ratio": "1:1",
+    "layout": "grid",
+    "focal_points": ["Main topic", "Supporting information"],
+    "visual_hierarchy": "Topic at top, information organized with clear hierarchy, icons support understanding",
+    "balance": "symmetric"
+  },
+  "color_profile": {
+    "dominant_colors": [
+      {"color": "[Brand Primary]", "hex": "#XXXXXX", "percentage": "50%", "role": "background"},
+      {"color": "[Brand Accent]", "hex": "#XXXXXX", "percentage": "30%", "role": "accent"}
+    ],
+    "contrast": "high contrast"
+  },
+  "technical_specs": {
+    "medium": "digital",
+    "style": "minimalist",
+    "texture": "smooth",
+    "sharpness": "tack sharp"
+  },
+  "typography": {
+    "present": true,
+    "fonts": [
+      {"type": "sans-serif", "weight": "bold", "characteristics": "modern"}
+    ],
+    "placement": "overlay",
+    "integration": "prominent"
+  },
+  "generation_parameters": {
+    "prompt": "Create an educational social media graphic. Topic: '[topic]'. Present information clearly and visually. Use icons, hierarchy, and spacing. Professional, easy to understand, brand-aligned. Aspect ratio: 1:1.",
+    "keywords": ["educational", "social media", "infographic", "clear"]
+  }
+}
+```
+
+
+---
+
+## QUICK OPTIMIZATION PROMPTS
+
+Use these after generating an image. Convert to JSON format and use DESIGN_PRO in "edit" mode to refine existing images.
+
+**Natural Language Intent Examples:**
+- Keep everything the same, but make the design more premium.
+- Increase contrast and improve text readability.
+- Make this feel more modern and minimal.
+- Adapt this for social media engagement.
+- Apply consistent brand colors and typography.
+
+**JSON Format Example (for editing):**
+```json
+{
+  "context": "You are an expert designer refining an existing design",
+  "metadata": {
+    "image_type": "graphic design",
+    "primary_purpose": "marketing"
+  },
+  "composition": {
+    "aspect_ratio": "[same as original]",
+    "layout": "[same as original]",
+    "visual_hierarchy": "[same as original, with improvements]"
+  },
+  "color_profile": {
+    "contrast": "high contrast",
+    "saturation": "[adjusted if needed]"
+  },
+  "technical_specs": {
+    "style": "[premium/modern/minimal as requested]",
+    "texture": "smooth"
+  },
+  "generation_parameters": {
+    "prompt": "[Specific optimization request, e.g., 'Keep everything the same, but make the design more premium. Increase contrast and improve text readability.']",
+    "keywords": ["refinement", "optimization", "[specific improvement]"]
+  }
+}
+```
+
+**Note:** Use DESIGN_PRO node in "edit" mode with sourceImage pointing to the original image ({{previousNode.imageUrl}}) to apply these optimizations.
+
+
+---
+
+## FINAL TIP
+
+Think like a **designer + marketer**, not an artist.
+
+Always ask:
+- What is the goal?
+- Who is this for?
+- What action should they take?
+
+Clear intent = high-performing visuals.

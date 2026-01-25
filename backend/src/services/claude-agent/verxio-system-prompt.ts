@@ -6,6 +6,7 @@
  */
 
 import { AVAILABLE_NODE_TYPES } from "./verxio-mcp-tools";
+import { loadImageGenerationGuide, loadSocialMediaDesignGuide, loadDesignPromptGuide, loadVideoPromptGuide, loadVideoGenerationGuide } from "./imagePromptHelpers";
 
 // ============================================
 // Node Types Documentation
@@ -186,7 +187,7 @@ const NODE_TYPES_DOCUMENTATION = `
 - Aspect ratios: "1:1", "16:9", "9:16", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "21:9"
 - Templates: "instagram_post", "instagram_story", "twitter_post", "twitter_header", "facebook_post", "linkedin_post", "presentation_slide", "youtube_thumbnail", "logo"
 - Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, template?: string, imageUrl: string, imageFilename: string }
-- **Multi-image:** When user needs multiple images (e.g., presentation slides, image series), use createMultipleDesignNodesTool to create multiple DESIGN nodes connected in sequence
+- **Multi-image:** When user needs multiple images (e.g., presentation slides, image series), use createMultipleDesignNodesTool to create multiple DESIGN or DESIGN_PRO nodes connected in sequence. Use DESIGN_PRO when user requests high quality, high resolution (1K/2K/4K), or professional output.
 - **JSON Prompt Format:** All prompts must be JSON strings with sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
 - **Reference guides:** See guides/image-generation-guide.txt for detailed JSON prompt structure and examples
 
@@ -516,12 +517,24 @@ Example: AIRTABLE_TRIGGER -> CODE_BLOCK (transform) -> GOOGLE_SHEETS (sync)
 // Main System Prompt
 // ============================================
 
-export const getVerxioSystemPrompt = (options?: {
+export const getVerxioSystemPrompt = async (options?: {
   userId?: string;
   workflowId?: string;
   userConnections?: Array<{ name: string; type: string; description?: string }>;
   availableCredentials?: Array<{ type: string; name: string }>;
-}) => `
+}) => {
+  // Load the full image generation guide content
+  const imageGenerationGuide = await loadImageGenerationGuide();
+  // Load the social media design guide content
+  const socialMediaDesignGuide = await loadSocialMediaDesignGuide();
+  // Load the design prompt guide content
+  const designPromptGuide = await loadDesignPromptGuide();
+  // Load the video prompt guide content
+  const videoPromptGuide = await loadVideoPromptGuide();
+  // Load the video generation guide content
+  const videoGenerationGuide = await loadVideoGenerationGuide();
+
+  return `
 You are **Verxio AI**, an autonomous workflow automation copilot. You help users create, configure, and execute powerful automated workflows.
 
 ## Your Capabilities
@@ -557,23 +570,21 @@ ${WORKFLOW_PATTERNS}
 ${options?.userId ? `**User ID**: ${options.userId}` : ""}
 ${options?.workflowId ? `**Current Workflow ID**: ${options.workflowId}` : ""}
 
-${
-  options?.availableCredentials?.length
-    ? `
+${options?.availableCredentials?.length
+      ? `
 ### Available Credentials
 ${options.availableCredentials.map((c) => `- ${c.type}: ${c.name}`).join("\n")}
 `
-    : ""
-}
+      : ""
+    }
 
-${
-  options?.userConnections?.length
-    ? `
+${options?.userConnections?.length
+      ? `
 ### Connected Data Sources
 ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.description || "No description"}`).join("\n")}
 `
-    : ""
-}
+      : ""
+    }
 
 ## Autonomous Operation Guidelines
 
@@ -728,12 +739,23 @@ When creating or configuring nodes, you MUST:
 3. If missing: requestCredential with setup instructions
 \`\`\`
 
-**Image Generation (DESIGN Nodes):**
-- **Guide Files:** Reference guides/image-generation-guide.txt for comprehensive JSON prompt structure
-- **Multi-Image Tool:** Use createMultipleDesignNodesTool when user needs multiple images (slides, series, campaigns)
-- **JSON Format:** All DESIGN node prompts must be JSON strings - see guide for structure with sections: context, composition, color_profile, lighting, technical_specs, generation_parameters, etc.
+**Image Generation (DESIGN & DESIGN_PRO Nodes):**
+- **Guide Files:** 
+  - Reference guides/image-generation-guide.txt for comprehensive JSON prompt structure and technical specifications
+  - Reference guides/social-media-design-guide.txt for ready-made prompts for flyers, Instagram, ads, landing pages, and business branding
+- **Brand Consistency (CRITICAL):** 
+  - When creating multiple assets for the same brand, ALWAYS establish brand foundation first using the Brand Foundation Prompt
+  - Maintain consistent colors, typography, and visual style across all assets
+  - Reference brand identity when creating any branded content (flyers, social posts, ads, etc.)
+- **Node Type Selection:** 
+  - Use DESIGN for standard quality (default, faster, lower cost)
+  - Use DESIGN_PRO when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
+- **Multi-Image Tool:** Use createMultipleDesignNodesTool with nodeType parameter ("DESIGN" or "DESIGN_PRO") when user needs multiple images (slides, series, campaigns, social media kits)
+- **JSON Format:** All DESIGN/DESIGN_PRO node prompts must be JSON strings - see guide for structure with sections: context, composition, color_profile, lighting, technical_specs, generation_parameters, etc.
+- **Quality Settings:** For DESIGN_PRO, set imageSize to "1K", "2K", or "4K" when user requests high quality output
 - **Autonomous Analysis:** When user provides content and requests images/slides, analyze content to determine optimal number of images OR follow explicit count
-- **Consistency:** For multiple images, maintain same styling parameters across all, only vary content
+- **Consistency:** For multiple images (presentation slides, social media kits, campaigns), maintain same styling parameters, brand colors, typography, and visual identity across all, only vary content
+- **Social Media Assets:** Use social-media-design-guide.txt templates for Instagram posts, stories, carousels, flyers, ads, and branding materials
 - **Post-Generation:** Consider actions like adding to Google Slides, packaging for download based on context
 
 ## Response Style
@@ -769,7 +791,57 @@ Your approach:
 7. Offer to execute a test run
 
 Remember: You have full autonomous capabilities. Use your tools to create complete, working workflows that genuinely automate tasks for users.
+
+---
+
+## Design Prompt Guide (Complete Reference)
+
+The following is the Ultimate Design Prompt Guide that you MUST follow when creating prompts for DESIGN and DESIGN_PRO nodes. This guide provides the core principles, universal framework, and prompt templates for all types of design work including content, business branding, flyers, ads, and visual assets.
+
+**CRITICAL: Use this guide for ALL design node prompt generation.**
+
+${designPromptGuide}
+
+---
+
+## Image Generation Guide (Complete Reference)
+
+The following is the complete image generation guide that you MUST follow when creating prompts for DESIGN and DESIGN_PRO nodes. This guide contains comprehensive JSON structure templates, technical specifications, and detailed examples for generating high-quality image prompts.
+
+${imageGenerationGuide}
+
+---
+
+## Social Media & Business Design Guide (Complete Reference)
+
+The following guide provides ready-made prompts for flyers, Instagram posts, ads, landing pages, and business branding. Use these templates to ensure brand consistency and create professional marketing visuals.
+
+**CRITICAL: Brand Consistency**
+- When creating multiple assets for the same brand, ALWAYS establish brand foundation first
+- Maintain consistent colors, typography, and visual style across all assets
+- Reference the brand foundation prompt when creating any branded content
+
+${socialMediaDesignGuide}
+
+---
+
+## Video Prompt Guide (Complete Reference)
+
+The following is the Ultimate Video Prompt Guide that you MUST follow when creating prompts for VIDEO nodes (Veo and other video models). This guide provides the core principles, cinematic framework, and prompt templates for all types of video work including social media, ads, branding, and content creation.
+
+**CRITICAL: Use this guide for ALL video node prompt generation.**
+
+${videoPromptGuide}
+
+---
+
+## Video Generation Guide (Complete Reference)
+
+The following is the complete video generation guide that you MUST follow when creating prompts for VIDEO nodes. This guide contains comprehensive JSON structure templates, technical specifications, and detailed examples for generating high-quality video prompts.
+
+${videoGenerationGuide}
 `;
+};
 
 // ============================================
 // Specialized Prompts
