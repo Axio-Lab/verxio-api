@@ -44,9 +44,12 @@ export const NODE_TYPE_TO_FEATURE: Record<string, SubscriptionFeature> = {
  * Check if a user has access to a specific feature
  */
 export function hasFeatureAccess(
-  userFeatures: string[],
+  userFeatures: string[] | null | undefined,
   requiredFeature: SubscriptionFeature
 ): boolean {
+  if (!userFeatures || !Array.isArray(userFeatures)) {
+    return false;
+  }
   return userFeatures.includes(requiredFeature);
 }
 

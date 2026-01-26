@@ -140,11 +140,18 @@ export async function getUserSubscription(userId: string) {
     const isActive = await isSubscriptionActive(userId);
     const rateLimitConfig = getRateLimitConfig(user.subscriptionPlan);
 
+    // Get features from plan if subscriptionFeatures is null/empty
+    // This ensures free users get an empty array, not null
+    const features =
+      user.subscriptionFeatures && user.subscriptionFeatures.length > 0
+        ? user.subscriptionFeatures
+        : getPlanFeatures(user.subscriptionPlan);
+
     return {
       subscriptionStatus: user.subscriptionStatus,
       subscriptionPlan: user.subscriptionPlan,
       subscriptionExpiresAt: user.subscriptionExpiresAt,
-      features: user.subscriptionFeatures,
+      features: features,
       rateLimitRemaining: user.rateLimitRemaining,
       rateLimitTotal: rateLimitConfig.requestsPerPeriod,
       rateLimitResetAt: user.rateLimitResetAt,

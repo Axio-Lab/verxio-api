@@ -25,6 +25,7 @@ export const betterAuthMiddleware = async (req: Request, res: Response, next: Ne
         email: true,
         name: true,
         emailVerified: true,
+        polarCustomerId: true,
       },
     });
 
@@ -38,6 +39,31 @@ export const betterAuthMiddleware = async (req: Request, res: Response, next: Ne
         "Email verification required. Please verify your email address before accessing this resource.",
         403
       );
+    }
+
+    // Create Polar customer for existing users who don't have one
+    // This handles users who signed up before Polar integration
+    if (!betterAuthUser.polarCustomerId && process.env.POLAR_ACCESS_TOKEN) {
+      try {
+        const { createCustomerForExistingUser } = await import("@/services/polarService");
+        const result = await createCustomerForExistingUser({
+          userId: betterAuthUser.id,
+          email: betterAuthUser.email,
+          name: betterAuthUser.name,
+        });
+
+        if (result.success && result.customerId) {
+          // Update user with Polar customer ID
+          await (prisma as any).user.update({
+            where: { id: betterAuthUser.id },
+            data: { polarCustomerId: result.customerId },
+          });
+          betterAuthUser.polarCustomerId = result.customerId;
+        }
+      } catch (error) {
+        // Don't block authentication if Polar customer creation fails
+        console.error("[BetterAuth] Failed to create Polar customer for existing user:", error);
+      }
     }
 
     // Attach user info to request for use in routes

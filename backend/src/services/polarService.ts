@@ -86,28 +86,49 @@ export async function markOrderAsPaid(
 }
 
 /**
- * Get customer by external ID (BetterAuth user ID)
- *
- * Note: Adjust based on actual Polar SDK API methods
+ * Create a Polar customer for an existing user
+ * Used to migrate existing users who signed up before Polar integration
+ * Prevents duplication by catching errors if customer already exists
  */
-export async function getCustomerByExternalId(
-  externalId: string
-): Promise<{ customerId: string | null; success: boolean; error?: string }> {
+export async function createCustomerForExistingUser(params: {
+  userId: string;
+  email: string;
+  name?: string | null;
+}): Promise<{ customerId: string | null; success: boolean; error?: string }> {
   try {
-    // TODO: Implement based on actual Polar SDK API
-    // The SDK may have a method like customers.getByExternalId() or similar
-    // For now, this is a placeholder
-
-    console.warn(
-      "[PolarService] getCustomerByExternalId not fully implemented - check Polar SDK docs for correct method"
-    );
+    // Create new customer with externalId matching user ID
+    // If customer already exists, Polar will return an error which we'll catch
+    const customer = await polarClient.customers.create({
+      externalId: params.userId,
+      email: params.email,
+      ...(params.name && { name: params.name }),
+    });
 
     return {
-      customerId: null,
+      customerId: customer.id,
       success: true,
     };
-  } catch (error) {
-    console.error("[PolarService] Error getting customer:", error);
+  } catch (error: any) {
+    // If customer already exists (duplicate externalId or email),
+    // the error will indicate this - we'll log it but not fail
+    // The BetterAuth plugin should handle existing customers via webhooks
+    if (
+      error?.status === 409 ||
+      error?.message?.includes("already exists") ||
+      error?.message?.includes("duplicate") ||
+      error?.message?.includes("unique constraint")
+    ) {
+      console.log(
+        `[PolarService] Customer already exists for user ${params.userId} - this is expected for existing users`
+      );
+      // Return success but no customerId - the webhook will sync it later
+      return {
+        customerId: null,
+        success: true,
+      };
+    }
+
+    console.error("[PolarService] Error creating customer for existing user:", error);
     return {
       customerId: null,
       success: false,

@@ -29,6 +29,8 @@ import { WorkflowGenerationPanel } from "./workflow-generation-panel";
 import type { ExistingNode, ExistingConnection } from "./workflow-generation-panel";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSubscription } from "@/hooks/useSubscription";
+import { toast } from "sonner";
 
 export const EditorLoader = () => {
   return <LoadingView message="Loading editor..." />;
@@ -41,6 +43,9 @@ export const EditorError = () => {
 export const Editor = ({ workflowId }: { workflowId: string }) => {
   const { data: workflow, isLoading, error } = useWorkflow(workflowId);
   const setEditor = useSetAtom(editorAtom);
+  const { subscription } = useSubscription();
+  const hasGenerateWorkflowAccess =
+    subscription?.features?.includes("generate-workflow-with-ai") ?? false;
 
   // Use ref to store the latest delete handler to avoid recreating nodes
   const deleteHandlerRef = useRef<(nodeId: string) => void>();
@@ -301,8 +306,17 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setEditWorkflowOpen(true)}
-            className="flex items-center gap-2 border-primary"
+            onClick={() => {
+              if (!hasGenerateWorkflowAccess) {
+                toast.error("This is a premium feature. Please upgrade your plan to use it.");
+                return;
+              }
+              setEditWorkflowOpen(true);
+            }}
+            className={`flex items-center gap-2 border-primary ${
+              !hasGenerateWorkflowAccess ? "opacity-60" : ""
+            }`}
+            disabled={!hasGenerateWorkflowAccess}
           >
             <Sparkles className="h-4 w-4" />
             {hasWorkflowNodes ? "Edit with AI" : "Generate with AI"}
