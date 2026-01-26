@@ -146,9 +146,7 @@ export const DesignDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} 
             <Palette className="h-5 w-5 text-pink-500" />
             Design Agent
           </DialogTitle>
-          <DialogDescription>
-            Generate images using AI. Uses GEMINI_API_KEY from server environment.
-          </DialogDescription>
+          <DialogDescription>Generate images using AI.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">

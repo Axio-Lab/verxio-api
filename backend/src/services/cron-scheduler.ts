@@ -1,7 +1,8 @@
 import * as cron from "node-cron";
 import { inngest } from "../inngest";
 import { basePrismaClient } from "../lib/prisma";
-import { cleanupOldImages } from "../lib/imageStorage";import { cleanupOldVideos } from "../lib/videoStorage";
+import { cleanupOldImages } from "../lib/imageStorage";
+import { cleanupOldVideos } from "../lib/videoStorage";
 
 const prisma = basePrismaClient as any;
 

@@ -2,6 +2,72 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 
+// Helper function to create Polar plugin conditionally
+function createPolarPlugin() {
+  // Only initialize if Polar is configured
+  if (!process.env.POLAR_ACCESS_TOKEN || process.env.POLAR_ACCESS_TOKEN.trim() === "") {
+    return null;
+  }
+
+  try {
+    // Dynamic imports to avoid errors if packages aren't available
+    // TODO: Re-enable portal when billing portal is properly designed
+    const { polar, checkout, webhooks } = require("@polar-sh/better-auth");
+    // const { portal } = require("@polar-sh/better-auth");
+    const { Polar } = require("@polar-sh/sdk");
+    const {
+      handleOrderPaid,
+      handleSubscriptionActive,
+      handleSubscriptionCanceled,
+      handleSubscriptionExpired,
+      handleCustomerStateChanged,
+    } = require("./polar-webhooks");
+
+    // Initialize Polar client
+    const polarClient = new Polar({
+      accessToken: process.env.POLAR_ACCESS_TOKEN,
+      server: (process.env.POLAR_SERVER as "sandbox" | "production") || "sandbox",
+    });
+
+    return polar({
+      client: polarClient,
+      createCustomerOnSignUp: true,
+      use: [
+        checkout({
+          products: process.env.POLAR_BETA_TESTER_PRODUCT_ID
+            ? [
+                {
+                  productId: process.env.POLAR_BETA_TESTER_PRODUCT_ID,
+                  slug: "beta-tester",
+                },
+              ]
+            : [],
+          successUrl: "/workflows?checkout_id={CHECKOUT_ID}",
+          authenticatedUsersOnly: true,
+        }),
+        // TODO: Re-enable portal plugin when billing portal is properly designed
+        // portal({
+        //   returnUrl: process.env.NEXT_PUBLIC_APP_URL || "https://app.verxio.io",
+        // }),
+        webhooks({
+          secret: process.env.POLAR_WEBHOOK_SECRET || "",
+          onOrderPaid: handleOrderPaid,
+          onSubscriptionActive: handleSubscriptionActive,
+          onSubscriptionCanceled: handleSubscriptionCanceled,
+          onSubscriptionRevoked: handleSubscriptionExpired,
+          onCustomerStateChanged: handleCustomerStateChanged,
+        }),
+      ],
+    });
+  } catch (error) {
+    console.warn("[BetterAuth] Failed to initialize Polar plugin:", error);
+    console.warn("[BetterAuth] Continuing without Polar integration");
+    return null;
+  }
+}
+
+const polarPlugin = createPolarPlugin();
+
 export const auth = betterAuth({
   // Database configuration using Prisma adapter
   database: prismaAdapter(prisma, {
@@ -94,4 +160,7 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
   },
+
+  // Plugins - only include Polar if configured
+  plugins: polarPlugin ? [polarPlugin] : [],
 });

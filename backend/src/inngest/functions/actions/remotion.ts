@@ -92,6 +92,10 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
   userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "REMOTION");
+
     await publishStatus(publish, nodeId, "loading");
 
     // CRITICAL: Extract ALL data into primitives IMMEDIATELY

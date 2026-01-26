@@ -157,6 +157,9 @@ export const firecrawlExecutor: NodeExecutor<FirecrawlData> = async ({
   userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "FIRECRAWL");
     await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "firecrawl";

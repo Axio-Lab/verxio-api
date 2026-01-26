@@ -584,8 +584,8 @@ export const executeWorkflowTool: VerxioTool = {
     let triggerNode = triggerNodeId
       ? workflow.nodes.find((n: any) => n.id === triggerNodeId)
       : workflow.nodes.find((n: any) =>
-        ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
-      );
+          ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
+        );
 
     if (!triggerNode) {
       return { success: false, error: "No suitable trigger node found in workflow" };
@@ -833,11 +833,11 @@ export const generateCodeTool: VerxioTool = {
     const inputDocs =
       inputVars.length > 0
         ? inputVars
-          .map(
-            (name) =>
-              `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
-          )
-          .join("\n")
+            .map(
+              (name) =>
+                `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
+            )
+            .join("\n")
         : "  // No specific inputs defined";
 
     const outputDocs = expectedOutput
@@ -1209,7 +1209,9 @@ export const createMultipleVideoNodesTool: VerxioTool = {
         z.object({
           prompt: z
             .string()
-            .describe("Scene-specific video prompt (REQUIRED). Use descriptive, cinematic language following video-prompt-guide.txt."),
+            .describe(
+              "Scene-specific video prompt (REQUIRED). Use descriptive, cinematic language following video-prompt-guide.txt."
+            ),
           mode: z
             .enum(["text", "image", "reference", "frames", "extension"])
             .optional()
@@ -1227,7 +1229,9 @@ export const createMultipleVideoNodesTool: VerxioTool = {
           durationSeconds: z
             .enum(["4", "6", "8"])
             .optional()
-            .describe("Duration: '4', '6', or '8' seconds (default: '8'). Extension, reference images, 1080p, and 4k require 8s."),
+            .describe(
+              "Duration: '4', '6', or '8' seconds (default: '8'). Extension, reference images, 1080p, and 4k require 8s."
+            ),
           negativePrompt: z.string().optional().describe("What to avoid in the video"),
           // For character consistency
           referenceImages: z
@@ -1244,7 +1248,9 @@ export const createMultipleVideoNodesTool: VerxioTool = {
           sourceImage: z
             .string()
             .optional()
-            .describe("Source image for image-to-video mode (URL, base64, or {{previousNode.imageUrl}})"),
+            .describe(
+              "Source image for image-to-video mode (URL, base64, or {{previousNode.imageUrl}})"
+            ),
           firstFrame: z
             .string()
             .optional()

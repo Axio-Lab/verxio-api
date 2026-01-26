@@ -142,8 +142,13 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
   context,
   step,
   publish,
+  userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "VEO");
+
     await publishStatus(publish, step, nodeId, "loading");
 
     // Extract data to primitives

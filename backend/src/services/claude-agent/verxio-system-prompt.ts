@@ -636,21 +636,23 @@ ${WORKFLOW_PATTERNS}
 ${options?.userId ? `**User ID**: ${options.userId}` : ""}
 ${options?.workflowId ? `**Current Workflow ID**: ${options.workflowId}` : ""}
 
-${options?.availableCredentials?.length
-      ? `
+${
+  options?.availableCredentials?.length
+    ? `
 ### Available Credentials
 ${options.availableCredentials.map((c) => `- ${c.type}: ${c.name}`).join("\n")}
 `
-      : ""
-    }
+    : ""
+}
 
-${options?.userConnections?.length
-      ? `
+${
+  options?.userConnections?.length
+    ? `
 ### Connected Data Sources
 ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.description || "No description"}`).join("\n")}
 `
-      : ""
-    }
+    : ""
+}
 
 ## Autonomous Operation Guidelines
 

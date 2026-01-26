@@ -9,11 +9,18 @@ import { testCodeBlock, testWorkflowSegment } from "../services/codeTestingServi
 import { prisma as prismaClient } from "../lib/prisma";
 import { createId } from "@paralleldrive/cuid2";
 import { NodeType } from "@/lib/node-types";
+import { requireFeature, checkRateLimit } from "../middleware/subscriptionAuth";
+import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
 
 export const workflowGenerationRouter: Router = Router();
 
 // Apply Better Auth middleware to all routes
 workflowGenerationRouter.use(betterAuthMiddleware);
+// Apply subscription and rate limiting middleware
+workflowGenerationRouter.use(
+  requireFeature(SUBSCRIPTION_FEATURES.GENERATE_WORKFLOW_WITH_AI),
+  checkRateLimit
+);
 
 /**
  * POST /workflow-generation/generate

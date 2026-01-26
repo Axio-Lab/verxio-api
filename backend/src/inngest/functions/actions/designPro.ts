@@ -109,8 +109,13 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
   context,
   step,
   publish,
+  userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "DESIGN_PRO");
+
     await publishStatus(publish, step, nodeId, "loading");
 
     // Extract minimal data into primitives to avoid capturing large data object in closure
