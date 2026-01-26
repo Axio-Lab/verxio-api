@@ -42,6 +42,7 @@ import { DesignProNode } from "@/app/app-components/features/executions/actions/
 import { LoyaltyDealNode } from "@/app/app-components/features/executions/actions/loyalty-deal/node";
 import { LoyaltyProgramNode } from "@/app/app-components/features/executions/actions/loyalty-program/node";
 import { RemotionNode } from "@/app/app-components/features/executions/actions/remotion/node";
+import { VeoNode } from "@/app/app-components/features/executions/actions/veo/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -81,6 +82,7 @@ export const NodeComponents = {
   [NodeType.LOYALTY_DEAL]: LoyaltyDealNode,
   [NodeType.LOYALTY_PROGRAM]: LoyaltyProgramNode,
   [NodeType.REMOTION]: RemotionNode,
+  [NodeType.VEO]: VeoNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

@@ -35,6 +35,7 @@ import { manualInputChannel } from "./manual-input";
 import { designChannel } from "./design";
 import { designProChannel } from "./designPro";
 import { remotionChannel } from "./remotion";
+import { veoChannel } from "./veo";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -70,6 +71,7 @@ export const nodeStatusChannels = {
   design: designChannel,
   designPro: designProChannel,
   remotion: remotionChannel,
+  veo: veoChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -109,4 +111,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   design: "design-execution",
   designPro: "design-pro-execution",
   remotion: "remotion-execution",
+  veo: "veo-execution",
 };

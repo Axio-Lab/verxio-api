@@ -262,6 +262,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const veoSub = useInngestSubscription({
+    refreshToken: createRefreshToken("veo"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -329,6 +334,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     designSub.data,
     designProSub.data,
     remotionSub.data,
+    veoSub.data,
   ]);
 
   // Filter and update status for this specific node

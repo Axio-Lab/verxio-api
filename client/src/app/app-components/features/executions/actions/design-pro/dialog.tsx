@@ -650,10 +650,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Image Size (Pro Only)</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || "1K"}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value || "1K"}>
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="1K (Standard - Default)" />
@@ -668,7 +665,8 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      <strong>Default is 1K (Standard)</strong> - select 2K or 4K for High-resolution output.
+                      <strong>Default is 1K (Standard)</strong> - select 2K or 4K for
+                      High-resolution output.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

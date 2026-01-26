@@ -30,6 +30,7 @@ import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
 import { functions } from "./inngest/functions";
 import { initializeCronScheduler } from "./services/cron-scheduler";
+import path from "path";
 
 // Load environment variables
 dotenv.config();
@@ -119,10 +120,15 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve generated images as static files
-import path from "path";
 app.use(
   "/generated-images",
   express.static(path.join(process.cwd(), "public", "generated-images"))
+);
+
+// Serve generated videos as static files
+app.use(
+  "/generated-videos",
+  express.static(path.join(process.cwd(), "public", "generated-videos"))
 );
 
 // Logging middleware

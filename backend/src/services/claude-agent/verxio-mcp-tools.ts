@@ -110,6 +110,7 @@ export const AVAILABLE_NODE_TYPES = {
     },
     { type: "DESIGN", description: "AI image generation" },
     { type: "DESIGN_PRO", description: "Advanced AI image generation with editing capabilities" },
+    { type: "VEO", description: "AI video generation using Veo 3.1" },
   ],
 };
 
@@ -583,8 +584,8 @@ export const executeWorkflowTool: VerxioTool = {
     let triggerNode = triggerNodeId
       ? workflow.nodes.find((n: any) => n.id === triggerNodeId)
       : workflow.nodes.find((n: any) =>
-        ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
-      );
+          ["MANUAL_TRIGGER", "MANUAL_INPUT", "WEBHOOK"].includes(n.type)
+        );
 
     if (!triggerNode) {
       return { success: false, error: "No suitable trigger node found in workflow" };
@@ -832,11 +833,11 @@ export const generateCodeTool: VerxioTool = {
     const inputDocs =
       inputVars.length > 0
         ? inputVars
-          .map(
-            (name) =>
-              `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
-          )
-          .join("\n")
+            .map(
+              (name) =>
+                `  // inputs.${name}: ${JSON.stringify(availableInputs![name], null, 2).split("\n").join("\n  // ")}`
+            )
+            .join("\n")
         : "  // No specific inputs defined";
 
     const outputDocs = expectedOutput
@@ -1036,7 +1037,9 @@ export const createMultipleDesignNodesTool: VerxioTool = {
           mode: z
             .enum(["generate", "edit", "editWithReferences"])
             .optional()
-            .describe("Mode for DESIGN_PRO nodes: 'generate' (default), 'edit', or 'editWithReferences'"),
+            .describe(
+              "Mode for DESIGN_PRO nodes: 'generate' (default), 'edit', or 'editWithReferences'"
+            ),
           imageSize: z
             .enum(["1K", "2K", "4K"])
             .optional()
@@ -1050,12 +1053,11 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     variablesPrefix: z
       .string()
       .optional()
-      .describe("Prefix for variable names (defaults to 'design' or 'designPro' based on nodeType)"),
+      .describe(
+        "Prefix for variable names (defaults to 'design' or 'designPro' based on nodeType)"
+      ),
   }),
-  execute: async (
-    { workflowId, imageSpecs, variablesPrefix, nodeType = "DESIGN" },
-    context
-  ) => {
+  execute: async ({ workflowId, imageSpecs, variablesPrefix, nodeType = "DESIGN" }, context) => {
     // Verify workflow belongs to user
     const workflow = await prisma.workflow.findFirst({
       where: { id: workflowId, userId: context.userId },

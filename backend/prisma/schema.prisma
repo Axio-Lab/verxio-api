@@ -409,6 +409,7 @@ enum NodeType {
   LOYALTY_DEAL
   LOYALTY_PROGRAM
   REMOTION
+  VEO
 }
 
 model Node {

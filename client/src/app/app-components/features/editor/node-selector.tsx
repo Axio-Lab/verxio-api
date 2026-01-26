@@ -7,9 +7,9 @@ import {
   SearchIcon,
   ClockIcon,
   GitBranchIcon,
-  Keyboard,
   Code2,
   Palette,
+  Video,
 } from "lucide-react";
 import {
   Sheet,
@@ -265,6 +265,13 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Generate motion videos using AI-powered Remotion code generation. Add assets, background audio, and create professional videos.",
     icon: "/logo/remotion.svg",
+  },
+  {
+    type: NodeType.VEO,
+    label: "Veo Video",
+    description:
+      "Generate high-fidelity videos with Veo 3.1. Supports text-to-video, image-to-video, reference images, and video extension.",
+    icon: Video,
   },
 ];
 
@@ -849,6 +856,23 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             videoFormat: "16:9",
           },
           type: NodeType.REMOTION,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Veo Video",
+            variables: "veo",
+            mode: "text",
+            prompt: "",
+            aspectRatio: "16:9",
+            resolution: "720p",
+            durationSeconds: "8",
+          },
+          type: NodeType.VEO,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);
