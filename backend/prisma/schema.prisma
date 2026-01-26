@@ -252,20 +252,28 @@ model Deal {
 
 // Better Auth Models
 model User {
-  id                  String               @id @default(cuid())
-  name                String
-  email               String               @unique
-  emailVerified       Boolean              @default(false)
-  image               String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  sessions            Session[]
-  accounts            Account[]
-  workflows           Workflow[]
-  credentials         Credential[]
-  googleOAuthToken    GoogleOAuthToken?
-  workflowGenerations WorkflowGeneration[]
-  userConnections     UserConnection[]
+  id                    String               @id @default(cuid())
+  name                  String
+  email                 String               @unique
+  emailVerified         Boolean              @default(false)
+  image                 String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  sessions              Session[]
+  accounts              Account[]
+  workflows             Workflow[]
+  credentials           Credential[]
+  googleOAuthToken      GoogleOAuthToken?
+  workflowGenerations   WorkflowGeneration[]
+  userConnections       UserConnection[]
+  subscriptionStatus    String?              // "active", "expired", "canceled", "trial", null
+  subscriptionPlan      String?              // "beta-tester", "pro", "enterprise", etc.
+  subscriptionExpiresAt DateTime?            // When subscription expires
+  polarCustomerId       String?              @unique // Polar customer ID
+  rateLimitRemaining    Int                  @default(100) // For promotional plans
+  rateLimitResetAt      DateTime?            // When rate limit resets
+  subscriptionFeatures  String[]             @default([]) // Array of feature IDs user has access to
+  manualPayments        ManualPayment[]
 
   @@map("user")
 }
@@ -409,6 +417,7 @@ enum NodeType {
   LOYALTY_DEAL
   LOYALTY_PROGRAM
   REMOTION
+  VEO
 }
 
 model Node {
@@ -593,4 +602,25 @@ model WorkflowPattern {
   @@index([tags])
   @@index([isTemplate])
   @@map("workflow_patterns")
+}
+
+model ManualPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Float
+  currency    String   @default("USD")
+  paymentMethod String // "bank_transfer", "wire", "check", etc.
+  paymentProof String? // URL or reference to proof document
+  status      String   // "pending", "verified", "rejected", "completed"
+  polarOrderId String? // Polar order ID once created
+  verifiedBy  String?  // Admin user ID who verified
+  verifiedAt  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("manual_payments")
 }

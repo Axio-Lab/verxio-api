@@ -40,6 +40,48 @@ export async function loadVideoGenerationGuide(): Promise<string> {
 }
 
 /**
+ * Load the social media design guide content
+ */
+export async function loadSocialMediaDesignGuide(): Promise<string> {
+  try {
+    const guidePath = path.join(GUIDES_DIR, "social-media-design-guide.txt");
+    const content = await fs.readFile(guidePath, "utf-8");
+    return content;
+  } catch (error) {
+    console.error("[ImagePromptHelpers] Error loading social media design guide:", error);
+    return "";
+  }
+}
+
+/**
+ * Load the design prompt guide content
+ */
+export async function loadDesignPromptGuide(): Promise<string> {
+  try {
+    const guidePath = path.join(GUIDES_DIR, "design-prompt-guide.txt");
+    const content = await fs.readFile(guidePath, "utf-8");
+    return content;
+  } catch (error) {
+    console.error("[ImagePromptHelpers] Error loading design prompt guide:", error);
+    return "";
+  }
+}
+
+/**
+ * Load the video prompt guide content
+ */
+export async function loadVideoPromptGuide(): Promise<string> {
+  try {
+    const guidePath = path.join(GUIDES_DIR, "video-prompt-guide.txt");
+    const content = await fs.readFile(guidePath, "utf-8");
+    return content;
+  } catch (error) {
+    console.error("[ImagePromptHelpers] Error loading video prompt guide:", error);
+    return "";
+  }
+}
+
+/**
  * Format image specifications as JSON prompt (helper for reference)
  * This can be used by Claude Code as a reference for creating proper JSON prompts
  */

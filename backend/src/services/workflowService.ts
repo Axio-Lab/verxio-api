@@ -2,7 +2,6 @@ import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { NodeType } from "../lib/node-types";
 
-// Use basePrismaClient for workflow model since extended client doesn't expose it
 const prismaClient = basePrismaClient as any;
 
 export interface CreateWorkflowData {
@@ -17,7 +16,7 @@ export interface UpdateWorkflowData {
 export interface SaveWorkflowData {
   name?: string;
   nodes: Array<{
-    id: string; // Node ID is required to maintain connection references
+    id: string;
     name: string;
     type: string;
     position: { x: number; y: number };
@@ -83,17 +82,22 @@ function transformWorkflowForExecution(workflow: any): any {
 }
 
 // Helper function to transform workflow with connections
-// Merges assets back into node.data for Remotion nodes (for frontend compatibility)
+// Merges assets/images back into node.data for frontend compatibility
 function transformWorkflow(workflow: any): WorkflowResponse {
   const transformedNodes = (workflow.nodes || []).map((node: any) => {
-    // For Remotion nodes, merge assets back into node.data
-    if (node.type === "REMOTION" && node.assets && node.assets.length > 0) {
-      const nodeData = { ...(node.data || {}) };
+    const nodeData = { ...(node.data || {}) };
 
+    if (node.type === "REMOTION" && node.assets && node.assets.length > 0) {
       // Find background audio asset
       const backgroundAudioAsset = node.assets.find((a: any) => a.isBackgroundAudio);
       if (backgroundAudioAsset) {
-        nodeData.backgroundAudio = backgroundAudioAsset.fileData;
+        // Only set fileData if it exists (execution context), otherwise keep existing or use placeholder
+        if (backgroundAudioAsset.fileData) {
+          nodeData.backgroundAudio = backgroundAudioAsset.fileData;
+        } else if (!nodeData.backgroundAudio) {
+          // Placeholder for frontend - indicates asset exists but data not loaded
+          nodeData.backgroundAudio = `asset:${backgroundAudioAsset.filename}`;
+        }
         nodeData.backgroundAudioFilename = backgroundAudioAsset.filename;
         nodeData.backgroundAudioVolume = backgroundAudioAsset.volume ?? 0.7;
       }
@@ -102,7 +106,7 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       const regularAssets = node.assets.filter((a: any) => !a.isBackgroundAudio);
       if (regularAssets.length > 0) {
         nodeData.assets = regularAssets.map((asset: any) => ({
-          file: asset.fileData,
+          file: asset.fileData || `asset:${asset.filename}`, // Placeholder if no fileData
           filename: asset.filename,
           type: asset.fileType,
           sceneDescription: asset.sceneDescription || undefined,
@@ -111,7 +115,61 @@ function transformWorkflow(workflow: any): WorkflowResponse {
           size: asset.size || undefined,
         }));
       }
+    }
 
+    // For DESIGN_PRO nodes, merge images back into node.data
+    if (node.type === "DESIGN_PRO" && node.assets && node.assets.length > 0) {
+      const nodeMode = (nodeData.mode as string) || "generate";
+      const isEditWithReferences = nodeMode === "editWithReferences";
+
+      if (isEditWithReferences) {
+        // For editWithReferences, ALL assets are reference images (no source image required)
+        // Source image is optional and comes from node.data.sourceImage if provided (as URL)
+        nodeData.referenceImages = node.assets.map((asset: any) => ({
+          image: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+          mimeType:
+            asset.fileData && asset.fileData.startsWith("data:")
+              ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png",
+        }));
+      } else {
+        // For other modes (edit, chat), first asset is source image
+        const sourceImageAsset = node.assets[0];
+        if (sourceImageAsset) {
+          if (sourceImageAsset.fileData) {
+            // We have the actual file data - use it
+            nodeData.sourceImage = sourceImageAsset.fileData;
+            nodeData.sourceImageMimeType = sourceImageAsset.fileData.startsWith("data:")
+              ? sourceImageAsset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png";
+            nodeData.sourceImageFilename = sourceImageAsset.filename;
+          } else {
+            // No fileData (metadata-only load) - create placeholder
+            // Always set placeholder, even if nodeData.sourceImage exists (it might be stale)
+            nodeData.sourceImage = `asset:${sourceImageAsset.filename}`;
+            nodeData.sourceImageMimeType = "image/png";
+            nodeData.sourceImageFilename = sourceImageAsset.filename;
+          }
+        }
+
+        // All other images are reference images
+        const referenceImageAssets = node.assets.filter((a: any, idx: number) => idx !== 0);
+        if (referenceImageAssets.length > 0) {
+          nodeData.referenceImages = referenceImageAssets.map((asset: any) => ({
+            image: asset.fileData || `asset:${asset.filename}`,
+            filename: asset.filename,
+            mimeType:
+              asset.fileData && asset.fileData.startsWith("data:")
+                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+                : "image/png",
+          }));
+        }
+      }
+    }
+
+    // Only update data if we modified it
+    if (node.type === "REMOTION" || node.type === "DESIGN_PRO") {
       return {
         ...node,
         data: nodeData,
@@ -223,7 +281,8 @@ export const getWorkflows = async (
   // Get total count
   const total = await prismaClient.workflow.count({ where });
 
-  // Get workflows with nodes and assets
+  // Get workflows with nodes (exclude assets to avoid large response size)
+  // Assets are only needed when viewing/editing a single workflow, not in the list
   const workflows = await prismaClient.workflow.findMany({
     where,
     skip,
@@ -233,9 +292,8 @@ export const getWorkflows = async (
     },
     include: {
       nodes: {
-        include: {
-          assets: true, // Include assets for Remotion nodes
-        },
+        // Don't include assets - they contain large base64 data and cause Prisma response limit errors
+        // Assets will be loaded separately when viewing/editing individual workflows
       },
       connections: true,
     },
@@ -243,8 +301,18 @@ export const getWorkflows = async (
 
   const totalPages = Math.ceil(total / limit);
 
+  // Transform workflows without merging assets (assets not loaded for list view)
+  // Use a simplified transform that doesn't expect assets
   return {
-    workflows: workflows.map(transformWorkflow),
+    workflows: workflows.map((workflow: any) => ({
+      id: workflow.id,
+      name: workflow.name,
+      userId: workflow.userId,
+      createdAt: workflow.createdAt,
+      updatedAt: workflow.updatedAt,
+      nodes: workflow.nodes || [],
+      connections: (workflow.connections || []).map(transformConnection),
+    })),
     total,
     page,
     limit,
@@ -255,7 +323,7 @@ export const getWorkflows = async (
 /**
  * Get a single workflow by ID (with user validation)
  */
-// Get workflow for execution (doesn't merge assets to avoid large data in node.data)
+// Get workflow for execution (doesn't include assets - executors load them separately)
 export const getWorkflowForExecution = async (id: string, userId: string): Promise<any> => {
   if (!id) {
     throw new AppError("Workflow ID is required", 400);
@@ -271,11 +339,7 @@ export const getWorkflowForExecution = async (id: string, userId: string): Promi
       userId,
     },
     include: {
-      nodes: {
-        include: {
-          assets: true, // Include assets relation but DON'T merge into node.data
-        },
-      },
+      nodes: {},
       connections: true,
     },
   });
@@ -284,8 +348,8 @@ export const getWorkflowForExecution = async (id: string, userId: string): Promi
     throw new AppError("Workflow not found", 404);
   }
 
-  // Return workflow WITHOUT merging assets into node.data
-  // This prevents large base64 data from being passed to executors
+  // Return workflow WITHOUT assets
+  // Executors will load assets separately from database inside their step.run() calls
   return transformWorkflowForExecution(workflow);
 };
 
@@ -298,6 +362,8 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
     throw new AppError("User ID is required", 400);
   }
 
+  // Load workflow without assets - frontend doesn't need base64 data, only metadata
+  // Assets are only loaded during execution via getWorkflowForExecution
   const workflow = await prismaClient.workflow.findFirst({
     where: {
       id,
@@ -305,9 +371,8 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
     },
     include: {
       nodes: {
-        include: {
-          assets: true, // Include assets for Remotion nodes
-        },
+        // Don't include assets - frontend doesn't need base64 data
+        // Assets are loaded separately during execution only
       },
       connections: true,
     },
@@ -317,7 +382,61 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
     throw new AppError("Workflow not found", 404);
   }
 
-  return transformWorkflow(workflow);
+  // Load only asset metadata (filename, type) for display, not the actual fileData
+  // This allows frontend to show what assets exist without loading large base64 data
+  const nodesNeedingAssets = (workflow.nodes || []).filter(
+    (node: any) => node.type === "REMOTION" || node.type === "DESIGN_PRO"
+  );
+  const nodeIds = nodesNeedingAssets.map((node: any) => node.id);
+
+  // Load only metadata fields, not fileData
+  const assetMetadata =
+    nodeIds.length > 0
+      ? await prismaClient.nodeAsset.findMany({
+          where: {
+            nodeId: { in: nodeIds },
+          },
+          select: {
+            id: true,
+            nodeId: true,
+            filename: true,
+            fileType: true,
+            sceneDescription: true,
+            startTime: true,
+            position: true,
+            size: true,
+            isBackgroundAudio: true,
+            volume: true,
+            createdAt: true,
+            updatedAt: true,
+            // Explicitly exclude fileData to avoid loading large base64
+          },
+        })
+      : [];
+
+  // Group metadata by nodeId
+  const assetsByNodeId = new Map<string, any[]>();
+  for (const asset of assetMetadata) {
+    if (!assetsByNodeId.has(asset.nodeId)) {
+      assetsByNodeId.set(asset.nodeId, []);
+    }
+    assetsByNodeId.get(asset.nodeId)!.push(asset);
+  }
+
+  // Attach asset metadata to nodes (without fileData)
+  const workflowWithAssetMetadata = {
+    ...workflow,
+    nodes: (workflow.nodes || []).map((node: any) => {
+      return {
+        ...node,
+        assets: assetsByNodeId.get(node.id) || [],
+      };
+    }),
+  };
+
+  // Transform workflow - this will create placeholders for assets in node.data
+  // The frontend dialog can work with just filenames/metadata
+  return transformWorkflow(workflowWithAssetMetadata);
 };
 
 /**
@@ -328,15 +447,16 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
     throw new AppError("Workflow ID is required", 400);
   }
 
+  // Load workflow without assets - frontend doesn't need base64 data, only metadata
+  // Assets are only loaded during execution via getWorkflowForExecution
   const workflow = await prismaClient.workflow.findFirst({
     where: {
       id,
     },
     include: {
       nodes: {
-        include: {
-          assets: true, // Include assets for Remotion nodes
-        },
+        // Don't include assets - frontend doesn't need base64 data
+        // Assets are loaded separately during execution only
       },
       connections: true,
     },
@@ -346,7 +466,59 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
     throw new AppError("Workflow not found", 404);
   }
 
-  return transformWorkflow(workflow);
+  // Load only asset metadata (filename, type) for display, not the actual fileData
+  // This allows frontend to show what assets exist without loading large base64 data
+  const nodesNeedingAssets = (workflow.nodes || []).filter(
+    (node: any) => node.type === "REMOTION" || node.type === "DESIGN_PRO"
+  );
+  const nodeIds = nodesNeedingAssets.map((node: any) => node.id);
+
+  // Load only metadata fields, not fileData
+  const assetMetadata =
+    nodeIds.length > 0
+      ? await prismaClient.nodeAsset.findMany({
+          where: {
+            nodeId: { in: nodeIds },
+          },
+          select: {
+            id: true,
+            nodeId: true,
+            filename: true,
+            fileType: true,
+            sceneDescription: true,
+            startTime: true,
+            position: true,
+            size: true,
+            isBackgroundAudio: true,
+            volume: true,
+            createdAt: true,
+            updatedAt: true,
+            // Explicitly exclude fileData to avoid loading large base64
+          },
+        })
+      : [];
+
+  // Group metadata by nodeId
+  const assetsByNodeId = new Map<string, any[]>();
+  for (const asset of assetMetadata) {
+    if (!assetsByNodeId.has(asset.nodeId)) {
+      assetsByNodeId.set(asset.nodeId, []);
+    }
+    assetsByNodeId.get(asset.nodeId)!.push(asset);
+  }
+
+  // Attach asset metadata to nodes (without fileData)
+  const workflowWithAssetMetadata = {
+    ...workflow,
+    nodes: (workflow.nodes || []).map((node: any) => ({
+      ...node,
+      assets: assetsByNodeId.get(node.id) || [],
+    })),
+  };
+
+  // Transform workflow - this will create placeholders for assets in node.data
+  // The frontend dialog can work with just filenames/metadata
+  return transformWorkflow(workflowWithAssetMetadata);
 };
 
 /**
@@ -623,7 +795,7 @@ export const updateWorkflowData = async (
               throw new AppError(`Node ${node.id} is missing required type.`, 400);
             }
 
-            // Extract assets from Remotion node data to store separately (prevents transaction timeout)
+            // Extract assets/images from node data to store separately (prevents transaction timeout)
             const nodeData = node.data || {};
             let assetsToStore: Array<{
               filename: string;
@@ -670,6 +842,62 @@ export const updateWorkflowData = async (
                 );
                 // Remove from node.data to keep it small
                 delete nodeData.assets;
+              }
+            }
+
+            // Check if this is a DESIGN_PRO node with images
+            if (node.type === "DESIGN_PRO" && nodeData) {
+              // Determine node mode to handle sourceImage extraction differently
+              const nodeMode = (nodeData.mode as string) || "generate";
+              const isEditWithReferences = nodeMode === "editWithReferences";
+
+              // Extract source image if present (skip placeholders like "asset:filename")
+              // For editWithReferences, sourceImage is optional - don't extract it as an asset
+              // (it can be provided as URL in node.data for optional baseImage, or omitted entirely)
+              // For other modes (edit, chat), extract it as the first asset
+              if (
+                !isEditWithReferences &&
+                nodeData.sourceImage &&
+                !nodeData.sourceImage.startsWith("asset:")
+              ) {
+                // Use provided filename or generate a default one
+                const filename = nodeData.sourceImageFilename || "source-image.png";
+                assetsToStore.push({
+                  filename: filename,
+                  fileType: "image",
+                  fileData: nodeData.sourceImage,
+                  isBackgroundAudio: false,
+                });
+                // Remove from node.data to keep it small
+                delete nodeData.sourceImage;
+                delete nodeData.sourceImageMimeType;
+                delete nodeData.sourceImageFilename;
+              } else if (nodeData.sourceImage?.startsWith("asset:")) {
+                // Placeholder - asset already exists in database, just remove from node.data
+                delete nodeData.sourceImage;
+                delete nodeData.sourceImageMimeType;
+                delete nodeData.sourceImageFilename;
+              }
+              // For editWithReferences, if sourceImage is provided (URL or base64), keep it in node.data
+              // It will be used as optional baseImage when loading
+
+              // Extract reference images if present (skip placeholders)
+              if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+                const validRefImages = nodeData.referenceImages.filter(
+                  (refImg: any) => refImg.image && !refImg.image.startsWith("asset:")
+                );
+                if (validRefImages.length > 0) {
+                  assetsToStore.push(
+                    ...validRefImages.map((refImg: any) => ({
+                      filename: refImg.filename || "reference-image.png",
+                      fileType: "image",
+                      fileData: refImg.image,
+                      isBackgroundAudio: false,
+                    }))
+                  );
+                }
+                // Remove from node.data to keep it small (even if they were placeholders)
+                delete nodeData.referenceImages;
               }
             }
 

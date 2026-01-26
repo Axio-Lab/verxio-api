@@ -37,6 +37,10 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
   userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "CODE_BLOCK");
+
     await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "result";

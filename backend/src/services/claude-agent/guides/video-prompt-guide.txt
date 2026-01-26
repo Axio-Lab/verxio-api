@@ -1,0 +1,284 @@
+# The Ultimate Video Prompt Guide  
+### For Veo, Video models, Social Media, Ads, Branding & Content Creation
+
+---
+
+## Core Principle (Video Prompting Rule #1)
+
+**Describe what happens on screen — moment by moment.**
+
+Video models don't just render visuals. They simulate:
+- motion
+- camera behavior
+- pacing
+- atmosphere
+- sound (Veo 3+)
+
+The clearer the **sequence**, the better the video.
+
+---
+
+Design prompts to be **clear, intentional, and brand-safe**.
+
+---
+
+## The Veo Prompt Framework (Use This Every Time)
+
+Think in **cinematic layers**:
+
+1. **Subject** – Who or what is on screen
+2. **Action** – What is happening
+3. **Context / Environment** – Where the scene takes place
+4. **Style** – Film genre, animation style, realism level
+5. **Camera** – Position, motion, framing
+6. **Focus & Lens** – Depth of field, perspective
+7. **Ambiance** – Lighting, color, mood
+8. **Audio (Optional)** – Dialogue, SFX, ambient sound
+9. **Aspect Ratio** – Platform-specific format
+
+---
+
+## Master Video Prompt Skeleton
+
+A [shot type] of [subject] in [environment].
+The subject is [action].
+Style: [cinematic / animated / commercial / social].
+Camera: [angle + movement].
+Focus: [shallow / deep / macro / wide].
+Lighting & color: [mood, tones].
+Audio: [dialogue, sound effects, ambience].
+Aspect ratio: [16:9 / 9:16 / 1:1].
+
+
+---
+
+## Video Prompting Basics (What Veo Understands Best)
+
+### Subject
+Be specific.
+A desperate man in a weathered green trench coat
+
+
+### Action
+Motion matters.
+He nervously dials a rotary phone and glances over his shoulder
+
+
+### Style
+Use film language.
+Film noir, cinematic, gritty realism, high contrast black and white
+
+
+### Camera & Composition (Optional but Powerful)
+Close-up, dolly-in shot, eye-level, shallow depth of field
+
+
+### Ambiance
+Cool blue tones, neon lighting, rainy night atmosphere
+
+
+---
+
+## Prompting for Audio (Veo 3+)
+
+### Dialogue
+Use quotes.
+Man (whispering): "This must be the key."
+
+
+### Sound Effects (SFX)
+Describe clearly.
+Footsteps echoing, phone clicking, rain hitting pavement
+
+
+### Ambient Noise
+Set the soundscape.
+A faint city hum and buzzing neon light in the background
+
+
+---
+
+## READY-MADE VIDEO PROMPTS  
+### (Business, Social Media & Branding)
+
+---
+
+## Social Media Video Prompts
+
+### Instagram / TikTok Short
+A vertical cinematic video of a confident entrepreneur working at a laptop in a modern café.
+She types, pauses, and smiles with quiet confidence.
+Style: clean, aspirational, social-media friendly.
+Camera: slow push-in shot.
+Lighting: warm natural light.
+Mood: productive, inspiring.
+Aspect ratio: 9:16.
+
+
+---
+
+### Brand Awareness Reel
+A fast-paced montage video showcasing a modern brand.
+Shots include close-ups of hands working, smiling customers, and clean product details.
+Style: polished commercial, modern.
+Camera: smooth transitions, dynamic cuts.
+Music-driven pacing.
+Aspect ratio: 9:16.
+
+
+---
+
+## Ad Video Prompts
+
+### Paid Social Ad
+A high-impact commercial-style video promoting a business service.
+Opening shot hooks attention in the first 2 seconds.
+Clear focus on the main benefit.
+Style: bold, professional, conversion-focused.
+Camera: crisp cuts, shallow depth of field.
+Lighting: bright and clean.
+Aspect ratio: 1:1 or 4:5.
+
+
+---
+
+### Product Ad
+A cinematic product video showcasing a minimalist product on a clean surface.
+The camera slowly rotates around the product.
+Soft studio lighting highlights texture and quality.
+Style: premium commercial.
+Aspect ratio: 16:9.
+
+
+---
+
+## Landing Page Video Prompts
+
+### Hero Section Background Video
+A calm, cinematic background video for a website hero section.
+Subject moves subtly to avoid distraction.
+Soft lighting, slow camera movement.
+Minimal visual noise.
+Style: premium, modern, brand-safe.
+Aspect ratio: 16:9.
+
+
+---
+
+## Business Branding Videos
+
+### Brand Story Video
+A cinematic brand story video showing behind-the-scenes moments.
+Subjects include team collaboration, craftsmanship, and final results.
+Style: authentic, documentary-inspired.
+Camera: handheld realism mixed with smooth tracking shots.
+Warm lighting, emotional tone.
+Aspect ratio: 16:9.
+
+
+---
+
+### Company Culture Video
+A friendly, professional video showcasing company culture.
+Employees interacting naturally in a modern workspace.
+Style: clean corporate documentary.
+Camera: natural movement, medium shots.
+Lighting: bright, neutral.
+Aspect ratio: 16:9.
+
+
+---
+
+## Prompting with Reference Images (Image-to-Video)
+
+Use images as the **first frame**.
+
+Use the provided image as the opening frame.
+Animate the subject naturally with realistic motion.
+Preserve appearance, proportions, and lighting.
+Add subtle camera movement and ambient sound.
+
+
+Supports:
+- Bringing illustrations to life
+- Animating products
+- Maintaining character consistency
+
+---
+
+## First & Last Frame Control (Advanced)
+
+Start with the provided image as the opening frame.
+End with the subject performing [final action].
+Ensure smooth transition from start to finish.
+
+
+Perfect for:
+- Storytelling
+- Visual punchlines
+- Controlled narratives
+
+---
+
+## Extending Videos
+
+Extend the video by continuing the existing motion naturally.
+Maintain consistent lighting, pacing, and camera movement.
+
+
+Note:
+- Voice extension works best if dialogue exists in the final second.
+
+---
+
+## Negative Prompting (What NOT to Do)
+
+❌ Don't say:
+No buildings, don't add people
+
+
+✅ Do say:
+Natural landscape, open space, organic environment
+
+
+Describe what *should* exist — not what shouldn't.
+
+---
+
+## Aspect Ratio Guide
+
+- **16:9** → YouTube, websites, presentations
+- **9:16** → TikTok, Reels, Shorts
+- **1:1** → Instagram feed, ads
+
+Always specify aspect ratio.
+
+---
+
+## Best Practices (Professional Level)
+
+- Be cinematic, not technical
+- Describe motion clearly
+- Use film language
+- Add emotion and intent
+- Iterate: refine camera, lighting, pacing
+- Think like a director, not a prompt engineer
+
+---
+
+## Known Limitations
+
+- Generation latency varies
+- Audio may occasionally fail due to safety filters
+- Videos are temporarily stored
+- AI watermarking is applied
+- Some regions restrict person generation
+
+---
+
+## Final Rule
+
+**If you can storyboard it in your head, Veo can generate it.**
+
+Prompt like a director.
+Design like a brand.

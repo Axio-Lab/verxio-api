@@ -25,7 +25,8 @@ const publishStatus = async (
   nodeId: string,
   status: "loading" | "error" | "success"
 ) => {
-  await step.run(`publish-status-${nodeId}`, async () => {
+  const stepId = `publish-status-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  await step.run(stepId, async () => {
     await publish(
       designChannel().status({
         nodeId,
@@ -50,7 +51,8 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
     if (!data.prompt) {
       await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError("DESIGN node: Prompt is required");
-      await step.run(`publish-error-${nodeId}`, async () => {
+      const errorStepId = `publish-error-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      await step.run(errorStepId, async () => {
         await publish(
           designChannel().output({
             nodeId,
@@ -72,7 +74,8 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
       const error = new NonRetriableError(
         "DESIGN node: GEMINI_API_KEY is not configured in environment variables"
       );
-      await step.run(`publish-error-${nodeId}`, async () => {
+      const errorStepId = `publish-error-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      await step.run(errorStepId, async () => {
         await publish(
           designChannel().output({
             nodeId,
@@ -142,10 +145,9 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
       }
 
       // Generate image OUTSIDE of step.run to avoid storing base64 in Inngest step output
-      // This is critical - Inngest has a step output size limit and base64 images exceed it
       result = await generateImage({
         prompt: compiledPrompt,
-        model: (data.model as any) || "gemini-2.5-flash-image",
+        model: "gemini-2.5-flash-image", // Only Flash Image model supported
         aspectRatio,
         template: data.template,
       });
@@ -173,7 +175,8 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
       const error = new NonRetriableError(
         `DESIGN node: Image generation failed after ${MAX_RETRIES + 1} attempts - ${lastError || result.error}`
       );
-      await step.run(`publish-error-${nodeId}`, async () => {
+      const errorStepId = `publish-error-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      await step.run(errorStepId, async () => {
         await publish(
           designChannel().output({
             nodeId,
@@ -236,7 +239,8 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
     };
 
     // Publish full result (with base64) to realtime channel
-    await step.run(`publish-output-${nodeId}`, async () => {
+    const outputStepId = `publish-output-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    await step.run(outputStepId, async () => {
       await publish(
         designChannel().output({
           nodeId,

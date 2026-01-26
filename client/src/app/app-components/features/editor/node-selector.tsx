@@ -7,9 +7,9 @@ import {
   SearchIcon,
   ClockIcon,
   GitBranchIcon,
-  Keyboard,
   Code2,
   Palette,
+  Video,
 } from "lucide-react";
 import {
   Sheet,
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { createId } from "@paralleldrive/cuid2";
 import { WorkflowGenerationPanel } from "./workflow-generation-panel";
 import { Sparkles } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
 
 export type NodeTypeOption = {
   type: keyof typeof NodeType;
@@ -266,16 +267,47 @@ const executionNodes: NodeTypeOption[] = [
       "Generate motion videos using AI-powered Remotion code generation. Add assets, background audio, and create professional videos.",
     icon: "/logo/remotion.svg",
   },
+  {
+    type: NodeType.VEO,
+    label: "Veo Video",
+    description:
+      "Generate high-fidelity videos with Veo 3.1. Supports text-to-video, image-to-video, reference images, and video extension.",
+    icon: Video,
+  },
 ];
 
+// Map node types to subscription features
+const NODE_TYPE_TO_FEATURE: Record<string, string> = {
+  CODE_BLOCK: "code-block-node",
+  REMOTION: "remotion",
+  DESIGN_PRO: "design-agent-pro",
+  VEO: "veo",
+  ELEVENLABS: "elevenlabs",
+  FIRECRAWL: "firecrawl",
+  APIFY: "apify",
+  PLAN: "plan-node",
+};
+
 export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {
-  const { setNodes, getNodes, screenToFlowPosition, setEdges } = useReactFlow();
+  const { setNodes, getNodes, screenToFlowPosition } = useReactFlow();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [workflowGenOpen, setWorkflowGenOpen] = useState(false);
   const itemsPerPage = 6; // Show 5 items per page
+  const { subscription } = useSubscription();
+  const userFeatures = subscription?.features || [];
 
-  // Combine all nodes for unified search
+  // Check if user has access to a feature
+  const hasFeatureAccess = (feature: string) => {
+    return userFeatures.includes(feature);
+  };
+
+  // Check if a node requires subscription
+  const isPremiumNode = (nodeType: string) => {
+    return NODE_TYPE_TO_FEATURE[nodeType] !== undefined;
+  };
+
+  // Combine all nodes for unified search (show all nodes, including premium)
   const allNodes = useMemo(
     () => [
       ...triggerNodes.map((node) => ({ ...node, category: "trigger" as const })),
@@ -320,6 +352,13 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
 
   const handleNodeSelect = useCallback(
     (selection: NodeTypeOption) => {
+      // Check if this is a premium node and user doesn't have access
+      const requiredFeature = NODE_TYPE_TO_FEATURE[selection.type];
+      if (requiredFeature && !hasFeatureAccess(requiredFeature)) {
+        toast.error("This is a premium feature. Please upgrade your plan to use it.");
+        return;
+      }
+
       const nodes = getNodes();
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
@@ -853,6 +892,23 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
+      } else if (selection.type === NodeType.VEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Veo Video",
+            variables: "veo",
+            mode: "text",
+            prompt: "",
+            aspectRatio: "16:9",
+            resolution: "720p",
+            durationSeconds: "8",
+          },
+          type: NodeType.VEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
       }
     },
     [setNodes, getNodes, screenToFlowPosition, onOpenChange]
@@ -872,16 +928,24 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         <div className="mt-4 flex-shrink-0">
           <button
             onClick={() => {
+              if (!hasFeatureAccess("generate-workflow-with-ai")) {
+                toast.error("This is a premium feature. Please upgrade your plan to use it.");
+                return;
+              }
               setWorkflowGenOpen(true);
               onOpenChange(false);
             }}
-            className="w-full flex items-center gap-2 px-4 py-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors duration-200 group"
+            className={`w-full flex items-center gap-2 px-4 py-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors duration-200 group ${
+              !hasFeatureAccess("generate-workflow-with-ai") ? "opacity-60 cursor-not-allowed" : ""
+            }`}
           >
             <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             <div className="flex flex-col text-left items-start flex-1">
               <span className="font-semibold text-sm text-foreground">Generate with AI</span>
               <span className="text-xs text-muted-foreground">
-                Describe your workflow and let Verxio agent create it for you
+                {hasFeatureAccess("generate-workflow-with-ai")
+                  ? "Describe your workflow and let Verxio agent create it for you"
+                  : "Premium feature - Upgrade to use"}
               </span>
             </div>
           </button>
@@ -910,6 +974,10 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             paginatedNodes.map((node) => {
               const Icon = node.icon;
               const isTrigger = node.category === "trigger";
+              const isPremium = isPremiumNode(node.type);
+              const hasAccess = isPremium
+                ? hasFeatureAccess(NODE_TYPE_TO_FEATURE[node.type])
+                : true;
               const bgColor = isTrigger
                 ? "bg-blue-100 dark:bg-blue-900/20 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30"
                 : "bg-green-100 dark:bg-green-900/20 group-hover:bg-green-200 dark:group-hover:bg-green-900/30";
@@ -920,7 +988,9 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
               return (
                 <div
                   key={node.type}
-                  className="w-full justify-start h-auto py-4 px-4 rounded-lg cursor-pointer border border-border bg-card hover:bg-accent hover:border-primary transition-colors duration-200 group"
+                  className={`w-full justify-start h-auto py-4 px-4 rounded-lg cursor-pointer border border-border bg-card hover:bg-accent hover:border-primary transition-colors duration-200 group ${
+                    isPremium && !hasAccess ? "opacity-60" : ""
+                  }`}
                   onClick={() => handleNodeSelect(node)}
                 >
                   <div className="flex items-center gap-4 w-full overflow-hidden">
@@ -941,9 +1011,15 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
                             Trigger
                           </span>
                         )}
+                        {isPremium && !hasAccess && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">
+                            Premium
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-muted-foreground line-clamp-2">
                         {node.description}
+                        {isPremium && !hasAccess && " - Upgrade to use"}
                       </span>
                     </div>
                   </div>

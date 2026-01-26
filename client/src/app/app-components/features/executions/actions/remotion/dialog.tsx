@@ -28,11 +28,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Loader2, Upload, X, Music, Image as ImageIcon, Video, FileAudio } from "lucide-react";
+import {
+  Loader2,
+  Upload,
+  X,
+  Music,
+  Image as ImageIcon,
+  Video,
+  FileAudio,
+  AlertTriangle,
+} from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const VIDEO_FORMATS = [
   { value: "16:9", label: "16:9 (Landscape - 1920x1080)", description: "YouTube, presentations" },
@@ -580,6 +590,13 @@ export const RemotionDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Background Audio (Optional)
                 </label>
+                <Alert variant="destructive" className="mb-3">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>File Size Limit:</strong> Audio files must not exceed 5MB. If your file
+                    is too large, please compress it before uploading.
+                  </AlertDescription>
+                </Alert>
                 {!backgroundAudioFile && !backgroundAudioBase64 ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -649,6 +666,14 @@ export const RemotionDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Assets (Optional - can add multiple)
                 </label>
+                <Alert variant="destructive" className="mb-3">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>File Size Limit:</strong> All assets (images, videos, audio) combined
+                    must not exceed 5MB total. If files are too large, please compress or resize
+                    them before uploading.
+                  </AlertDescription>
+                </Alert>
                 <div className="flex items-center gap-2">
                   <input
                     ref={assetsInputRef}

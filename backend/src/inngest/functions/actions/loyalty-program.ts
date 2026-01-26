@@ -46,7 +46,8 @@ const publishStatus = async (
   nodeId: string,
   status: "loading" | "error" | "success"
 ) => {
-  await step.run(`publish-status-${nodeId}`, async () => {
+  const stepId = `publish-status-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  await step.run(stepId, async () => {
     await publish(
       loyaltyProgramChannel().status({
         nodeId,
@@ -78,7 +79,8 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
     if (!data.action) {
       await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError("LOYALTY_PROGRAM node: Action is required");
-      await step.run(`publish-error-${nodeId}`, async () => {
+      const errorStepId = `publish-error-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      await step.run(errorStepId, async () => {
         await publish(
           loyaltyProgramChannel().output({
             nodeId,
@@ -342,7 +344,8 @@ export const loyaltyProgramExecutor: NodeExecutor<LoyaltyProgramData> = async ({
     };
 
     // Publish output to realtime channel
-    await step.run(`publish-output-${nodeId}`, async () => {
+    const outputStepId = `publish-output-${nodeId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    await step.run(outputStepId, async () => {
       await publish(
         loyaltyProgramChannel().output({
           nodeId,

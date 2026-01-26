@@ -110,6 +110,7 @@ export const AVAILABLE_NODE_TYPES = {
     },
     { type: "DESIGN", description: "AI image generation" },
     { type: "DESIGN_PRO", description: "Advanced AI image generation with editing capabilities" },
+    { type: "VEO", description: "AI video generation using Veo 3.1" },
   ],
 };
 
@@ -1001,9 +1002,16 @@ function getCredentialSetupInstructions(type: string): string {
 export const createMultipleDesignNodesTool: VerxioTool = {
   name: "createMultipleDesignNodes",
   description:
-    "Create multiple DESIGN nodes in sequence for generating multiple images (e.g., presentation slides, image series). Each node receives a JSON-formatted prompt from the imageSpecs array. Nodes are connected sequentially.",
+    "Create multiple DESIGN or DESIGN_PRO nodes in sequence for generating multiple images (e.g., presentation slides, image series). Each node receives a JSON-formatted prompt from the imageSpecs array. Nodes are connected sequentially. Use DESIGN_PRO for higher quality output (1K/2K/4K resolution) or advanced features. Use DESIGN for standard quality output.",
   inputSchema: z.object({
     workflowId: z.string().describe("ID of the workflow"),
+    nodeType: z
+      .enum(["DESIGN", "DESIGN_PRO"])
+      .optional()
+      .default("DESIGN")
+      .describe(
+        "Node type: 'DESIGN' for standard quality (default), 'DESIGN_PRO' for higher quality (1K/2K/4K) and advanced features. Use DESIGN_PRO when user requests high quality, high resolution, or professional output."
+      ),
     imageSpecs: z
       .array(
         z.object({
@@ -1022,7 +1030,22 @@ export const createMultipleDesignNodesTool: VerxioTool = {
           model: z
             .string()
             .optional()
-            .describe("Model to use (defaults to gemini-2.5-flash-image)"),
+            .describe(
+              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3-pro-image-preview' (default, recommended)."
+            ),
+          // DESIGN_PRO specific fields
+          mode: z
+            .enum(["generate", "edit", "editWithReferences"])
+            .optional()
+            .describe(
+              "Mode for DESIGN_PRO nodes: 'generate' (default), 'edit', or 'editWithReferences'"
+            ),
+          imageSize: z
+            .enum(["1K", "2K", "4K"])
+            .optional()
+            .describe(
+              "Image size for DESIGN_PRO nodes: '1K' (default/standard), '2K' (high quality), '4K' (ultra high quality). Use 2K or 4K when user requests high quality output."
+            ),
         })
       )
       .min(1)
@@ -1030,9 +1053,11 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     variablesPrefix: z
       .string()
       .optional()
-      .describe("Prefix for variable names (defaults to 'design')"),
+      .describe(
+        "Prefix for variable names (defaults to 'design' or 'designPro' based on nodeType)"
+      ),
   }),
-  execute: async ({ workflowId, imageSpecs, variablesPrefix = "design" }, context) => {
+  execute: async ({ workflowId, imageSpecs, variablesPrefix, nodeType = "DESIGN" }, context) => {
     // Verify workflow belongs to user
     const workflow = await prisma.workflow.findFirst({
       where: { id: workflowId, userId: context.userId },
@@ -1050,11 +1075,14 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     const maxX = Math.max(...workflow.nodes.map((n: any) => n.position?.x || 0), 0);
     const startX = maxX + 300;
 
+    // Set default variables prefix based on node type
+    const defaultPrefix = variablesPrefix || (nodeType === "DESIGN_PRO" ? "designPro" : "design");
+
     // Create nodes sequentially
     for (let i = 0; i < imageSpecs.length; i++) {
       const spec = imageSpecs[i];
-      const variableName = spec.variables || `${variablesPrefix}${i + 1}`;
-      const nodeName = `Design ${i + 1}`;
+      const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
+      const nodeName = nodeType === "DESIGN_PRO" ? `Design Pro ${i + 1}` : `Design ${i + 1}`;
 
       // Validate prompt is JSON
       let parsedPrompt;
@@ -1089,12 +1117,33 @@ export const createMultipleDesignNodesTool: VerxioTool = {
         nodeData.model = spec.model;
       }
 
+      // Add DESIGN_PRO specific fields
+      if (nodeType === "DESIGN_PRO") {
+        // Set default mode to "generate" if not specified
+        nodeData.mode = spec.mode || "generate";
+
+        // Set default model to Pro model if not specified
+        if (!spec.model) {
+          nodeData.model = "gemini-3-pro-image-preview";
+        }
+
+        // Add imageSize if specified (defaults to 1K in backend)
+        if (spec.imageSize) {
+          nodeData.imageSize = spec.imageSize;
+        }
+      } else {
+        // For DESIGN nodes, set default model if not specified
+        if (!spec.model) {
+          nodeData.model = "gemini-2.5-flash-image";
+        }
+      }
+
       // Create the node
       const node = await prisma.node.create({
         data: {
           workflowId,
           name: nodeName,
-          type: "DESIGN",
+          type: nodeType,
           position,
           data: nodeData,
         },
@@ -1134,7 +1183,297 @@ export const createMultipleDesignNodesTool: VerxioTool = {
       nodeIds,
       variableNames,
       count: nodeIds.length,
-      message: `Created ${nodeIds.length} DESIGN nodes connected in sequence. Variable names: ${variableNames.join(", ")}`,
+      nodeType,
+      message: `Created ${nodeIds.length} ${nodeType} nodes connected in sequence. Variable names: ${variableNames.join(", ")}`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Create Multiple Video Nodes
+// ============================================
+
+export const createMultipleVideoNodesTool: VerxioTool = {
+  name: "createMultipleVideoNodes",
+  description:
+    "Create multiple VEO nodes in sequence for generating multi-scene videos (storyboard) or extending a single video. Supports two strategies: 'separate' for independent video scenes, or 'extend' for sequential video extension. Use this tool when user requests multi-scene videos, storyboards, or video sequences.",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow"),
+    strategy: z
+      .enum(["separate", "extend"])
+      .describe(
+        "Strategy: 'separate' for independent video scenes (storyboard), 'extend' for sequential video extension. Auto-detect based on user intent: use 'separate' for storyboards/multiple scenes, 'extend' for continuous/sequential video."
+      ),
+    videoSpecs: z
+      .array(
+        z.object({
+          prompt: z
+            .string()
+            .describe(
+              "Scene-specific video prompt (REQUIRED). Use descriptive, cinematic language following video-prompt-guide.txt."
+            ),
+          mode: z
+            .enum(["text", "image", "reference", "frames", "extension"])
+            .optional()
+            .describe(
+              "Generation mode. For 'extend' strategy, first scene can use any mode, subsequent scenes will be forced to 'extension'. For 'separate' strategy, each scene can use different modes."
+            ),
+          aspectRatio: z
+            .enum(["16:9", "9:16"])
+            .optional()
+            .describe("Aspect ratio: '16:9' (landscape, default) or '9:16' (portrait)"),
+          resolution: z
+            .enum(["720p", "1080p", "4k"])
+            .optional()
+            .describe("Resolution: '720p' (default), '1080p' (8s only), '4k' (8s only)"),
+          durationSeconds: z
+            .enum(["4", "6", "8"])
+            .optional()
+            .describe(
+              "Duration: '4', '6', or '8' seconds (default: '8'). Extension, reference images, 1080p, and 4k require 8s."
+            ),
+          negativePrompt: z.string().optional().describe("What to avoid in the video"),
+          // For character consistency
+          referenceImages: z
+            .array(
+              z.object({
+                file: z.string().describe("Image file (URL, base64, or asset:filename)"),
+                filename: z.string().describe("Filename for the reference image"),
+              })
+            )
+            .optional()
+            .describe(
+              "Reference images for character consistency (up to 3). If not specified, will reuse from first scene if maintainCharacters is true."
+            ),
+          sourceImage: z
+            .string()
+            .optional()
+            .describe(
+              "Source image for image-to-video mode (URL, base64, or {{previousNode.imageUrl}})"
+            ),
+          firstFrame: z
+            .string()
+            .optional()
+            .describe("First frame for frames mode (URL, base64, or {{previousNode.imageUrl}})"),
+          lastFrame: z
+            .string()
+            .optional()
+            .describe("Last frame for frames mode (URL, base64, or {{previousNode.imageUrl}})"),
+          variables: z
+            .string()
+            .optional()
+            .describe("Variable name for this node's output (defaults to veo1, veo2, etc.)"),
+        })
+      )
+      .min(1)
+      .describe("Array of video specifications, one per scene/node"),
+    variablesPrefix: z
+      .string()
+      .optional()
+      .describe("Prefix for variable names (defaults to 'veo' or 'veoScene')"),
+    maintainCharacters: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe(
+        "Automatically reuse reference images from first scene in subsequent scenes for character consistency (default: true). Users can override per scene by specifying referenceImages."
+      ),
+  }),
+  execute: async (
+    { workflowId, videoSpecs, variablesPrefix, strategy, maintainCharacters = true },
+    context
+  ) => {
+    // Verify workflow belongs to user
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: context.userId },
+      include: { nodes: true },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    const nodeIds: string[] = [];
+    const variableNames: string[] = [];
+
+    // Calculate starting position
+    const maxX = Math.max(...workflow.nodes.map((n: any) => n.position?.x || 0), 0);
+    const startX = maxX + 300;
+
+    // Set default variables prefix
+    const defaultPrefix = variablesPrefix || "veo";
+
+    // Extract reference images from first scene for character consistency
+    let sharedReferenceImages: Array<{ file: string; filename: string }> | undefined;
+    if (maintainCharacters && videoSpecs.length > 0 && videoSpecs[0].referenceImages) {
+      sharedReferenceImages = videoSpecs[0].referenceImages;
+    }
+
+    // For "extend" strategy, calculate total duration and warn if approaching limit
+    // Per Veo 3.1 docs: Input videos can be up to 141 seconds, output up to 148 seconds
+    // Each extension adds 7 seconds (per docs), but backend generates 8-second segments
+    if (strategy === "extend") {
+      // First video is typically 8 seconds, each extension adds ~7-8 seconds
+      // Maximum input: 141 seconds, maximum output: 148 seconds
+      // Up to 20 extensions allowed (per Veo 3.1 docs)
+      const estimatedDuration = 8 + (videoSpecs.length - 1) * 7; // First 8s, then 7s per extension
+      if (estimatedDuration > 148) {
+        return {
+          success: false,
+          error: `Total video duration would exceed 148 seconds (estimated ${estimatedDuration}s). Maximum 20 extensions allowed (per Veo 3.1 docs).`,
+        };
+      }
+    }
+
+    // Create nodes sequentially
+    for (let i = 0; i < videoSpecs.length; i++) {
+      const spec = videoSpecs[i];
+      const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
+      const nodeName = `Veo Video ${i + 1}`;
+
+      // Calculate position (vertical stacking)
+      const position = {
+        x: startX,
+        y: i * 150,
+      };
+
+      // Create node data
+      const nodeData: Record<string, any> = {
+        variables: variableName,
+        prompt: spec.prompt,
+      };
+
+      // Handle strategy-specific logic
+      if (strategy === "extend") {
+        if (i === 0) {
+          // First node: use specified mode or default to "text"
+          nodeData.mode = spec.mode || "text";
+
+          // Set defaults for first node
+          nodeData.aspectRatio = spec.aspectRatio || "16:9";
+          nodeData.resolution = spec.resolution || "720p";
+          nodeData.durationSeconds = spec.durationSeconds || "8";
+
+          // Add reference images if specified
+          if (spec.referenceImages && spec.referenceImages.length > 0) {
+            nodeData.referenceImages = spec.referenceImages;
+          }
+
+          // Add source image if specified (for image-to-video mode)
+          if (spec.sourceImage) {
+            nodeData.sourceImage = spec.sourceImage;
+          }
+
+          // Add frames if specified (for frames mode)
+          if (spec.firstFrame) {
+            nodeData.firstFrame = spec.firstFrame;
+          }
+          if (spec.lastFrame) {
+            nodeData.lastFrame = spec.lastFrame;
+          }
+        } else {
+          // Subsequent nodes: force extension mode
+          nodeData.mode = "extension";
+          nodeData.sourceVideo = `{{${variableNames[i - 1]}.videoUrl}}`;
+
+          // Extension mode requirements (per Veo 3.1 docs):
+          // - Input videos (the video being extended) must be 720p resolution
+          // - Input videos can be up to 141 seconds long
+          // - Each extension adds 7 seconds of new content (per docs)
+          // - Backend automatically handles resolution and duration for extension generation
+          // - Output can be up to 148 seconds total
+          // Note: resolution and durationSeconds are not set here - backend handles them automatically
+          // The aspectRatio can be specified to match the input video
+          if (spec.aspectRatio) {
+            nodeData.aspectRatio = spec.aspectRatio;
+          }
+
+          // Optional prompt for extension (defaults to "Extend this video naturally" in backend)
+          if (spec.prompt) {
+            nodeData.prompt = spec.prompt;
+          }
+        }
+      } else {
+        // "separate" strategy: each node generates independently
+        nodeData.mode = spec.mode || "text";
+        nodeData.aspectRatio = spec.aspectRatio || "16:9";
+        nodeData.resolution = spec.resolution || "720p";
+        nodeData.durationSeconds = spec.durationSeconds || "8";
+
+        // Use scene-specific reference images, or reuse from first scene if maintainCharacters is true
+        if (spec.referenceImages && spec.referenceImages.length > 0) {
+          nodeData.referenceImages = spec.referenceImages;
+        } else if (maintainCharacters && sharedReferenceImages && i > 0) {
+          // Reuse reference images from first scene for character consistency
+          nodeData.referenceImages = sharedReferenceImages;
+        }
+
+        // Add source image if specified
+        if (spec.sourceImage) {
+          nodeData.sourceImage = spec.sourceImage;
+        }
+
+        // Add frames if specified
+        if (spec.firstFrame) {
+          nodeData.firstFrame = spec.firstFrame;
+        }
+        if (spec.lastFrame) {
+          nodeData.lastFrame = spec.lastFrame;
+        }
+      }
+
+      // Add negative prompt if specified
+      if (spec.negativePrompt) {
+        nodeData.negativePrompt = spec.negativePrompt;
+      }
+
+      // Create the node
+      const node = await prisma.node.create({
+        data: {
+          workflowId,
+          name: nodeName,
+          type: "VEO",
+          position,
+          data: nodeData,
+        },
+      });
+
+      nodeIds.push(node.id);
+      variableNames.push(variableName);
+
+      // Connect to previous node if not the first
+      if (i > 0) {
+        const previousNodeId = nodeIds[i - 1];
+
+        // Check if connection already exists
+        const existingConnection = await prisma.connection.findFirst({
+          where: {
+            fromNodeId: previousNodeId,
+            toNodeId: node.id,
+          },
+        });
+
+        if (!existingConnection) {
+          await prisma.connection.create({
+            data: {
+              workflowId,
+              fromNodeId: previousNodeId,
+              toNodeId: node.id,
+              fromOutput: "main",
+              toInput: "main",
+            },
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      nodeIds,
+      variableNames,
+      count: nodeIds.length,
+      strategy,
+      message: `Created ${nodeIds.length} VEO nodes using ${strategy} strategy. Variable names: ${variableNames.join(", ")}`,
     };
   },
 };
@@ -1160,6 +1499,7 @@ export const verxioTools: VerxioTool[] = [
   deleteNodeTool,
   listWorkflowsTool,
   createMultipleDesignNodesTool,
+  createMultipleVideoNodesTool,
 ];
 
 export default verxioTools;

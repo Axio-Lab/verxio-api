@@ -13,7 +13,9 @@ export function ConnectionsErrorBoundaryFallback({ error, resetErrorBoundary }: 
         </div>
         <h2 className="text-lg sm:text-xl font-semibold mb-2">Something went wrong</h2>
         <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
-          {error?.message || "An unexpected error occurred while loading connections."}
+          {error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "An unexpected error occurred while loading connections."}
         </p>
         <Button onClick={resetErrorBoundary} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" />

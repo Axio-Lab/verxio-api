@@ -178,6 +178,9 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
   userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "ELEVENLABS");
     await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "elevenlabs";

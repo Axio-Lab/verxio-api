@@ -2,6 +2,7 @@ import * as cron from "node-cron";
 import { inngest } from "../inngest";
 import { basePrismaClient } from "../lib/prisma";
 import { cleanupOldImages } from "../lib/imageStorage";
+import { cleanupOldVideos } from "../lib/videoStorage";
 
 const prisma = basePrismaClient as any;
 
@@ -206,6 +207,9 @@ export async function initializeCronScheduler(): Promise<void> {
 
   // Schedule image cleanup job
   scheduleImageCleanup();
+
+  // Schedule video cleanup job
+  scheduleVideoCleanup();
 }
 
 /**
@@ -246,4 +250,24 @@ function scheduleImageCleanup(): void {
   });
 
   console.log("[image-cleanup] Scheduled image cleanup to run every 30 minutes");
+}
+
+/**
+ * Schedule video cleanup cron job
+ * Runs every 30 minutes to clean up old generated videos
+ */
+function scheduleVideoCleanup(): void {
+  // Cron expression: "*/30 * * * *" = every 30 minutes
+  cron.schedule("*/30 * * * *", async () => {
+    try {
+      const deletedCount = cleanupOldVideos(24); // Clean up videos older than 24 hours
+      if (deletedCount > 0) {
+        console.log(`[video-cleanup] Cleaned up ${deletedCount} old video(s)`);
+      }
+    } catch (error) {
+      console.error("[video-cleanup] Error cleaning up old videos:", error);
+    }
+  });
+
+  console.log("[video-cleanup] Scheduled video cleanup to run every 30 minutes");
 }

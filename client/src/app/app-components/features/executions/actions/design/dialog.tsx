@@ -33,10 +33,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
-// Available Gemini image models
+// Available Gemini image models (only Flash Image for regular Design node)
 export const DESIGN_MODELS = [
   { value: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image (Fast)" },
-  { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image (High Quality)" },
 ] as const;
 
 // Available templates with aspect ratios
@@ -147,9 +146,7 @@ export const DesignDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} 
             <Palette className="h-5 w-5 text-pink-500" />
             Design Agent
           </DialogTitle>
-          <DialogDescription>
-            Generate images using AI. Uses GEMINI_API_KEY from server environment.
-          </DialogDescription>
+          <DialogDescription>Generate images using AI.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">

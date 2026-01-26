@@ -5,8 +5,6 @@ import Handlebars from "handlebars";
 import {
   generateImage,
   editImage,
-  createImageChat,
-  sendChatMessage,
   editImageWithReferences,
   type AspectRatio,
   type ImageSize,
@@ -15,11 +13,12 @@ import {
   DESIGN_TEMPLATES,
 } from "@/services/geminiImageService";
 import { saveImageToDisk } from "@/lib/imageStorage";
+import { basePrismaClient } from "@/lib/prisma";
 
 type DesignProData = {
   variables?: string;
   prompt?: string; // JSON format
-  mode?: "generate" | "edit" | "chat" | "editWithReferences";
+  mode?: "generate" | "edit" | "editWithReferences";
   model?: string; // Default: gemini-3-pro-image-preview
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize; // 1K, 2K, 4K
@@ -28,10 +27,6 @@ type DesignProData = {
   // For edit mode
   sourceImage?: string; // URL, base64, or {{previousNode.imageUrl}}
   sourceImageMimeType?: string;
-
-  // For chat mode
-  chatId?: string; // For continuing existing chat (stored in context)
-  conversationHistory?: Array<{ role: string; content: string }>;
 
   // For reference images
   referenceImages?: Array<{
@@ -46,13 +41,14 @@ type DesignProData = {
 };
 
 // Helper to publish status updates
+// Wrap in step.run() with unique ID to prevent duplicate step warnings
 const publishStatus = async (
   publish: any,
   step: any,
   nodeId: string,
   status: "loading" | "error" | "success"
 ) => {
-  await step.run(`publish-status-${nodeId}`, async () => {
+  await step.run(`publish-status-${nodeId}-${status}`, async () => {
     await publish(
       designProChannel().status({
         nodeId,
@@ -113,17 +109,30 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
   context,
   step,
   publish,
+  userId,
 }) => {
   try {
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "DESIGN_PRO");
+
     await publishStatus(publish, step, nodeId, "loading");
 
-    const variablesName = data.variables || "designPro";
-    const mode = data.mode || "generate";
+    // Extract minimal data into primitives to avoid capturing large data object in closure
+    const localVariablesName = String(data?.variables || "designPro");
+    const localMode = String(data?.mode || "generate");
+    const localPromptText = String(data?.prompt || "");
+    const localModel = String(data?.model || "gemini-3-pro-image-preview");
+    const localAspectRatio = data?.aspectRatio as AspectRatio | undefined;
+    const localImageSize = data?.imageSize as ImageSize | undefined;
+    const localTemplate = data?.template as TemplateType | undefined;
+    const localUseGoogleSearch = Boolean(data?.useGoogleSearch);
+    const localNodeId = nodeId;
 
-    if (!data.prompt) {
+    if (!localPromptText) {
       await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError("DESIGN_PRO node: Prompt is required");
-      await step.run(`publish-error-${nodeId}`, async () => {
+      await step.run(`publish-output-error-prompt-${nodeId}`, async () => {
         await publish(
           designProChannel().output({
             nodeId,
@@ -145,7 +154,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       const error = new NonRetriableError(
         "DESIGN_PRO node: GEMINI_API_KEY is not configured in environment variables"
       );
-      await step.run(`publish-error-${nodeId}`, async () => {
+      await step.run(`publish-output-error-api-key-${nodeId}`, async () => {
         await publish(
           designProChannel().output({
             nodeId,
@@ -161,13 +170,95 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       throw error;
     }
 
+    // CRITICAL: Load images from database inside step to avoid closure capture
+    // Store local values for use inside step
+    const stepLocalMode = localMode;
+    const stepLocalNodeId = localNodeId;
+
+    // Load images from database (same approach as remotion)
+    const imageData = await step.run("load-design-pro-images", async () => {
+      // Load assets from database (inside step - not in closure)
+      const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
+        where: { nodeId: stepLocalNodeId },
+      });
+
+      // Reconstruct sourceImage and referenceImages from database
+      // For edit/editWithReferences modes, first image is sourceImage, rest are referenceImages
+      let sourceImage: string | undefined;
+      let sourceImageMimeType: string | undefined;
+      let sourceImageFilename: string | undefined;
+      const referenceImages: Array<{
+        image: string;
+        filename: string;
+        mimeType?: string;
+        type?: "object" | "human";
+      }> = [];
+
+      if (nodeAssets.length > 0) {
+        if (stepLocalMode === "edit") {
+          // For edit mode, first image is source image
+          const firstAsset = nodeAssets[0];
+          if (firstAsset && firstAsset.fileData) {
+            sourceImage = firstAsset.fileData;
+            sourceImageMimeType = firstAsset.fileData.startsWith("data:")
+              ? firstAsset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png";
+            sourceImageFilename = firstAsset.filename;
+          }
+          // Rest are reference images
+          for (let i = 1; i < nodeAssets.length; i++) {
+            const asset = nodeAssets[i];
+            referenceImages.push({
+              image: asset.fileData,
+              filename: asset.filename,
+              mimeType: asset.fileData.startsWith("data:")
+                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+                : "image/png",
+            });
+          }
+        } else if (stepLocalMode === "editWithReferences") {
+          // For editWithReferences mode, source image is optional
+          // If sourceImage exists in node.data, it will be loaded separately
+          // All assets from the database are treated as reference images
+          // (The sourceImage, if provided, comes from node.data.sourceImage, not from assets)
+          for (const asset of nodeAssets) {
+            referenceImages.push({
+              image: asset.fileData,
+              filename: asset.filename,
+              mimeType: asset.fileData.startsWith("data:")
+                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+                : "image/png",
+            });
+          }
+        } else {
+          // For generate mode, all images are reference images (if any)
+          for (const asset of nodeAssets) {
+            referenceImages.push({
+              image: asset.fileData,
+              filename: asset.filename,
+              mimeType: asset.fileData.startsWith("data:")
+                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+                : "image/png",
+            });
+          }
+        }
+      }
+
+      return {
+        sourceImage,
+        sourceImageMimeType,
+        sourceImageFilename,
+        referenceImages,
+      };
+    });
+
     // Parse prompt - handle JSON format or backward-compatible string format
     let promptSpec: any;
     let actualPrompt: string;
 
     try {
       // Try to parse as JSON
-      promptSpec = JSON.parse(data.prompt);
+      promptSpec = JSON.parse(localPromptText);
 
       // Extract the actual generation prompt from JSON structure
       if (promptSpec.generationParameters?.prompt) {
@@ -180,7 +271,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       }
     } catch (error) {
       // Not valid JSON, treat as backward-compatible string prompt
-      actualPrompt = data.prompt;
+      actualPrompt = localPromptText;
       // Wrap in basic JSON structure for consistency
       promptSpec = {
         generationParameters: {
@@ -189,18 +280,21 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       };
     }
 
-    // Compile prompt with context using Handlebars
-    const compiledPrompt = Handlebars.compile(actualPrompt)(context);
+    // Compile prompt with context using Handlebars (use minimal context)
+    const minimalContext: Record<string, any> = {};
+    if (context) {
+      for (const key of Object.keys(context).slice(0, 10)) {
+        minimalContext[key] = context[key];
+      }
+    }
+    const compiledPrompt = Handlebars.compile(actualPrompt)(minimalContext);
 
     // Determine aspect ratio from template or data
-    let aspectRatio = data.aspectRatio;
-    if (data.template && DESIGN_TEMPLATES[data.template]) {
-      aspectRatio = DESIGN_TEMPLATES[data.template].aspectRatio;
-    }
+    const computedAspectRatio =
+      localAspectRatio || (localTemplate && DESIGN_TEMPLATES[localTemplate]?.aspectRatio) || "1:1";
 
-    const model = (data.model as any) || "gemini-3-pro-image-preview";
+    const finalModel = (localModel as any) || "gemini-3-pro-image-preview";
     let result: any;
-    let chatId: string | undefined;
     const MAX_RETRIES = 3;
 
     // Helper function to retry image generation with exponential backoff
@@ -216,9 +310,6 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
           // Exponential backoff: 1s, 2s, 4s
           const delayMs = Math.pow(2, attempt - 1) * 1000;
           await new Promise((resolve) => setTimeout(resolve, delayMs));
-          console.log(
-            `[DESIGN_PRO] Retrying image generation (attempt ${attempt + 1}/${maxRetries + 1})...`
-          );
         }
 
         lastResult = await generateFn();
@@ -243,16 +334,16 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
     };
 
     // Handle different modes
-    switch (mode) {
+    switch (localMode) {
       case "generate": {
         // Text-to-image generation (same as DESIGN) with retry
         result = await retryImageGeneration(() =>
           generateImage({
             prompt: compiledPrompt,
-            model,
-            aspectRatio,
-            imageSize: data.imageSize,
-            template: data.template,
+            model: finalModel,
+            aspectRatio: computedAspectRatio,
+            imageSize: localImageSize,
+            template: localTemplate,
           })
         );
         break;
@@ -260,11 +351,13 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
 
       case "edit": {
         // Edit existing image
-        if (!data.sourceImage) {
-          throw new NonRetriableError("DESIGN_PRO node (edit mode): sourceImage is required");
+        if (!imageData.sourceImage) {
+          throw new NonRetriableError(
+            "DESIGN_PRO node (edit mode): sourceImage is required. No assets found in database."
+          );
         }
 
-        const sourceResolved = await resolveImageSource(data.sourceImage, context);
+        const sourceResolved = await resolveImageSource(imageData.sourceImage, minimalContext);
         if (!sourceResolved) {
           throw new NonRetriableError("DESIGN_PRO node: Failed to resolve source image");
         }
@@ -273,65 +366,12 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
           editImage({
             prompt: compiledPrompt,
             imageBase64: sourceResolved.base64,
-            imageMimeType: sourceResolved.mimeType || data.sourceImageMimeType,
-            model,
-            aspectRatio,
-            imageSize: data.imageSize,
+            imageMimeType: sourceResolved.mimeType || imageData.sourceImageMimeType,
+            model: finalModel,
+            aspectRatio: computedAspectRatio,
+            imageSize: localImageSize,
           })
         );
-        break;
-      }
-
-      case "chat": {
-        // Multi-turn conversational editing
-        // Use multiTurnEdit from the service which handles conversation history
-        const { multiTurnEdit } = await import("@/services/geminiImageService");
-
-        // Get conversation history from context or data
-        let conversationHistory = data.conversationHistory || [];
-
-        // If previous node had conversation history, use it
-        if (context.conversationHistory && Array.isArray(context.conversationHistory)) {
-          conversationHistory = context.conversationHistory;
-        }
-
-        const sourceImage = data.sourceImage
-          ? await resolveImageSource(data.sourceImage, context)
-          : undefined;
-
-        // Convert conversation history to proper format
-        const historyMessages = conversationHistory.map((msg: any) => ({
-          role: (msg.role === "user" || msg.role === "model" ? msg.role : "user") as
-            | "user"
-            | "model",
-          content: msg.content || "",
-          imageBase64: msg.imageBase64,
-          imageMimeType: msg.imageMimeType,
-        }));
-
-        result = await retryImageGeneration(() =>
-          multiTurnEdit({
-            conversationHistory: historyMessages,
-            newMessage: compiledPrompt,
-            newImageBase64: sourceImage?.base64,
-            newImageMimeType: sourceImage?.mimeType,
-            model,
-            aspectRatio,
-            imageSize: data.imageSize,
-          }).then((chatResult) => ({
-            success: chatResult.success,
-            imageBase64: chatResult.imageBase64,
-            mimeType: chatResult.mimeType,
-            text: chatResult.text,
-            error: chatResult.error,
-            updatedHistory: chatResult.updatedHistory,
-          }))
-        );
-
-        // Store updated conversation history in result
-        if (result.updatedHistory) {
-          (result as any).conversationHistory = result.updatedHistory;
-        }
         break;
       }
 
@@ -339,9 +379,9 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
         // Edit with reference images
         const referenceImages: ReferenceImage[] = [];
 
-        if (data.referenceImages && data.referenceImages.length > 0) {
-          for (const refImg of data.referenceImages) {
-            const resolved = await resolveImageSource(refImg.image, context);
+        if (imageData.referenceImages && imageData.referenceImages.length > 0) {
+          for (const refImg of imageData.referenceImages) {
+            const resolved = await resolveImageSource(refImg.image, minimalContext);
             if (resolved) {
               referenceImages.push({
                 base64: resolved.base64,
@@ -352,8 +392,8 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
           }
         }
 
-        const sourceImage = data.sourceImage
-          ? await resolveImageSource(data.sourceImage, context)
+        const sourceImage = imageData.sourceImage
+          ? await resolveImageSource(imageData.sourceImage, minimalContext)
           : undefined;
 
         result = await retryImageGeneration(() =>
@@ -362,20 +402,18 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
             baseImage: sourceImage?.base64,
             baseImageMimeType: sourceImage?.mimeType,
             referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-            model,
-            aspectRatio,
-            imageSize: data.imageSize,
-            useGoogleSearch: data.useGoogleSearch,
+            model: finalModel,
+            aspectRatio: computedAspectRatio,
+            imageSize: localImageSize,
+            useGoogleSearch: localUseGoogleSearch,
           })
         );
         break;
       }
 
       default:
-        throw new NonRetriableError(`DESIGN_PRO node: Unknown mode "${mode}"`);
+        throw new NonRetriableError(`DESIGN_PRO node: Unknown mode "${localMode}"`);
     }
-
-    // Keep the full base64 for publishing (not stored in Inngest)
     const fullBase64 = result.imageBase64;
 
     if (!result.success) {
@@ -383,7 +421,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       const error = new NonRetriableError(
         `DESIGN_PRO node: Image generation failed after ${MAX_RETRIES + 1} attempts - ${result.error}`
       );
-      await step.run(`publish-error-${nodeId}`, async () => {
+      await step.run(`publish-output-error-generation-${nodeId}`, async () => {
         await publish(
           designProChannel().output({
             nodeId,
@@ -422,56 +460,73 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
         ...(result.error ? { errorMessage: result.error } : {}),
         mimeType: result.mimeType,
         text: result.text,
-        mode,
+        mode: localMode as string,
         imageUrl, // Include URL - it's just a string, so it's safe
         imageFilename,
         // Do NOT include base64 here - it would exceed Inngest limits
       };
     });
 
-    await publishStatus(publish, step, nodeId, "success");
+    // Build result with image URL and data (use minimal context)
+    const outputContext: Record<string, any> = {};
+    if (context) {
+      for (const key of Object.keys(context).slice(0, 10)) {
+        outputContext[key] = context[key];
+      }
+    }
 
-    // Build result with image URL and data
+    // Determine final aspect ratio (reuse computed value)
+    const finalAspectRatio = computedAspectRatio;
+
     const fullResult = {
-      ...context,
-      [variablesName]: {
+      ...outputContext,
+      [localVariablesName]: {
         success: true,
         prompt: compiledPrompt,
         mimeType: result.mimeType,
         text: result.text,
-        aspectRatio: aspectRatio || "1:1",
-        imageSize: data.imageSize,
-        template: data.template,
-        mode,
+        aspectRatio: finalAspectRatio,
+        imageSize: localImageSize,
+        template: localTemplate,
+        mode: localMode,
         imageUrl,
         imageFilename,
-        ...(mode === "chat" && result.conversationHistory
-          ? { conversationHistory: result.conversationHistory }
-          : {}),
       },
     };
 
-    // Publish full result (with base64) to realtime channel
-    await step.run(`publish-output-${nodeId}`, async () => {
-      await publish(
-        designProChannel().output({
-          nodeId,
-          output: fullResult,
-        })
-      );
-    });
-
-    // Publish chat message if in chat mode
-    if (mode === "chat" && result.text) {
-      await step.run(`publish-chat-${nodeId}`, async () => {
+    // Publish full result (with base64) to realtime channel FIRST
+    // Only publish success status if output publish succeeds
+    try {
+      await step.run(`publish-output-success-${nodeId}`, async () => {
         await publish(
-          designProChannel().chat({
+          designProChannel().output({
             nodeId,
-            message: result.text,
-            imageUrl,
+            output: fullResult,
           })
         );
       });
+
+      // Publish success status AFTER output is successfully published
+      // This ensures the status only shows success when output is actually available
+      await publishStatus(publish, step, nodeId, "success");
+    } catch (publishError) {
+      // If output publish fails, publish error status instead
+      console.error(`[DESIGN_PRO] Failed to publish output for node ${nodeId}:`, publishError);
+      await publishStatus(publish, step, nodeId, "error");
+      await step.run(`publish-output-error-publish-${nodeId}`, async () => {
+        await publish(
+          designProChannel().output({
+            nodeId,
+            output: {
+              ...outputContext,
+              error: {
+                message: `Failed to publish output: ${publishError instanceof Error ? publishError.message : "Unknown error"}`,
+              },
+            },
+          })
+        );
+      });
+      throw publishError;
     }
 
     // Return full result with image data
@@ -479,13 +534,23 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
   } catch (error) {
     await publishStatus(publish, step, nodeId, "error");
 
-    // Publish error output to realtime channel
-    await step.run(`publish-error-${nodeId}`, async () => {
+    // Publish error output to realtime channel (use minimal context)
+    // Don't wrap publish in step.run() - publish calls are just notifications
+    const minimalContext: Record<string, any> = {};
+    if (context) {
+      for (const key of Object.keys(context).slice(0, 3)) {
+        const val = context[key];
+        if (typeof val === "string" || (val && typeof val === "object" && "imageUrl" in val)) {
+          minimalContext[key] = val;
+        }
+      }
+    }
+    await step.run(`publish-output-error-catch-${nodeId}`, async () => {
       await publish(
         designProChannel().output({
           nodeId,
           output: {
-            ...context,
+            ...minimalContext,
             error: {
               message: error instanceof Error ? error.message : "Unknown error",
               stack: error instanceof Error ? error.stack : undefined,

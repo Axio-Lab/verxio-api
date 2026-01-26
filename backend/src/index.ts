@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -25,11 +25,18 @@ import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
 import { planningRouter } from "./routes/planning";
+import { billingStatusRouter } from "./routes/billing/status";
+// TODO: Re-enable when billing portal is properly designed
+// import { billingPortalRouter } from "./routes/billing/portal";
+import { billingCheckoutRouter } from "./routes/billing/checkout";
+import { manualPaymentRouter } from "./routes/manual-payment";
+import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
 import { functions } from "./inngest/functions";
 import { initializeCronScheduler } from "./services/cron-scheduler";
+import path from "path";
 
 // Load environment variables
 dotenv.config();
@@ -38,7 +45,9 @@ const app: express.Application = express();
 
 // Trust proxy - required when behind reverse proxy (ngrok, load balancer, etc.)
 // This allows Express to correctly identify client IPs from X-Forwarded-For headers
-app.set("trust proxy", true);
+// Set to 1 to trust only the first proxy (safer than true which trusts all proxies)
+// If behind multiple proxies, set to the number of proxies (e.g., 2 for load balancer + ngrok)
+app.set("trust proxy", 1);
 
 // Security middleware
 app.use(helmet());
@@ -113,14 +122,19 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve generated images as static files
-import path from "path";
 app.use(
   "/generated-images",
   express.static(path.join(process.cwd(), "public", "generated-images"))
+);
+
+// Serve generated videos as static files
+app.use(
+  "/generated-videos",
+  express.static(path.join(process.cwd(), "public", "generated-videos"))
 );
 
 // Logging middleware
@@ -165,6 +179,68 @@ app.use("/credential", credentialRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);
 app.use("/api/elevenlabs", elevenlabsRouter);
+app.use("/api/billing", billingStatusRouter);
+// TODO: Re-enable when billing portal is properly designed
+// app.use("/api/billing", billingPortalRouter);
+app.use("/api/billing", billingCheckoutRouter);
+app.use("/api/manual-payment", manualPaymentRouter);
+app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
+
+// Polar webhook handler - receives webhooks from Polar
+// Note: BetterAuth also handles webhooks in Next.js app, but this allows
+// receiving webhooks directly on the backend server
+// IMPORTANT: This route must be registered before the 404 handler
+
+// POST handler for actual webhook events
+app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
+  try {
+    // Import webhook handlers
+    const {
+      handleOrderPaid,
+      handleSubscriptionActive,
+      handleSubscriptionCanceled,
+      handleSubscriptionExpired,
+      handleCustomerStateChanged,
+    } = await import("./routes/polar-webhooks");
+
+    const payload = req.body;
+    const eventType = payload.type || payload.event_type;
+
+    // Route to appropriate handler based on event type
+    switch (eventType) {
+      case "order.paid":
+        await handleOrderPaid(payload);
+        break;
+      case "subscription.active":
+      case "subscription.activated":
+        await handleSubscriptionActive(payload);
+        break;
+      case "subscription.canceled":
+      case "subscription.cancelled":
+        await handleSubscriptionCanceled(payload);
+        break;
+      case "subscription.expired":
+        await handleSubscriptionExpired(payload);
+        break;
+      case "customer.updated":
+      case "customer.state_changed":
+        await handleCustomerStateChanged(payload);
+        break;
+      default:
+        console.log(`[PolarWebhook] Unhandled event type: ${eventType}`);
+    }
+
+    res.status(200).json({ success: true, message: "Webhook processed" });
+  } catch (error) {
+    console.error("[Backend] Error processing Polar webhook:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process webhook",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 // app.use('/api-key', apiKeyRouter);
 
 // API Documentation - only for exact root path (must be after other routes)
