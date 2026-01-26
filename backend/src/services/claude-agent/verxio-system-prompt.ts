@@ -194,6 +194,7 @@ const NODE_TYPES_DOCUMENTATION = `
 - Templates: "instagram_post", "instagram_story", "twitter_post", "twitter_header", "facebook_post", "linkedin_post", "presentation_slide", "youtube_thumbnail", "logo"
 - Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, template?: string, imageUrl: string, imageFilename: string }
 - **Multi-image:** When user needs multiple images (e.g., presentation slides, image series), use createMultipleDesignNodesTool to create multiple DESIGN or DESIGN_PRO nodes connected in sequence. Use DESIGN_PRO when user requests high quality, high resolution (1K/2K/4K), or professional output.
+- **Multi-scene video:** When user needs multiple video scenes (e.g., storyboards, video sequences), use createMultipleVideoNodesTool to create multiple VEO nodes. Choose "separate" strategy for storyboards or "extend" strategy for continuous video extension.
 - **JSON Prompt Format:** All prompts must be JSON strings with sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
 - **Reference guides:** See guides/image-generation-guide.txt for detailed JSON prompt structure and examples
 
@@ -635,23 +636,21 @@ ${WORKFLOW_PATTERNS}
 ${options?.userId ? `**User ID**: ${options.userId}` : ""}
 ${options?.workflowId ? `**Current Workflow ID**: ${options.workflowId}` : ""}
 
-${
-  options?.availableCredentials?.length
-    ? `
+${options?.availableCredentials?.length
+      ? `
 ### Available Credentials
 ${options.availableCredentials.map((c) => `- ${c.type}: ${c.name}`).join("\n")}
 `
-    : ""
-}
+      : ""
+    }
 
-${
-  options?.userConnections?.length
-    ? `
+${options?.userConnections?.length
+      ? `
 ### Connected Data Sources
 ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.description || "No description"}`).join("\n")}
 `
-    : ""
-}
+      : ""
+    }
 
 ## Autonomous Operation Guidelines
 
@@ -886,9 +885,34 @@ When creating or configuring nodes, you MUST:
 - **File References:**
   - Source images/videos can be URLs, base64, or {{previousNode.imageUrl}} / {{previousNode.videoUrl}}
   - For extension mode, sourceVideo must be a Veo-generated video (720p, max 141 seconds)
+  - Videos downloaded from URLs automatically detect MIME type from file extension
 - **Output Usage:**
   - Video URL is directly downloadable: {{veo.videoUrl}}
   - Can be referenced in subsequent nodes for extension or other operations
+- **Multi-Scene Video Generation (CRITICAL):**
+  - **ALWAYS use createMultipleVideoNodesTool** when user requests multi-scene videos, storyboards, or video sequences
+  - **Strategy Selection:**
+    - Use "separate" strategy for: storyboards, multiple independent scenes, different locations/times, separate video files
+    - Use "extend" strategy for: continuous video, extending existing video, sequential scenes in same timeline, single continuous video file
+  - **Character Consistency:**
+    - Reference images from first scene are automatically reused in subsequent scenes (maintainCharacters: true by default)
+    - Users can override reference images per scene by specifying different referenceImages in that scene's spec
+    - This allows character consistency by default, but flexibility to change characters/scenes when needed
+  - **Extension Strategy Details:**
+    - First node generates video normally (text/image/reference mode)
+    - Subsequent nodes automatically use extension mode with sourceVideo: {{previousNode.videoUrl}}
+    - Each extension adds 7 seconds of new content (per Veo 3.1 docs, up to 20 extensions)
+    - **Input video requirements for extension** (per Veo 3.1 docs):
+      - Resolution: 720p (the video being extended must be 720p)
+      - Aspect ratio: 16:9 or 9:16
+      - Length: Up to 141 seconds
+    - Backend generates 8-second extension segments (even though 7 seconds are added)
+    - Maximum output duration: 148 seconds total (141s input + 7s extension)
+  - **Separate Strategy Details:**
+    - Each node generates independent video file
+    - Nodes connected sequentially for context passing
+    - Each scene can use different modes/configs
+    - Reference images automatically reused across scenes unless overridden
 - **When to use VEO vs REMOTION:**
   - Use VEO for high-fidelity, photorealistic videos with audio (Veo 3.1)
   - Use REMOTION for motion graphics, animated designs, code-based video generation

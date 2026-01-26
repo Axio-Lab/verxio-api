@@ -63,6 +63,26 @@ const publishStatus = async (
   });
 };
 
+// Helper to get MIME type from file extension
+function getMimeTypeFromExtension(urlOrPath: string): string {
+  const extension = urlOrPath.split(".").pop()?.toLowerCase();
+  const mimeMap: Record<string, string> = {
+    // Video formats
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+    avi: "video/x-msvideo",
+    mkv: "video/x-matroska",
+    // Image formats
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+  };
+  return mimeMap[extension || ""] || "image/png";
+}
+
 // Helper to resolve image/video source (URL, base64, or Handlebars template)
 async function resolveFileSource(
   source: string,
@@ -86,7 +106,13 @@ async function resolveFileSource(
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const base64 = buffer.toString("base64");
-      const contentType = response.headers.get("content-type") || "image/png";
+
+      // Get Content-Type from header, or detect from file extension
+      let contentType = response.headers.get("content-type");
+      if (!contentType || contentType === "application/octet-stream") {
+        contentType = getMimeTypeFromExtension(source);
+      }
+
       return { base64, mimeType: contentType };
     }
 
