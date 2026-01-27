@@ -156,7 +156,7 @@ export async function getUserSubscription(userId: string) {
       rateLimitTotal: rateLimitConfig.requestsPerPeriod,
       rateLimitResetAt: user.rateLimitResetAt,
       isSubscribed: isActive,
-      planDisplayName: getPlanDisplayName(user.subscriptionPlan),
+      planDisplayName: getPlanDisplayName(user.subscriptionPlan) ?? "Free",
     };
   } catch (error) {
     console.error("[SubscriptionService] Error getting subscription:", error);
@@ -173,6 +173,8 @@ function getPlanDisplayName(plan: string | null | undefined): string {
   }
 
   switch (plan) {
+    case "free":
+      return "Free";
     case "beta-tester":
       return "Beta Tester";
     case "pro":

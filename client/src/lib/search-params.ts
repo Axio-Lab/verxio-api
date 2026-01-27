@@ -40,5 +40,16 @@ export const workflowSearchParams = {
   limit: parseAsInteger.withDefault(5),
 };
 
+/**
+ * Search parameters for the templates page
+ */
+export const templateSearchParams = {
+  search: parseAsString.withDefault(""),
+  category: parseAsString.withDefault(""),
+  page: parseAsInteger.withDefault(1),
+  limit: parseAsInteger.withDefault(10),
+};
+
 export const searchParamsCache = createSearchParamsCache(searchParams);
 export const workflowSearchParamsCache = createSearchParamsCache(workflowSearchParams);
+export const templateSearchParamsCache = createSearchParamsCache(templateSearchParams);

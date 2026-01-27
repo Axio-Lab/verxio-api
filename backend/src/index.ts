@@ -24,6 +24,7 @@ import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
+import { workflowTemplateRouter } from "./routes/workflow-template";
 import { planningRouter } from "./routes/planning";
 import { billingStatusRouter } from "./routes/billing/status";
 // TODO: Re-enable when billing portal is properly designed
@@ -174,6 +175,7 @@ app.use("/deal", dealRouter);
 app.use("/workflow", workflowRouter);
 app.use("/workflow/airtable-webhook", airtableWebhookRouter);
 app.use("/workflow-generation", workflowGenerationRouter);
+app.use("/workflow-template", workflowTemplateRouter);
 app.use("/planning", planningRouter);
 app.use("/credential", credentialRouter);
 app.use("/connections", connectionRouter);
@@ -186,15 +188,23 @@ app.use("/api/billing", billingCheckoutRouter);
 app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
 
-// Polar webhook handler - receives webhooks from Polar
-// Note: BetterAuth also handles webhooks in Next.js app, but this allows
-// receiving webhooks directly on the backend server
-// IMPORTANT: This route must be registered before the 404 handler
+// Polar webhook handler – receives webhooks from Polar.
+// Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,
+// Polar Dashboard webhook URL must point HERE, e.g. https://<BACKEND_HOST>/api/auth/polar/webhooks
+// (not the Next.js app URL). If Polar sends to the Next app, the client DB is updated but
+// billing/status reads backend DB → user still sees Free unless both use the same DB.
 
 // POST handler for actual webhook events
 app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
   try {
-    // Import webhook handlers
+    const payload = req.body;
+    const eventType = payload.type || payload.event_type;
+    console.log(
+      "[Polar Webhook] Backend received:",
+      eventType,
+      payload?.data?.id ?? payload?.id ?? "(no id)"
+    );
+
     const {
       handleOrderPaid,
       handleSubscriptionActive,
@@ -202,9 +212,6 @@ app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
       handleSubscriptionExpired,
       handleCustomerStateChanged,
     } = await import("./routes/polar-webhooks");
-
-    const payload = req.body;
-    const eventType = payload.type || payload.event_type;
 
     // Route to appropriate handler based on event type
     switch (eventType) {

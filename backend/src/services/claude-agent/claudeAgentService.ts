@@ -731,11 +731,23 @@ export async function generateCodeWithAgent(
 
   // Language-specific instructions
   const langName =
-    language === "python" ? "Python" : language === "javascript" ? "JavaScript" : "TypeScript";
+    language === "python"
+      ? "Python"
+      : language === "javascript"
+        ? "JavaScript"
+        : language === "rust"
+          ? "Rust"
+          : language === "anchor"
+            ? "Anchor (Solana program, Rust-based)"
+            : "TypeScript";
   const funcSignature =
     language === "python"
       ? "def execute(inputs: dict) -> dict:"
-      : "export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>";
+      : language === "rust"
+        ? "Use a main() or #[no_mangle] pub extern fn execute-style entry; read inputs from env/json as needed."
+        : language === "anchor"
+          ? "Use Anchor program with instruction handlers and accounts; integrate with workflow inputs as needed."
+          : "export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>";
 
   const codeGenPrompt = `Generate ${langName} code for a CODE_BLOCK node.
 
@@ -748,10 +760,10 @@ ${exampleOutput ? `EXAMPLE OUTPUT FROM PREVIOUS NODE:\n${JSON.stringify(exampleO
 
 CRITICAL RULES FOR CODE_BLOCK:
 1. Use ${langName} syntax
-2. Function signature: ${funcSignature}
-3. ALWAYS use 'inputs' parameter to access previous node data (NEVER use 'context')
-4. Return a plain ${language === "python" ? "dict" : "object"} with results
-5. Handle errors by ${language === "python" ? "raising exceptions" : "throwing them"}
+2. ${funcSignature}
+3. ALWAYS use 'inputs' or equivalent to access previous node data (NEVER use 'context')
+4. Return a plain ${language === "python" ? "dict" : "object"} with results (or JSON-serializable output)
+5. Handle errors appropriately
 6. Keep code simple and focused
 
 Generate ONLY the code, no explanations. The code should be production-ready and complete.`;
@@ -774,9 +786,11 @@ Generate ONLY the code, no explanations. The code should be production-ready and
     // Extract code from the result
     const responseText = result.result || "";
 
-    // Extract code block from response
+    // Extract code block from response (support typescript, rust, anchor, python, etc.)
     let code = responseText;
-    const codeBlockMatch = responseText.match(/```(?:typescript|ts)?\s*([\s\S]*?)```/);
+    const codeBlockMatch = responseText.match(
+      /```(?:typescript|ts|rust|anchor|python|py)?\s*([\s\S]*?)```/
+    );
     if (codeBlockMatch) {
       code = codeBlockMatch[1].trim();
     }
@@ -800,6 +814,100 @@ Generate ONLY the code, no explanations. The code should be production-ready and
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error during code generation",
+    };
+  }
+}
+
+/** Template categories – must match client TEMPLATE_CATEGORIES in export-workflow-template-dialog */
+export const TEMPLATE_CATEGORIES = [
+  "Automation",
+  "Marketing",
+  "DevOps",
+  "Data & Analytics",
+  "Integrations",
+  "Notifications",
+  "Developer Tools",
+  "Other",
+] as const;
+
+export interface TemplateMetadataResult {
+  success: boolean;
+  name?: string;
+  shortDescription?: string;
+  howItWorks?: string;
+  requirements?: string;
+  category?: string;
+  error?: string;
+}
+
+/**
+ * Generate template metadata (name, shortDescription, howItWorks, requirements, category) from a workflow
+ * using the Verxio agent. The agent uses getWorkflow to read the workflow and produces
+ * descriptive, keyword-rich metadata suitable for a workflow template.
+ */
+export async function generateTemplateMetadataForWorkflow(
+  userId: string,
+  workflowId: string
+): Promise<TemplateMetadataResult> {
+  const categoriesList = TEMPLATE_CATEGORIES.join(", ");
+  const prompt = `Use getWorkflow("${workflowId}") to load the current workflow. Based on its nodes, connections, and purpose, produce template metadata for exporting this workflow as a template.
+
+Return ONLY a valid JSON object with exactly these keys (no markdown, no code fence):
+- "name": A descriptive, keyword-rich title for the template (e.g. "Send Slack alert when Stripe payment succeeds")
+- "shortDescription": One or two sentences summarizing what the workflow does
+- "howItWorks": A clear, multi-line explanation of how it works, step by step. Include required API keys or credentials in this section if relevant.
+- "requirements": Multi-line text like howItWorks. List any required API keys, credentials, or external setup (e.g. "Stripe webhook secret", "Slack bot token", setup steps). Use "None" if nothing is required.
+- "category": MUST be exactly one of: ${categoriesList}. Pick the single best match for this workflow.
+
+Output nothing else except this JSON object.`;
+
+  try {
+    const result = await simpleAgentQuery({
+      prompt,
+      userId,
+      workflowId,
+      maxTurns: 10,
+      traceType: "template_metadata",
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || "Failed to generate template metadata",
+      };
+    }
+
+    const text = (result.result || "").trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : text;
+    const parsed = JSON.parse(jsonStr) as Record<string, string>;
+
+    // Normalize category to a valid TEMPLATE_CATEGORIES value if present
+    let category = parsed.category ?? "";
+    if (
+      category &&
+      !TEMPLATE_CATEGORIES.includes(category as (typeof TEMPLATE_CATEGORIES)[number])
+    ) {
+      // Pick closest match or "Other"
+      const match = TEMPLATE_CATEGORIES.find((c) =>
+        c.toLowerCase().includes(String(category).toLowerCase())
+      );
+      category = match ?? "Other";
+    }
+
+    return {
+      success: true,
+      name: parsed.name ?? "",
+      shortDescription: parsed.shortDescription ?? "",
+      howItWorks: parsed.howItWorks ?? "",
+      requirements: parsed.requirements ?? undefined,
+      category: category || undefined,
+    };
+  } catch (error) {
+    console.error("[AgentService] Template metadata generation error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error generating template metadata",
     };
   }
 }

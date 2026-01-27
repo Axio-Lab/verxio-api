@@ -11,7 +11,7 @@ export interface CreateSandboxParams {
 export interface ExecuteOptions {
   timeout?: number;
   envVars?: Record<string, string>;
-  language?: string; // "typescript" | "javascript" | "python"
+  language?: string; // "typescript" | "javascript" | "python" | "rust" | "anchor"
 }
 
 export interface ExecutionResult {
@@ -69,7 +69,7 @@ export const uploadFile = async (
 };
 
 /**
- * Executes code in a Daytona sandbox (supports TypeScript, JavaScript, Python)
+ * Executes code in a Daytona sandbox (supports TypeScript, JavaScript, Python, Rust, Anchor)
  */
 export const executeCode = async (
   sandboxId: string,
@@ -84,29 +84,36 @@ export const executeCode = async (
   const language = options.language || "typescript";
 
   try {
-    // Determine file extension based on language
-    let fileExtension: string;
-    if (language === "python") {
-      fileExtension = "py";
-    } else if (language === "javascript") {
-      fileExtension = "js";
-    } else {
-      // TypeScript (default)
-      fileExtension = "ts";
-    }
-
-    // Write code to a temporary file with appropriate extension
-    const codeFile = `/tmp/code-${Date.now()}.${fileExtension}`;
-    await uploadFile(sandboxId, codeFile, code);
-
-    // Set execution command based on language
+    // Determine file path and execution command based on language
+    let codeFile: string;
     let executeCommand: string;
+
     if (language === "python") {
+      codeFile = `/tmp/code-${Date.now()}.py`;
+      await uploadFile(sandboxId, codeFile, code);
       executeCommand = `python3 "${codeFile}"`;
     } else if (language === "javascript") {
+      codeFile = `/tmp/code-${Date.now()}.js`;
+      await uploadFile(sandboxId, codeFile, code);
       executeCommand = `node "${codeFile}"`;
+    } else if (language === "rust" || language === "anchor") {
+      // Rust/Anchor: create a minimal Cargo project and run (sandbox must have Rust/Anchor installed)
+      const workDir = `/tmp/rs_${Date.now()}`;
+      const mainPath = `${workDir}/src/main.rs`;
+      await sandbox.process.executeCommand(
+        `mkdir -p ${workDir}/src && cd ${workDir} && cargo init --name runtmp 2>/dev/null || true`
+      );
+      if (language === "anchor") {
+        await sandbox.process.executeCommand(
+          `cd ${workDir} && (echo ''; echo '[dependencies]'; echo 'anchor-lang = \"0.30\"') >> Cargo.toml 2>/dev/null || true`
+        );
+      }
+      await uploadFile(sandboxId, mainPath, code);
+      executeCommand = `cd ${workDir} && cargo run 2>&1`;
     } else {
       // TypeScript (default)
+      codeFile = `/tmp/code-${Date.now()}.ts`;
+      await uploadFile(sandboxId, codeFile, code);
       executeCommand = `npx -y tsx "${codeFile}"`;
     }
 

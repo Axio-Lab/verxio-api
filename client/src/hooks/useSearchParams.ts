@@ -6,7 +6,7 @@
  */
 
 import { useQueryState, useQueryStates } from "nuqs";
-import { searchParams, workflowSearchParams } from "@/lib/search-params";
+import { searchParams, workflowSearchParams, templateSearchParams } from "@/lib/search-params";
 
 /**
  * Hook for managing search query in URL
@@ -63,6 +63,25 @@ export function useWorkflowSearch() {
   return {
     search: params.search,
     setSearch: (value: string) => setParams({ search: value }),
+    page: params.page,
+    setPage: (value: number) => setParams({ page: value }),
+    limit: params.limit,
+    setLimit: (value: number) => setParams({ limit: value }),
+  };
+}
+
+/**
+ * Hook for managing template search, category, and pagination in URL
+ * Syncs with ?search=query&category=...&page=1&limit=10
+ */
+export function useTemplateSearch() {
+  const [params, setParams] = useQueryStates(templateSearchParams);
+
+  return {
+    search: params.search,
+    setSearch: (value: string) => setParams({ search: value }),
+    category: params.category,
+    setCategory: (value: string) => setParams({ category: value }),
     page: params.page,
     setPage: (value: number) => setParams({ page: value }),
     limit: params.limit,

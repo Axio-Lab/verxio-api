@@ -40,7 +40,13 @@ if (OPIK_ENABLED) {
 export interface TraceMetadata {
   userId: string;
   workflowId?: string;
-  traceType: "agent_query" | "chat" | "code_generation" | "workflow_generation" | "smart_prompt";
+  traceType:
+    | "agent_query"
+    | "chat"
+    | "code_generation"
+    | "workflow_generation"
+    | "smart_prompt"
+    | "template_metadata";
   model?: string;
   [key: string]: any;
 }

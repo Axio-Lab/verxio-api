@@ -33,12 +33,13 @@ export function useSubscription() {
         throw new Error("Failed to fetch subscription status");
       }
 
-      return response.json();
+      const data = await response.json();
+      return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - don't refetch too often
     gcTime: 10 * 60 * 1000, // 10 minutes cache time
     refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: false, // Don't refetch on mount if data is fresh
+    refetchOnMount: true, // Refetch when component mounts so post-checkout redirect sees fresh data
     refetchInterval: false, // Disable automatic refetching
     retry: 1, // Only retry once on failure
   });
@@ -49,7 +50,8 @@ export function useSubscription() {
     error,
     refetch,
     isSubscribed: data?.isSubscribed ?? false,
-    planDisplayName: data?.planDisplayName ?? "Free",
+    planDisplayName:
+      data?.planDisplayName && data.planDisplayName !== "null" ? data.planDisplayName : "Free",
     rateLimitRemaining: data?.rateLimitRemaining ?? 0,
     rateLimitTotal: data?.rateLimitTotal ?? 0,
   };

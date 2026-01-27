@@ -14,7 +14,7 @@ export interface CodeExecutionParams {
   inputs: Record<string, unknown>;
   timeout?: number;
   dependencies?: string[];
-  language?: string; // "typescript" | "javascript" | "python"
+  language?: string; // "typescript" | "javascript" | "python" | "rust" | "anchor"
 }
 
 export interface CodeExecutionResult {
@@ -35,8 +35,8 @@ function validateAndFixCode(
   availableVariables: string[],
   language: string = "typescript"
 ): { fixedCode: string; fixesApplied: string[] } {
-  // Skip validation/fixing for Python - it has different syntax
-  if (language === "python") {
+  // Skip validation/fixing for Python, Rust, Anchor - different syntax/runtime
+  if (language === "python" || language === "rust" || language === "anchor") {
     return { fixedCode: code, fixesApplied: [] };
   }
   let fixedCode = code;
@@ -155,7 +155,7 @@ function validateAndFixCode(
 }
 
 /**
- * Executes code in a Daytona sandbox (supports TypeScript, JavaScript, Python)
+ * Executes code in a Daytona sandbox (supports TypeScript, JavaScript, Python, Rust, Anchor)
  * This service handles the full lifecycle: create sandbox, install deps, execute, cleanup
  */
 export const executeCodeInSandbox = async (
@@ -237,7 +237,11 @@ export const executeCodeInSandbox = async (
     let codeWithExecution: string;
     let fileExtension: string;
 
-    if (language === "python") {
+    if (language === "rust" || language === "anchor") {
+      // Rust/Anchor: use raw code, no wrapper (daytonaService handles project layout)
+      codeWithExecution = fixedCode;
+      fileExtension = "rs";
+    } else if (language === "python") {
       // Python code wrapper
       codeWithExecution = `import json
 import sys
@@ -354,11 +358,13 @@ ${codeToExecute}
       fileExtension = language === "typescript" ? "ts" : "js";
     }
 
-    // Upload code file
+    // Upload code file (for rust/anchor, executeCode uses its own work dir and upload)
     const codeFile =
       language === "python"
         ? `/tmp/execute-${Date.now()}.${fileExtension}`
-        : `/tmp/wrapper-${Date.now()}.${fileExtension}`;
+        : language === "rust" || language === "anchor"
+          ? `/tmp/rs-${Date.now()}.${fileExtension}`
+          : `/tmp/wrapper-${Date.now()}.${fileExtension}`;
     await uploadFile(sandboxId, codeFile, codeWithExecution);
 
     // Execute code with language parameter

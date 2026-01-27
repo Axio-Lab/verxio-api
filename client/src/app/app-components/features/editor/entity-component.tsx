@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   AlertTriangleIcon,
@@ -84,6 +85,14 @@ interface EntityListProps<T> {
   className?: string;
 }
 
+export interface EntityItemDropdownItem {
+  label: string;
+  onClick: (e: React.MouseEvent) => void | Promise<void>;
+  icon?: React.ReactNode;
+  disabled?: boolean;
+  loading?: boolean;
+}
+
 interface EntityItemProps {
   href: string;
   title: string;
@@ -92,6 +101,8 @@ interface EntityItemProps {
   action?: React.ReactNode;
   onRemove?: () => void | Promise<void>;
   isRemoving?: boolean;
+  /** When provided, renders these items in the dropdown instead of a single Delete. Use for Export + Delete, etc. */
+  dropdownItems?: EntityItemDropdownItem[];
   className?: string;
 }
 
@@ -313,25 +324,36 @@ export const EntityItem = ({
   action,
   onRemove,
   isRemoving,
+  dropdownItems,
   className,
 }: EntityItemProps) => {
   const [open, setOpen] = useState(false);
+  const hasDropdown = (dropdownItems && dropdownItems.length > 0) || onRemove;
+  const items: EntityItemDropdownItem[] =
+    dropdownItems && dropdownItems.length > 0
+      ? dropdownItems
+      : onRemove
+        ? [
+            {
+              label: "Delete",
+              onClick: async () => {
+                await onRemove();
+              },
+              icon: <TrashIcon className="size-4" />,
+              disabled: isRemoving,
+              loading: isRemoving,
+            },
+          ]
+        : [];
 
-  const handleRemove = async (e: React.MouseEvent) => {
+  const handleItemClick = async (item: EntityItemDropdownItem, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isRemoving) {
-      return;
-    }
-    if (onRemove) {
-      try {
-        await onRemove();
-      } catch (error) {
-        // Error handling is done in the mutation hook
-      } finally {
-        // Close dropdown whether deletion succeeds or fails
-        setOpen(false);
-      }
+    if (item.disabled || item.loading) return;
+    try {
+      await item.onClick(e);
+    } finally {
+      setOpen(false);
     }
   };
 
@@ -352,10 +374,10 @@ export const EntityItem = ({
               {!!subtitle && <CardDescription className="text-xm">{subtitle}</CardDescription>}
             </div>
           </div>
-          {(action || onRemove) && (
+          {(action || hasDropdown) && (
             <div className="flex items-center gap-x-4">
               {action}
-              {onRemove && (
+              {hasDropdown && (
                 <DropdownMenu open={open} onOpenChange={setOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -368,19 +390,25 @@ export const EntityItem = ({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent onClick={(e) => e.stopPropagation()} align="end">
-                    <DropdownMenuItem onClick={handleRemove} disabled={isRemoving}>
-                      {isRemoving ? (
-                        <>
-                          <Spinner className="size-4" />
-                          <span>Deleting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <TrashIcon className="size-4" />
-                          <span>Delete</span>
-                        </>
-                      )}
-                    </DropdownMenuItem>
+                    {items.map((item, i) => (
+                      <DropdownMenuItem
+                        key={i}
+                        onClick={(e) => handleItemClick(item, e)}
+                        disabled={item.disabled || item.loading}
+                      >
+                        {item.loading ? (
+                          <>
+                            <Spinner className="size-4" />
+                            <span>{item.label}...</span>
+                          </>
+                        ) : (
+                          <>
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}

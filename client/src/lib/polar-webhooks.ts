@@ -189,8 +189,6 @@ export async function handleOrderPaid(payload: any) {
       expiresAt,
       polarCustomerId: customer.id,
     });
-
-    console.log(`[PolarWebhook] Order paid: Granted ${planType} subscription to user ${userId}`);
   } catch (error) {
     console.error("[PolarWebhook] Error handling order paid:", error);
   }
@@ -216,8 +214,6 @@ export async function handleSubscriptionActive(payload: any) {
       status: "active",
       polarCustomerId: customer.id,
     });
-
-    console.log(`[PolarWebhook] Subscription active: Activated subscription for user ${userId}`);
   } catch (error) {
     console.error("[PolarWebhook] Error handling subscription active:", error);
   }
@@ -246,8 +242,6 @@ export async function handleSubscriptionCanceled(payload: any) {
         rateLimitRemaining: 0,
       },
     });
-
-    console.log(`[PolarWebhook] Subscription canceled: Revoked subscription for user ${userId}`);
   } catch (error) {
     console.error("[PolarWebhook] Error handling subscription canceled:", error);
   }
@@ -272,10 +266,6 @@ export async function handleSubscriptionExpired(payload: any) {
       userId,
       status: "expired",
     });
-
-    console.log(
-      `[PolarWebhook] Subscription expired: Marked subscription as expired for user ${userId}`
-    );
   } catch (error) {
     console.error("[PolarWebhook] Error handling subscription expired:", error);
   }
@@ -303,8 +293,6 @@ export async function handleCustomerStateChanged(payload: any) {
         polarCustomerId: customer.id,
       },
     });
-
-    console.log(`[PolarWebhook] Customer state changed: Synced customer state for user ${userId}`);
   } catch (error) {
     console.error("[PolarWebhook] Error handling customer state changed:", error);
   }

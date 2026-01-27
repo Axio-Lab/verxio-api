@@ -178,7 +178,7 @@ const NODE_TYPES_DOCUMENTATION = `
 - Fields: { variables: string, conditions: Array<{ field: string, operator: string, value: string, output: string }> }
 
 **CODE_BLOCK**
-- Fields: { variables: string, label: string, code: string (REQUIRED), language: "typescript"|"javascript"|"python", dependencies?: string[], credentialIds?: string[] }
+- Fields: { variables: string, label: string, code: string (REQUIRED), language: "typescript"|"javascript"|"python"|"rust"|"anchor", dependencies?: string[], credentialIds?: string[] }
 - Code must export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>
 
 ### Media
