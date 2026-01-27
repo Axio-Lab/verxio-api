@@ -19,6 +19,9 @@ export const SUBSCRIPTION_FEATURES = {
   FIRECRAWL_NODE: "firecrawl",
   APIFY_NODE: "apify",
 
+  // Template feature (premium)
+  EXPORT_WORKFLOW_AS_TEMPLATE: "export-workflow-as-template",
+
   // Experimental Features (for beta testers)
   EXPERIMENTAL_FEATURES: "experimental-features",
   EARLY_ACCESS_UPDATES: "early-access-updates",
@@ -77,6 +80,7 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.ELEVENLABS_NODE,
         SUBSCRIPTION_FEATURES.FIRECRAWL_NODE,
         SUBSCRIPTION_FEATURES.APIFY_NODE,
+        SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
     default:
       return [];

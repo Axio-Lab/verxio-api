@@ -371,12 +371,36 @@ model Workflow {
   connections      Connection[]
   plan             WorkflowPlan?
   executionHistory ExecutionHistory[]
+  templates        WorkflowTemplate[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("workflows")
+}
+
+model WorkflowTemplate {
+  id               String   @id @default(cuid())
+  name             String   // Template title (descriptive, keyword-rich)
+  shortDescription String   // Short description of the workflow
+  howItWorks       String   // How it works, specificity, requirements (API keys, credentials, etc.)
+  requirements     String?  // Required API keys, credentials, etc.
+  pricing          String   @default("Free") // Explicitly "Free" for now
+  category         String   // e.g. "Automation", "Marketing", "DevOps"
+  creatorUserId    String
+  creatorUsername  String   // Denormalized for display
+  workflowId       String
+  workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowSnapshot Json     // { nodes, connections } at export time
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([creatorUserId])
+  @@index([workflowId])
+  @@index([category])
+  @@index([name])
+  @@map("workflow_templates")
 }
 
 enum NodeType {

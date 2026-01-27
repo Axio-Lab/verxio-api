@@ -12,8 +12,13 @@ import {
   EntityItem,
 } from "../editor/entity-component";
 import { useDeleteWorkflow, Workflow } from "@/hooks/useWorkflows";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
-import { WorkflowIcon } from "lucide-react";
+import { WorkflowIcon, TrashIcon, FileOutput } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ExportWorkflowTemplateDialog } from "./export-workflow-template-dialog";
 
 export const WorkflowsHeader = ({
   disabled,
@@ -144,28 +149,69 @@ export const WorkflowsList = ({ workflows }: { workflows: Workflow[] }) => {
 
 export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
   const deleteWorkflow = useDeleteWorkflow();
+  const { subscription } = useSubscription();
+  const { user } = useAuth();
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+  const hasExportAccess = subscription?.features?.includes("export-workflow-as-template") ?? false;
+  const creatorUsername = (user?.name as string) || (user?.email as string) || "Creator";
 
   const handleDelete = async () => {
     await deleteWorkflow.mutateAsync({ id: workflow.id, name: workflow.name });
   };
 
+  const handleExportClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!hasExportAccess) {
+      setExportDialogOpen(true);
+    } else {
+      toast.info("Upgrade plan to export workflow as template.");
+    }
+  };
+
+  const dropdownItems = [
+    {
+      label: "Export as template",
+      onClick: handleExportClick,
+      icon: <FileOutput className="size-4" />,
+      disabled: false,
+      loading: false,
+    },
+    {
+      label: "Delete",
+      onClick: handleDelete,
+      icon: <TrashIcon className="size-4" />,
+      disabled: deleteWorkflow.isPending,
+      loading: deleteWorkflow.isPending,
+    },
+  ];
+
   return (
-    <EntityItem
-      href={`/workflows/${workflow.id}`}
-      title={workflow.name}
-      subtitle={
-        <>
-          Updated {formatDistanceToNow(workflow.updatedAt, { addSuffix: true })} &bull; Created{" "}
-          {formatDistanceToNow(workflow.createdAt, { addSuffix: true })}
-        </>
-      }
-      image={
-        <div className="size-8 flex items-center justify-center">
-          <WorkflowIcon className="size-5 text-muted-foreground" />
-        </div>
-      }
-      onRemove={handleDelete}
-      isRemoving={deleteWorkflow.isPending}
-    />
+    <>
+      <EntityItem
+        href={`/workflows/${workflow.id}`}
+        title={workflow.name}
+        subtitle={
+          <>
+            Updated {formatDistanceToNow(workflow.updatedAt, { addSuffix: true })} &bull; Created{" "}
+            {formatDistanceToNow(workflow.createdAt, { addSuffix: true })}
+          </>
+        }
+        image={
+          <div className="size-8 flex items-center justify-center">
+            <WorkflowIcon className="size-5 text-muted-foreground" />
+          </div>
+        }
+        dropdownItems={dropdownItems}
+      />
+      <ExportWorkflowTemplateDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        workflowId={workflow.id}
+        workflowName={workflow.name}
+        creatorUsername={creatorUsername}
+      />
+    </>
   );
 };

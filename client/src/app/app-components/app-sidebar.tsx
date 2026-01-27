@@ -4,6 +4,7 @@ import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
   FolderOpenIcon,
   KeyIcon,
+  LayoutTemplate,
   LogOutIcon,
   Loader2,
   PlugIcon,
@@ -37,15 +38,15 @@ const menuItems = [
   {
     title: "Main",
     items: [
-      // {
-      //   title: "Vibe",
-      //   url: "/vibe",
-      //   icon: <SparklesIcon />,
-      // },
       {
         title: "Workflows",
         url: "/workflows",
         icon: <FolderOpenIcon />,
+      },
+      {
+        title: "Templates",
+        url: "/templates",
+        icon: <LayoutTemplate />,
       },
       {
         title: "Credentials",

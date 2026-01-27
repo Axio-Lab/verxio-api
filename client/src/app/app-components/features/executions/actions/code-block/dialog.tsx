@@ -48,7 +48,7 @@ const formSchema = z.object({
     }),
   label: z.string().min(1, { message: "Label is required" }),
   code: z.string().min(1, { message: "Code is required" }),
-  language: z.enum(["typescript", "javascript", "python"]).default("typescript"),
+  language: z.enum(["typescript", "javascript", "python", "rust", "anchor"]).default("typescript"),
   dependencies: z.array(z.string()).optional(),
   inputSchema: z.record(z.unknown()).optional(),
   outputSchema: z.record(z.unknown()).optional(),
@@ -348,6 +348,8 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                         <option value="typescript">TypeScript</option>
                         <option value="javascript">JavaScript</option>
                         <option value="python">Python</option>
+                        <option value="rust">Rust</option>
+                        <option value="anchor">Anchor</option>
                       </select>
                     </FormControl>
                     <FormDescription>The programming language for this code block.</FormDescription>
@@ -378,7 +380,13 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                       <div className="border rounded-md overflow-hidden">
                         <MonacoEditor
                           height="400px"
-                          language={watchLanguage === "python" ? "python" : watchLanguage}
+                          language={
+                            watchLanguage === "python"
+                              ? "python"
+                              : watchLanguage === "rust" || watchLanguage === "anchor"
+                                ? "rust"
+                                : watchLanguage
+                          }
                           value={watchCode}
                           onChange={(value) => {
                             field.onChange(value || "");
@@ -415,11 +423,19 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                         ? "Python"
                         : watchLanguage === "javascript"
                           ? "JavaScript"
-                          : "TypeScript"}{" "}
+                          : watchLanguage === "rust"
+                            ? "Rust"
+                            : watchLanguage === "anchor"
+                              ? "Anchor (Solana)"
+                              : "TypeScript"}{" "}
                       code here.
                       {watchLanguage === "python"
                         ? " The code should define a function: def execute(inputs: dict) -> dict:"
-                        : " The code should export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>"}
+                        : watchLanguage === "rust"
+                          ? " Use #[no_mangle] or a standard entry (e.g. main or execute) and read inputs from the execution context."
+                          : watchLanguage === "anchor"
+                            ? " Use Anchor program structure with instructions and accounts."
+                            : " The code should export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>"}
                     </FormDescription>
                     {codeExplanation && (
                       <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
@@ -526,7 +542,7 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                   onChange={(e) =>
                     form.setValue(
                       "language",
-                      e.target.value as "typescript" | "javascript" | "python"
+                      e.target.value as "typescript" | "javascript" | "python" | "rust" | "anchor"
                     )
                   }
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -534,6 +550,8 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                   <option value="typescript">TypeScript</option>
                   <option value="javascript">JavaScript</option>
                   <option value="python">Python</option>
+                  <option value="rust">Rust</option>
+                  <option value="anchor">Anchor</option>
                 </select>
               </div>
             </div>

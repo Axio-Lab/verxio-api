@@ -816,19 +816,21 @@ export const searchDocumentationTool: VerxioTool = {
 export const generateCodeTool: VerxioTool = {
   name: "generateCode",
   description:
-    "Generate TypeScript code for a CODE_BLOCK node based on requirements. Use this when you need to create custom data transformations or logic.",
+    "Generate code for a CODE_BLOCK node (TypeScript, JavaScript, Python, Rust, or Anchor). Use when creating custom data transformations or logic.",
   inputSchema: z.object({
     requirement: z.string().describe("Clear description of what the code should do"),
+    language: z
+      .enum(["typescript", "javascript", "python", "rust", "anchor"])
+      .optional()
+      .default("typescript")
+      .describe("Language: typescript, javascript, python, rust, or anchor"),
     availableInputs: z
       .record(z.string(), z.any())
       .optional()
       .describe("Available variables from previous nodes and their structure"),
     expectedOutput: z.record(z.string(), z.any()).optional().describe("Expected output structure"),
   }),
-  execute: async ({ requirement, availableInputs, expectedOutput }) => {
-    // Generate code based on requirement and available inputs
-    // The agent calling this tool should provide context about available inputs
-
+  execute: async ({ requirement, language = "typescript", availableInputs, expectedOutput }) => {
     const inputVars = availableInputs ? Object.keys(availableInputs) : [];
     const inputDocs =
       inputVars.length > 0
@@ -844,40 +846,56 @@ export const generateCodeTool: VerxioTool = {
       ? `Expected output: ${JSON.stringify(expectedOutput, null, 2)}`
       : "Return an object with your computed results";
 
-    // Generate code template that follows the correct pattern
-    const code = `/**
- * CODE_BLOCK: ${requirement}
- * 
+    let code: string;
+    if (language === "rust" || language === "anchor") {
+      code = `// CODE_BLOCK (${language}): ${requirement}
+// Available inputs from previous nodes:
+${inputDocs}
+// ${outputDocs}
+
+fn main() {
+    // TODO: Read inputs from env/stdin if needed, implement: ${requirement}
+    // Return JSON-serializable result to stdout
+}
+`;
+    } else if (language === "python") {
+      code = `# CODE_BLOCK (python): ${requirement}
+# Available inputs from previous nodes:
+${inputDocs}
+# ${outputDocs}
+
+def execute(inputs: dict) -> dict:
+    # Access data via inputs["variableName"]
+${inputVars.length > 0 ? inputVars.map((name) => `    ${name} = inputs.get("${name}")`).join("\n") : "    pass"}
+    # TODO: Implement ${requirement}
+    return {"success": True, "result": None}
+`;
+    } else {
+      code = `/**
+ * CODE_BLOCK (${language}): ${requirement}
  * Available inputs from previous nodes:
 ${inputDocs}
- * 
  * ${outputDocs}
  */
 export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>> {
-  // Access data from previous nodes via inputs.variableName
 ${inputVars.length > 0 ? inputVars.map((name) => `  const ${name} = inputs.${name};`).join("\n") : "  // const previousData = inputs.previousNodeName;"}
-  
-  // Implement: ${requirement}
-  // TODO: Add your logic here
-  
-  // Return results (will be accessible as inputs.thisNodeName.yourKey in next nodes)
-  return {
-    success: true,
-    result: null, // Replace with actual result
-  };
+  // TODO: Implement ${requirement}
+  return { success: true, result: null };
 }`;
+    }
 
     return {
       success: true,
       code,
       requirement,
+      language,
       availableInputs: inputVars,
-      message: `Generated CODE_BLOCK template for: ${requirement}. Complete the implementation by replacing the TODO section with actual logic.`,
+      message: `Generated CODE_BLOCK (${language}) template for: ${requirement}. Complete the implementation.`,
       instructions: [
-        "1. Access previous node data via inputs.variableName",
+        "1. Access previous node data via inputs (or inputs.variableName in TS/JS)",
         "2. NEVER use 'context' - always use 'inputs'",
-        "3. Return a plain object with your results",
-        "4. Handle errors by throwing them",
+        "3. Return a plain object / JSON-serializable result",
+        "4. Handle errors appropriately",
       ],
     };
   },
