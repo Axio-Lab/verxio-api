@@ -24,6 +24,7 @@ export interface WorkflowTemplateListItem {
   pricing: string;
   creatorUsername: string;
   category: string;
+  downloadCount: number;
   createdAt: Date;
 }
 
@@ -85,6 +86,7 @@ export async function listTemplates(
         pricing: true,
         creatorUsername: true,
         category: true,
+        downloadCount: true,
         createdAt: true,
       },
     }),
@@ -116,6 +118,7 @@ export async function getTemplateById(id: string): Promise<WorkflowTemplateDetai
     pricing: t.pricing ?? "Free",
     creatorUsername: t.creatorUsername,
     category: t.category,
+    downloadCount: (t as any).downloadCount ?? 0,
     createdAt: t.createdAt,
     workflowId: t.workflowId,
     workflowSnapshot: t.workflowSnapshot as { nodes: unknown[]; connections: unknown[] },
@@ -273,6 +276,11 @@ export async function importTemplate(
       });
     }
   }
+
+  await prisma.workflowTemplate.update({
+    where: { id: templateId },
+    data: { downloadCount: { increment: 1 } },
+  });
 
   return { workflowId: workflow.id, name: workflow.name };
 }

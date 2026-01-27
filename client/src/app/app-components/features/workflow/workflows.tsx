@@ -163,7 +163,7 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
   const handleExportClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!hasExportAccess) {
+    if (hasExportAccess) {
       setExportDialogOpen(true);
     } else {
       toast.info("Upgrade plan to export workflow as template.");

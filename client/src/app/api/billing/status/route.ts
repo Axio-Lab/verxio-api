@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
       headers: headersList,
     });
 
-    // If no session, return default free plan (don't throw 401)
     if (!session?.user?.email) {
       return NextResponse.json({
         subscriptionStatus: null,
@@ -65,8 +64,7 @@ export async function GET(req: NextRequest) {
 
     const data = await response.json();
     return NextResponse.json(data);
-  } catch (error) {
-    console.error("[Billing Status] Error:", error);
+  } catch {
     // Return default free plan on error
     return NextResponse.json({
       subscriptionStatus: null,

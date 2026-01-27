@@ -10,7 +10,7 @@ import {
 } from "@/app/app-components/features/editor/entity-component";
 import { LoadingView, ErrorView } from "@/app/app-components/features/editor/entity-component";
 import { Input } from "@/components/ui/input";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, Download } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,10 @@ function TemplateCard({ template }: { template: WorkflowTemplateListItem }) {
             <Badge variant="secondary" className="text-xs">
               {template.pricing ?? "Free"}
             </Badge>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Download className="size-3" />
+              {template.downloadCount ?? 0} downloads
+            </span>
             <span className="text-xs text-muted-foreground">by {template.creatorUsername}</span>
             {template.category && (
               <Badge variant="outline" className="text-xs">

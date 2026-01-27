@@ -2,6 +2,7 @@
 
 import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
+  Crown,
   FolderOpenIcon,
   KeyIcon,
   LayoutTemplate,
@@ -21,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { authClient } from "@/lib/auth-client";
-import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -100,39 +100,42 @@ export const AppSidebar = () => {
 
     try {
       if (isSubscribed) {
-        // TODO: Re-enable billing portal when properly designed
-        // If already subscribed, open billing portal
-        // try {
-        //   await authClient.customer.portal();
-        // } catch (portalError: any) {
-        //   // Handle case where user doesn't have Polar customer ID yet
-        //   if (portalError?.message?.includes("Customer does not exist") || portalError?.message?.includes("external_customer_id")) {
-        //     toast.error("Billing account not set up. Please contact support.");
-        //   } else {
-        //     throw portalError;
-        //   }
-        // }
-        toast.info("Billing management coming soon!");
+        // Portal: await authClient.customer.portal(); when portal plugin is enabled
+        // toast.info("Billing management coming soon!");
         return;
       } else {
         setIsUpgrading(true);
         // Initiate checkout
-        console.log("[Upgrade Plan] Initiating checkout with slug: beta-tester");
         try {
           const result = await authClient.checkout({
-            slug: "beta-tester",
+            slug: "Verxio-Beta-Tester",
           });
-          console.log("[Upgrade Plan] Checkout result:", result);
-          // Checkout should redirect automatically, but if it returns a URL, we can redirect manually
+          // Checkout returns { data, error }; handle error response (e.g. 404 when Polar is not configured)
+          if (result?.error) {
+            const status = (result.error as { status?: number })?.status;
+            if (status === 404) {
+              toast.error(
+                "Payment checkout is not available. Set POLAR_ACCESS_TOKEN and POLAR_BETA_TESTER_PRODUCT_ID in your environment to enable upgrade checkout."
+              );
+            } else {
+              toast.error(
+                (result.error as { message?: string })?.message ||
+                  "Failed to initiate checkout. Please try again."
+              );
+            }
+            setIsUpgrading(false);
+            return;
+          }
           if (result?.data?.url) {
             window.location.href = result.data.url;
           }
         } catch (checkoutError: any) {
           console.error("[Upgrade Plan] Checkout error:", checkoutError);
           setIsUpgrading(false);
-          // Check if it's a 404 (route not found)
           if (checkoutError?.message?.includes("404") || checkoutError?.status === 404) {
-            toast.error("Checkout service is not available. Please ensure Polar is configured.");
+            toast.error(
+              "Checkout is not available. Set POLAR_ACCESS_TOKEN and POLAR_BETA_TESTER_PRODUCT_ID in your environment to enable upgrade checkout."
+            );
           } else if (checkoutError?.message?.includes("Customer does not exist")) {
             toast.error("Please contact support to set up your billing account.");
           } else {
@@ -140,7 +143,7 @@ export const AppSidebar = () => {
               `Failed to initiate checkout: ${checkoutError?.message || "Unknown error"}`
             );
           }
-          throw checkoutError; // Re-throw to be caught by outer catch
+          throw checkoutError;
         }
       }
     } catch (error: any) {
@@ -231,7 +234,7 @@ export const AppSidebar = () => {
         {/* Subscription Status and Upgrade Plan - Merged */}
         {!subscriptionLoading && (
           <div className={cn("px-4 py-2 space-y-2", isCollapsed && "px-0 pl-0")}>
-            {/* Merged Badge/Button for Free Plan */}
+            {/* Free plan and subscribed plan share same button style: light bronze border, black text */}
             {!isSubscribed ? (
               <SidebarMenuButton
                 tooltip="Upgrade Plan"
@@ -257,17 +260,21 @@ export const AppSidebar = () => {
               </SidebarMenuButton>
             ) : (
               <>
-                <Badge
-                  variant="default"
-                  className={cn("w-full justify-center font-bold", isCollapsed && "w-auto px-2")}
+                <div
+                  className={cn(
+                    "w-full flex items-center justify-center gap-x-2 h-10 px-4 font-bold rounded-md",
+                    "border-2 border-amber-200 bg-amber-50/80 text-black",
+                    "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50"
+                  )}
+                  title={planDisplayName ?? "Free"}
                 >
-                  <span className={cn("group-data-[collapsible=icon]:hidden")}>
-                    {planDisplayName}
+                  <Crown className="h-4 w-4 shrink-0" />
+                  <span className={cn("text-sm", isCollapsed && "sr-only")}>
+                    {planDisplayName ?? "Free"}
                   </span>
-                  {isCollapsed && <span className="text-xs">P</span>}
-                </Badge>
+                </div>
                 {/* Rate Limit Display (for promotional plans) */}
-                {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
+                {/* {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
                   <div className={cn("text-xs text-muted-foreground", isCollapsed && "hidden")}>
                     <div className="flex items-center justify-between">
                       <span>Requests:</span>
@@ -281,7 +288,7 @@ export const AppSidebar = () => {
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
               </>
             )}
           </div>
@@ -289,7 +296,7 @@ export const AppSidebar = () => {
         <SidebarMenu>
           {isSubscribed && (
             <SidebarMenuItem>
-              <SidebarMenuButton
+              {/* <SidebarMenuButton
                 tooltip="Manage Subscription"
                 className={cn(
                   "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
@@ -302,7 +309,7 @@ export const AppSidebar = () => {
                 <span className="font-bold group-data-[collapsible=icon]:hidden">
                   Manage Subscription
                 </span>
-              </SidebarMenuButton>
+              </SidebarMenuButton> */}
             </SidebarMenuItem>
           )}
           {/* TODO: Re-enable billing portal when properly designed

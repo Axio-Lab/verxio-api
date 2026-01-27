@@ -267,7 +267,7 @@ model User {
   workflowGenerations   WorkflowGeneration[]
   userConnections       UserConnection[]
   subscriptionStatus    String?              // "active", "expired", "canceled", "trial", null
-  subscriptionPlan      String?              // "beta-tester", "pro", "enterprise", etc.
+  subscriptionPlan      String?               @default("free") // "free", "beta-tester", "pro", "enterprise", etc.
   subscriptionExpiresAt DateTime?            // When subscription expires
   polarCustomerId       String?              @unique // Polar customer ID
   rateLimitRemaining    Int                  @default(100) // For promotional plans
@@ -393,6 +393,7 @@ model WorkflowTemplate {
   workflowId       String
   workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   workflowSnapshot Json     // { nodes, connections } at export time
+  downloadCount    Int      @default(0) // Number of times imported (downloaded)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

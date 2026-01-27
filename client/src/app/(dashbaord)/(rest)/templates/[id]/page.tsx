@@ -61,6 +61,10 @@ export default function TemplateDetailPage() {
         <h1 className="text-2xl font-semibold">{template.name}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{template.pricing ?? "Free"}</Badge>
+          <span className="text-sm text-muted-foreground flex items-center gap-1">
+            <Download className="size-4" />
+            {template.downloadCount ?? 0} downloads
+          </span>
           {template.category && <Badge variant="outline">{template.category}</Badge>}
           <span className="text-sm text-muted-foreground">by {template.creatorUsername}</span>
         </div>

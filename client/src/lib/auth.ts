@@ -2,18 +2,12 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 
-// Helper function to create Polar plugin conditionally
+// Polar plugin per @polar-sh/better-auth docs
 function createPolarPlugin() {
-  // Only initialize if Polar is configured
-  if (!process.env.POLAR_ACCESS_TOKEN || process.env.POLAR_ACCESS_TOKEN.trim() === "") {
-    return null;
-  }
+  if (!process.env.POLAR_ACCESS_TOKEN?.trim()) return null;
 
   try {
-    // Dynamic imports to avoid errors if packages aren't available
-    // TODO: Re-enable portal when billing portal is properly designed
     const { polar, checkout, webhooks } = require("@polar-sh/better-auth");
-    // const { portal } = require("@polar-sh/better-auth");
     const { Polar } = require("@polar-sh/sdk");
     const {
       handleOrderPaid,
@@ -23,32 +17,21 @@ function createPolarPlugin() {
       handleCustomerStateChanged,
     } = require("./polar-webhooks");
 
-    // Initialize Polar client
     const polarClient = new Polar({
       accessToken: process.env.POLAR_ACCESS_TOKEN,
       server: (process.env.POLAR_SERVER as "sandbox" | "production") || "sandbox",
     });
 
+    const productId = process.env.POLAR_BETA_TESTER_PRODUCT_ID;
     return polar({
       client: polarClient,
       createCustomerOnSignUp: true,
       use: [
         checkout({
-          products: process.env.POLAR_BETA_TESTER_PRODUCT_ID
-            ? [
-                {
-                  productId: process.env.POLAR_BETA_TESTER_PRODUCT_ID,
-                  slug: "beta-tester",
-                },
-              ]
-            : [],
-          successUrl: "/workflows?checkout_id={CHECKOUT_ID}",
+          products: productId ? [{ productId, slug: "Verxio-Beta-Tester" }] : [],
+          successUrl: process.env.NEXT_PUBLIC_APP_URL + "/workflows?checkout_id={CHECKOUT_ID}",
           authenticatedUsersOnly: true,
         }),
-        // TODO: Re-enable portal plugin when billing portal is properly designed
-        // portal({
-        //   returnUrl: process.env.NEXT_PUBLIC_APP_URL || "https://app.verxio.io",
-        // }),
         webhooks({
           secret: process.env.POLAR_WEBHOOK_SECRET || "",
           onOrderPaid: handleOrderPaid,
@@ -60,8 +43,7 @@ function createPolarPlugin() {
       ],
     });
   } catch (error) {
-    console.warn("[BetterAuth] Failed to initialize Polar plugin:", error);
-    console.warn("[BetterAuth] Continuing without Polar integration");
+    console.warn("[BetterAuth] Polar plugin failed:", error);
     return null;
   }
 }

@@ -68,9 +68,9 @@ export async function authenticatedGet<T>(url: string): Promise<T> {
     if (response.status === 401) {
       throw new Error("Authentication required. Please log in.");
     }
-    if (response.status === 403) {
-      throw new Error("Access forbidden. You don't have permission to access this resource.");
-    }
+    // if (response.status === 403) {
+    //   throw new Error("Access forbidden. You don't have permission to access this resource.");
+    // }
 
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
@@ -93,9 +93,9 @@ export async function authenticatedPost<T>(url: string, data?: unknown): Promise
     if (response.status === 401) {
       throw new Error("Authentication required. Please log in.");
     }
-    if (response.status === 403) {
-      throw new Error("Access forbidden. You don't have permission to access this resource.");
-    }
+    // if (response.status === 403) {
+    //   throw new Error("Access forbidden. You don't have permission to access this resource.");
+    // }
 
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
@@ -118,9 +118,9 @@ export async function authenticatedPut<T>(url: string, data?: unknown): Promise<
     if (response.status === 401) {
       throw new Error("Authentication required. Please log in.");
     }
-    if (response.status === 403) {
-      throw new Error("Access forbidden. You don't have permission to access this resource.");
-    }
+    // if (response.status === 403) {
+    //   throw new Error("Access forbidden. You don't have permission to access this resource.");
+    // }
 
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);
@@ -143,9 +143,9 @@ export async function authenticatedDelete<T>(url: string, data?: unknown): Promi
     if (response.status === 401) {
       throw new Error("Authentication required. Please log in.");
     }
-    if (response.status === 403) {
-      throw new Error("Access forbidden. You don't have permission to access this resource.");
-    }
+    // if (response.status === 403) {
+    //   throw new Error("Access forbidden. You don't have permission to access this resource.");
+    // }
 
     const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `Request failed with status ${response.status}`);

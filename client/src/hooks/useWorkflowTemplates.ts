@@ -10,6 +10,7 @@ export interface WorkflowTemplateListItem {
   pricing: string;
   creatorUsername: string;
   category: string;
+  downloadCount: number;
   createdAt: string;
 }
 
