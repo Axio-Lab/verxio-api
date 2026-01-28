@@ -4,6 +4,12 @@ import { NonRetriableError } from "inngest";
 import { topologicalSort } from "../utils";
 import { getExecutor } from "./executor-registry";
 import { nodeStatusChannels } from "../channels";
+import { prisma } from "@/lib/prisma";
+
+// PublicChatRun is used for shareable chat; use type assertion for extended client
+const publicChatRunDb = (prisma as any).publicChatRun as {
+  update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
+};
 
 // Helper types
 interface WorkflowNode {
@@ -181,7 +187,7 @@ export const triggerWorkflow = inngest.createFunction(
     channels: Object.values(nodeStatusChannels).map((channel) => channel()),
   },
   async ({ event, step, publish }) => {
-    const { workflowId, userId, timedTriggerNodeId } = event.data;
+    const { workflowId, userId, timedTriggerNodeId, publicChatRunId } = event.data;
 
     // Validate required parameters
     if (!workflowId) {
@@ -233,6 +239,14 @@ export const triggerWorkflow = inngest.createFunction(
     }
     if (event.data.data?.googleFormPayload) {
       context.googleFormPayload = event.data.data.googleFormPayload;
+    }
+
+    // Mark public chat run as RUNNING when used for shareable chat
+    if (publicChatRunId && publicChatRunDb) {
+      await publicChatRunDb.update({
+        where: { id: publicChatRunId },
+        data: { status: "RUNNING" },
+      });
     }
 
     // Validate nodes array
@@ -325,11 +339,33 @@ export const triggerWorkflow = inngest.createFunction(
         }
       }
 
+      // Persist result for public chat (shareable link) when run ID was provided
+      if (publicChatRunId && publicChatRunDb) {
+        await publicChatRunDb.update({
+          where: { id: publicChatRunId },
+          data: {
+            status: "COMPLETED",
+            output: context as object,
+            completedAt: new Date(),
+          },
+        });
+      }
+
       return {
         workflowId,
         result: context,
       };
     } catch (error) {
+      if (publicChatRunId && publicChatRunDb) {
+        await publicChatRunDb.update({
+          where: { id: publicChatRunId },
+          data: {
+            status: "FAILED",
+            error: error instanceof Error ? error.message : String(error),
+            completedAt: new Date(),
+          },
+        });
+      }
       throw error;
     }
   }

@@ -20,6 +20,7 @@ import { airtableRouter } from "./routes/triggers/airtable";
 import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
 import { webhookTriggerRouter } from "./routes/triggers/webhook";
+import { publicChatRouter } from "./routes/public-chat";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
@@ -138,6 +139,9 @@ app.use(
   express.static(path.join(process.cwd(), "public", "generated-videos"))
 );
 
+// Serve public chat uploads (images, video, audio) as URLs
+app.use("/chat-uploads", express.static(path.join(process.cwd(), "public", "chat-uploads")));
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
@@ -165,6 +169,7 @@ app.use("/api/webhooks", airtableRouter);
 app.use("/api/webhooks", stripeRouter);
 app.use("/api/webhooks/telegram", telegramRouter);
 app.use("/api/webhooks/webhook", webhookTriggerRouter);
+app.use("/api/public/chat", publicChatRouter);
 
 // API routes
 // app.use('/health', healthRouter);

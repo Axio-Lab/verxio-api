@@ -301,6 +301,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(designSub.data || []),
       ...(designProSub.data || []),
       ...(remotionSub.data || []),
+      ...(veoSub.data || []),
     ];
   }, [
     httpRequestSub.data,

@@ -41,11 +41,14 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "CODE_BLOCK");
 
-    // Consume premium quota (Code Block costs 5 credits for beta-testers)
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {
-      await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+      await step.run(`codeBlock-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+        return { consumed: true };
+      });
     } catch (quotaError) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError(

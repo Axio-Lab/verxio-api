@@ -15,7 +15,7 @@ export interface RateLimitConfig {
  * Daily credit quota for beta-testers
  * Resets daily at 12am (midnight)
  */
-export const BETA_TESTER_DAILY_CREDITS = 200;
+export const BETA_TESTER_DAILY_CREDITS = 2000;
 
 /**
  * Quota cost per premium action/feature

@@ -72,6 +72,19 @@ export function useWorkflow(id: string) {
   });
 }
 
+export interface TriggerInfoResponse {
+  success: boolean;
+  shareable: boolean;
+  publicChatUrl?: string;
+}
+
+export function useTriggerInfo() {
+  return useProtectedMutation<TriggerInfoResponse, Error, string>({
+    mutationFn: (workflowId) =>
+      authenticatedGet<TriggerInfoResponse>(`/workflow/trigger-info/${workflowId}`),
+  });
+}
+
 export function useCreateWorkflow() {
   const queryClient = useQueryClient();
 

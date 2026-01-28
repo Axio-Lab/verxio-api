@@ -296,12 +296,13 @@ export async function consumePremiumQuota(userId: string, cost: number): Promise
       }
 
       // Update: reset time (if needed) and decrement credits atomically
+      const newRemaining = currentRemaining - cost;
       if (currentResetAt !== currentUser.rateLimitResetAt) {
         // If we reset, set the new values explicitly
         await tx.user.update({
           where: { id: userId },
           data: {
-            rateLimitRemaining: currentRemaining - cost,
+            rateLimitRemaining: newRemaining,
             rateLimitResetAt: currentResetAt,
           },
         });
@@ -317,6 +318,15 @@ export async function consumePremiumQuota(userId: string, cost: number): Promise
         });
       }
     });
+
+    // Log credit spend for debugging / observability
+    const updated = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { rateLimitRemaining: true },
+    });
+    console.log(
+      `[Credits] userId=${userId} spent ${cost} credits (remaining: ${updated?.rateLimitRemaining ?? "?"})`
+    );
   } catch (error) {
     // Re-throw if it's already an Error with message
     if (error instanceof Error) {
@@ -324,6 +334,33 @@ export async function consumePremiumQuota(userId: string, cost: number): Promise
     }
     throw new Error("Failed to consume premium quota");
   }
+}
+
+/**
+ * Reset rate limit for a user (e.g. for testing). Sets remaining to full daily credits and next reset to midnight.
+ */
+export async function resetRateLimitForUser(userId: string): Promise<{
+  success: boolean;
+  rateLimitRemaining: number;
+  rateLimitResetAt: Date | null;
+}> {
+  const resetTime = calculateResetTime(getRateLimitConfig("beta-tester"), null);
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      rateLimitRemaining: BETA_TESTER_DAILY_CREDITS,
+      rateLimitResetAt: resetTime,
+    },
+    select: { rateLimitRemaining: true, rateLimitResetAt: true },
+  });
+  console.log(
+    `[Credits] userId=${userId} rate limit reset to ${user.rateLimitRemaining} credits (resets at ${user.rateLimitResetAt?.toISOString() ?? "n/a"})`
+  );
+  return {
+    success: true,
+    rateLimitRemaining: user.rateLimitRemaining,
+    rateLimitResetAt: user.rateLimitResetAt,
+  };
 }
 
 /**

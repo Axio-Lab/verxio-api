@@ -304,17 +304,64 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
         durationSeconds: defaultValues.durationSeconds || "8",
         negativePrompt: defaultValues.negativePrompt || "",
         sourceImage: defaultValues.sourceImage || "",
+        sourceImageFilename: defaultValues.sourceImageFilename,
         referenceImages: defaultValues.referenceImages || [],
         firstFrame: defaultValues.firstFrame || "",
+        firstFrameFilename: defaultValues.firstFrameFilename,
         lastFrame: defaultValues.lastFrame || "",
+        lastFrameFilename: defaultValues.lastFrameFilename,
         sourceVideo: defaultValues.sourceVideo || "",
+        sourceVideoFilename: defaultValues.sourceVideoFilename || "",
       });
-      // Reset file states
-      setSourceImageFile(null);
-      setReferenceImageFiles([]);
-      setFirstFrameFile(null);
-      setLastFrameFile(null);
-      setSourceVideoFile(null);
+      // Restore file preview states from saved values (so they persist when reopening)
+      setSourceImageFile(
+        defaultValues.sourceImage?.startsWith("data:")
+          ? {
+              file: null,
+              base64: defaultValues.sourceImage,
+              filename: defaultValues.sourceImageFilename || "image.png",
+              mimeType: "image/png",
+            }
+          : null
+      );
+      setReferenceImageFiles(
+        (defaultValues.referenceImages || []).map((ref) => ({
+          file: null,
+          base64: ref.file,
+          filename: ref.filename,
+          mimeType: "image/png",
+        }))
+      );
+      setFirstFrameFile(
+        defaultValues.firstFrame?.startsWith("data:")
+          ? {
+              file: null,
+              base64: defaultValues.firstFrame,
+              filename: defaultValues.firstFrameFilename || "frame.png",
+              mimeType: "image/png",
+            }
+          : null
+      );
+      setLastFrameFile(
+        defaultValues.lastFrame?.startsWith("data:")
+          ? {
+              file: null,
+              base64: defaultValues.lastFrame,
+              filename: defaultValues.lastFrameFilename || "frame.png",
+              mimeType: "image/png",
+            }
+          : null
+      );
+      setSourceVideoFile(
+        defaultValues.sourceVideo?.startsWith("data:")
+          ? {
+              file: null,
+              base64: defaultValues.sourceVideo,
+              filename: defaultValues.sourceVideoFilename || "video.mp4",
+              mimeType: "video/mp4",
+            }
+          : null
+      );
     }
   }, [open, defaultValues, form]);
 
@@ -380,8 +427,8 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   <strong>File Size Limit:</strong> Each uploaded file (images/videos) must not
-                  exceed 5MB. For video extension, the source video must be a Veo-generated video
-                  (720p, max 141 seconds).
+                  exceed 5MB. For Extend Video mode, reference a previous Veo node (e.g.{" "}
+                  {"{{veo.videoUrl}}"})—no upload.
                 </AlertDescription>
               </Alert>
 
@@ -721,56 +768,24 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
                 <FormField
                   control={form.control}
                   name="sourceVideo"
-                  render={() => (
+                  render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Source Video</FormLabel>
-                      <div className="space-y-2">
-                        {sourceVideoFile ? (
-                          <div className="relative border rounded-md p-2">
-                            <div className="flex items-center justify-center h-32 bg-gray-100 rounded">
-                              <Video className="h-8 w-8 text-gray-400" />
-                            </div>
-                            <p className="text-sm text-center mt-2">{sourceVideoFile.filename}</p>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={() => {
-                                setSourceVideoFile(null);
-                                form.setValue("sourceVideo", "");
-                                form.setValue("sourceVideoFilename", "");
-                                if (sourceVideoInputRef.current) {
-                                  sourceVideoInputRef.current.value = "";
-                                }
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => sourceVideoInputRef.current?.click()}
-                            className="w-full"
-                          >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Source Video
-                          </Button>
-                        )}
-                        <input
-                          ref={sourceVideoInputRef}
-                          type="file"
-                          accept="video/*"
-                          onChange={handleSourceVideoUpload}
-                          className="hidden"
+                      <FormLabel>Reference Previous Veo Node</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. {{veo.videoUrl}}"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value.trim();
+                            field.onChange(v || undefined);
+                          }}
+                          className="font-mono text-sm"
                         />
-                      </div>
+                      </FormControl>
                       <FormDescription>
-                        Upload a Veo-generated video to extend. Must be 720p and max 141 seconds.
-                        You can also reference a previous Veo node output:{" "}
-                        {"{{previousNode.videoUrl}}"}
+                        Reference a Veo node in this workflow (e.g. {"{{veo.videoUrl}}"}). Extension
+                        only works with videos from another Veo node in the same run—no file upload
+                        needed.
                       </FormDescription>
                     </FormItem>
                   )}

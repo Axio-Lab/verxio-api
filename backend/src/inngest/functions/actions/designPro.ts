@@ -116,11 +116,14 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "DESIGN_PRO");
 
-    // Consume premium quota (Design Agent Pro costs 10 credits for beta-testers)
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {
-      await consumePremiumQuota(userId, QUOTA_COST.DESIGN_AGENT_PRO);
+      await step.run(`designPro-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.DESIGN_AGENT_PRO);
+        return { consumed: true };
+      });
     } catch (quotaError) {
       await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError(

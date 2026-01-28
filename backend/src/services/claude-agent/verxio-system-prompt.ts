@@ -223,16 +223,17 @@ const NODE_TYPES_DOCUMENTATION = `
   - "image": Image-to-video generation (requires sourceImage)
   - "reference": Generate with up to 3 reference images (requires referenceImages array)
   - "frames": First and last frame interpolation (requires firstFrame and lastFrame)
-  - "extension": Extend existing Veo-generated video (requires sourceVideo, must be 720p, max 141 seconds)
+  - "extension": Extend video from a previous Veo node (sourceVideo: {{previousNode.videoUrl}}; no upload)
 - **CRITICAL:** Follow the video prompt guide for creating effective video prompts. Use descriptive, cinematic language.
 - Aspect ratios: "16:9" (landscape, default), "9:16" (portrait)
 - Resolutions: "720p" (default), "1080p" (8s only), "4k" (8s only)
 - Durations: "4", "6", "8" seconds (default: "8"). Extension, reference images, 1080p, and 4k require 8s.
 - **Source Image:** For image-to-video, can be URL, base64, or {{previousNode.imageUrl}}
 - **Reference Images:** Up to 3 images. Can be URLs, base64, or {{previousNode.imageUrl}}
-- **Source Video:** For extension, must be a Veo-generated video. Can be URL or {{previousNode.videoUrl}}
+- **Source Video (extension):** Set sourceVideo to {{previousNode.videoUrl}} (e.g. {{veo.videoUrl}}) to identify which previous Veo node to extend. The backend uses that node's veoFileRef (the Veo API file reference from the previous generation) for the extend call—not the URL. No upload; extension only works when the source is another Veo node in this workflow. External URLs or uploads are rejected.
 - **File Size Limits:** Each uploaded file must not exceed 5MB
-- Output: { success: boolean, prompt: string, videoUrl: string, videoFilename: string, aspectRatio: string, resolution: string, durationSeconds: string }
+- Output: { success: boolean, prompt: string, videoUrl: string, videoFilename: string, aspectRatio: string, resolution: string, durationSeconds: string, veoFileRef: { uri: string } }
+- **veoFileRef:** Internal Veo API file reference; used by extension mode. You reference by {{node.videoUrl}}; backend resolves to that node's veoFileRef for extend.
 - **When to use:** Use VEO for high-fidelity video generation with audio. Use REMOTION for motion graphics and code-based video generation.
 - **Reference guides:** See guides/video-prompt-guide.txt and guides/video-generation-guide.txt for detailed prompt structure and examples
 
@@ -403,13 +404,14 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{remotion.success}} - Whether rendering succeeded
 
 **VEO** (if variables: "veo")
-- Outputs: { success: boolean, prompt: string, videoUrl: string, videoFilename: string, aspectRatio: string, resolution: string, durationSeconds: string }
+- Outputs: { success: boolean, prompt: string, videoUrl: string, videoFilename: string, aspectRatio: string, resolution: string, durationSeconds: string, veoFileRef: { uri: string } }
 - Template examples:
-  - {{veo.videoUrl}} - Direct downloadable URL to the generated video
+  - {{veo.videoUrl}} - Direct downloadable URL; use this in extension mode as sourceVideo so backend can resolve to veoFileRef
   - {{veo.videoFilename}} - Filename of the saved video
   - {{veo.resolution}} - Video resolution ("720p", "1080p", "4k")
   - {{veo.aspectRatio}} - Video aspect ratio ("16:9", "9:16")
   - {{veo.durationSeconds}} - Video duration in seconds
+- Extension: set sourceVideo to {{veo.videoUrl}}; backend uses that node's veoFileRef for the extend API—not the URL.
 `;
 
 // ============================================
@@ -774,7 +776,7 @@ When creating or configuring nodes, you MUST:
   - "image": Image-to-video - REQUIRES sourceImage field
   - "reference": With reference images - REQUIRES referenceImages array (up to 3)
   - "frames": First/last frame interpolation - REQUIRES firstFrame and lastFrame
-  - "extension": Extend existing video - REQUIRES sourceVideo (must be Veo-generated, 720p, max 141s)
+  - "extension": Extend video - REQUIRES sourceVideo: {{previousNode.videoUrl}} (reference a Veo node in this workflow; no upload)
 - aspectRatio: (OPTIONAL, default: "16:9") "16:9" or "9:16"
 - resolution: (OPTIONAL, default: "720p") "720p", "1080p" (8s only), "4k" (8s only)
 - durationSeconds: (OPTIONAL, default: "8") "4", "6", or "8" (extension, reference, 1080p, 4k require 8s)
@@ -783,7 +785,7 @@ When creating or configuring nodes, you MUST:
 - referenceImages: (REQUIRED for "reference" mode) Array of {file: string, filename: string} (up to 3)
 - firstFrame: (REQUIRED for "frames" mode) URL, base64, or {{previousNode.imageUrl}}
 - lastFrame: (REQUIRED for "frames" mode) URL, base64, or {{previousNode.imageUrl}}
-- sourceVideo: (REQUIRED for "extension" mode) URL or {{previousNode.videoUrl}}
+- sourceVideo: (REQUIRED for "extension" mode) Set to {{previousNode.videoUrl}} (e.g. {{veo.videoUrl}}) to identify the previous Veo node. Backend resolves this to that node's veoFileRef for the extend API—not the URL; no upload.
 - CRITICAL: Always set variables field explicitly
 - CRITICAL: For "image", "reference", "frames", or "extension" modes, ensure required fields are provided
 - CRITICAL: Set appropriate defaults: aspectRatio="16:9", resolution="720p", durationSeconds="8" if not specified
@@ -885,9 +887,9 @@ When creating or configuring nodes, you MUST:
   - 1080p and 4k only support 8-second duration
   - Extension and reference image modes require 8-second duration
 - **File References:**
-  - Source images/videos can be URLs, base64, or {{previousNode.imageUrl}} / {{previousNode.videoUrl}}
-  - For extension mode, sourceVideo must be a Veo-generated video (720p, max 141 seconds)
-  - Videos downloaded from URLs automatically detect MIME type from file extension
+  - Source images can be URLs, base64, or {{previousNode.imageUrl}}
+  - For extension mode, sourceVideo must be {{previousNode.videoUrl}} (identifies the node); backend uses that node's veoFileRef for the API—not the URL. No upload; external URLs/uploads rejected.
+  - Videos from URLs (non-extension) automatically detect MIME type from file extension
 - **Output Usage:**
   - Video URL is directly downloadable: {{veo.videoUrl}}
   - Can be referenced in subsequent nodes for extension or other operations
@@ -901,15 +903,12 @@ When creating or configuring nodes, you MUST:
     - Users can override reference images per scene by specifying different referenceImages in that scene's spec
     - This allows character consistency by default, but flexibility to change characters/scenes when needed
   - **Extension Strategy Details:**
-    - First node generates video normally (text/image/reference mode)
-    - Subsequent nodes automatically use extension mode with sourceVideo: {{previousNode.videoUrl}}
+    - First node generates video normally (text/image/reference mode); its output includes videoUrl and veoFileRef.
+    - Subsequent nodes use extension with sourceVideo: {{previousNode.videoUrl}} (e.g. {{veo.videoUrl}}). Backend matches by videoUrl and uses that node's veoFileRef for the extend API—not the URL. No upload.
+    - Extension only accepts the Veo file reference from another Veo node in this workflow; re-uploaded or external videos are rejected.
     - Each extension adds 7 seconds of new content (per Veo 3.1 docs, up to 20 extensions)
-    - **Input video requirements for extension** (per Veo 3.1 docs):
-      - Resolution: 720p (the video being extended must be 720p)
-      - Aspect ratio: 16:9 or 9:16
-      - Length: Up to 141 seconds
-    - Backend generates 8-second extension segments (even though 7 seconds are added)
-    - Maximum output duration: 148 seconds total (141s input + 7s extension)
+    - **Input video requirements for extension** (per Veo 3.1 docs): 720p, 16:9 or 9:16, up to 141 seconds
+    - Backend generates 8-second extension segments. Maximum output duration: 148 seconds total
   - **Separate Strategy Details:**
     - Each node generates independent video file
     - Nodes connected sequentially for context passing

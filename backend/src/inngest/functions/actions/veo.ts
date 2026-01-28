@@ -15,6 +15,7 @@ import {
   type ImageInput,
   type ReferenceImageInput,
   type VideoInput,
+  type VeoFileRef,
 } from "@/services/veoVideoService";
 import { GoogleGenAI } from "@google/genai";
 import { saveVideoToDisk } from "@/lib/videoStorage";
@@ -149,11 +150,15 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "VEO");
 
-    // Consume premium quota (VEO costs 15 credits for beta-testers)
+    // Consume premium quota once per workflow run (must be inside step.run so Inngest
+    // memoizes it across resumes - otherwise every function resume deducts again)
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {
-      await consumePremiumQuota(userId, QUOTA_COST.VEO);
+      await step.run(`veo-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.VEO);
+        return { consumed: true };
+      });
     } catch (quotaError) {
       await publishStatus(publish, step, nodeId, "error");
       const error = new NonRetriableError(
@@ -369,19 +374,31 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
         }
       }
 
-      // Resolve source video for extension
-      let sourceVideo: VideoInput | undefined;
+      // Resolve source video for extension.
+      // You pass e.g. {{veoInitial.videoUrl}} to identify which previous Veo node to extend.
+      // We resolve that to the URL string, then find that URL in context to get that node's
+      // veoFileRef (the Veo API file reference). The extend API is called with veoFileRef.uri—
+      // not the URL. The URL is only used to match which previous node's veoFileRef to use.
+      let sourceVideo: VideoInput | VeoFileRef | undefined;
       if (localMode === "extension") {
         if (!data?.sourceVideo) {
           throw new Error("VEO node: sourceVideo is required for extension mode");
         }
         let videoSource = data.sourceVideo;
-        // Check if it's from a previous node output
         if (videoSource.includes("{{")) {
           videoSource = Handlebars.compile(videoSource)(context);
         }
-        // Check if it's an asset reference
-        if (videoSource.startsWith("asset:")) {
+        // Match by videoUrl to find the previous node, then use its veoFileRef for the API
+        for (const key of Object.keys(context)) {
+          const nodeOut = context[key] as
+            | { videoUrl?: string; veoFileRef?: { uri: string } }
+            | undefined;
+          if (nodeOut?.veoFileRef?.uri && nodeOut.videoUrl === videoSource) {
+            sourceVideo = { uri: nodeOut.veoFileRef.uri };
+            break;
+          }
+        }
+        if (!sourceVideo && videoSource.startsWith("asset:")) {
           const filename = videoSource.replace("asset:", "");
           const asset = assetMap.get(filename);
           if (asset) {
@@ -393,7 +410,7 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
               };
             }
           }
-        } else {
+        } else if (!sourceVideo) {
           const resolved = await resolveFileSource(videoSource, context);
           if (resolved) {
             sourceVideo = {
@@ -478,12 +495,40 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
         throw new Error("Video generation timed out");
       }
 
-      // Download video
-      if (!operation.response?.generatedVideos?.[0]?.video) {
-        throw new Error("No video in operation response");
+      // Check for operation-level error (e.g. content filtered, API error)
+      const opError = (operation as { error?: { message?: string; code?: number } }).error;
+      if (opError?.message) {
+        throw new Error(`Video operation failed: ${opError.message}`);
       }
 
-      const downloadResult = await downloadVideo(operation.response.generatedVideos[0].video);
+      // Download video: SDK maps API's generateVideoResponse.generatedSamples -> response.generatedVideos
+      let generatedVideoFile = operation.response?.generatedVideos?.[0]?.video;
+      if (!generatedVideoFile) {
+        // Fallback: raw API may use different shape (e.g. extension)
+        const rawResponse = (
+          operation as {
+            response?: {
+              generateVideoResponse?: { generatedSamples?: Array<{ video?: { uri?: string } }> };
+            };
+          }
+        ).response as
+          | { generateVideoResponse?: { generatedSamples?: Array<{ video?: { uri?: string } }> } }
+          | undefined;
+        const rawVideo = rawResponse?.generateVideoResponse?.generatedSamples?.[0]?.video;
+        if (rawVideo?.uri) {
+          generatedVideoFile = { uri: rawVideo.uri };
+        }
+      }
+      if (!generatedVideoFile?.uri) {
+        console.error(
+          "[VEO] No video in operation response. operation.response:",
+          JSON.stringify(operation.response, null, 2)
+        );
+        throw new Error(
+          "No video in operation response. The generation may have been filtered or failed; check logs for operation.response."
+        );
+      }
+      const downloadResult = await downloadVideo(generatedVideoFile);
       if (!downloadResult.success) {
         throw new Error(downloadResult.error || "Failed to download video");
       }
@@ -498,6 +543,10 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
       const baseUrl = process.env.API_URL;
       const videoUrl = `${baseUrl}${saveResult.url}`;
 
+      // Expose Veo file reference so extension mode can use it (API only accepts Veo-generated file refs)
+      const veoFileRef =
+        generatedVideoFile?.uri != null ? { uri: generatedVideoFile.uri } : undefined;
+
       return {
         success: true,
         videoUrl,
@@ -505,6 +554,7 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
         aspectRatio: config.aspectRatio,
         resolution: config.resolution,
         durationSeconds: config.durationSeconds,
+        veoFileRef,
       };
     });
 
@@ -513,7 +563,7 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
 
     await publishStatus(publish, step, nodeId, "success");
 
-    // Build result
+    // Build result (include veoFileRef so extension mode can use it for the next Veo node)
     const fullResult = {
       ...context,
       [localVariablesName]: {
@@ -524,6 +574,7 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
         aspectRatio: videoResultFinal.aspectRatio,
         resolution: videoResultFinal.resolution,
         durationSeconds: videoResultFinal.durationSeconds,
+        veoFileRef: videoResultFinal.veoFileRef,
       },
     };
 

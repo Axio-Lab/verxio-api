@@ -380,6 +380,23 @@ model Workflow {
   @@map("workflows")
 }
 
+// Public chat runs: store result for shareable chat (poll until completed)
+model PublicChatRun {
+  id          String    @id @default(cuid())
+  workflowId  String
+  status      String    // PENDING | RUNNING | COMPLETED | FAILED
+  input       Json?     // { message?, image? }
+  output      Json?     // final context or selected response
+  error       String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("public_chat_runs")
+}
+
 model WorkflowTemplate {
   id               String   @id @default(cuid())
   name             String   // Template title (descriptive, keyword-rich)

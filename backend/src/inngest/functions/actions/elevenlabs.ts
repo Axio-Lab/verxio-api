@@ -182,11 +182,14 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "ELEVENLABS");
 
-    // Consume premium quota (ElevenLabs costs 5 credits for beta-testers)
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {
-      await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+      await step.run(`elevenlabs-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+        return { consumed: true };
+      });
     } catch (quotaError) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError(

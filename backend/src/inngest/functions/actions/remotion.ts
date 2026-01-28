@@ -96,11 +96,14 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "REMOTION");
 
-    // Consume premium quota (Remotion costs 15 credits for beta-testers)
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {
-      await consumePremiumQuota(userId, QUOTA_COST.REMOTION);
+      await step.run(`remotion-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.REMOTION);
+        return { consumed: true };
+      });
     } catch (quotaError) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError(

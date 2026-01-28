@@ -196,8 +196,9 @@ export const createVoucherCollection = async (
       }
 
       try {
-        const { generateVoucherCollectionMetadata } =
-          await import("../lib/metadata/generateVoucherCollectionMetadata");
+        const { generateVoucherCollectionMetadata } = await import(
+          "../lib/metadata/generateVoucherCollectionMetadata"
+        );
         finalMetadataUri = await generateVoucherCollectionMetadata({
           voucherCollectionName,
           merchantName,

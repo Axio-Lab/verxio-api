@@ -11,11 +11,11 @@ import {
   EntityList,
   EntityItem,
 } from "../editor/entity-component";
-import { useDeleteWorkflow, Workflow } from "@/hooks/useWorkflows";
+import { useDeleteWorkflow, useTriggerInfo, Workflow } from "@/hooks/useWorkflows";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
-import { WorkflowIcon, TrashIcon, FileOutput } from "lucide-react";
+import { WorkflowIcon, TrashIcon, FileOutput, Link2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ExportWorkflowTemplateDialog } from "./export-workflow-template-dialog";
@@ -149,6 +149,7 @@ export const WorkflowsList = ({ workflows }: { workflows: Workflow[] }) => {
 
 export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
   const deleteWorkflow = useDeleteWorkflow();
+  const triggerInfo = useTriggerInfo();
   const { subscription } = useSubscription();
   const { user } = useAuth();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -170,7 +171,30 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
     }
   };
 
+  const handleCopyUrl = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await triggerInfo.mutateAsync(workflow.id);
+      if (res.shareable && res.publicChatUrl) {
+        await navigator.clipboard.writeText(res.publicChatUrl);
+        toast.success("Shareable link copied to clipboard");
+      } else {
+        toast.info("Add a Webhook trigger to this workflow to enable shareable chat.");
+      }
+    } catch {
+      toast.error("Failed to get shareable link");
+    }
+  };
+
   const dropdownItems = [
+    {
+      label: "Copy URL",
+      onClick: handleCopyUrl,
+      icon: <Link2 className="size-4" />,
+      disabled: triggerInfo.isPending,
+      loading: triggerInfo.isPending,
+    },
     {
       label: "Export as template",
       onClick: handleExportClick,
