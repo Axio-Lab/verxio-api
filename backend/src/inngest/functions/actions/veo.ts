@@ -149,6 +149,30 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "VEO");
 
+    // Consume premium quota (VEO costs 15 credits for beta-testers)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await consumePremiumQuota(userId, QUOTA_COST.VEO);
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`publish-error-quota-${nodeId}`, async () => {
+        await publish(
+          veoChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: { message: error.message },
+            },
+          })
+        );
+      });
+      throw error;
+    }
+
     await publishStatus(publish, step, nodeId, "loading");
 
     // Extract data to primitives

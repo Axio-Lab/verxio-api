@@ -149,6 +149,28 @@ export const apifyExecutor: NodeExecutor<ApifyData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "APIFY");
 
+    // Consume premium quota (Apify costs 5 credits for beta-testers)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+    } catch (quotaError) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await publish(
+        apifyChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: { message: error.message },
+          },
+        })
+      );
+      throw error;
+    }
+
     await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "apify";

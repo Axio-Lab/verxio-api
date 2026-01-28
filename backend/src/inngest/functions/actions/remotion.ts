@@ -96,6 +96,28 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "REMOTION");
 
+    // Consume premium quota (Remotion costs 15 credits for beta-testers)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await consumePremiumQuota(userId, QUOTA_COST.REMOTION);
+    } catch (quotaError) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await publish(
+        remotionChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: { message: error.message },
+          },
+        })
+      );
+      throw error;
+    }
+
     await publishStatus(publish, nodeId, "loading");
 
     // CRITICAL: Extract ALL data into primitives IMMEDIATELY

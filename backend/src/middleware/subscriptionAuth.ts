@@ -13,7 +13,7 @@ import {
   NODE_TYPE_TO_FEATURE,
   type SubscriptionFeature,
 } from "@/config/subscription-features";
-export { checkRateLimit } from "./subscriptionRateLimit";
+export { checkRateLimit, checkQuota } from "./subscriptionRateLimit";
 
 /**
  * Middleware to check if user has active subscription

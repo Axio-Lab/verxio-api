@@ -11,15 +11,20 @@ import {
   getUserInsights,
 } from "../services/planningService";
 import { prisma as prismaClient } from "../lib/prisma";
-import { requireFeature, checkRateLimit } from "../middleware/subscriptionAuth";
+import { requireFeature } from "../middleware/subscriptionAuth";
+import { checkQuota } from "../middleware/subscriptionRateLimit";
 import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
+import { QUOTA_COST } from "../config/rate-limits";
 
 export const planningRouter: Router = Router();
 
 // Apply Better Auth middleware to all routes
 planningRouter.use(betterAuthMiddleware);
-// Apply subscription and rate limiting middleware
-planningRouter.use(requireFeature(SUBSCRIPTION_FEATURES.PLAN_NODE), checkRateLimit);
+// Apply subscription and rate limiting middleware (Plan node costs 10 credits)
+planningRouter.use(
+  requireFeature(SUBSCRIPTION_FEATURES.PLAN_NODE),
+  checkQuota(QUOTA_COST.PLAN_NODE)
+);
 
 /**
  * GET /planning/workflow/:workflowId

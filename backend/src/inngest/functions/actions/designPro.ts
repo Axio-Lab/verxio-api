@@ -116,6 +116,30 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "DESIGN_PRO");
 
+    // Consume premium quota (Design Agent Pro costs 10 credits for beta-testers)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await consumePremiumQuota(userId, QUOTA_COST.DESIGN_AGENT_PRO);
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`publish-output-error-quota-${nodeId}`, async () => {
+        await publish(
+          designProChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: { message: error.message },
+            },
+          })
+        );
+      });
+      throw error;
+    }
+
     await publishStatus(publish, step, nodeId, "loading");
 
     // Extract minimal data into primitives to avoid capturing large data object in closure

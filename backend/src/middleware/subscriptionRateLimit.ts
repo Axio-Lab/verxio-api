@@ -1,86 +1,65 @@
 /**
  * Subscription Rate Limiting Middleware
  *
- * Enforces rate limits for promotional plans and tracks usage.
+ * Enforces rate limits for beta-testers only using credit-based quota system.
  */
 
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "./errorHandler";
-import { prisma } from "@/lib/prisma";
-import { getRateLimitConfig, calculateResetTime } from "@/config/rate-limits";
-import { getUserSubscription } from "@/services/subscriptionService";
+import { consumePremiumQuota, getUserSubscription } from "@/services/subscriptionService";
+import { BETA_TESTER_DAILY_CREDITS } from "@/config/rate-limits";
 
 /**
- * Middleware to check and enforce rate limits
+ * Middleware factory to check and enforce rate limits with a specific cost
+ * @param cost - Number of credits to consume for this action
  */
-export const checkRateLimit = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = (req as any).user;
+export const checkQuota = (cost: number) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
 
-    if (!user || !user.id) {
-      throw new AppError("Authentication required", 401);
+      if (!user || !user.id) {
+        throw new AppError("Authentication required", 401);
+      }
+
+      // Consume quota (only enforces for beta-testers, no-op for others)
+      try {
+        await consumePremiumQuota(user.id, cost);
+      } catch (error) {
+        // If it's a quota exceeded error, return 429
+        if (error instanceof Error && error.message.includes("Rate limit exceeded")) {
+          throw new AppError(error.message, 429);
+        }
+        // Re-throw other errors
+        throw error;
+      }
+
+      // Get updated subscription to set headers
+      const subscription = await getUserSubscription(user.id);
+      if (subscription && subscription.subscriptionPlan === "beta-tester") {
+        const resetTime = subscription.rateLimitResetAt
+          ? new Date(subscription.rateLimitResetAt).getTime()
+          : Date.now() + 24 * 60 * 60 * 1000; // Fallback: 24h from now
+
+        // Add rate limit headers to response
+        res.setHeader("X-RateLimit-Limit", BETA_TESTER_DAILY_CREDITS.toString());
+        res.setHeader("X-RateLimit-Remaining", (subscription.rateLimitRemaining ?? 0).toString());
+        res.setHeader("X-RateLimit-Reset", resetTime.toString());
+      }
+
+      next();
+    } catch (error) {
+      if (error instanceof AppError) {
+        return next(error);
+      }
+      next(new AppError("Rate limit check failed", 500));
     }
-
-    // Get user subscription
-    const subscription = await getUserSubscription(user.id);
-
-    if (!subscription || !subscription.isSubscribed) {
-      // No subscription, no rate limiting (will be blocked by subscription middleware)
-      return next();
-    }
-
-    // Get rate limit config for the plan
-    const rateLimitConfig = getRateLimitConfig(subscription.subscriptionPlan);
-
-    // Check if we need to reset the limit
-    const now = new Date();
-    let rateLimitRemaining = subscription.rateLimitRemaining;
-    let rateLimitResetAt = subscription.rateLimitResetAt;
-
-    if (!rateLimitResetAt || rateLimitResetAt < now) {
-      // Reset the limit
-      rateLimitResetAt = calculateResetTime(
-        rateLimitConfig,
-        subscription.rateLimitResetAt ? new Date(subscription.rateLimitResetAt) : null
-      );
-      rateLimitRemaining = rateLimitConfig.requestsPerPeriod;
-    }
-
-    // Check if user has remaining requests
-    if (rateLimitRemaining <= 0) {
-      const resetTime = rateLimitResetAt.toISOString();
-      throw new AppError(
-        `Rate limit exceeded. You have used all ${rateLimitConfig.requestsPerPeriod} requests for this ${rateLimitConfig.period}. Limit resets at ${new Date(resetTime).toLocaleString()}.`,
-        429
-      );
-    }
-
-    // Decrement remaining requests
-    const newRemaining = rateLimitRemaining - 1;
-
-    // Update database (async, don't wait)
-    prisma.user
-      .update({
-        where: { id: user.id },
-        data: {
-          rateLimitRemaining: newRemaining,
-          rateLimitResetAt,
-        },
-      })
-      .catch((error) => {
-        console.error("[RateLimit] Error updating rate limit:", error);
-      });
-
-    // Add rate limit headers to response
-    res.setHeader("X-RateLimit-Limit", rateLimitConfig.requestsPerPeriod.toString());
-    res.setHeader("X-RateLimit-Remaining", newRemaining.toString());
-    res.setHeader("X-RateLimit-Reset", rateLimitResetAt.getTime().toString());
-
-    next();
-  } catch (error) {
-    if (error instanceof AppError) {
-      return next(error);
-    }
-    next(new AppError("Rate limit check failed", 500));
-  }
+  };
 };
+
+/**
+ * Legacy middleware for backward compatibility
+ * Uses cost of 1 (for routes that haven't been updated yet)
+ * @deprecated Use checkQuota(cost) instead
+ */
+export const checkRateLimit = checkQuota(1);

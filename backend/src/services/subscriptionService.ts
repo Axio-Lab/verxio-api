@@ -10,7 +10,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { getPlanFeatures, type SubscriptionFeature } from "@/config/subscription-features";
-import { getRateLimitConfig, calculateResetTime } from "@/config/rate-limits";
+import {
+  getRateLimitConfig,
+  calculateResetTime,
+  BETA_TESTER_DAILY_CREDITS,
+} from "@/config/rate-limits";
 
 export interface SubscriptionUpdateParams {
   userId: string;
@@ -37,6 +41,10 @@ export async function updateSubscription(
     const rateLimitConfig = getRateLimitConfig(plan);
     const resetTime = calculateResetTime(rateLimitConfig, null);
 
+    // For beta-testers, use daily credits; for others use config
+    const initialQuota =
+      plan === "beta-tester" ? BETA_TESTER_DAILY_CREDITS : rateLimitConfig.requestsPerPeriod;
+
     // Update user subscription
     await prisma.user.update({
       where: { id: userId },
@@ -46,7 +54,7 @@ export async function updateSubscription(
         ...(expiresAt !== undefined && { subscriptionExpiresAt: expiresAt }),
         ...(polarCustomerId !== undefined && { polarCustomerId }),
         subscriptionFeatures: planFeatures,
-        rateLimitRemaining: rateLimitConfig.requestsPerPeriod,
+        rateLimitRemaining: initialQuota,
         rateLimitResetAt: resetTime,
       },
     });
@@ -147,14 +155,44 @@ export async function getUserSubscription(userId: string) {
         ? user.subscriptionFeatures
         : getPlanFeatures(user.subscriptionPlan);
 
+    // For beta-testers, use the daily credits constant; for others use config
+    const rateLimitTotal =
+      user.subscriptionPlan === "beta-tester"
+        ? BETA_TESTER_DAILY_CREDITS
+        : rateLimitConfig.requestsPerPeriod;
+
+    let rateLimitRemaining = user.rateLimitRemaining ?? 0;
+    let rateLimitResetAt = user.rateLimitResetAt;
+
+    // Beta-testers: if reset time is null or in the past, reset quota to full and persist
+    if (
+      user.subscriptionPlan === "beta-tester" &&
+      isActive &&
+      (!rateLimitResetAt || new Date(rateLimitResetAt) <= new Date())
+    ) {
+      const nextReset = calculateResetTime(
+        getRateLimitConfig("beta-tester"),
+        rateLimitResetAt ? new Date(rateLimitResetAt) : null
+      );
+      rateLimitRemaining = BETA_TESTER_DAILY_CREDITS;
+      rateLimitResetAt = nextReset;
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          rateLimitRemaining: BETA_TESTER_DAILY_CREDITS,
+          rateLimitResetAt: nextReset,
+        },
+      });
+    }
+
     return {
       subscriptionStatus: user.subscriptionStatus,
       subscriptionPlan: user.subscriptionPlan,
       subscriptionExpiresAt: user.subscriptionExpiresAt,
       features: features,
-      rateLimitRemaining: user.rateLimitRemaining,
-      rateLimitTotal: rateLimitConfig.requestsPerPeriod,
-      rateLimitResetAt: user.rateLimitResetAt,
+      rateLimitRemaining,
+      rateLimitTotal,
+      rateLimitResetAt,
       isSubscribed: isActive,
       planDisplayName: getPlanDisplayName(user.subscriptionPlan) ?? "Free",
     };
@@ -183,6 +221,108 @@ function getPlanDisplayName(plan: string | null | undefined): string {
       return "Enterprise";
     default:
       return plan.charAt(0).toUpperCase() + plan.slice(1);
+  }
+}
+
+/**
+ * Consume premium quota credits for beta-testers only
+ * Throws error if quota exceeded or not enough credits
+ */
+export async function consumePremiumQuota(userId: string, cost: number): Promise<void> {
+  try {
+    // Get user subscription
+    const subscription = await getUserSubscription(userId);
+
+    if (!subscription || !subscription.isSubscribed) {
+      // No subscription, no quota enforcement (will be blocked by feature check)
+      return;
+    }
+
+    // Only enforce quota for beta-testers
+    if (subscription.subscriptionPlan !== "beta-tester") {
+      // Pro and other plans are not rate limited
+      return;
+    }
+
+    // Get current user data to check reset time
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        rateLimitRemaining: true,
+        rateLimitResetAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const now = new Date();
+
+    // Use a transaction to ensure atomicity: check reset, check credits, and decrement all in one
+    await prisma.$transaction(async (tx) => {
+      // Re-read the current value within transaction to ensure consistency
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          rateLimitRemaining: true,
+          rateLimitResetAt: true,
+        },
+      });
+
+      if (!currentUser) {
+        throw new Error("User not found");
+      }
+
+      let currentRemaining = currentUser.rateLimitRemaining ?? 0;
+      let currentResetAt = currentUser.rateLimitResetAt;
+
+      // Check if we need to reset the quota (past reset time)
+      if (!currentResetAt || new Date(currentResetAt) < now) {
+        // Reset the quota to full daily credits
+        currentResetAt = calculateResetTime(
+          getRateLimitConfig("beta-tester"),
+          currentResetAt ? new Date(currentResetAt) : null
+        );
+        currentRemaining = BETA_TESTER_DAILY_CREDITS;
+      }
+
+      // Check if user has enough credits
+      if (currentRemaining < cost) {
+        const resetTime = currentResetAt ? new Date(currentResetAt).toLocaleString() : "soon";
+        throw new Error(
+          `Rate limit exceeded. Not enough credits (need ${cost}, have ${currentRemaining}). Limit resets at ${resetTime}.`
+        );
+      }
+
+      // Update: reset time (if needed) and decrement credits atomically
+      if (currentResetAt !== currentUser.rateLimitResetAt) {
+        // If we reset, set the new values explicitly
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            rateLimitRemaining: currentRemaining - cost,
+            rateLimitResetAt: currentResetAt,
+          },
+        });
+      } else {
+        // Otherwise, just decrement
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            rateLimitRemaining: {
+              decrement: cost,
+            },
+          },
+        });
+      }
+    });
+  } catch (error) {
+    // Re-throw if it's already an Error with message
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Failed to consume premium quota");
   }
 }
 
