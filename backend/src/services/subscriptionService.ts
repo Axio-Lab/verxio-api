@@ -327,7 +327,8 @@ export async function consumePremiumQuota(userId: string, cost: number): Promise
 }
 
 /**
- * Revoke subscription access
+ * Revoke subscription access (e.g. order refunded, subscription canceled/revoked).
+ * Sets plan to "free", status to "canceled", and clears features/quota so the user row and UI show "Free".
  */
 export async function revokeSubscription(userId: string): Promise<{ success: boolean }> {
   try {
@@ -335,8 +336,11 @@ export async function revokeSubscription(userId: string): Promise<{ success: boo
       where: { id: userId },
       data: {
         subscriptionStatus: "canceled",
+        subscriptionPlan: "free",
+        subscriptionExpiresAt: null,
         subscriptionFeatures: [],
         rateLimitRemaining: 0,
+        rateLimitResetAt: null,
       },
     });
 

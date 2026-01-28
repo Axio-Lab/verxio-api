@@ -89,3 +89,14 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
       return [];
   }
 }
+
+/**
+ * Map Polar product ID to plan name (for webhooks)
+ * Set POLAR_BETA_TESTER_PRODUCT_ID, POLAR_PRO_PRODUCT_ID in env.
+ */
+export function getPlanFromProductId(productId: string | null | undefined): string {
+  if (!productId) return "beta-tester";
+  if (productId === process.env.POLAR_BETA_TESTER_PRODUCT_ID) return "beta-tester";
+  if (productId === process.env.POLAR_PRO_PRODUCT_ID) return "pro";
+  return "beta-tester";
+}
