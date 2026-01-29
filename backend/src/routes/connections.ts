@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import * as connectionService from "../services/connectionService";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
-import { UserConnectionType } from "@prisma/client";
+import { UserConnectionType } from "../../node_modules/.prisma/client";
 
 export const connectionRouter: Router = Router();
 

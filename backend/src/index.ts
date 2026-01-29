@@ -1,8 +1,8 @@
+import "dotenv/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { serve } from "inngest/express";
 import { errorHandler } from "./middleware/errorHandler";
@@ -39,9 +39,6 @@ import { inngest } from "./inngest";
 import { functions } from "./inngest/functions";
 import { initializeCronScheduler } from "./services/cron-scheduler";
 import path from "path";
-
-// Load environment variables
-dotenv.config();
 
 const app: express.Application = express();
 

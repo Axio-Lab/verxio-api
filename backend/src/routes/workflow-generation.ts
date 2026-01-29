@@ -196,9 +196,8 @@ workflowGenerationRouter.post(
 
           if (workflow) {
             // Generate summary
-            const { generateWorkflowSummary } = await import(
-              "../services/workflowGenerationService"
-            );
+            const { generateWorkflowSummary } =
+              await import("../services/workflowGenerationService");
             const nodes = workflow.nodes.map((node: any) => ({
               id: node.id,
               type: node.type,

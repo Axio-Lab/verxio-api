@@ -1,5 +1,4 @@
 import { inngest } from "../index";
-import { getWorkflow } from "../../services/workflowService";
 import { NonRetriableError } from "inngest";
 import { topologicalSort } from "../utils";
 import { getExecutor } from "./executor-registry";

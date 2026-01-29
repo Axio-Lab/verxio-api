@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "../../node_modules/.prisma/client";
 import { getPlanFeatures, type SubscriptionFeature } from "@/config/subscription-features";
 import {
   getRateLimitConfig,
@@ -260,7 +261,7 @@ export async function consumePremiumQuota(userId: string, cost: number): Promise
     const now = new Date();
 
     // Use a transaction to ensure atomicity: check reset, check credits, and decrement all in one
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Re-read the current value within transaction to ensure consistency
       const currentUser = await tx.user.findUnique({
         where: { id: userId },
