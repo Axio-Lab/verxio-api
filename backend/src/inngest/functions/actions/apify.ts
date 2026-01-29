@@ -145,6 +145,7 @@ export const apifyExecutor: NodeExecutor<ApifyData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "APIFY");
@@ -173,8 +174,6 @@ export const apifyExecutor: NodeExecutor<ApifyData> = async ({
       );
       throw error;
     }
-
-    await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "apify";
 

@@ -255,3 +255,24 @@ select option {
 .react-flow__node.selected #base-node {
   @apply ring-2 ring-muted-foreground/25 shadow-lg;
 }
+
+/* Edge pulse animation for loading/executing connections */
+@keyframes flowPulse {
+  0% {
+    stroke-dashoffset: 50;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Glow pulse for edges during execution */
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

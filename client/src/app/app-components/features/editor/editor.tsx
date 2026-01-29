@@ -30,6 +30,13 @@ import type { ExistingNode, ExistingConnection } from "./workflow-generation-pan
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/useSubscription";
+import { AnimatedEdge } from "./animated-edge";
+import { useWorkflowOutputsSync } from "../executions/hooks/use-workflow-outputs-sync";
+
+// Custom edge types for animated connections during execution
+const edgeTypes = {
+  default: AnimatedEdge,
+};
 import { toast } from "sonner";
 
 export const EditorLoader = () => {
@@ -46,6 +53,10 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const { subscription } = useSubscription();
   const hasGenerateWorkflowAccess =
     subscription?.features?.includes("generate-workflow-with-ai") ?? false;
+
+  // Subscribe to all workflow outputs and populate global store
+  // This allows OUTPUT nodes to read from any source node immediately
+  useWorkflowOutputsSync();
 
   // Use ref to store the latest delete handler to avoid recreating nodes
   const deleteHandlerRef = useRef<(nodeId: string) => void>();
@@ -282,6 +293,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         nodes={displayNodes}
         edges={edges}
         nodeTypes={NodeComponents}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -297,6 +309,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         defaultEdgeOptions={{
           deletable: true,
           selectable: true,
+          type: "default", // Use our custom animated edge
         }}
       >
         <Background />

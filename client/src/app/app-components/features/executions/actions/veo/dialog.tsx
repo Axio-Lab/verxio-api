@@ -71,6 +71,10 @@ const RESOLUTION_VALUES = RESOLUTIONS.map((r) => r.value) as [string, ...string[
 const DURATION_VALUES = DURATIONS.map((d) => d.value) as [string, ...string[]];
 const MODE_VALUES = MODES.map((m) => m.value) as [string, ...string[]];
 
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const IMAGE_SIZE_ERROR_MSG =
+  "Image exceeds 5MB. Please compress the image to under 5MB and try again.";
+
 const formSchema = z.object({
   variables: z
     .string()
@@ -129,6 +133,7 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
   const [firstFrameFile, setFirstFrameFile] = useState<FileData | null>(null);
   const [lastFrameFile, setLastFrameFile] = useState<FileData | null>(null);
   const [sourceVideoFile, setSourceVideoFile] = useState<FileData | null>(null);
+  const [imageSizeError, setImageSizeError] = useState<string | null>(null);
   const sourceImageInputRef = useRef<HTMLInputElement>(null);
   const referenceImagesInputRef = useRef<HTMLInputElement>(null);
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
@@ -190,11 +195,14 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
   const handleSourceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageSizeError(IMAGE_SIZE_ERROR_MSG);
+      toast.error(IMAGE_SIZE_ERROR_MSG);
       return;
     }
+    setImageSizeError(null);
 
     const base64 = await fileToBase64(file);
     const mimeType = getMimeType(file);
@@ -207,18 +215,27 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
   const handleReferenceImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+    e.target.value = "";
 
     if (referenceImageFiles.length + files.length > 3) {
       toast.error("Maximum 3 reference images allowed");
       return;
     }
 
+    const oversized = files.filter((f) => f.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversized.length > 0) {
+      const msg =
+        oversized.length === 1
+          ? `${oversized[0].name} exceeds 5MB. Please compress the image and try again.`
+          : `${oversized.map((f) => f.name).join(", ")} exceed 5MB. Please compress and try again.`;
+      setImageSizeError(msg);
+      toast.error(msg);
+    }
+    const validFiles = files.filter((f) => f.size <= MAX_IMAGE_SIZE_BYTES);
+    if (validFiles.length > 0) setImageSizeError(null);
+
     const newFiles: FileData[] = [];
-    for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is larger than 5MB`);
-        continue;
-      }
+    for (const file of validFiles) {
       const base64 = await fileToBase64(file);
       const mimeType = getMimeType(file);
       newFiles.push({ file, base64, filename: file.name, mimeType });
@@ -236,11 +253,14 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
   const handleFirstFrameUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageSizeError(IMAGE_SIZE_ERROR_MSG);
+      toast.error(IMAGE_SIZE_ERROR_MSG);
       return;
     }
+    setImageSizeError(null);
 
     const base64 = await fileToBase64(file);
     const mimeType = getMimeType(file);
@@ -253,11 +273,14 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
   const handleLastFrameUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageSizeError(IMAGE_SIZE_ERROR_MSG);
+      toast.error(IMAGE_SIZE_ERROR_MSG);
       return;
     }
+    setImageSizeError(null);
 
     const base64 = await fileToBase64(file);
     const mimeType = getMimeType(file);
@@ -295,6 +318,7 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
 
   useEffect(() => {
     if (open) {
+      setImageSizeError(null);
       form.reset({
         variables: defaultValues.variables || "veo",
         mode: defaultValues.mode || "text",
@@ -423,14 +447,20 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
-              <Alert>
+              <Alert variant="default" className="border-muted">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>File Size Limit:</strong> Each uploaded file (images/videos) must not
-                  exceed 5MB. For Extend Video mode, reference a previous Veo node (e.g.{" "}
-                  {"{{veo.videoUrl}}"})—no upload.
+                  <strong>File size limit:</strong> Each image must not exceed 5MB. Please compress
+                  large images before uploading. For Extend Video mode, reference a previous Veo
+                  node (e.g. {"{{veo.videoUrl}}"})—no upload.
                 </AlertDescription>
               </Alert>
+              {imageSizeError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{imageSizeError}</AlertDescription>
+                </Alert>
+              )}
 
               <FormField
                 control={form.control}
@@ -558,6 +588,7 @@ export const VeoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: 
                               className="absolute top-2 right-2"
                               onClick={() => {
                                 setSourceImageFile(null);
+                                setImageSizeError(null);
                                 form.setValue("sourceImage", "");
                                 form.setValue("sourceImageFilename", "");
                                 if (sourceImageInputRef.current) {

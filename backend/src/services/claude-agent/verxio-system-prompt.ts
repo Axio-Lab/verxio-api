@@ -246,6 +246,25 @@ const NODE_TYPES_DOCUMENTATION = `
 - **File Size Limits:** Each uploaded file must not exceed 5MB
 - Output: { success: boolean, videoUrl: string }
 - **When to use:** Use REMOTION for motion graphics, animated designs, code-based video generation, or when you need programmatic control over video composition. Use VEO for photorealistic video generation with audio.
+
+**OUTPUT**
+- Fields: { variables: string (REQUIRED), contentType: "image"|"video"|"audio" (REQUIRED, default: "image"), imageSource?: string, videoSource?: string, audioSource?: string, outputFilename?: string }
+- **Content Types - SELECT BASED ON PREVIOUS NODE:**
+  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO)
+  - "video": Use when previous node outputs video (VEO, REMOTION)
+  - "audio": Use when previous node outputs audio (ELEVENLABS)
+- **CRITICAL: Match contentType to Previous Node:**
+  - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
+  - After VEO → contentType: "video", videoSource: "{{veo.videoUrl}}"
+  - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
+  - After ELEVENLABS → contentType: "audio", audioSource: "{{elevenlabs.audioUrl}}"
+- **Features:**
+  - Image: Preview with lightbox (full size view), open in new tab
+  - Video: Built-in HTML5 player with controls (play/pause), open in new tab
+  - Audio: Built-in HTML5 audio player with controls, open in new tab
+- Output: { content: string, contentType: string, filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }
+- **When to use:** Use OUTPUT as the final node in a workflow to display and preview generated media content (images, videos, audio). ALWAYS set the correct contentType based on what the previous node produces.
+- **NOTE:** OUTPUT is a display-only node - it immediately shows content when the source node completes. The workflow continues to the next node without waiting.
 `;
 
 // ============================================
@@ -412,6 +431,18 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{veo.aspectRatio}} - Video aspect ratio ("16:9", "9:16")
   - {{veo.durationSeconds}} - Video duration in seconds
 - Extension: set sourceVideo to {{veo.videoUrl}}; backend uses that node's veoFileRef for the extend API—not the URL.
+
+**OUTPUT** (if variables: "output")
+- Outputs: { content: string, contentType: "image"|"video"|"audio", filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }
+- Template examples:
+  - {{output.content}} - The resolved content URL
+  - {{output.contentType}} - Type of content: "image", "video", or "audio"
+  - {{output.imageUrl}} - Image URL (if contentType is "image")
+  - {{output.videoUrl}} - Video URL (if contentType is "video")
+  - {{output.audioUrl}} - Audio URL (if contentType is "audio")
+  - {{output.filename}} - Custom filename for downloads
+- **When to use:** Use OUTPUT to display and preview media content (images, videos, audio) from workflow results
+- **NOTE:** OUTPUT is a display-only node and does not block workflow execution
 `;
 
 // ============================================

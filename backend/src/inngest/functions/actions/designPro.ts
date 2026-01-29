@@ -112,6 +112,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, step, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "DESIGN_PRO");
@@ -142,8 +143,6 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       });
       throw error;
     }
-
-    await publishStatus(publish, step, nodeId, "loading");
 
     // Extract minimal data into primitives to avoid capturing large data object in closure
     const localVariablesName = String(data?.variables || "designPro");
@@ -197,87 +196,71 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       throw error;
     }
 
-    // CRITICAL: Load images from database inside step to avoid closure capture
-    // Store local values for use inside step
-    const stepLocalMode = localMode;
-    const stepLocalNodeId = localNodeId;
+    // Load images from database DIRECTLY (not in step.run to avoid Inngest output size limit)
+    // Inngest has a ~4MB limit on step outputs, and base64 images can easily exceed this
+    const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
+      where: { nodeId: localNodeId },
+    });
 
-    // Load images from database (same approach as remotion)
-    const imageData = await step.run("load-design-pro-images", async () => {
-      // Load assets from database (inside step - not in closure)
-      const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
-        where: { nodeId: stepLocalNodeId },
-      });
-
-      // Reconstruct sourceImage and referenceImages from database
-      // For edit/editWithReferences modes, first image is sourceImage, rest are referenceImages
-      let sourceImage: string | undefined;
-      let sourceImageMimeType: string | undefined;
-      let sourceImageFilename: string | undefined;
-      const referenceImages: Array<{
+    // Reconstruct sourceImage and referenceImages from database
+    let imageData: {
+      sourceImage?: string;
+      sourceImageMimeType?: string;
+      sourceImageFilename?: string;
+      referenceImages: Array<{
         image: string;
         filename: string;
         mimeType?: string;
         type?: "object" | "human";
-      }> = [];
+      }>;
+    } = { referenceImages: [] };
 
-      if (nodeAssets.length > 0) {
-        if (stepLocalMode === "edit") {
-          // For edit mode, first image is source image
-          const firstAsset = nodeAssets[0];
-          if (firstAsset && firstAsset.fileData) {
-            sourceImage = firstAsset.fileData;
-            sourceImageMimeType = firstAsset.fileData.startsWith("data:")
-              ? firstAsset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
-              : "image/png";
-            sourceImageFilename = firstAsset.filename;
-          }
-          // Rest are reference images
-          for (let i = 1; i < nodeAssets.length; i++) {
-            const asset = nodeAssets[i];
-            referenceImages.push({
-              image: asset.fileData,
-              filename: asset.filename,
-              mimeType: asset.fileData.startsWith("data:")
-                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
-                : "image/png",
-            });
-          }
-        } else if (stepLocalMode === "editWithReferences") {
-          // For editWithReferences mode, source image is optional
-          // If sourceImage exists in node.data, it will be loaded separately
-          // All assets from the database are treated as reference images
-          // (The sourceImage, if provided, comes from node.data.sourceImage, not from assets)
-          for (const asset of nodeAssets) {
-            referenceImages.push({
-              image: asset.fileData,
-              filename: asset.filename,
-              mimeType: asset.fileData.startsWith("data:")
-                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
-                : "image/png",
-            });
-          }
-        } else {
-          // For generate mode, all images are reference images (if any)
-          for (const asset of nodeAssets) {
-            referenceImages.push({
-              image: asset.fileData,
-              filename: asset.filename,
-              mimeType: asset.fileData.startsWith("data:")
-                ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
-                : "image/png",
-            });
-          }
+    if (nodeAssets.length > 0) {
+      if (localMode === "edit") {
+        // For edit mode, first image is source image
+        const firstAsset = nodeAssets[0];
+        if (firstAsset && firstAsset.fileData) {
+          imageData.sourceImage = firstAsset.fileData;
+          imageData.sourceImageMimeType = firstAsset.fileData.startsWith("data:")
+            ? firstAsset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+            : "image/png";
+          imageData.sourceImageFilename = firstAsset.filename;
+        }
+        // Rest are reference images
+        for (let i = 1; i < nodeAssets.length; i++) {
+          const asset = nodeAssets[i];
+          imageData.referenceImages.push({
+            image: asset.fileData,
+            filename: asset.filename,
+            mimeType: asset.fileData.startsWith("data:")
+              ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png",
+          });
+        }
+      } else if (localMode === "editWithReferences") {
+        // For editWithReferences mode, all assets are reference images
+        for (const asset of nodeAssets) {
+          imageData.referenceImages.push({
+            image: asset.fileData,
+            filename: asset.filename,
+            mimeType: asset.fileData.startsWith("data:")
+              ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png",
+          });
+        }
+      } else {
+        // For generate mode, all images are reference images (if any)
+        for (const asset of nodeAssets) {
+          imageData.referenceImages.push({
+            image: asset.fileData,
+            filename: asset.filename,
+            mimeType: asset.fileData.startsWith("data:")
+              ? asset.fileData.match(/data:([^;]+)/)?.[1] || "image/png"
+              : "image/png",
+          });
         }
       }
-
-      return {
-        sourceImage,
-        sourceImageMimeType,
-        sourceImageFilename,
-        referenceImages,
-      };
-    });
+    }
 
     // Parse prompt - handle JSON format or backward-compatible string format
     let promptSpec: any;

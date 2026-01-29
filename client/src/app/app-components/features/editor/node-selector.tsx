@@ -10,6 +10,7 @@ import {
   Code2,
   Palette,
   Video,
+  Download,
 } from "lucide-react";
 import {
   Sheet,
@@ -273,6 +274,13 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Generate high-fidelity videos with Veo 3.1. Supports text-to-video, image-to-video, reference images, and video extension.",
     icon: Video,
+  },
+  {
+    type: NodeType.OUTPUT,
+    label: "Output",
+    description:
+      "Display and download workflow outputs. Supports images, videos, and audio with preview and download features.",
+    icon: Download,
   },
 ];
 
@@ -905,6 +913,19 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             durationSeconds: "8",
           },
           type: NodeType.VEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.OUTPUT) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Output",
+            variables: "output",
+            contentType: "image",
+          },
+          type: NodeType.OUTPUT,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

@@ -3,12 +3,14 @@ import { FlaskConicalIcon, Loader2 } from "lucide-react";
 import { useTriggerWorkflow } from "@/hooks/useWorkflows";
 import { useAtomValue } from "jotai";
 import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
+import { useResetWorkflowOutputs } from "@/app/app-components/features/editor/workflow-outputs-store";
 import { toast } from "sonner";
 import { useRef, useCallback, useState, useEffect } from "react";
 
 export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) => {
   const triggerWorkflow = useTriggerWorkflow();
   const hasUnsavedChanges = useAtomValue(hasUnsavedChangesAtom);
+  const resetWorkflowOutputs = useResetWorkflowOutputs();
   const lastClickTimeRef = useRef<number>(0);
   const DEBOUNCE_MS = 1000; // 2 seconds debounce
 
@@ -41,6 +43,9 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
       // Set executing state immediately
       setIsExecuting(true);
 
+      // Reset workflow outputs from previous execution
+      resetWorkflowOutputs();
+
       // Clear any existing timeout
       if (executionTimeoutRef.current) {
         clearTimeout(executionTimeoutRef.current);
@@ -62,7 +67,7 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
       console.error("Failed to trigger workflow:", error);
       setIsExecuting(false);
     }
-  }, [workflowId, hasUnsavedChanges, triggerWorkflow, isExecuting]);
+  }, [workflowId, hasUnsavedChanges, triggerWorkflow, isExecuting, resetWorkflowOutputs]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

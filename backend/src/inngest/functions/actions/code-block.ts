@@ -37,6 +37,7 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "CODE_BLOCK");
@@ -65,8 +66,6 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
       );
       throw error;
     }
-
-    await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "result";
 

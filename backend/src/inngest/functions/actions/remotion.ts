@@ -92,6 +92,7 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "REMOTION");
@@ -120,8 +121,6 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
       );
       throw error;
     }
-
-    await publishStatus(publish, nodeId, "loading");
 
     // CRITICAL: Extract ALL data into primitives IMMEDIATELY
     // data should NOT contain assets (getWorkflowForExecution doesn't merge them)

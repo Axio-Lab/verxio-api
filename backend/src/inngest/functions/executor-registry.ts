@@ -34,6 +34,7 @@ import { loyaltyDealExecutor } from "./actions/loyalty-deal";
 import { loyaltyProgramExecutor } from "./actions/loyalty-program";
 import { remotionExecutor } from "./actions/remotion";
 import { veoExecutor } from "./actions/veo";
+import { outputExecutor } from "./actions/output";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -85,6 +86,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.REMOTION]: remotionExecutor as NodeExecutor,
   // VEO node for Veo 3.1 video generation
   [NodeType.VEO]: veoExecutor as NodeExecutor,
+  // OUTPUT node for displaying and downloading workflow outputs
+  [NodeType.OUTPUT]: outputExecutor as NodeExecutor,
 };
 
 /**

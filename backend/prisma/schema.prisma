@@ -460,6 +460,7 @@ enum NodeType {
   LOYALTY_PROGRAM
   REMOTION
   VEO
+  OUTPUT
 }
 
 model Node {

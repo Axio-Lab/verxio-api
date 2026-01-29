@@ -178,6 +178,7 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "ELEVENLABS");
@@ -206,8 +207,6 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
       );
       throw error;
     }
-
-    await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "elevenlabs";
 
@@ -299,13 +298,13 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
 
           const audioUrl = `${baseUrl}/api/elevenlabs/audio/${audioId}`;
           const downloadUrl = `${audioUrl}?download=true`;
-          const dataUrl = `data:${contentType};base64,${audioResponse.audio}`;
 
+          // Return only URL + metadata. Do NOT include base64 audio or dataUrl in the result,
+          // so Inngest payload stays under size limit ("output_too_large"). Downstream expects
+          // {{elevenlabs.audioUrl}}; audio is served from /api/elevenlabs/audio/:audioId.
           return {
-            audio: audioResponse.audio, // Keep base64 for backward compatibility
-            audioUrl: audioUrl, // Stream URL (for playback in browser)
-            downloadUrl: downloadUrl, // Download URL (forces download)
-            dataUrl: dataUrl, // Data URL (for direct use in <audio> tag or download)
+            audioUrl, // Stream URL (for playback in browser) — use this in templates
+            downloadUrl, // Download URL (forces download)
             contentType: contentType,
             size: audioResponse.size,
             voiceId,

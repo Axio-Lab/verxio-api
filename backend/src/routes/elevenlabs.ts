@@ -8,7 +8,7 @@ const router = Router();
 // In production, consider using Redis or a proper cache
 const audioStore = new Map<string, { base64: string; contentType: string; expiresAt: number }>();
 
-// Clean up expired audio files every 5 minutes
+// Clean up expired audio files every 10 minutes
 setInterval(
   () => {
     const now = Date.now();
