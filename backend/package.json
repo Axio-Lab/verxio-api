@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npm run db:generate && tsc",
-    "start": "node dist/index.js",
+    "start": "node -r module-alias/register dist/index.js",
     "start:prod": "pnpm db:migrate:deploy && pnpm start",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -67,6 +67,7 @@
     "ky": "^1.14.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "module-alias": "^2.2.3",
     "node-cron": "^4.2.1",
     "opik": "^1.9.87",
     "pg": "^8.17.2",
@@ -100,5 +101,8 @@
   },
   "engines": {
     "node": ">=20.18.0"
+  },
+  "_moduleAliases": {
+    "@": "dist"
   }
 }
