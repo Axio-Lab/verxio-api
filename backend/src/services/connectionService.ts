@@ -1,6 +1,6 @@
 import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
-import { UserConnectionType } from "@prisma/client";
+import { UserConnectionType } from "../../node_modules/.prisma/client";
 
 const prismaClient = basePrismaClient as any;
 

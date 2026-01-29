@@ -960,9 +960,8 @@ export const createLoyaltyProgram = async (params: CreateLoyaltyProgramParams) =
       }
 
       try {
-        const { generateLoyaltyProgramMetadata } = await import(
-          "../lib/metadata/generateLoyaltyProgramMetadata"
-        );
+        const { generateLoyaltyProgramMetadata } =
+          await import("../lib/metadata/generateLoyaltyProgramMetadata");
         finalMetadataUri = await generateLoyaltyProgramMetadata({
           loyaltyProgramName,
           metadata,

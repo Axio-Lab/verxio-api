@@ -4,14 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev",
-    "build": "next build",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
-    "ngrok:dev": "dotenv -e .env -- sh -c 'ngrok http 8080 --url=\"$NGROK_URL\"'",
-    "prisma:generate": "cd ../backend && npm run db:generate",
-    "postinstall": "cd ../backend && npm run db:generate"
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
   },
   "engines": {
     "node": ">=20.18.0"
