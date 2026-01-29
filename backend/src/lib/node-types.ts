@@ -41,6 +41,7 @@ export const NodeType = {
   LOYALTY_PROGRAM: "LOYALTY_PROGRAM",
   REMOTION: "REMOTION",
   VEO: "VEO",
+  OUTPUT: "OUTPUT",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

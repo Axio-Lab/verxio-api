@@ -72,6 +72,19 @@ export function useWorkflow(id: string) {
   });
 }
 
+export interface TriggerInfoResponse {
+  success: boolean;
+  shareable: boolean;
+  publicChatUrl?: string;
+}
+
+export function useTriggerInfo() {
+  return useProtectedMutation<TriggerInfoResponse, Error, string>({
+    mutationFn: (workflowId) =>
+      authenticatedGet<TriggerInfoResponse>(`/workflow/trigger-info/${workflowId}`),
+  });
+}
+
 export function useCreateWorkflow() {
   const queryClient = useQueryClient();
 
@@ -169,11 +182,14 @@ export function useTriggerWorkflow() {
   return useProtectedMutation<
     TriggerWorkflowResponse,
     Error,
-    { id: string; data?: Record<string, any> }
+    { id: string; data?: Record<string, any>; nodeId?: string }
   >({
-    mutationFn: ({ id, data }) => {
-      // Send data in the format expected by the backend: { data: {...} }
-      const body = data ? { data } : {};
+    mutationFn: ({ id, data, nodeId }) => {
+      // Send data in the format expected by the backend: { data: {...}, nodeId?: string }
+      // If nodeId is provided, only that single node will be executed
+      const body: Record<string, any> = {};
+      if (data) body.data = data;
+      if (nodeId) body.nodeId = nodeId;
       return authenticatedPost<TriggerWorkflowResponse>(`/workflow/trigger/${id}`, body);
     },
     // Don't retry on 429 (Too Many Requests) errors

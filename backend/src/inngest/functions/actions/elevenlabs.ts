@@ -178,10 +178,35 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "ELEVENLABS");
-    await publishStatus(publish, nodeId, "loading");
+
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await step.run(`elevenlabs-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await publish(
+        elevenlabsChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: { message: error.message },
+          },
+        })
+      );
+      throw error;
+    }
 
     const variablesName = data.variables || "elevenlabs";
 
@@ -273,13 +298,13 @@ export const elevenlabsExecutor: NodeExecutor<ElevenLabsData> = async ({
 
           const audioUrl = `${baseUrl}/api/elevenlabs/audio/${audioId}`;
           const downloadUrl = `${audioUrl}?download=true`;
-          const dataUrl = `data:${contentType};base64,${audioResponse.audio}`;
 
+          // Return only URL + metadata. Do NOT include base64 audio or dataUrl in the result,
+          // so Inngest payload stays under size limit ("output_too_large"). Downstream expects
+          // {{elevenlabs.audioUrl}}; audio is served from /api/elevenlabs/audio/:audioId.
           return {
-            audio: audioResponse.audio, // Keep base64 for backward compatibility
-            audioUrl: audioUrl, // Stream URL (for playback in browser)
-            downloadUrl: downloadUrl, // Download URL (forces download)
-            dataUrl: dataUrl, // Data URL (for direct use in <audio> tag or download)
+            audioUrl, // Stream URL (for playback in browser) — use this in templates
+            downloadUrl, // Download URL (forces download)
             contentType: contentType,
             size: audioResponse.size,
             voiceId,

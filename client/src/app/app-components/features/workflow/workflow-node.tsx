@@ -1,7 +1,7 @@
 "use client";
 
 import { NodeToolbar, Position } from "@xyflow/react";
-import { SettingsIcon, TrashIcon, Loader2Icon, InfoIcon } from "lucide-react";
+import { SettingsIcon, TrashIcon, Loader2Icon, InfoIcon, PlayIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -11,7 +11,11 @@ interface WorkflowNodeProps {
   onDelete?: () => void;
   onSettings?: () => void;
   onInfoClick?: () => void;
+  onPlay?: () => void;
   showInfoIcon?: boolean;
+  showPlayButton?: boolean;
+  isExecuting?: boolean;
+  playDisabled?: boolean;
   name?: string;
   description?: string;
   isDeleting?: boolean;
@@ -23,7 +27,11 @@ export const WorkflowNode = ({
   onDelete,
   onSettings,
   onInfoClick,
+  onPlay,
   showInfoIcon,
+  showPlayButton = true,
+  isExecuting = false,
+  playDisabled = false,
   name,
   description,
   isDeleting = false,
@@ -39,6 +47,21 @@ export const WorkflowNode = ({
           )}
           {showToolbar && (
             <>
+              {showPlayButton && onPlay && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onPlay}
+                  disabled={isDeleting || isExecuting || playDisabled}
+                  title="Execute this node"
+                >
+                  {isExecuting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <PlayIcon className="size-4" />
+                  )}
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={onSettings} disabled={isDeleting}>
                 <SettingsIcon className="size-4" />
               </Button>

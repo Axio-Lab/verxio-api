@@ -233,7 +233,13 @@ export const AppSidebar = () => {
       <SidebarFooter>
         {/* Subscription Status and Upgrade Plan - Merged */}
         {!subscriptionLoading && (
-          <div className={cn("px-4 py-2 space-y-2", isCollapsed && "px-0 pl-0")}>
+          <div
+            className={cn(
+              "px-4 py-2 space-y-2 min-w-0 flex flex-col items-center",
+              isCollapsed && "px-0 pl-0",
+              "max-sm:flex max-sm:items-center max-sm:justify-center max-sm:gap-1 max-sm:px-2 max-sm:py-1.5"
+            )}
+          >
             {/* Free plan and subscribed plan share same button style: light bronze border, black text */}
             {!isSubscribed ? (
               <SidebarMenuButton
@@ -242,6 +248,7 @@ export const AppSidebar = () => {
                   "w-full gap-x-2 h-10 px-4 font-bold transition-all duration-200",
                   "border-2 border-green-500 text-foreground bg-transparent hover:bg-green-50 hover:border-green-600 hover:shadow-md hover:scale-[1.02]",
                   "dark:border-green-400 dark:hover:bg-green-950/20 dark:hover:border-green-300",
+                  "max-sm:w-10 max-sm:h-10 max-sm:p-0 max-sm:shrink-0 max-sm:justify-center",
                   isCollapsed && "w-10 h-10 p-0 ml-0 justify-center items-center",
                   isUpgrading && "opacity-75 cursor-wait"
                 )}
@@ -253,10 +260,16 @@ export const AppSidebar = () => {
                 ) : (
                   <StarIcon className="w-4 h-4" />
                 )}
-                <span className={cn("font-bold group-data-[collapsible=icon]:hidden")}>
+                <span
+                  className={cn(
+                    "font-bold group-data-[collapsible=icon]:hidden max-sm:hidden sm:inline"
+                  )}
+                >
                   {isUpgrading ? "Redirecting..." : "Free (Upgrade Plan)"}
                 </span>
-                {isCollapsed && <span className="text-xs">{isUpgrading ? "..." : "F"}</span>}
+                {isCollapsed && (
+                  <span className="text-xs max-sm:hidden">{isUpgrading ? "..." : "F"}</span>
+                )}
               </SidebarMenuButton>
             ) : (
               <>
@@ -264,31 +277,75 @@ export const AppSidebar = () => {
                   className={cn(
                     "w-full flex items-center justify-center gap-x-2 h-10 px-4 font-bold rounded-md",
                     "border-2 border-amber-200 bg-amber-50/80 text-black",
-                    "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50"
+                    "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50",
+                    "max-sm:w-10 max-sm:h-10 max-sm:p-0 max-sm:shrink-0 max-sm:justify-center"
                   )}
                   title={planDisplayName ?? "Free"}
+                  role={subscription?.subscriptionPlan === "beta-tester" ? "button" : undefined}
+                  tabIndex={subscription?.subscriptionPlan === "beta-tester" ? 0 : undefined}
+                  onClick={() => {
+                    if (subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0) {
+                      const resetText = subscription?.rateLimitResetAt
+                        ? ` Resets at ${new Date(subscription.rateLimitResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}.`
+                        : "";
+                      toast.info(
+                        `Credits remaining: ${rateLimitRemaining} / ${rateLimitTotal}.${resetText}`
+                      );
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      subscription?.subscriptionPlan === "beta-tester" &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).click();
+                    }
+                  }}
                 >
                   <Crown className="h-4 w-4 shrink-0" />
-                  <span className={cn("text-sm", isCollapsed && "sr-only")}>
+                  <span
+                    className={cn("text-sm", isCollapsed && "sr-only", "max-sm:hidden sm:inline")}
+                  >
                     {planDisplayName ?? "Free"}
                   </span>
                 </div>
-                {/* Rate Limit Display (for promotional plans) */}
-                {/* {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
-                  <div className={cn("text-xs text-muted-foreground", isCollapsed && "hidden")}>
-                    <div className="flex items-center justify-between">
-                      <span>Requests:</span>
-                      <span className="font-semibold">
-                        {rateLimitRemaining} / {rateLimitTotal}
+                {/* Credit Quota Display (for beta-testers) */}
+                {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
+                  <div
+                    className={cn(
+                      "text-xs text-muted-foreground min-w-0 overflow-hidden",
+                      "px-4 py-2 max-sm:hidden",
+                      isCollapsed && "sm:hidden"
+                    )}
+                  >
+                    {/* Small screen only: coin + X/200, tight so it doesn’t overflow */}
+                    <div className="max-sm:flex max-sm:items-center max-sm:gap-1 max-sm:min-w-0 max-sm:justify-end">
+                      <span className="font-semibold tabular-nums max-sm:block sm:hidden">
+                        {rateLimitRemaining}/{rateLimitTotal}
                       </span>
                     </div>
-                    {subscription?.rateLimitResetAt && subscription.rateLimitResetAt !== null && (
-                      <div className="text-[10px] mt-1 opacity-70">
-                        Resets {new Date(subscription.rateLimitResetAt).toLocaleTimeString()}
+                    {/* Larger screens: full Credits label + Resets at */}
+                    <div className="max-sm:hidden">
+                      <div className="flex items-center justify-between">
+                        <span>Credits remaining:</span>
+                        <span className="font-semibold tabular-nums">
+                          {rateLimitRemaining} / {rateLimitTotal}
+                        </span>
                       </div>
-                    )}
+                      {subscription?.rateLimitResetAt && subscription.rateLimitResetAt !== null && (
+                        <div className="text-[10px] mt-1 opacity-70">
+                          Resets at{" "}
+                          {new Date(subscription.rateLimitResetAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )} */}
+                )}
               </>
             )}
           </div>

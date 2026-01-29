@@ -1,0 +1,4 @@
+# Ignore uploaded chat media; keep directory in git
+*
+!.gitignore
+!.gitkeep

@@ -11,11 +11,31 @@ export interface RateLimitConfig {
   resetStrategy: "fixed" | "rolling";
 }
 
+/**
+ * Daily credit quota for beta-testers
+ * Resets daily at 12am (midnight)
+ */
+export const BETA_TESTER_DAILY_CREDITS = 500;
+
+/**
+ * Quota cost per premium action/feature
+ * These values represent credits consumed per use
+ */
+export const QUOTA_COST = {
+  VEO: 15,
+  PLAN_NODE: 10,
+  GENERATE_WORKFLOW_WITH_AI: 10,
+  REMOTION: 15,
+  DESIGN_AGENT_PRO: 10,
+  // TIMED_TRIGGER: 5,
+  DEFAULT_PREMIUM_NODE: 5, // Code Block, ElevenLabs, Firecrawl, Apify
+} as const;
+
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "beta-tester": {
-    requestsPerPeriod: 100, // 100 requests per day
+    requestsPerPeriod: BETA_TESTER_DAILY_CREDITS, // Credits per day
     period: "day",
-    resetStrategy: "fixed", // Resets at midnight
+    resetStrategy: "fixed", // Resets at midnight (12am)
   },
   pro: {
     requestsPerPeriod: 1000, // 1000 requests per day

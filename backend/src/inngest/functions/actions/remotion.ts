@@ -92,11 +92,35 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "REMOTION");
 
-    await publishStatus(publish, nodeId, "loading");
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await step.run(`remotion-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.REMOTION);
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await publish(
+        remotionChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: { message: error.message },
+          },
+        })
+      );
+      throw error;
+    }
 
     // CRITICAL: Extract ALL data into primitives IMMEDIATELY
     // data should NOT contain assets (getWorkflowForExecution doesn't merge them)

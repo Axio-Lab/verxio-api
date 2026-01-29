@@ -3,18 +3,29 @@ import { FlaskConicalIcon, Loader2 } from "lucide-react";
 import { useTriggerWorkflow } from "@/hooks/useWorkflows";
 import { useAtomValue } from "jotai";
 import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
+import { useResetWorkflowOutputs } from "@/app/app-components/features/editor/workflow-outputs-store";
+import {
+  useSetMultipleNodeStatuses,
+  useResetAllNodeStatuses,
+} from "@/app/app-components/features/editor/execution-status-store";
+import type { NodeStatus } from "@/components/node-status-indicator";
 import { toast } from "sonner";
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState } from "react";
+import { useNodes } from "@xyflow/react";
 
 export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) => {
   const triggerWorkflow = useTriggerWorkflow();
   const hasUnsavedChanges = useAtomValue(hasUnsavedChangesAtom);
+  const resetWorkflowOutputs = useResetWorkflowOutputs();
+  const setMultipleNodeStatuses: (nodeIds: string[], status: NodeStatus) => void =
+    useSetMultipleNodeStatuses();
+  const resetAllNodeStatuses: () => void = useResetAllNodeStatuses();
+  const nodes = useNodes();
   const lastClickTimeRef = useRef<number>(0);
-  const DEBOUNCE_MS = 1000; // 2 seconds debounce
+  const DEBOUNCE_MS = 1000; // 1 second debounce
 
   // Track if workflow is executing (extends beyond API call completion)
   const [isExecuting, setIsExecuting] = useState(false);
-  const executionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleExecuteWorkflow = useCallback(async () => {
     // Check for unsaved changes before executing
@@ -41,37 +52,42 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
       // Set executing state immediately
       setIsExecuting(true);
 
-      // Clear any existing timeout
-      if (executionTimeoutRef.current) {
-        clearTimeout(executionTimeoutRef.current);
-      }
+      // Reset workflow outputs from previous execution
+      resetWorkflowOutputs();
 
       // Trigger the workflow
       await triggerWorkflow.mutateAsync({
         id: workflowId,
       });
 
-      // Keep button in "executing" state for at least 3 seconds
-      // This gives time for Inngest to start processing and node status to update
-      // The actual execution may take longer, but node status indicators will show progress
-      executionTimeoutRef.current = setTimeout(() => {
-        setIsExecuting(false);
-      }, 1000);
+      // After the API call completes, set all nodes to loading
+      // This aligns the status change with the end of the spinner
+      resetAllNodeStatuses();
+      const allNodeIds = nodes.map((node) => node.id);
+      if (allNodeIds.length > 0) {
+        setMultipleNodeStatuses(allNodeIds, "loading");
+      }
+
+      setIsExecuting(false);
     } catch (error) {
       // Error is handled by the hook's onError callback
       console.error("Failed to trigger workflow:", error);
       setIsExecuting(false);
+      // Reset node statuses on error
+      resetAllNodeStatuses();
     }
-  }, [workflowId, hasUnsavedChanges, triggerWorkflow, isExecuting]);
+  }, [
+    workflowId,
+    hasUnsavedChanges,
+    triggerWorkflow,
+    isExecuting,
+    resetWorkflowOutputs,
+    nodes,
+    setMultipleNodeStatuses,
+    resetAllNodeStatuses,
+  ]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (executionTimeoutRef.current) {
-        clearTimeout(executionTimeoutRef.current);
-      }
-    };
-  }, []);
+  // No extra timeout cleanup needed (spinner ends on API completion)
 
   const isButtonLoading = triggerWorkflow.isPending || isExecuting;
 

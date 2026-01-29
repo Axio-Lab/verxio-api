@@ -157,11 +157,35 @@ export const firecrawlExecutor: NodeExecutor<FirecrawlData> = async ({
   userId,
 }) => {
   try {
+    await publishStatus(publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "FIRECRAWL");
-    await publishStatus(publish, nodeId, "loading");
 
+    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await step.run(`firecrawl-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.DEFAULT_PREMIUM_NODE);
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await publish(
+        firecrawlChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: { message: error.message },
+          },
+        })
+      );
+      throw error;
+    }
     const variablesName = data.variables || "firecrawl";
 
     if (!data.action) {

@@ -5,6 +5,7 @@ import { useInngestSubscription } from "@inngest/realtime/hooks";
 import { useEffect, useState, useMemo } from "react";
 import type { NodeStatus } from "@/components/node-status-indicator";
 import { authenticatedGet } from "@/lib/api-client";
+import { useSetNodeExecutionStatus } from "@/app/app-components/features/editor/execution-status-store";
 
 interface useNodeStatusOptions {
   nodeId: string;
@@ -81,6 +82,13 @@ const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
   const [status, setStatus] = useState<NodeStatus>("initial");
   const [nodeOutput, setNodeOutput] = useState<Record<string, unknown> | null>(null);
+
+  // Sync status to shared store for edge animations
+  const setNodeExecutionStatus = useSetNodeExecutionStatus();
+
+  useEffect(() => {
+    setNodeExecutionStatus(nodeId, status);
+  }, [nodeId, status, setNodeExecutionStatus]);
 
   // Create refresh token function for a specific channel (uses shared cache)
   const createRefreshToken =
@@ -267,6 +275,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const outputSub = useInngestSubscription({
+    refreshToken: createRefreshToken("output"),
+    enabled: true,
+  });
+
   // Merge all messages from all subscriptions
   const allMessages = useMemo(() => {
     return [
@@ -301,6 +314,8 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(designSub.data || []),
       ...(designProSub.data || []),
       ...(remotionSub.data || []),
+      ...(veoSub.data || []),
+      ...(outputSub.data || []),
     ];
   }, [
     httpRequestSub.data,
@@ -335,6 +350,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     designProSub.data,
     remotionSub.data,
     veoSub.data,
+    outputSub.data,
   ]);
 
   // Filter and update status for this specific node

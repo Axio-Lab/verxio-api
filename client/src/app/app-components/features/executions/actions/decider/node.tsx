@@ -6,6 +6,7 @@ import { GitBranchIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { DeciderDialog, DeciderFormValues } from "./dialog";
 import { useNodeStatus } from "@/app/app-components/features/executions/hooks/use-node-status";
+import { useExecuteNode } from "@/app/app-components/features/executions/hooks/use-execute-node";
 import { BaseNode, BaseNodeContent } from "@/components/base-node";
 import { BaseHandle } from "@/components/base-handle";
 import { WorkflowNode } from "@/app/app-components/features/workflow/workflow-node";
@@ -18,6 +19,9 @@ export const DeciderNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
   const { status: nodeStatus, output } = useNodeStatus({
+    nodeId: props.id,
+  });
+  const { executeNode, isExecuting, canExecute } = useExecuteNode({
     nodeId: props.id,
   });
   const handleOpenSettings = () => {
@@ -78,6 +82,10 @@ export const DeciderNode = memo((props: NodeProps) => {
         showToolbar={shouldShowToolbar}
         onSettings={handleOpenSettings}
         onDelete={handleDelete}
+        onPlay={executeNode}
+        showPlayButton
+        playDisabled={!canExecute}
+        isExecuting={isExecuting}
         isDeleting={isDeleting}
         showInfoIcon={showInfoIcon}
         onInfoClick={() => setOutputDialogOpen(true)}

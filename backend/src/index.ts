@@ -20,6 +20,7 @@ import { airtableRouter } from "./routes/triggers/airtable";
 import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
 import { webhookTriggerRouter } from "./routes/triggers/webhook";
+import { publicChatRouter } from "./routes/public-chat";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { elevenlabsRouter } from "./routes/elevenlabs";
@@ -138,6 +139,9 @@ app.use(
   express.static(path.join(process.cwd(), "public", "generated-videos"))
 );
 
+// Serve public chat uploads (images, video, audio) as URLs
+app.use("/chat-uploads", express.static(path.join(process.cwd(), "public", "chat-uploads")));
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
@@ -165,6 +169,7 @@ app.use("/api/webhooks", airtableRouter);
 app.use("/api/webhooks", stripeRouter);
 app.use("/api/webhooks/telegram", telegramRouter);
 app.use("/api/webhooks/webhook", webhookTriggerRouter);
+app.use("/api/public/chat", publicChatRouter);
 
 // API routes
 // app.use('/health', healthRouter);
@@ -195,10 +200,11 @@ app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
 // billing/status reads backend DB → user still sees Free unless both use the same DB.
 
 // POST handler for actual webhook events
+// Polar sends: { type: "event.name", timestamp: "ISO", data: { ... } }
 app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
   try {
     const payload = req.body;
-    const eventType = payload.type || payload.event_type;
+    const eventType = payload.type ?? payload.event_type;
     console.log(
       "[Polar Webhook] Backend received:",
       eventType,
@@ -207,33 +213,68 @@ app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
 
     const {
       handleOrderPaid,
+      handleOrderRefunded,
+      handleSubscriptionCreated,
       handleSubscriptionActive,
+      handleSubscriptionUpdated,
       handleSubscriptionCanceled,
+      handleSubscriptionUncanceled,
+      handleSubscriptionRevoked,
+      handleSubscriptionPastDue,
       handleSubscriptionExpired,
+      handleCustomerCreated,
+      handleCustomerUpdated,
+      handleCustomerDeleted,
       handleCustomerStateChanged,
     } = await import("./routes/polar-webhooks");
 
-    // Route to appropriate handler based on event type
     switch (eventType) {
       case "order.paid":
         await handleOrderPaid(payload);
+        break;
+      case "order.refunded":
+        await handleOrderRefunded(payload);
+        break;
+      case "subscription.created":
+        await handleSubscriptionCreated(payload);
         break;
       case "subscription.active":
       case "subscription.activated":
         await handleSubscriptionActive(payload);
         break;
+      case "subscription.updated":
+        await handleSubscriptionUpdated(payload);
+        break;
       case "subscription.canceled":
       case "subscription.cancelled":
         await handleSubscriptionCanceled(payload);
         break;
+      case "subscription.uncanceled":
+        await handleSubscriptionUncanceled(payload);
+        break;
+      case "subscription.revoked":
+        await handleSubscriptionRevoked(payload);
+        break;
+      case "subscription.past_due":
+        await handleSubscriptionPastDue(payload);
+        break;
       case "subscription.expired":
         await handleSubscriptionExpired(payload);
         break;
+      case "customer.created":
+        await handleCustomerCreated(payload);
+        break;
       case "customer.updated":
+        await handleCustomerUpdated(payload);
+        break;
+      case "customer.deleted":
+        await handleCustomerDeleted(payload);
+        break;
       case "customer.state_changed":
         await handleCustomerStateChanged(payload);
         break;
       default:
+        // checkout.*, order.created/updated, product.*, benefit.*, refund.*, organization.* – no plan change
         console.log(`[PolarWebhook] Unhandled event type: ${eventType}`);
     }
 

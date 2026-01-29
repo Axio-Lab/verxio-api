@@ -18,6 +18,7 @@ export const SUBSCRIPTION_FEATURES = {
   ELEVENLABS_NODE: "elevenlabs",
   FIRECRAWL_NODE: "firecrawl",
   APIFY_NODE: "apify",
+  TIMED_TRIGGER_NODE: "timed-trigger-node",
 
   // Template feature (premium)
   EXPORT_WORKFLOW_AS_TEMPLATE: "export-workflow-as-template",
@@ -41,6 +42,7 @@ export const NODE_TYPE_TO_FEATURE: Record<string, SubscriptionFeature> = {
   ELEVENLABS: SUBSCRIPTION_FEATURES.ELEVENLABS_NODE,
   FIRECRAWL: SUBSCRIPTION_FEATURES.FIRECRAWL_NODE,
   APIFY: SUBSCRIPTION_FEATURES.APIFY_NODE,
+  TIMED_TRIGGER: SUBSCRIPTION_FEATURES.TIMED_TRIGGER_NODE,
 };
 
 /**
@@ -80,9 +82,21 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.ELEVENLABS_NODE,
         SUBSCRIPTION_FEATURES.FIRECRAWL_NODE,
         SUBSCRIPTION_FEATURES.APIFY_NODE,
+        SUBSCRIPTION_FEATURES.TIMED_TRIGGER_NODE,
         SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
     default:
       return [];
   }
+}
+
+/**
+ * Map Polar product ID to plan name (for webhooks)
+ * Set POLAR_BETA_TESTER_PRODUCT_ID, POLAR_PRO_PRODUCT_ID in env.
+ */
+export function getPlanFromProductId(productId: string | null | undefined): string {
+  if (!productId) return "beta-tester";
+  if (productId === process.env.POLAR_BETA_TESTER_PRODUCT_ID) return "beta-tester";
+  if (productId === process.env.POLAR_PRO_PRODUCT_ID) return "pro";
+  return "beta-tester";
 }

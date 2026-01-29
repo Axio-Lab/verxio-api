@@ -61,6 +61,9 @@ const IMAGE_SIZES = [
 const MODE_VALUES = MODES.map((m) => m.value) as [string, ...string[]];
 const IMAGE_SIZE_VALUES = IMAGE_SIZES.map((s) => s.value) as [string, ...string[]];
 
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_IMAGE_SIZE_LABEL = "5MB";
+
 const formSchema = z.object({
   variables: z
     .string()
@@ -111,6 +114,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
   const [sourceImageFile, setSourceImageFile] = useState<ImageFile | null>(null);
   const [sourceImageOriginalUrl, setSourceImageOriginalUrl] = useState<string | null>(null);
   const [referenceImageFiles, setReferenceImageFiles] = useState<ImageFile[]>([]);
+  const [imageSizeError, setImageSizeError] = useState<string | null>(null);
   const sourceImageInputRef = useRef<HTMLInputElement>(null);
   const referenceImagesInputRef = useRef<HTMLInputElement>(null);
 
@@ -156,23 +160,30 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
   const handleSourceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file");
       return;
     }
 
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      const msg = `${file.name} exceeds ${MAX_IMAGE_SIZE_LABEL}. Please compress the image and try again.`;
+      setImageSizeError(msg);
+      toast.error(msg);
+      return;
+    }
+    setImageSizeError(null);
+
     try {
-      // Convert to base64 for preview (not stored in form yet)
       const base64 = await fileToBase64(file);
       const sanitizedFilename = sanitizeFilename(file.name);
       setSourceImageFile({
         file,
-        base64, // For preview
+        base64,
         filename: sanitizedFilename,
         mimeType: file.type || "image/png",
       });
-      // Don't set form values yet - will be set on save
       toast.success("Source image selected");
     } catch (error) {
       toast.error("Failed to process image file");
@@ -220,6 +231,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
   const removeSourceImage = () => {
     setSourceImageFile(null);
     setSourceImageOriginalUrl(null);
+    setImageSizeError(null);
     form.setValue("sourceImage", "");
     form.setValue("sourceImageMimeType", "");
     if (sourceImageInputRef.current) {
@@ -236,6 +248,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
 
   useEffect(() => {
     if (open) {
+      setImageSizeError(null);
       // Load source image if exists (for preview)
       const sourceImage = defaultValues.sourceImage || "";
       const isUrl = sourceImage.startsWith("http");
@@ -503,6 +516,19 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
+              <Alert variant="default" className="border-muted">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>File size limit:</strong> Each image must not exceed{" "}
+                  {MAX_IMAGE_SIZE_LABEL}. Please compress large images before uploading.
+                </AlertDescription>
+              </Alert>
+              {imageSizeError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{imageSizeError}</AlertDescription>
+                </Alert>
+              )}
               <FormField
                 control={form.control}
                 name="variables"

@@ -47,7 +47,7 @@ export const templateSearchParams = {
   search: parseAsString.withDefault(""),
   category: parseAsString.withDefault(""),
   page: parseAsInteger.withDefault(1),
-  limit: parseAsInteger.withDefault(10),
+  limit: parseAsInteger.withDefault(12),
 };
 
 export const searchParamsCache = createSearchParamsCache(searchParams);

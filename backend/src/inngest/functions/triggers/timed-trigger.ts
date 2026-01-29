@@ -1,3 +1,4 @@
+import { NonRetriableError } from "inngest";
 import type { NodeExecutor } from "../types";
 import { timedTriggerChannel } from "@/inngest/channels/timed-trigger";
 
@@ -29,6 +30,7 @@ export const timedTriggerExecutor: NodeExecutor<TimedTriggerData> = async ({
   context,
   step,
   publish,
+  userId,
 }) => {
   try {
     // Check if the schedule is enabled (paused/stopped)
@@ -37,6 +39,32 @@ export const timedTriggerExecutor: NodeExecutor<TimedTriggerData> = async ({
       // This allows the workflow to be saved but not executed
       return context;
     }
+
+    // Check subscription access
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "TIMED_TRIGGER");
+
+    // Consume premium quota (Timed Trigger costs 5 credits for beta-testers)
+    // const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    // const { QUOTA_COST } = await import("@/config/rate-limits");
+    // try {
+    //   await consumePremiumQuota(userId, QUOTA_COST.TIMED_TRIGGER);
+    // } catch (quotaError) {
+    //   await publishStatus(publish, nodeId, "error");
+    //   const error = new NonRetriableError(
+    //     quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+    //   );
+    //   await publish(
+    //     timedTriggerChannel().output({
+    //       nodeId,
+    //       output: {
+    //         ...context,
+    //         error: { message: error.message },
+    //       },
+    //     })
+    //   );
+    //   throw error;
+    // }
 
     // Publish loading status
     await publishStatus(publish, nodeId, "loading");

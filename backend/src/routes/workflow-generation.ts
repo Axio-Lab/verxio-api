@@ -9,17 +9,19 @@ import { testCodeBlock, testWorkflowSegment } from "../services/codeTestingServi
 import { prisma as prismaClient } from "../lib/prisma";
 import { createId } from "@paralleldrive/cuid2";
 import { NodeType } from "@/lib/node-types";
-import { requireFeature, checkRateLimit } from "../middleware/subscriptionAuth";
+import { requireFeature } from "../middleware/subscriptionAuth";
+import { checkQuota } from "../middleware/subscriptionRateLimit";
 import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
+import { QUOTA_COST } from "../config/rate-limits";
 
 export const workflowGenerationRouter: Router = Router();
 
 // Apply Better Auth middleware to all routes
 workflowGenerationRouter.use(betterAuthMiddleware);
-// Apply subscription and rate limiting middleware
+// Apply subscription and rate limiting middleware (Generate AI costs 10 credits)
 workflowGenerationRouter.use(
   requireFeature(SUBSCRIPTION_FEATURES.GENERATE_WORKFLOW_WITH_AI),
-  checkRateLimit
+  checkQuota(QUOTA_COST.GENERATE_WORKFLOW_WITH_AI)
 );
 
 /**
@@ -194,8 +196,9 @@ workflowGenerationRouter.post(
 
           if (workflow) {
             // Generate summary
-            const { generateWorkflowSummary } =
-              await import("../services/workflowGenerationService");
+            const { generateWorkflowSummary } = await import(
+              "../services/workflowGenerationService"
+            );
             const nodes = workflow.nodes.map((node: any) => ({
               id: node.id,
               type: node.type,

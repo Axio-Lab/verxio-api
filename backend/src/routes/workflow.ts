@@ -6,6 +6,7 @@ import { inngest } from "../inngest";
 import { workflowTriggerRateLimiter } from "../middleware/rateLimiter";
 import { getNodeStatusSubscriptionTokens } from "../inngest/utils/realtime";
 import { channelNameMap } from "../inngest/channels";
+import { resetRateLimitForUser } from "../services/subscriptionService";
 
 export const workflowRouter: Router = Router();
 
@@ -159,6 +160,35 @@ workflowRouter.get(
 );
 
 /**
+ * POST /workflow/reset-rate-limit
+ * Reset the authenticated user's rate limit to full daily credits (for testing).
+ * Allowed in development or for beta-tester plan.
+ */
+workflowRouter.post(
+  "/reset-rate-limit",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      if (!user?.id) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+      const isDev = process.env.NODE_ENV === "development";
+      const isBetaTester = (user as any).subscriptionPlan === "beta-tester";
+      if (!isDev && !isBetaTester) {
+        return res.status(403).json({
+          success: false,
+          message: "Rate limit reset is only allowed in development or for beta-testers",
+        });
+      }
+      const result = await resetRateLimitForUser(user.id);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * @swagger
  * /workflow/{id}:
  *   get:
@@ -185,6 +215,34 @@ workflowRouter.get(
  *       401:
  *         description: Unauthorized
  */
+
+/**
+ * GET /workflow/trigger-info/:id
+ * Returns shareable chat URL info (whether workflow has webhook trigger).
+ * Used by workflow list "Copy URL" action.
+ */
+workflowRouter.get("/trigger-info/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const workflow = await workflowService.getWorkflow(id, user.id);
+    if (!workflow) {
+      return res.status(404).json({ success: false, message: "Workflow not found" });
+    }
+    const nodes = (workflow as any).nodes ?? [];
+    const hasWebhookNode = nodes.some((n: any) => n.type === "WEBHOOK");
+    const appUrl = process.env.FRONTEND_URL || "";
+    const publicChatUrl = hasWebhookNode ? `${appUrl}/chat/${id}` : undefined;
+    return res.json({
+      success: true,
+      shareable: hasWebhookNode,
+      publicChatUrl,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 workflowRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
@@ -482,26 +540,31 @@ workflowRouter.post(
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const { data } = req.body;
+      const { data, nodeId } = req.body;
 
       // Verify workflow exists and belongs to user, and get workflow name
       const workflow = await workflowService.getWorkflow(id, user.id);
 
       // Send event to Inngest to trigger workflow execution
+      // If nodeId is provided, only that single node will be executed
       await inngest.send({
         name: "workflow/trigger",
         data: {
           workflowId: id,
           userId: user.id,
           data: data || {},
+          ...(nodeId && { singleNodeId: nodeId }),
         },
       });
 
       res.status(200).json({
         success: true,
-        message: "Workflow trigger event sent successfully",
+        message: nodeId
+          ? `Node execution triggered successfully`
+          : "Workflow trigger event sent successfully",
         workflowId: id,
         workflowName: workflow.name,
+        nodeId: nodeId || undefined,
       });
     } catch (error) {
       next(error);
