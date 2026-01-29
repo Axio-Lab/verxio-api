@@ -11,6 +11,7 @@ import { WorkflowNode } from "@/app/app-components/features/workflow/workflow-no
 import { cn } from "@/lib/utils";
 import { NodeStatusIndicator, type NodeStatus } from "@/components/node-status-indicator";
 import { NodeOutputDialog } from "../../node-output-dialog";
+import { useExecuteNode } from "../../hooks/use-execute-node";
 
 interface BaseExecutionNodeProps extends NodeProps {
   icon: LucideIcon | string;
@@ -19,6 +20,10 @@ interface BaseExecutionNodeProps extends NodeProps {
   children?: ReactNode;
   onSettings?: () => void;
   onDoubleClick?: () => void;
+  onPlay?: () => void;
+  showPlayButton?: boolean;
+  isExecuting?: boolean;
+  playDisabled?: boolean;
   iconColor?: string;
   handleColor?: string;
   status?: NodeStatus;
@@ -31,17 +36,29 @@ export const BaseExecutionNode = memo(
     name,
     description,
     children,
+    id,
     selected,
     data,
     status = "initial",
     output = null,
     onSettings,
     onDoubleClick,
+    onPlay,
+    showPlayButton = true,
+    isExecuting = false,
+    playDisabled = false,
     iconColor = "!text-green-600 dark:!text-green-400",
     handleColor = "!border-green-500 !bg-green-500",
   }: BaseExecutionNodeProps) => {
     const isDeleting = data?.isDeleting === true;
     const [outputDialogOpen, setOutputDialogOpen] = useState(false);
+    const {
+      executeNode,
+      isExecuting: internalIsExecuting,
+      canExecute,
+    } = useExecuteNode({
+      nodeId: id,
+    });
 
     // Show info icon if node has executed (success or error status)
     const showInfoIcon = status === "success" || status === "error";
@@ -55,6 +72,9 @@ export const BaseExecutionNode = memo(
 
     // Always show toolbar if deleting, or if selected
     const shouldShowToolbar = selected || isDeleting;
+    const resolvedOnPlay = onPlay || executeNode;
+    const resolvedIsExecuting = isExecuting || internalIsExecuting;
+    const resolvedPlayDisabled = playDisabled || (!onPlay && !canExecute);
 
     return (
       <>
@@ -69,6 +89,10 @@ export const BaseExecutionNode = memo(
           showToolbar={shouldShowToolbar}
           onSettings={onSettings}
           onDelete={handleDelete}
+          onPlay={resolvedOnPlay}
+          showPlayButton={showPlayButton}
+          isExecuting={resolvedIsExecuting}
+          playDisabled={resolvedPlayDisabled}
           isDeleting={isDeleting}
           showInfoIcon={showInfoIcon}
           onInfoClick={() => setOutputDialogOpen(true)}

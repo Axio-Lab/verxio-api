@@ -22,6 +22,30 @@ export function useSetNodeExecutionStatus() {
   };
 }
 
+// Hook to set multiple nodes to a specific status (for optimistic UI)
+export function useSetMultipleNodeStatuses() {
+  const setStatusMap = useSetAtom(nodeStatusMapAtom);
+
+  return (nodeIds: string[], status: NodeStatus) => {
+    setStatusMap((prev) => {
+      const updated = { ...prev };
+      for (const nodeId of nodeIds) {
+        updated[nodeId] = status;
+      }
+      return updated;
+    });
+  };
+}
+
+// Hook to reset all node statuses to initial (before a new execution)
+export function useResetAllNodeStatuses() {
+  const setStatusMap = useSetAtom(nodeStatusMapAtom);
+
+  return () => {
+    setStatusMap({});
+  };
+}
+
 // Hook to get all node statuses (for edges)
 export function useNodeExecutionStatuses() {
   return useAtomValue(nodeStatusMapAtom);

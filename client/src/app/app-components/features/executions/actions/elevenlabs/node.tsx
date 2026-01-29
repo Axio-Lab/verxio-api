@@ -13,6 +13,7 @@ export const ElevenLabsNode = memo((props: NodeProps) => {
   const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
+
   const handleOpenSettings = () => {
     setDialogOpen(true);
   };

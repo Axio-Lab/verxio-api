@@ -187,7 +187,7 @@ export const triggerWorkflow = inngest.createFunction(
     channels: Object.values(nodeStatusChannels).map((channel) => channel()),
   },
   async ({ event, step, publish }) => {
-    const { workflowId, userId, timedTriggerNodeId, publicChatRunId } = event.data;
+    const { workflowId, userId, timedTriggerNodeId, publicChatRunId, singleNodeId } = event.data;
 
     // Validate required parameters
     if (!workflowId) {
@@ -207,25 +207,41 @@ export const triggerWorkflow = inngest.createFunction(
       const fetchedWorkflow = await getWorkflowForExecution(workflowId, userId);
       const connections = fetchedWorkflow.connections || [];
 
-      // Find trigger node (pass connections to check if trigger is connected)
-      const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data, connections);
-      if (!triggerNode) {
-        throw new NonRetriableError("No trigger node found in workflow");
+      // If executing a single node, skip trigger node requirement and topology
+      if (singleNodeId) {
+        const targetNode = fetchedWorkflow.nodes.find((n: any) => n.id === singleNodeId);
+        if (!targetNode) {
+          throw new NonRetriableError(`Node with id "${singleNodeId}" not found in workflow`);
+        }
+        workflow = {
+          ...fetchedWorkflow,
+          nodes: [targetNode], // Only execute the single node
+        };
+      } else {
+        // Find trigger node (pass connections to check if trigger is connected)
+        const triggerNode = findTriggerNode(fetchedWorkflow.nodes, event.data, connections);
+        if (!triggerNode) {
+          throw new NonRetriableError("No trigger node found in workflow");
+        }
+
+        // Find all reachable nodes from trigger
+        const reachableNodeIds = findReachableNodes(
+          triggerNode,
+          fetchedWorkflow.nodes,
+          connections
+        );
+
+        // Filter to only connected nodes and sort topologically
+        const connectedNodes = fetchedWorkflow.nodes.filter((node: any) =>
+          reachableNodeIds.has(node.id)
+        );
+        const sortedNodes = topologicalSort(connectedNodes, connections);
+
+        workflow = {
+          ...fetchedWorkflow,
+          nodes: sortedNodes,
+        };
       }
-
-      // Find all reachable nodes from trigger
-      const reachableNodeIds = findReachableNodes(triggerNode, fetchedWorkflow.nodes, connections);
-
-      // Filter to only connected nodes and sort topologically
-      const connectedNodes = fetchedWorkflow.nodes.filter((node: any) =>
-        reachableNodeIds.has(node.id)
-      );
-      const sortedNodes = topologicalSort(connectedNodes, connections);
-
-      workflow = {
-        ...fetchedWorkflow,
-        nodes: sortedNodes,
-      };
     } catch (error) {
       throw error;
     }

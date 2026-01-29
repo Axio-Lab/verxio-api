@@ -540,26 +540,31 @@ workflowRouter.post(
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const { data } = req.body;
+      const { data, nodeId } = req.body;
 
       // Verify workflow exists and belongs to user, and get workflow name
       const workflow = await workflowService.getWorkflow(id, user.id);
 
       // Send event to Inngest to trigger workflow execution
+      // If nodeId is provided, only that single node will be executed
       await inngest.send({
         name: "workflow/trigger",
         data: {
           workflowId: id,
           userId: user.id,
           data: data || {},
+          ...(nodeId && { singleNodeId: nodeId }),
         },
       });
 
       res.status(200).json({
         success: true,
-        message: "Workflow trigger event sent successfully",
+        message: nodeId
+          ? `Node execution triggered successfully`
+          : "Workflow trigger event sent successfully",
         workflowId: id,
         workflowName: workflow.name,
+        nodeId: nodeId || undefined,
       });
     } catch (error) {
       next(error);
