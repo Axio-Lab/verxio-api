@@ -36,6 +36,8 @@ type EntityHeaderProps = {
   newButtonLabel: string;
   disabled?: boolean;
   isCreating?: boolean;
+  /** Optional data-tour-target for the New button (e.g. "new-workflow-button") */
+  newButtonDataTourTarget?: string;
 } & (
   | { onNew: () => void; newButtonRef?: never }
   | { newButtonRef: string; onNew?: never; newButtonLabel?: never }
@@ -114,6 +116,7 @@ export const EntityHeader = ({
   disabled,
   isCreating,
   onNew,
+  newButtonDataTourTarget,
 }: EntityHeaderProps) => {
   const handleNew = () => {
     if (onNew) {
@@ -130,6 +133,7 @@ export const EntityHeader = ({
       <div className="flex flex-col items-end gap-3">
         {onNew && !newButtonRef && (
           <Button
+            {...(newButtonDataTourTarget && { "data-tour-target": newButtonDataTourTarget })}
             disabled={disabled || isCreating}
             onClick={handleNew}
             size="sm"

@@ -276,3 +276,18 @@ select option {
     opacity: 0.3;
   }
 }
+
+/* Onboarding tour spotlight pulse */
+@keyframes tourPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(197 100% 47% / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px hsl(197 100% 47% / 0);
+  }
+}
+
+.tour-spotlight-ring {
+  animation: tourPulse 1.5s ease-in-out infinite;
+}

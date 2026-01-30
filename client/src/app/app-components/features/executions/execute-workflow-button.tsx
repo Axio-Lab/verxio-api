@@ -93,6 +93,7 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
 
   return (
     <Button
+      data-tour-target="execute-button"
       onClick={handleExecuteWorkflow}
       size="lg"
       disabled={isButtonLoading || hasUnsavedChanges}

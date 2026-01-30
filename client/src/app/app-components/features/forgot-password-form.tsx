@@ -51,8 +51,10 @@ export function ForgotPasswordForm() {
         return;
       }
 
-      // Success - show message
+      // Success - redirect to shared check-email page
       toast.success("Password reset link has been sent to your email");
+      const encodedEmail = encodeURIComponent(values.email);
+      router.push(`/check-email?email=${encodedEmail}&type=reset`);
     } catch (error: any) {
       console.error("Forgot password error:", error);
       toast.error(error?.message || "Failed to send reset link. Please try again");

@@ -7,6 +7,8 @@ import { Mail } from "lucide-react";
 export default function CheckEmailPage() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+  const type = searchParams.get("type");
+  const isPasswordReset = type === "reset";
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 py-12">
@@ -19,7 +21,7 @@ export default function CheckEmailPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Check Your Email</CardTitle>
           <CardDescription className="text-sm text-gray-500">
-            We've sent a verification link to
+            {isPasswordReset ? "We've sent a password reset link to" : "We've sent a verification link to"}
           </CardDescription>
           {email && (
             <CardDescription className="text-sm font-medium text-gray-900">{email}</CardDescription>
@@ -28,8 +30,9 @@ export default function CheckEmailPage() {
         <CardContent className="px-6 pb-6">
           <div className="space-y-4 text-center">
             <p className="text-sm text-gray-600">
-              Please click the verification link in the email to activate your account. Link will
-              expire in 24 hours.
+              {isPasswordReset
+                ? "Open the email and click the reset link to choose a new password. If you don’t see it, check your spam folder."
+                : "Please click the verification link in the email to activate your account. Link will expire in 24 hours."}
             </p>
           </div>
         </CardContent>

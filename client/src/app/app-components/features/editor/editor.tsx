@@ -414,6 +414,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         <MiniMap />
         <Panel position="top-right" className="flex gap-2">
           <Button
+            data-tour-target="ai-generate-button"
             variant="outline"
             size="sm"
             onClick={() => {

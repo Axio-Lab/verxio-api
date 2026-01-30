@@ -37,6 +37,7 @@ export const WorkflowsHeader = ({
       newButtonLabel="New Workflow"
       disabled={disabled}
       isCreating={isCreating}
+      newButtonDataTourTarget="new-workflow-button"
     />
   );
 };

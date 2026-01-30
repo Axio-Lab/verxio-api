@@ -204,6 +204,15 @@ export const AppSidebar = () => {
                 {item.items.map((subItem) => (
                   <SidebarMenuItem key={subItem.title}>
                     <SidebarMenuButton
+                      data-tour-target={
+                        subItem.url === "/workflows"
+                          ? "menu-workflows"
+                          : subItem.url === "/templates"
+                            ? "menu-templates"
+                            : subItem.url === "/credentials"
+                              ? "menu-credentials"
+                              : undefined
+                      }
                       tooltip={item.title}
                       isActive={isActive(subItem.url)}
                       asChild
