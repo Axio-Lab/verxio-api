@@ -57,6 +57,8 @@ const defaultOrigins = [
   "https://deals.verxio.xyz",
   "https://playground.verxio.xyz",
   "https://api.verxio.xyz",
+  "https://www.verxio.xyz",
+  "https://verxio.xyz",
 ];
 const allowedOrigins =
   process.env.ALLOWED_ORIGINS?.split(",")
