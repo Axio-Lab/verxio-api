@@ -53,10 +53,18 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const { subscription } = useSubscription();
   const hasGenerateWorkflowAccess =
     subscription?.features?.includes("generate-workflow-with-ai") ?? false;
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // Subscribe to all workflow outputs and populate global store
   // This allows OUTPUT nodes to read from any source node immediately
   useWorkflowOutputsSync();
+
+  useEffect(() => {
+    const hasTouch =
+      typeof window !== "undefined" &&
+      ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+    setIsTouchDevice(hasTouch);
+  }, []);
 
   // Use ref to store the latest delete handler to avoid recreating nodes
   const deleteHandlerRef = useRef<(nodeId: string) => void>();
@@ -320,10 +328,11 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         onInit={setEditor}
         fitView
         panOnScroll
+        zoomOnPinch
         snapToGrid
         snapGrid={[10, 10]}
         selectionOnDrag
-        panOnDrag={false}
+        panOnDrag={isTouchDevice}
         proOptions={{ hideAttribution: true }}
         // Default edge options - only set deletable/selectable, keep default styling
         defaultEdgeOptions={{
