@@ -247,6 +247,25 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
     setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot));
   }, []);
 
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setEdges((currentEdges) =>
+      currentEdges.filter((currentEdge) => {
+        if (edge.id) {
+          return currentEdge.id !== edge.id;
+        }
+        return !(
+          currentEdge.source === edge.source &&
+          currentEdge.target === edge.target &&
+          (currentEdge.sourceHandle || "") === (edge.sourceHandle || "") &&
+          (currentEdge.targetHandle || "") === (edge.targetHandle || "")
+        );
+      })
+    );
+    toast.success("Connection removed. Click Save to persist.");
+  }, []);
+
   const onConnect = useCallback((params: Connection) => {
     // Create edge with default ReactFlow styling but keep it deletable
     const newEdge: Edge = {
@@ -296,6 +315,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onEdgeClick={onEdgeClick}
         onConnect={onConnect}
         onInit={setEditor}
         fitView

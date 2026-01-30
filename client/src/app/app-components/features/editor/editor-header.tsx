@@ -401,10 +401,11 @@ export const EditorNameInput = ({ workflowId }: { workflowId: string }) => {
   }
   return (
     <BreadcrumbItem
-      className="cursor-pointer hover:text-foreground transition-colors"
+      className="cursor-pointer hover:text-foreground transition-colors max-w-[140px] sm:max-w-[260px] truncate"
       onClick={() => setIsEditing(true)}
+      title={workflow?.name}
     >
-      {workflow?.name}
+      <span className="block truncate">{workflow?.name}</span>
     </BreadcrumbItem>
   );
 };
