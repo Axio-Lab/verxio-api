@@ -13,6 +13,7 @@ import {
   type Connection,
   type NodeChange,
   type EdgeChange,
+  type ReactFlowInstance,
   MiniMap,
   Background,
   Controls,
@@ -54,6 +55,9 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const hasGenerateWorkflowAccess =
     subscription?.features?.includes("generate-workflow-with-ai") ?? false;
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const nodesRef = useRef<Node[]>([]);
 
   // Subscribe to all workflow outputs and populate global store
   // This allows OUTPUT nodes to read from any source node immediately
@@ -139,6 +143,67 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const hasInitializedRef = useRef(false);
   const lastSavedWorkflowRef = useRef<string>("");
   const workflowIdRef = useRef<string>("");
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    if (!flowInstanceRef.current) return;
+
+    let frameId: number | null = null;
+    const scheduleFitOrCenter = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const instance = flowInstanceRef.current;
+        if (!instance) return;
+
+        const triggerNode =
+          nodesRef.current.find((node) => node.type === NodeType.MANUAL_TRIGGER) ||
+          nodesRef.current.find((node) => node.type === NodeType.INITIAL) ||
+          null;
+
+        if (!triggerNode) {
+          instance.fitView({ padding: 0.2 });
+          return;
+        }
+
+        const width =
+          (typeof triggerNode.measured?.width === "number" && triggerNode.measured.width) ||
+          (typeof triggerNode.style?.width === "number" && triggerNode.style.width) ||
+          (typeof triggerNode.width === "number" && triggerNode.width) ||
+          0;
+        const height =
+          (typeof triggerNode.measured?.height === "number" && triggerNode.measured.height) ||
+          (typeof triggerNode.style?.height === "number" && triggerNode.style.height) ||
+          (typeof triggerNode.height === "number" && triggerNode.height) ||
+          0;
+
+        instance.setCenter(triggerNode.position.x + width / 2, triggerNode.position.y + height / 2, {
+          zoom: instance.getZoom?.() ?? 1,
+        });
+      });
+    };
+
+    scheduleFitOrCenter();
+
+    const handleResize = () => scheduleFitOrCenter();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && canvasRef.current) {
+      resizeObserver = new ResizeObserver(() => scheduleFitOrCenter());
+      resizeObserver.observe(canvasRef.current);
+    }
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+      resizeObserver?.disconnect();
+    };
+  }, []);
 
   // Only sync from saved workflow on initial load or when workflow ID changes
   useEffect(() => {
@@ -315,7 +380,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   }
 
   return (
-    <div className="size-full">
+    <div className="size-full" ref={canvasRef}>
       <ReactFlow
         nodes={displayNodes}
         edges={edges}
@@ -325,7 +390,10 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         onEdgesChange={onEdgesChange}
         onEdgeClick={onEdgeClick}
         onConnect={onConnect}
-        onInit={setEditor}
+        onInit={(instance) => {
+          flowInstanceRef.current = instance;
+          setEditor(instance);
+        }}
         fitView
         panOnScroll
         zoomOnPinch
@@ -355,9 +423,8 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
               }
               setEditWorkflowOpen(true);
             }}
-            className={`flex items-center gap-2 border-primary ${
-              !hasGenerateWorkflowAccess ? "opacity-60" : ""
-            }`}
+            className={`flex items-center gap-2 border-primary ${!hasGenerateWorkflowAccess ? "opacity-60" : ""
+              }`}
             disabled={!hasGenerateWorkflowAccess}
           >
             <Sparkles className="h-4 w-4" />
@@ -378,30 +445,30 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           existingNodes={
             hasWorkflowNodes
               ? nodes
-                  .filter((n) => n.type !== NodeType.INITIAL)
-                  .map((n): ExistingNode => {
-                    const nodeId: string = n.id || "";
-                    const nodeType: string = n.type || "";
-                    return {
-                      id: nodeId,
-                      type: nodeType,
-                      data: (n.data || {}) as Record<string, unknown>,
-                    };
-                  })
+                .filter((n) => n.type !== NodeType.INITIAL)
+                .map((n): ExistingNode => {
+                  const nodeId: string = n.id || "";
+                  const nodeType: string = n.type || "";
+                  return {
+                    id: nodeId,
+                    type: nodeType,
+                    data: (n.data || {}) as Record<string, unknown>,
+                  };
+                })
               : undefined
           }
           existingConnections={
             hasWorkflowNodes
               ? edges.map((e): ExistingConnection => {
-                  const edgeId: string = e.id || `edge-${e.source}-${e.target}`;
-                  const source: string = e.source;
-                  const target: string = e.target;
-                  return {
-                    id: edgeId,
-                    source,
-                    target,
-                  };
-                })
+                const edgeId: string = e.id || `edge-${e.source}-${e.target}`;
+                const source: string = e.source;
+                const target: string = e.target;
+                return {
+                  id: edgeId,
+                  source,
+                  target,
+                };
+              })
               : undefined
           }
         />
