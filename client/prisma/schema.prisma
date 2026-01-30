@@ -16,26 +16,28 @@ datasource db {
 // Includes Better Auth models + subscription fields used in webhooks.
 
 model User {
-  id                    String   @id @default(cuid())
+  id                    String               @id @default(cuid())
   name                  String
-  email                 String   @unique
-  emailVerified         Boolean  @default(false)
+  email                 String               @unique
+  emailVerified         Boolean              @default(false)
   image                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  // Subscription fields used by Polar webhooks
-  subscriptionStatus    String?
-  subscriptionPlan      String?  @default("free")
-  subscriptionExpiresAt DateTime?
-  polarCustomerId       String?  @unique
-  rateLimitRemaining    Int      @default(100)
-  rateLimitResetAt      DateTime?
-  subscriptionFeatures  String[] @default([])
-
-  sessions       Session[]
-  accounts       Account[]
-  verifications  Verification[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  sessions              Session[]
+  accounts              Account[]
+  workflows             Workflow[]
+  credentials           Credential[]
+  googleOAuthToken      GoogleOAuthToken?
+  workflowGenerations   WorkflowGeneration[]
+  userConnections       UserConnection[]
+  subscriptionStatus    String?              // "active", "expired", "canceled", "trial", null
+  subscriptionPlan      String?               @default("free") // "free", "beta-tester", "pro", "enterprise", etc.
+  subscriptionExpiresAt DateTime?            // When subscription expires
+  polarCustomerId       String?              @unique // Polar customer ID
+  rateLimitRemaining    Int                  @default(100) // For promotional plans
+  rateLimitResetAt      DateTime?            // When rate limit resets
+  subscriptionFeatures  String[]             @default([]) // Array of feature IDs user has access to
+  manualPayments        ManualPayment[]
 
   @@map("user")
 }
@@ -66,6 +68,7 @@ model Account {
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
   scope                 String?
+  /// @encrypted
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -83,4 +86,3 @@ model Verification {
 
   @@map("verification")
 }
-
