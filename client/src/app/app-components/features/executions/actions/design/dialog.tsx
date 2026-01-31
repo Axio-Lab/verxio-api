@@ -144,7 +144,7 @@ export const DesignDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-pink-500" />
-            Design Agent
+            Nano Banana
           </DialogTitle>
           <DialogDescription>Generate images using AI.</DialogDescription>
         </DialogHeader>

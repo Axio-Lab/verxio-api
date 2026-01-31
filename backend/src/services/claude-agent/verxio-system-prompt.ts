@@ -215,6 +215,7 @@ const NODE_TYPES_DOCUMENTATION = `
 - Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, imageSize?: string, imageUrl: string, imageFilename: string, conversationHistory?: Array (chat mode only) }
 - **When to use:** Use DESIGN_PRO for advanced editing, reference images, high-res output (1K/2K/4K), multi-turn conversations, or when you need Google Search grounding
 - **When to use DESIGN:** Use DESIGN for simple text-to-image generation
+- **Display names:** When adding DESIGN or DESIGN_PRO nodes (via addNode or createMultipleDesignNodesTool), use display name "Nano Banana" for DESIGN and "Nano Banana Pro" for DESIGN_PRO (e.g. "Nano Banana", "Nano Banana Pro 1", "Nano Banana 2"). The UI shows these names to the user.
 
 **VEO**
 - Fields: { variables: string, prompt: string (REQUIRED for all modes except extension), mode?: "text"|"image"|"reference"|"frames"|"extension", aspectRatio?: "16:9"|"9:16", resolution?: "720p"|"1080p"|"4k", durationSeconds?: "4"|"6"|"8", negativePrompt?: string, sourceImage?: string, sourceImageFilename?: string, referenceImages?: Array<{file: string, filename: string}>, firstFrame?: string, firstFrameFilename?: string, lastFrame?: string, lastFrameFilename?: string, sourceVideo?: string, sourceVideoFilename?: string }

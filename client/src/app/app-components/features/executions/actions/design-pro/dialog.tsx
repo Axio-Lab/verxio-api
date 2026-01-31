@@ -36,7 +36,7 @@ import { useEffect, useState, useRef } from "react";
 import { DESIGN_TEMPLATES, ASPECT_RATIOS } from "../design/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Available Gemini image models (only Pro model for Design Agent Pro)
+// Available Gemini image models (only Pro model for Nano Banana Pro)
 const DESIGN_PRO_MODELS = [
   { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image (High Quality)" },
 ] as const;
@@ -488,7 +488,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
 
       await Promise.resolve(onSubmit(submitValues));
       onOpenChange(false);
-      toast.success("Design Pro node configured");
+      toast.success("Nano Banana Pro node configured");
       form.reset();
     } catch (error) {
       toast.dismiss(); // Dismiss any loading toasts
@@ -506,7 +506,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-pink-500" />
-            Design Agent Pro
+            Nano Banana Pro
           </DialogTitle>
           <DialogDescription>
             Advanced image editing with multi-turn conversations, reference images, and
