@@ -59,7 +59,7 @@ export function WorkflowNameInput({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:max-w-lg [&>button]:hidden">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

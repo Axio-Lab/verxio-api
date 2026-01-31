@@ -310,7 +310,12 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
   return (
     <>
       <div className="ml-auto">
-        <Button size="sm" onClick={handleSave} disabled={saveWorkflow.isPending || !hasChanges}>
+        <Button
+          data-tour-target="save-button"
+          size="sm"
+          onClick={handleSave}
+          disabled={saveWorkflow.isPending || !hasChanges}
+        >
           {saveWorkflow.isPending ? (
             <Loader2Icon className="size-4 animate-spin" />
           ) : (

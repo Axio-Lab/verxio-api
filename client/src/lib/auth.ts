@@ -66,7 +66,7 @@ export const auth = betterAuth({
           const { Resend } = await import("resend");
           const resend = new Resend(process.env.RESEND_API_KEY);
           await resend.emails.send({
-            from: "onboarding@resend.dev",
+            from: "support@verxio.xyz",
             to: user.email,
             subject: "Reset your password",
             html: `
@@ -96,7 +96,7 @@ export const auth = betterAuth({
           const { Resend } = await import("resend");
           const resend = new Resend(process.env.RESEND_API_KEY);
           await resend.emails.send({
-            from: "onboarding@resend.dev",
+            from: "support@verxio.xyz",
             to: user.email,
             subject: "Verify your email address",
             html: `

@@ -98,7 +98,7 @@ export const AddNodeButton = memo(({ workflowId }: AddNodeButtonProps) => {
 
   return (
     <NodeSelector open={selectorOpen} onOpenChange={setSelectorOpen} workflowId={workflowId}>
-      <Button variant="outline" size="icon">
+      <Button data-tour-target="add-node-button" variant="outline" size="icon">
         <PlusIcon className="size-4" />
       </Button>
     </NodeSelector>
