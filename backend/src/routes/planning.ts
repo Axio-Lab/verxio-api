@@ -20,15 +20,12 @@ export const planningRouter: Router = Router();
 
 // Apply Better Auth middleware to all routes
 planningRouter.use(betterAuthMiddleware);
-// Apply subscription and rate limiting middleware (Plan node costs 10 credits)
-planningRouter.use(
-  requireFeature(SUBSCRIPTION_FEATURES.PLAN_NODE),
-  checkQuota(QUOTA_COST.PLAN_NODE)
-);
+// Require plan feature for all planning routes (no debit for read-only)
+planningRouter.use(requireFeature(SUBSCRIPTION_FEATURES.PLAN_NODE));
 
 /**
  * GET /planning/workflow/:workflowId
- * Get existing plan for workflow
+ * Get existing plan for workflow (read-only, no credit debit)
  */
 planningRouter.get(
   "/workflow/:workflowId",
@@ -73,156 +70,168 @@ planningRouter.get(
 
 /**
  * POST /planning/message
- * Send message in planning conversation
+ * Send message in planning conversation (debit once per message)
  */
-planningRouter.post("/message", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = (req as any).user;
-    const { workflowId, message, attachments, model } = req.body;
-
-    if (!workflowId) {
-      throw new AppError("Workflow ID is required", 400);
-    }
-
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
-      throw new AppError("Message is required", 400);
-    }
-
-    // Verify workflow belongs to user
-    const workflow = await prismaClient.workflow.findFirst({
-      where: {
-        id: workflowId,
-        userId: user.id,
-      },
-    });
-
-    if (!workflow) {
-      throw new AppError("Workflow not found", 404);
-    }
-
-    const result = await sendPlanningMessage({
-      workflowId,
-      userId: user.id,
-      message: message.trim(),
-      attachments,
-      model,
-    });
-
-    res.json({
-      response: result.response,
-      conversationHistory: result.conversationHistory,
-      workflowModified: result.workflowModified,
-      toolsUsed: result.toolsUsed,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * POST /planning/message/stream
- * Send message in planning conversation with SSE streaming
- */
-planningRouter.post("/message/stream", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = (req as any).user;
-    const { workflowId, message, attachments, model } = req.body;
-
-    if (!workflowId) {
-      throw new AppError("Workflow ID is required", 400);
-    }
-
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
-      throw new AppError("Message is required", 400);
-    }
-
-    // Verify workflow belongs to user
-    const workflow = await prismaClient.workflow.findFirst({
-      where: {
-        id: workflowId,
-        userId: user.id,
-      },
-    });
-
-    if (!workflow) {
-      throw new AppError("Workflow not found", 404);
-    }
-
-    // Set up SSE headers
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-
+planningRouter.post(
+  "/message",
+  checkQuota(QUOTA_COST.PLAN_NODE),
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Stream events from agent
-      for await (const event of sendPlanningMessageStreaming({
+      const user = (req as any).user;
+      const { workflowId, message, attachments, model } = req.body;
+
+      if (!workflowId) {
+        throw new AppError("Workflow ID is required", 400);
+      }
+
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        throw new AppError("Message is required", 400);
+      }
+
+      // Verify workflow belongs to user
+      const workflow = await prismaClient.workflow.findFirst({
+        where: {
+          id: workflowId,
+          userId: user.id,
+        },
+      });
+
+      if (!workflow) {
+        throw new AppError("Workflow not found", 404);
+      }
+
+      const result = await sendPlanningMessage({
         workflowId,
         userId: user.id,
         message: message.trim(),
         attachments,
         model,
-      })) {
-        // Send event to client
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
+
+      res.json({
+        response: result.response,
+        conversationHistory: result.conversationHistory,
+        workflowModified: result.workflowModified,
+        toolsUsed: result.toolsUsed,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /planning/message/stream
+ * Send message in planning conversation with SSE streaming (debit once per call)
+ */
+planningRouter.post(
+  "/message/stream",
+  checkQuota(QUOTA_COST.PLAN_NODE),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { workflowId, message, attachments, model } = req.body;
+
+      if (!workflowId) {
+        throw new AppError("Workflow ID is required", 400);
       }
 
-      // Send completion event
-      res.write(`data: ${JSON.stringify({ type: "complete" })}\n\n`);
-    } catch (error) {
-      // Send error event
-      res.write(
-        `data: ${JSON.stringify({
-          type: "error",
-          error: error instanceof Error ? error.message : String(error),
-        })}\n\n`
-      );
-    }
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        throw new AppError("Message is required", 400);
+      }
 
-    // End the stream
-    res.end();
-  } catch (error) {
-    next(error);
+      // Verify workflow belongs to user
+      const workflow = await prismaClient.workflow.findFirst({
+        where: {
+          id: workflowId,
+          userId: user.id,
+        },
+      });
+
+      if (!workflow) {
+        throw new AppError("Workflow not found", 404);
+      }
+
+      // Set up SSE headers
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+
+      try {
+        // Stream events from agent
+        for await (const event of sendPlanningMessageStreaming({
+          workflowId,
+          userId: user.id,
+          message: message.trim(),
+          attachments,
+          model,
+        })) {
+          // Send event to client
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+
+        // Send completion event
+        res.write(`data: ${JSON.stringify({ type: "complete" })}\n\n`);
+      } catch (error) {
+        // Send error event
+        res.write(
+          `data: ${JSON.stringify({
+            type: "error",
+            error: error instanceof Error ? error.message : String(error),
+          })}\n\n`
+        );
+      }
+
+      // End the stream
+      res.end();
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * POST /planning/generate-prompt
- * Generate prompt from conversation using AI analysis
+ * Generate prompt from conversation using AI analysis (debit once per call)
  */
-planningRouter.post("/generate-prompt", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = (req as any).user;
-    const { workflowId } = req.body;
+planningRouter.post(
+  "/generate-prompt",
+  checkQuota(QUOTA_COST.PLAN_NODE),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { workflowId } = req.body;
 
-    if (!workflowId) {
-      throw new AppError("Workflow ID is required", 400);
+      if (!workflowId) {
+        throw new AppError("Workflow ID is required", 400);
+      }
+
+      // Verify workflow belongs to user
+      const workflow = await prismaClient.workflow.findFirst({
+        where: {
+          id: workflowId,
+          userId: user.id,
+        },
+      });
+
+      if (!workflow) {
+        throw new AppError("Workflow not found", 404);
+      }
+
+      const result = await generateWorkflowPrompt(workflowId, user.id);
+
+      res.json({
+        prompt: result.generatedPrompt,
+        summary: result.summary,
+        suggestedNodes: result.suggestedNodes,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    // Verify workflow belongs to user
-    const workflow = await prismaClient.workflow.findFirst({
-      where: {
-        id: workflowId,
-        userId: user.id,
-      },
-    });
-
-    if (!workflow) {
-      throw new AppError("Workflow not found", 404);
-    }
-
-    const result = await generateWorkflowPrompt(workflowId, user.id);
-
-    res.json({
-      prompt: result.generatedPrompt,
-      summary: result.summary,
-      suggestedNodes: result.suggestedNodes,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * POST /planning/upload

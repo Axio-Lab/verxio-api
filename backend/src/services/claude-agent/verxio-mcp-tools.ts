@@ -1100,7 +1100,8 @@ export const createMultipleDesignNodesTool: VerxioTool = {
     for (let i = 0; i < imageSpecs.length; i++) {
       const spec = imageSpecs[i];
       const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
-      const nodeName = nodeType === "DESIGN_PRO" ? `Design Pro ${i + 1}` : `Design ${i + 1}`;
+      const nodeName =
+        nodeType === "DESIGN_PRO" ? `Nano Banana Pro ${i + 1}` : `Nano Banana ${i + 1}`;
 
       // Validate prompt is JSON
       let parsedPrompt;

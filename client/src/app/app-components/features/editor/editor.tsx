@@ -403,7 +403,9 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
         snapToGrid
         snapGrid={[10, 10]}
         selectionOnDrag
-        panOnDrag={isTouchDevice}
+        panOnDrag={isTouchDevice ? true : [1, 2]}
+        multiSelectionKeyCode={["Shift", "Control", "Meta"]}
+        elementsSelectable
         proOptions={{ hideAttribution: true }}
         // Default edge options - only set deletable/selectable, keep default styling
         defaultEdgeOptions={{
