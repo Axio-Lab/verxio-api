@@ -17,22 +17,26 @@ import { Badge } from "@/components/ui/badge";
 
 function TemplateCard({ template }: { template: WorkflowTemplateListItem }) {
   return (
-    <Link href={`/templates/${template.id}`} prefetch>
-      <Card className="p-4 shadow-none hover:shadow cursor-pointer transition-shadow">
-        <CardContent className="p-0">
-          <CardTitle className="text-base font-medium">{template.name}</CardTitle>
-          <CardDescription className="text-sm mt-1 line-clamp-2">
-            {template.shortDescription}
+    <Link href={`/templates/${template.id}`} prefetch className="block h-full">
+      <Card className="h-[220px] p-4 shadow-none hover:shadow cursor-pointer transition-shadow flex flex-col overflow-hidden">
+        <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
+          <CardTitle className="text-base font-medium line-clamp-2 break-words leading-tight shrink-0">
+            {template.name}
+          </CardTitle>
+          <CardDescription className="text-sm mt-1 line-clamp-2 break-words min-h-0 flex-1 overflow-hidden">
+            {template.shortDescription || " "}
           </CardDescription>
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <div className="flex items-center gap-2 mt-3 flex-wrap shrink-0">
             <Badge variant="secondary" className="text-xs">
               {template.pricing ?? "Free"}
             </Badge>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Download className="size-3" />
+              <Download className="size-3 shrink-0" />
               {template.downloadCount ?? 0} downloads
             </span>
-            <span className="text-xs text-muted-foreground">by {template.creatorUsername}</span>
+            <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={template.creatorUsername}>
+              by {template.creatorUsername}
+            </span>
             {template.category && (
               <Badge variant="outline" className="text-xs">
                 {template.category}

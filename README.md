@@ -1,10 +1,10 @@
 <div align="center">
   
-  **Verxio is an autonomous self-learning copilot that turns every repeat task into a no-code agentic workflow**
+  **Verxio is an AI platform for every workflow automation**
 </div>
 
 <div align="center">
-As an AI-powered assistant, Verxio helps you design, run, and manage automated workflows.
+Verxio is an autonomous, self-learning copilot that transforms repetitive work into no-code, agentic workflows—so you can design, run, and manage automation with ease.
 </div>
 
 ---

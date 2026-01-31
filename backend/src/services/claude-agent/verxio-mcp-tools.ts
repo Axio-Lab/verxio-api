@@ -160,9 +160,23 @@ export const createWorkflowTool: VerxioTool = {
         suggestion: `Use getWorkflow("${context.workflowId}") to see the current workflow, then use addNode with workflowId: "${context.workflowId}" to add nodes to the existing workflow.`,
       };
     }
+    const trimmedName = name.trim();
+    const existing = await prisma.workflow.findFirst({
+      where: {
+        userId: context.userId,
+        name: { equals: trimmedName, mode: "insensitive" },
+      },
+    });
+    if (existing) {
+      return {
+        success: false,
+        error: `A workflow named "${trimmedName}" already exists. Please choose a different name.`,
+        suggestion: "Use a unique name, e.g. add a number or descriptor (e.g. 'My Workflow 2', 'Daily Report v1').",
+      };
+    }
     const workflow = await prisma.workflow.create({
       data: {
-        name: name.trim(),
+        name: trimmedName,
         userId: context.userId,
         nodes: {
           create: {

@@ -157,15 +157,26 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     traceType = "agent_query",
   } = options;
 
-  // Create Opik trace for observability
-  const traceContext = createTrace(traceType, {
-    userId,
-    workflowId,
-    traceType,
+  // Create Opik trace for observability (with input so Opik captures prompt + context)
+  const traceInput: Record<string, unknown> = {
+    prompt: prompt.length > 8000 ? `${prompt.slice(0, 8000)}... [truncated]` : prompt,
     model,
-    promptLength: prompt.length,
-    hasConversationHistory: !!conversationHistory?.length,
-  });
+    maxTurns,
+    conversationHistoryLength: conversationHistory?.length ?? 0,
+    ...(workflowId && { workflowId }),
+  };
+  const traceContext = createTrace(
+    traceType,
+    {
+      userId,
+      workflowId,
+      traceType,
+      model,
+      promptLength: prompt.length,
+      hasConversationHistory: !!conversationHistory?.length,
+    },
+    traceInput
+  );
 
   // Create tool context
   const toolContext: ToolContext = { userId, workflowId };
@@ -238,19 +249,23 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       data: { message: error.message, stack: error.stack },
     };
   } finally {
-    // End the Opik trace with final metrics
-    await endTrace(traceContext, {
-      success: !hasError,
-      output: lastResult,
-      error: errorMessage,
-      usage: lastResult?.usage
-        ? {
-            inputTokens: lastResult.usage.input_tokens,
-            outputTokens: lastResult.usage.output_tokens,
-          }
-        : undefined,
-      cost: lastResult?.total_cost_usd,
-    });
+    // End the Opik trace and log one span with agent input + output in one go
+    await endTrace(
+      traceContext,
+      {
+        success: !hasError,
+        output: lastResult,
+        error: errorMessage,
+        usage: lastResult?.usage
+          ? {
+              inputTokens: lastResult.usage.input_tokens,
+              outputTokens: lastResult.usage.output_tokens,
+            }
+          : undefined,
+        cost: lastResult?.total_cost_usd,
+      },
+      traceInput
+    );
   }
 }
 

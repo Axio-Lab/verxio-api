@@ -288,6 +288,7 @@ export interface WorkflowsListResponse {
 
 /**
  * Create a new workflow
+ * Names must be unique per user (case-insensitive).
  */
 export const createWorkflow = async (data: CreateWorkflowData): Promise<WorkflowResponse> => {
   if (!data.name || data.name.trim() === "") {
@@ -307,9 +308,25 @@ export const createWorkflow = async (data: CreateWorkflowData): Promise<Workflow
     throw new AppError("User not found", 404);
   }
 
+  const trimmedName = data.name.trim();
+
+  // Ensure no workflow with the same name exists for this user (case-insensitive)
+  const existing = await prismaClient.workflow.findFirst({
+    where: {
+      userId: data.userId,
+      name: { equals: trimmedName, mode: "insensitive" },
+    },
+  });
+  if (existing) {
+    throw new AppError(
+      `A workflow named "${trimmedName}" already exists. Please choose a different name.`,
+      409
+    );
+  }
+
   const workflow = await prismaClient.workflow.create({
     data: {
-      name: data.name.trim(),
+      name: trimmedName,
       userId: data.userId,
       nodes: {
         create: {
@@ -792,10 +809,27 @@ export const updateWorkflowName = async (
     throw new AppError("Workflow not found", 404);
   }
 
+  const trimmedName = data.name.trim();
+
+  // Ensure no other workflow has the same name for this user (case-insensitive)
+  const duplicate = await prismaClient.workflow.findFirst({
+    where: {
+      userId,
+      id: { not: id },
+      name: { equals: trimmedName, mode: "insensitive" },
+    },
+  });
+  if (duplicate) {
+    throw new AppError(
+      `A workflow named "${trimmedName}" already exists. Please choose a different name.`,
+      409
+    );
+  }
+
   const workflow = await prismaClient.workflow.update({
     where: { id },
     data: {
-      name: data.name.trim(),
+      name: trimmedName,
     },
     include: {
       nodes: true,
@@ -1117,9 +1151,23 @@ export const updateWorkflowData = async (
   // Step 2: Delete existing nodes (this cascade-deletes NodeAssets)
   await prismaClient.node.deleteMany({ where: { workflowId: id } });
 
-  // Step 3: Update workflow name if provided
+  // Step 3: Update workflow name if provided (must be unique per user)
   if (data.name?.trim()) {
-    await prismaClient.workflow.update({ where: { id }, data: { name: data.name.trim() } });
+    const newName = data.name.trim();
+    const duplicate = await prismaClient.workflow.findFirst({
+      where: {
+        userId,
+        id: { not: id },
+        name: { equals: newName, mode: "insensitive" },
+      },
+    });
+    if (duplicate) {
+      throw new AppError(
+        `A workflow named "${newName}" already exists. Please choose a different name.`,
+        409
+      );
+    }
+    await prismaClient.workflow.update({ where: { id }, data: { name: newName } });
   }
 
   // Step 4: Create nodes
