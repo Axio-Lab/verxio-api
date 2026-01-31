@@ -78,8 +78,13 @@ export interface TraceContext {
 /**
  * Create a new trace for an agent interaction
  * Returns a no-op context if Opik is not enabled
+ * @param input - Optional trace input (e.g. prompt, model) so Opik captures what was sent to the agent
  */
-export function createTrace(name: string, metadata: TraceMetadata): TraceContext {
+export function createTrace(
+  name: string,
+  metadata: TraceMetadata,
+  input?: Record<string, unknown>
+): TraceContext {
   if (!opik) {
     // Return a no-op trace context
     return {
@@ -92,6 +97,7 @@ export function createTrace(name: string, metadata: TraceMetadata): TraceContext
   try {
     const trace = opik.trace({
       name,
+      input: input ?? undefined,
       metadata: {
         ...metadata,
         startedAt: new Date().toISOString(),
@@ -142,7 +148,50 @@ export async function logSpan(context: TraceContext, options: SpanOptions): Prom
 }
 
 /**
- * End a trace and record final metrics
+ * Build a serializable output object for Opik (so input/output are always captured).
+ * Uses the canonical shape from Opik docs: { response: "..." } so the trace dashboard displays output.
+ * Handles Claude Agent SDK result message shape: { result, usage, total_cost_usd, subtype }.
+ */
+function buildTraceOutput(result: {
+  success: boolean;
+  output?: any;
+  error?: string;
+  usage?: { inputTokens?: number; outputTokens?: number };
+  cost?: number;
+}): Record<string, unknown> {
+  let responseText: string | undefined;
+  const rest: Record<string, unknown> = {
+    success: result.success,
+    ...(result.error && { error: result.error }),
+    ...(result.usage && { usage: result.usage }),
+    ...(result.cost != null && { cost: result.cost }),
+  };
+  if (result.output != null && typeof result.output === "object") {
+    const o = result.output as Record<string, unknown>;
+    if (typeof o.result === "string" && o.result.length > 0) responseText = o.result;
+    if (!responseText && Array.isArray(o.content)) {
+      const textParts = (o.content as any[])
+        .filter((c: any) => c?.type === "text" && c.text != null)
+        .map((c: any) => c.text);
+      if (textParts.length) responseText = textParts.join("\n");
+    }
+    if (o.usage) rest.usage = o.usage;
+    if (o.total_cost_usd != null) rest.cost = o.total_cost_usd;
+    if (o.num_turns != null) rest.numTurns = o.num_turns;
+  } else if (result.output != null) {
+    rest.output = result.output;
+  }
+  // Opik README uses output: { response: "..." } — include it so the dashboard shows output
+  return {
+    response: responseText ?? (result.error ? `Error: ${result.error}` : ""),
+    ...rest,
+  };
+}
+
+/**
+ * End a trace and record final metrics.
+ * When agentInput is provided, logs a single span with both agent input and output in one go
+ * (so Opik captures input + output on the span; the dashboard shows spans with I/O).
  */
 export async function endTrace(
   context: TraceContext,
@@ -152,17 +201,39 @@ export async function endTrace(
     error?: string;
     usage?: { inputTokens?: number; outputTokens?: number };
     cost?: number;
-  }
+  },
+  /** Agent input (prompt, model, etc.) — when provided, we log a span with input + output in one go */
+  agentInput?: Record<string, unknown>
 ): Promise<void> {
   // Skip if trace is null (Opik disabled)
   if (!context.trace) return;
 
   try {
     const duration = Date.now() - context.startTime;
+    const output = buildTraceOutput(result);
+
+    // Log one span after execution with both input and output so Opik captures them in one go
+    if (agentInput != null) {
+      await logSpan(context, {
+        name: context.metadata.traceType ?? "agent_execution",
+        input: agentInput,
+        output,
+        model: context.metadata.model,
+        usage: result.usage,
+        cost: result.cost,
+        metadata: {
+          success: result.success,
+          error: result.error,
+          duration,
+        },
+      });
+    }
 
     // Update trace with final output and metrics
-    await context.trace.update({
-      output: result.output,
+    const endTime = new Date();
+    context.trace.update({
+      output,
+      endTime,
       metadata: {
         ...context.metadata,
         success: result.success,
@@ -170,12 +241,15 @@ export async function endTrace(
         duration,
         usage: result.usage,
         cost: result.cost,
-        endedAt: new Date().toISOString(),
+        endedAt: endTime.toISOString(),
       },
     });
 
-    // End the trace
-    await context.trace.end();
+    // End the trace (marks trace ended locally; batch queue will send create + update)
+    context.trace.end();
+
+    // Flush so the update (including output) is sent to Opik immediately
+    if (opik) await opik.flush();
   } catch (error) {
     console.error("[OpikService] Error ending trace:", error);
   }
@@ -374,14 +448,18 @@ export function withTracing<T extends (...args: any[]) => AsyncGenerator<any, an
   traceType: TraceMetadata["traceType"]
 ): T {
   return async function* (...args: Parameters<T>) {
-    const options = args[0] as { userId: string; workflowId?: string; model?: string };
+    const options = args[0] as { userId: string; workflowId?: string; model?: string; [key: string]: unknown };
 
-    const context = createTrace(`${traceType}_call`, {
-      userId: options.userId,
-      workflowId: options.workflowId,
-      traceType,
-      model: options.model,
-    });
+    const context = createTrace(
+      `${traceType}_call`,
+      {
+        userId: options.userId,
+        workflowId: options.workflowId,
+        traceType,
+        model: options.model,
+      },
+      { ...options }
+    );
 
     let lastResult: any = null;
     let hasError = false;

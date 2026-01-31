@@ -34,7 +34,7 @@ export default function CheckEmailPage() {
             <p className="text-sm text-gray-600">
               {isPasswordReset
                 ? "Open the email and click the reset link to choose a new password. If you don’t see it, check your spam folder."
-                : "Please click the verification link in the email to activate your account. Link will expire in 24 hours."}
+                : "Please click the verification link in the email to activate your account. If you don't see it, check your spam folder."}
             </p>
           </div>
         </CardContent>
