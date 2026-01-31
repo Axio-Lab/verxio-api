@@ -168,7 +168,7 @@ export function TemplatesContent() {
       }
     >
       {hasTemplates ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-tour-target="templates-list">
           {data!.templates.map((t) => (
             <TemplateCard key={t.id} template={t} />
           ))}

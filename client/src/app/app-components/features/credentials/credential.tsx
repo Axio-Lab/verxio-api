@@ -32,6 +32,7 @@ export const CredentialsHeader = ({ disabled }: { disabled?: boolean }) => {
       newButtonLabel="New Credential"
       onNew={handleNew}
       disabled={disabled}
+      newButtonDataTourTarget="new-credential-button"
     />
   );
 };

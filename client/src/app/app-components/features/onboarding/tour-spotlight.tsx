@@ -1,9 +1,10 @@
 "use client";
 
 import { useTour } from "./tour-context";
-import { TOUR_STEPS } from "./tour-steps";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -51,10 +52,12 @@ function useTargetRect(selector: string | null): Rect | null {
 }
 
 export function TourSpotlight() {
-  const { isOpen, currentStep } = useTour();
-  const step = TOUR_STEPS[currentStep];
+  const { isOpen, currentStep, steps, activeTourId } = useTour();
+  const isMobile = useIsMobile();
+  const step = steps[currentStep];
   const selector = step?.targetSelector ?? null;
   const targetRect = useTargetRect(selector);
+  const isSidebarTourOnMobile = activeTourId === "sidebar" && isMobile;
 
   const padding = 8;
 
@@ -62,16 +65,19 @@ export function TourSpotlight() {
 
   const overlay = (
     <div
-      className="tour-spotlight-overlay fixed inset-0 z-[45] pointer-events-none"
+      className={cn(
+        "tour-spotlight-overlay fixed inset-0 pointer-events-none [&>*]:pointer-events-none",
+        isSidebarTourOnMobile ? "z-[55]" : "z-[45]"
+      )}
       aria-hidden
     >
-      {/* Dimmed overlay strips (cutout around target) */}
+      {/* Dimmed overlay strips (cutout around target) - all pointer-events-none so touches reach dialog */}
       <div
-        className="absolute left-0 top-0 right-0 bg-black/50"
+        className="absolute left-0 top-0 right-0 bg-black/50 pointer-events-none"
         style={{ height: Math.max(0, targetRect.top - padding) }}
       />
       <div
-        className="absolute left-0 bg-black/50"
+        className="absolute left-0 bg-black/50 pointer-events-none"
         style={{
           top: targetRect.top - padding,
           width: Math.max(0, targetRect.left - padding),
@@ -79,7 +85,7 @@ export function TourSpotlight() {
         }}
       />
       <div
-        className="absolute top-0 right-0 bg-black/50"
+        className="absolute top-0 right-0 bg-black/50 pointer-events-none"
         style={{
           top: targetRect.top - padding,
           left: targetRect.left + targetRect.width + padding,
@@ -88,7 +94,7 @@ export function TourSpotlight() {
         }}
       />
       <div
-        className="absolute left-0 right-0 bg-black/50"
+        className="absolute left-0 right-0 bg-black/50 pointer-events-none"
         style={{
           top: targetRect.top + targetRect.height + padding,
           height: Math.max(0, window.innerHeight - (targetRect.top + targetRect.height + padding)),
@@ -97,7 +103,7 @@ export function TourSpotlight() {
 
       {/* Pulse ring around target */}
       <div
-        className="tour-spotlight-ring absolute rounded-md border-2 border-primary"
+        className="tour-spotlight-ring absolute rounded-md border-2 border-primary pointer-events-none"
         style={{
           left: targetRect.left - padding,
           top: targetRect.top - padding,
@@ -109,7 +115,5 @@ export function TourSpotlight() {
     </div>
   );
 
-  return typeof document !== "undefined"
-    ? createPortal(overlay, document.body)
-    : null;
+  return typeof document !== "undefined" ? createPortal(overlay, document.body) : null;
 }

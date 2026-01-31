@@ -16,10 +16,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarGroupContent, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTour } from "@/app/app-components/features/onboarding";
 import { useSubscription } from "@/hooks/useSubscription";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -65,8 +66,38 @@ const menuItems = [
 export const AppSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, setOpen, setOpenMobile, openMobile } = useSidebar();
+  const { activeTourId, isOpen: tourOpen, currentStep } = useTour();
   const { signOut } = useAuth();
+
+  const isSidebarTourActive = activeTourId === "sidebar" && tourOpen;
+  // On mobile, only open sidebar from step 1 onward so step 0 shows the menu icon
+  const shouldShowSidebarOpen = isSidebarTourActive && (isMobile ? currentStep >= 1 : true);
+
+  // Step 0 on mobile: keep sidebar collapsed so user sees the menu icon; then open after Start Tour
+  useEffect(() => {
+    if (isSidebarTourActive && isMobile && currentStep === 0) {
+      setOpenMobile(false);
+    }
+  }, [isSidebarTourActive, isMobile, currentStep, setOpenMobile]);
+
+  // Auto-open sidebar when sidebar tour is past step 0 (so Workflows/Templates/Upgrade are visible)
+  useEffect(() => {
+    if (shouldShowSidebarOpen) {
+      if (isMobile) {
+        setOpenMobile(true);
+      } else {
+        setOpen(true);
+      }
+    }
+  }, [shouldShowSidebarOpen, isMobile, setOpen, setOpenMobile]);
+
+  // Keep mobile sidebar open throughout the tour from step 1 onward (re-open if closed)
+  useEffect(() => {
+    if (shouldShowSidebarOpen && isMobile && !openMobile) {
+      setOpenMobile(true);
+    }
+  }, [shouldShowSidebarOpen, isMobile, openMobile, setOpenMobile]);
   const {
     subscription,
     isLoading: subscriptionLoading,
@@ -173,7 +204,7 @@ export const AppSidebar = () => {
   //   }
   // };
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" mobileSheetClassName={isSidebarTourActive ? "!z-[40]" : undefined}>
       <SidebarHeader>
         <SidebarMenuItem>
           <SidebarMenuButton
@@ -252,6 +283,7 @@ export const AppSidebar = () => {
             {/* Free plan and subscribed plan share same button style: light bronze border, black text */}
             {!isSubscribed ? (
               <SidebarMenuButton
+                data-tour-target="upgrade-button"
                 tooltip="Upgrade Plan"
                 className={cn(
                   "w-full gap-x-2 h-10 px-4 font-bold transition-all duration-200",
@@ -283,6 +315,7 @@ export const AppSidebar = () => {
             ) : (
               <>
                 <div
+                  data-tour-target="upgrade-button"
                   className={cn(
                     "w-full flex items-center justify-center gap-x-2 h-10 px-4 font-bold rounded-md",
                     "border-2 border-amber-200 bg-amber-50/80 text-black",

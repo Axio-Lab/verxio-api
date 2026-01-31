@@ -65,8 +65,7 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
 
   useEffect(() => {
     const hasTouch =
-      typeof window !== "undefined" &&
-      ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+      typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
     setIsTouchDevice(hasTouch);
   }, []);
 
@@ -179,9 +178,13 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           (typeof triggerNode.height === "number" && triggerNode.height) ||
           0;
 
-        instance.setCenter(triggerNode.position.x + width / 2, triggerNode.position.y + height / 2, {
-          zoom: instance.getZoom?.() ?? 1,
-        });
+        instance.setCenter(
+          triggerNode.position.x + width / 2,
+          triggerNode.position.y + height / 2,
+          {
+            zoom: instance.getZoom?.() ?? 1,
+          }
+        );
       });
     };
 
@@ -424,8 +427,9 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
               }
               setEditWorkflowOpen(true);
             }}
-            className={`flex items-center gap-2 border-primary ${!hasGenerateWorkflowAccess ? "opacity-60" : ""
-              }`}
+            className={`flex items-center gap-2 border-primary ${
+              !hasGenerateWorkflowAccess ? "opacity-60" : ""
+            }`}
             disabled={!hasGenerateWorkflowAccess}
           >
             <Sparkles className="h-4 w-4" />
@@ -446,30 +450,30 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
           existingNodes={
             hasWorkflowNodes
               ? nodes
-                .filter((n) => n.type !== NodeType.INITIAL)
-                .map((n): ExistingNode => {
-                  const nodeId: string = n.id || "";
-                  const nodeType: string = n.type || "";
-                  return {
-                    id: nodeId,
-                    type: nodeType,
-                    data: (n.data || {}) as Record<string, unknown>,
-                  };
-                })
+                  .filter((n) => n.type !== NodeType.INITIAL)
+                  .map((n): ExistingNode => {
+                    const nodeId: string = n.id || "";
+                    const nodeType: string = n.type || "";
+                    return {
+                      id: nodeId,
+                      type: nodeType,
+                      data: (n.data || {}) as Record<string, unknown>,
+                    };
+                  })
               : undefined
           }
           existingConnections={
             hasWorkflowNodes
               ? edges.map((e): ExistingConnection => {
-                const edgeId: string = e.id || `edge-${e.source}-${e.target}`;
-                const source: string = e.source;
-                const target: string = e.target;
-                return {
-                  id: edgeId,
-                  source,
-                  target,
-                };
-              })
+                  const edgeId: string = e.id || `edge-${e.source}-${e.target}`;
+                  const source: string = e.source;
+                  const target: string = e.target;
+                  return {
+                    id: edgeId,
+                    source,
+                    target,
+                  };
+                })
               : undefined
           }
         />

@@ -2,19 +2,32 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/app/app-components/app-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TourProvider, TourDialog, TourSpotlight } from "@/app/app-components/features/onboarding";
+import {
+  TourProvider,
+  TourDialog,
+  TourSpotlight,
+  useTour,
+} from "@/app/app-components/features/onboarding";
 
-const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+function DashboardSidebarLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
+  const { activeTourId, isOpen: tourOpen } = useTour();
+  const preventMobileClose = activeTourId === "sidebar" && tourOpen && isMobile;
 
   return (
+    <SidebarProvider defaultOpen={!isMobile} preventMobileClose={preventMobileClose}>
+      <AppSidebar />
+      <SidebarInset className="bg-accent/20 text-foreground">{children}</SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
     <TourProvider>
-      <SidebarProvider defaultOpen={!isMobile}>
-        <AppSidebar />
-        <SidebarInset className="bg-accent/20 text-foreground">{children}</SidebarInset>
-      </SidebarProvider>
-      <TourDialog />
+      <DashboardSidebarLayout>{children}</DashboardSidebarLayout>
       <TourSpotlight />
+      <TourDialog />
     </TourProvider>
   );
 };

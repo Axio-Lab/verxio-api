@@ -21,7 +21,9 @@ export default function CheckEmailPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Check Your Email</CardTitle>
           <CardDescription className="text-sm text-gray-500">
-            {isPasswordReset ? "We've sent a password reset link to" : "We've sent a verification link to"}
+            {isPasswordReset
+              ? "We've sent a password reset link to"
+              : "We've sent a verification link to"}
           </CardDescription>
           {email && (
             <CardDescription className="text-sm font-medium text-gray-900">{email}</CardDescription>

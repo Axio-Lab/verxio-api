@@ -35,6 +35,8 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  /** When true, mobile sheet will not close on outside click (e.g. during sidebar tour). */
+  preventMobileClose?: boolean;
 };
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
@@ -54,6 +56,8 @@ const SidebarProvider = React.forwardRef<
     defaultOpen?: boolean;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    /** When true, mobile sidebar sheet will not close on outside click (e.g. during tour). */
+    preventMobileClose?: boolean;
   }
 >(
   (
@@ -61,6 +65,7 @@ const SidebarProvider = React.forwardRef<
       defaultOpen = true,
       open: openProp,
       onOpenChange: setOpenProp,
+      preventMobileClose = false,
       className,
       style,
       children,
@@ -121,8 +126,9 @@ const SidebarProvider = React.forwardRef<
         openMobile,
         setOpenMobile,
         toggleSidebar,
+        preventMobileClose,
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, preventMobileClose]
     );
 
     return (
@@ -158,6 +164,8 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
+    /** Optional class for mobile Sheet (e.g. z-40 to sit below tour overlay). */
+    mobileSheetClassName?: string;
   }
 >(
   (
@@ -165,13 +173,14 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      mobileSheetClassName,
       className,
       children,
       ...props
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { isMobile, state, openMobile, setOpenMobile, preventMobileClose } = useSidebar();
 
     if (collapsible === "none") {
       return (
@@ -189,13 +198,24 @@ const Sidebar = React.forwardRef<
     }
 
     if (isMobile) {
+      const handleMobileOpenChange = React.useCallback(
+        (open: boolean) => {
+          if (open) setOpenMobile(true);
+          else if (!preventMobileClose) setOpenMobile(false);
+        },
+        [setOpenMobile, preventMobileClose]
+      );
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+        <Sheet open={openMobile} onOpenChange={handleMobileOpenChange} {...props}>
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
             data-collapsible="icon"
-            className="w-[--sidebar-width-icon] bg-white p-0 text-sidebar-foreground [&>button]:hidden z-50 group"
+            className={cn(
+              "w-[--sidebar-width-icon] bg-white p-0 text-sidebar-foreground [&>button]:hidden z-50 group",
+              mobileSheetClassName
+            )}
+            overlayClassName={mobileSheetClassName}
             style={
               {
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
@@ -270,6 +290,7 @@ const SidebarTrigger = React.forwardRef<
     <Button
       ref={ref}
       data-sidebar="trigger"
+      data-tour-target="sidebar-trigger"
       variant="ghost"
       size="icon"
       className={cn("h-7 w-7", className)}
