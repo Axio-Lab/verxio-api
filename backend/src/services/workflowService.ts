@@ -344,20 +344,6 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       }
     }
 
-    // For KLING_VIRTUAL_TRYON nodes, merge human/cloth images back into node.data
-    if (node.type === "KLING_VIRTUAL_TRYON" && node.assets && node.assets.length > 0) {
-      const humanAsset = node.assets.find((a: any) => a.fileType === "kling-tryon-human");
-      if (humanAsset) {
-        nodeData.human_image = humanAsset.fileData || `asset:${humanAsset.filename}`;
-        nodeData.humanImageFilename = humanAsset.filename;
-      }
-      const clothAsset = node.assets.find((a: any) => a.fileType === "kling-tryon-cloth");
-      if (clothAsset) {
-        nodeData.cloth_image = clothAsset.fileData || `asset:${clothAsset.filename}`;
-        nodeData.clothImageFilename = clothAsset.filename;
-      }
-    }
-
     // For KLING_MOTION_CONTROL nodes, merge image/video assets back into node.data
     if (node.type === "KLING_MOTION_CONTROL" && node.assets && node.assets.length > 0) {
       const imageAsset = node.assets.find((a: any) => a.fileType === "kling-motion-image");
@@ -383,7 +369,6 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       node.type === "KLING_MULTI_IMAGE2IMAGE" ||
       node.type === "KLING_OMNI_IMAGE" ||
       node.type === "KLING_OMNI_VIDEO" ||
-      node.type === "KLING_VIRTUAL_TRYON" ||
       node.type === "KLING_MOTION_CONTROL"
     ) {
       return {
@@ -727,7 +712,6 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
       "KLING_MULTI_IMAGE2IMAGE",
       "KLING_OMNI_IMAGE",
       "KLING_OMNI_VIDEO",
-      "KLING_VIRTUAL_TRYON",
       "KLING_MOTION_CONTROL",
     ].includes(nodeType);
 
@@ -870,7 +854,6 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
       "KLING_MULTI_IMAGE2IMAGE",
       "KLING_OMNI_IMAGE",
       "KLING_OMNI_VIDEO",
-      "KLING_VIRTUAL_TRYON",
       "KLING_MOTION_CONTROL",
     ].includes(nodeType);
 
@@ -1403,34 +1386,6 @@ export const updateWorkflowData = async (
             });
           });
           delete nodeData.referenceImages;
-        }
-      }
-
-      // Extract KLING_VIRTUAL_TRYON assets (human/cloth images)
-      if (node.type === "KLING_VIRTUAL_TRYON" && nodeData) {
-        if (nodeData.human_image && typeof nodeData.human_image === "string") {
-          if (nodeData.human_image.startsWith("data:")) {
-            assetsToStore.push({
-              filename: nodeData.humanImageFilename || "kling-tryon-human.png",
-              fileType: "kling-tryon-human",
-              fileData: nodeData.human_image,
-              isBackgroundAudio: false,
-            });
-          }
-          delete nodeData.human_image;
-          delete nodeData.humanImageFilename;
-        }
-        if (nodeData.cloth_image && typeof nodeData.cloth_image === "string") {
-          if (nodeData.cloth_image.startsWith("data:")) {
-            assetsToStore.push({
-              filename: nodeData.clothImageFilename || "kling-tryon-cloth.png",
-              fileType: "kling-tryon-cloth",
-              fileData: nodeData.cloth_image,
-              isBackgroundAudio: false,
-            });
-          }
-          delete nodeData.cloth_image;
-          delete nodeData.clothImageFilename;
         }
       }
 

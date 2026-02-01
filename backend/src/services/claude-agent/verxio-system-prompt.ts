@@ -284,12 +284,6 @@ const NODE_TYPES_DOCUMENTATION = `
 - Output: { imageUrls, task_id }
 - **When to use:** Use for Kling O1 omni-image (multi-reference image generation).
 
-**KLING_TEXT2AUDIO**
-- Fields: { prompt: string (REQUIRED), duration?: number }
-- Description: Generate audio from text prompt (async).
-- Output: { audioUrl, audioId, duration, task_id }
-- **When to use:** Use for Kling text-to-audio when user wants audio from a text description (no voice_id).
-
 **KLING_VIDEO_EXTEND**
 - Fields: { video_id: string (REQUIRED — e.g. {{klingText2Video.videoId}}), prompt?: string, negative_prompt?: string, cfg_scale?: number }
 - Description: Extend a Kling video. video_id must come from a previous Kling video node.
@@ -308,61 +302,25 @@ const NODE_TYPES_DOCUMENTATION = `
 - Output: { videoUrl, videoId, duration, task_id }
 - **When to use:** Use for precise motion control over trajectories.
 
-**KLING_AVATAR**
-- Fields: { image: string (REQUIRED — portrait), audio_url: string (REQUIRED — e.g. {{klingTts.audioUrl}}), prompt?: string, mode?: "std"|"pro" }
-- Description: Lip-sync avatar video from portrait image and audio.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use for talking-head / lip-sync from image + audio.
-
-**KLING_VIDEO_EFFECTS**
-- Fields: { prompt?: string, effect_scene?: string, image?: string, mode?: "std"|"pro" }
-- Description: Apply video effects to an input image.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use when user wants video effects applied to an image.
-
-**KLING_IMAGE_EXPAND**
-- Fields: { image: string (REQUIRED), prompt?: string, aspect_ratio?: string }
-- Description: Expand image boundaries (outpainting).
-- Output: { imageUrls, task_id }
-- **When to use:** Use for image outpainting / expansion.
-
 **KLING_MULTI_IMAGE2IMAGE**
 - Fields: { prompt?: string, image_list?: string, n?: number, aspect_ratio?: string }
 - Description: Generate image from multiple reference images.
 - Output: { imageUrls, task_id }
 - **When to use:** Use when user wants one image from multiple references.
 
-**KLING_VIDEO2AUDIO**
-- Fields: { video_url: string (REQUIRED — e.g. {{klingText2Video.videoUrl}}) }
-- Description: Extract audio from a video URL.
-- Output: { audioUrl, audioId, duration, task_id }
-- **When to use:** Use when user wants to extract audio from a Kling (or other) video.
-
-**KLING_VIRTUAL_TRYON**
-- Fields: { human_image: string (REQUIRED), cloth_image: string (REQUIRED) }
-- Description: Virtual try-on: person image + garment image.
-- Output: { imageUrls, task_id }
-- **When to use:** Use for virtual try-on / outfit visualization.
-
-**KLING_IMAGE_RECOGNIZE**
-- Fields: { image: string (REQUIRED — URL or variable) }
-- Description: Image recognition / segmentation; returns segmentation URLs.
-- Output: { imageUrls, task_result, task_id }
-- **When to use:** Use when user needs image segmentation or recognition.
-
 **OUTPUT**
 - Fields: { variables: string (REQUIRED), contentType: "image"|"video"|"audio" (REQUIRED, default: "image"), imageSource?: string, videoSource?: string, audioSource?: string, outputFilename?: string }
 - **Content Types - SELECT BASED ON PREVIOUS NODE:**
-  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_IMAGE_EXPAND, KLING_MULTI_IMAGE2IMAGE, KLING_VIRTUAL_TRYON, KLING_IMAGE_RECOGNIZE)
-  - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL, KLING_AVATAR, KLING_VIDEO_EFFECTS)
-  - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS, KLING_TEXT2AUDIO, KLING_VIDEO2AUDIO)
+  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE)
+  - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL)
+  - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS)
 - **CRITICAL: Match contentType to Previous Node:**
   - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
-  - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_IMAGE_EXPAND / KLING_MULTI_IMAGE2IMAGE / KLING_VIRTUAL_TRYON / KLING_IMAGE_RECOGNIZE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
+  - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_MULTI_IMAGE2IMAGE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
   - After VEO → contentType: "video", videoSource: "{{veo.videoUrl}}"
   - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
-  - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL / KLING_AVATAR / KLING_VIDEO_EFFECTS → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
-  - After ELEVENLABS / KLING_TTS / KLING_TEXT2AUDIO / KLING_VIDEO2AUDIO → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
+  - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
+  - After ELEVENLABS / KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
 - **Features:**
   - Image: Preview with lightbox (full size view), open in new tab
   - Video: Built-in HTML5 player with controls (play/pause), open in new tab
@@ -553,20 +511,13 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{klingTts.audioUrl}} - Direct downloadable URL to the generated audio
   - {{klingTts.duration}} - Audio duration
 
-**KLING_OMNI_VIDEO** / **KLING_VIDEO_EXTEND** / **KLING_MULTI_IMAGE2VIDEO** / **KLING_MOTION_CONTROL** / **KLING_AVATAR** / **KLING_VIDEO_EFFECTS**
+**KLING_OMNI_VIDEO** / **KLING_VIDEO_EXTEND** / **KLING_MULTI_IMAGE2VIDEO** / **KLING_MOTION_CONTROL**
 - Outputs: { videoUrl: string, videoId: string, duration: string, task_id: string }
 - Template examples: {{nodeName.videoUrl}}, {{nodeName.videoId}} (use videoId for KLING_VIDEO_EXTEND)
 
-**KLING_OMNI_IMAGE** / **KLING_IMAGE_EXPAND** / **KLING_MULTI_IMAGE2IMAGE** / **KLING_VIRTUAL_TRYON**
+**KLING_OMNI_IMAGE** / **KLING_MULTI_IMAGE2IMAGE**
 - Outputs: { imageUrls: string[], task_id: string }
 - Template examples: {{nodeName.imageUrls[0]}}
-
-**KLING_TEXT2AUDIO** / **KLING_VIDEO2AUDIO**
-- Outputs: { audioUrl: string, audioId: string, duration: string, task_id: string }
-- Template examples: {{nodeName.audioUrl}}
-
-**KLING_IMAGE_RECOGNIZE**
-- Outputs: { imageUrls: string[] (segmentation URLs), task_result: object, task_id: string }
 
 **OUTPUT** (if variables: "output")
 - Outputs: { content: string, contentType: "image"|"video"|"audio", filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }

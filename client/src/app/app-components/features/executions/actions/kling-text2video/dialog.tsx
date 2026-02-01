@@ -33,10 +33,21 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 
 const formSchema = z.object({
-  variables: z.string().min(1).regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, { message: "Use letters, numbers, underscores" }).optional(),
+  variables: z
+    .string()
+    .min(1)
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, { message: "Use letters, numbers, underscores" })
+    .optional(),
   prompt: z.string().min(1, "Prompt is required").max(2500),
   negative_prompt: z.string().max(2500).optional(),
-  model_name: z.enum(["kling-v1", "kling-v1-6", "kling-v2-master", "kling-v2-1-master", "kling-v2-5-turbo", "kling-v2-6"]),
+  model_name: z.enum([
+    "kling-v1",
+    "kling-v1-6",
+    "kling-v2-master",
+    "kling-v2-1-master",
+    "kling-v2-5-turbo",
+    "kling-v2-6",
+  ]),
   mode: z.enum(["std", "pro"]),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1"]),
   duration: z.enum(["5", "10"]),
@@ -61,7 +72,12 @@ interface Props {
   defaultValues?: Partial<KlingText2VideoFormValues>;
 }
 
-export const KlingText2VideoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingText2VideoDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const form = useForm<KlingText2VideoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -426,7 +442,11 @@ export const KlingText2VideoDialog = ({ open, onOpenChange, onSubmit, defaultVal
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

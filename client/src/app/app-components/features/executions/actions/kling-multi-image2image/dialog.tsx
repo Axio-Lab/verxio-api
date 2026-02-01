@@ -9,8 +9,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,7 +38,10 @@ const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
 const formSchema = z.object({
-  variables: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   prompt: z.string().max(2500).optional(),
   model_name: z.enum(["kling-v2", "kling-v2-1"]),
   subject_image_list: z.string().max(2000).optional(),
@@ -54,7 +70,12 @@ interface Props {
   defaultValues?: Partial<KlingMultiImage2ImageFormValues>;
 }
 
-export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingMultiImage2ImageDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const [subjectImageFiles, setSubjectImageFiles] = useState<
     Array<{ file: File | null; base64: string; filename: string; mimeType: string }>
   >([]);
@@ -257,43 +278,78 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
         <DialogHeader>
           <DialogTitle>Kling Multi-Image to Image</DialogTitle>
           <DialogDescription>
-            Generate image from multiple reference images. Prompt or image_list required (JSON array or URLs).
+            Generate image from multiple reference images. Prompt or image_list required (JSON array
+            or URLs).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField control={form.control} name="variables" render={({ field }) => (
-              <FormItem><FormLabel>Output variable name</FormLabel>
-                <FormControl><Input {...field} placeholder="klingMultiImage2Image" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="prompt" render={({ field }) => (
-              <FormItem><FormLabel>Prompt (optional)</FormLabel>
-                <FormControl><Textarea {...field} placeholder="Describe the image..." rows={2} /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="model_name" render={({ field }) => (
-              <FormItem><FormLabel>Model</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="kling-v2">kling-v2</SelectItem>
-                    <SelectItem value="kling-v2-1">kling-v2-1</SelectItem>
-                  </SelectContent>
-                </Select><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="subject_image_list" render={({ field }) => (
-              <FormItem><FormLabel>Subject image list</FormLabel>
-                <FormControl><Input {...field} placeholder='["{{klingImage.imageUrls[0]}}"]' /></FormControl>
-                <FormMessage />
-                <p className="text-xs text-muted-foreground max-w-full break-words">
-                  Pass multiple URLs as a JSON array, e.g.
-                  <span className="ml-1 block font-mono break-all">
-                    [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
-                  </span>
-                </p>
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="variables"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Output variable name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="klingMultiImage2Image" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="prompt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prompt (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Describe the image..." rows={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="model_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Model</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="kling-v2">kling-v2</SelectItem>
+                      <SelectItem value="kling-v2-1">kling-v2-1</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="subject_image_list"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subject image list</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder='["{{klingImage.imageUrls[0]}}"]' />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground max-w-full break-words">
+                    Pass multiple URLs as a JSON array, e.g.
+                    <span className="ml-1 block font-mono break-all">
+                      [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
+                    </span>
+                  </p>
+                </FormItem>
+              )}
+            />
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Button
@@ -348,13 +404,25 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
                 </div>
               )}
             </div>
-            <FormField control={form.control} name="scene_image" render={({ field }) => (
-              <FormItem><FormLabel>Scene image (optional)</FormLabel>
-                <FormControl><Input {...field} placeholder="URL or {{node.output}}" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="scene_image"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Scene image (optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="URL or {{node.output}}" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => sceneImageInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => sceneImageInputRef.current?.click()}
+              >
                 Upload scene image
               </Button>
               <input
@@ -388,7 +456,8 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
             </div>
             {sceneImageFile && (
               <div className="flex items-center gap-2">
-                {sceneImageFile.base64.startsWith("data:") || sceneImageFile.base64.startsWith("http") ? (
+                {sceneImageFile.base64.startsWith("data:") ||
+                sceneImageFile.base64.startsWith("http") ? (
                   <img
                     src={sceneImageFile.base64}
                     alt={sceneImageFile.filename}
@@ -402,13 +471,25 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
                 <span className="text-xs text-muted-foreground">{sceneImageFile.filename}</span>
               </div>
             )}
-            <FormField control={form.control} name="style_image" render={({ field }) => (
-              <FormItem><FormLabel>Style image (optional)</FormLabel>
-                <FormControl><Input {...field} placeholder="URL or {{node.output}}" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="style_image"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Style image (optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="URL or {{node.output}}" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => styleImageInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => styleImageInputRef.current?.click()}
+              >
                 Upload style image
               </Button>
               <input
@@ -442,7 +523,8 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
             </div>
             {styleImageFile && (
               <div className="flex items-center gap-2">
-                {styleImageFile.base64.startsWith("data:") || styleImageFile.base64.startsWith("http") ? (
+                {styleImageFile.base64.startsWith("data:") ||
+                styleImageFile.base64.startsWith("http") ? (
                   <img
                     src={styleImageFile.base64}
                     alt={styleImageFile.filename}
@@ -457,32 +539,57 @@ export const KlingMultiImage2ImageDialog = ({ open, onOpenChange, onSubmit, defa
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="n" render={({ field }) => (
-                <FormItem><FormLabel>Number of images</FormLabel>
-                  <FormControl><Input type="number" min={1} max={9} {...field} /></FormControl>
-                  <FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="aspect_ratio" render={({ field }) => (
-                <FormItem><FormLabel>Aspect ratio</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="16:9">16:9</SelectItem>
-                      <SelectItem value="9:16">9:16</SelectItem>
-                      <SelectItem value="1:1">1:1</SelectItem>
-                      <SelectItem value="4:3">4:3</SelectItem>
-                      <SelectItem value="3:4">3:4</SelectItem>
-                      <SelectItem value="3:2">3:2</SelectItem>
-                      <SelectItem value="2:3">2:3</SelectItem>
-                      <SelectItem value="21:9">21:9</SelectItem>
-                    </SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="n"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of images</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={1} max={9} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="aspect_ratio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aspect ratio</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="16:9">16:9</SelectItem>
+                        <SelectItem value="9:16">9:16</SelectItem>
+                        <SelectItem value="1:1">1:1</SelectItem>
+                        <SelectItem value="4:3">4:3</SelectItem>
+                        <SelectItem value="3:4">3:4</SelectItem>
+                        <SelectItem value="3:2">3:2</SelectItem>
+                        <SelectItem value="2:3">2:3</SelectItem>
+                        <SelectItem value="21:9">21:9</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

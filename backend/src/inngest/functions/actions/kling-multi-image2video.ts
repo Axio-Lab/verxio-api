@@ -133,9 +133,7 @@ export const klingMultiImage2VideoExecutor: NodeExecutor<KlingMultiImage2VideoDa
 
     if (image_list.length === 0) {
       await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        "Kling Multi-Image-to-Video: image_list is required"
-      );
+      const err = new NonRetriableError("Kling Multi-Image-to-Video: image_list is required");
       await step.run(`kling-multi-i2v-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({

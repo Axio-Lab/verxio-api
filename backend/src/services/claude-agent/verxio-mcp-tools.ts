@@ -117,17 +117,16 @@ export const AVAILABLE_NODE_TYPES = {
     { type: "KLING_TTS", description: "Kling AI text-to-speech" },
     { type: "KLING_OMNI_VIDEO", description: "Kling O1 omni-video (prompt + optional image list)" },
     { type: "KLING_OMNI_IMAGE", description: "Kling O1 omni-image generation" },
-    { type: "KLING_TEXT2AUDIO", description: "Kling text-to-audio (async)" },
-    { type: "KLING_VIDEO_EXTEND", description: "Kling video extend (video_id from previous Kling video)" },
+    {
+      type: "KLING_VIDEO_EXTEND",
+      description: "Kling video extend (video_id from previous Kling video)",
+    },
     { type: "KLING_MULTI_IMAGE2VIDEO", description: "Kling multi-image to video" },
-    { type: "KLING_MOTION_CONTROL", description: "Kling motion control (image + optional video ref)" },
-    { type: "KLING_AVATAR", description: "Kling avatar lip-sync (image + audio)" },
-    { type: "KLING_VIDEO_EFFECTS", description: "Kling video effects on image" },
-    { type: "KLING_IMAGE_EXPAND", description: "Kling image expand (outpainting)" },
+    {
+      type: "KLING_MOTION_CONTROL",
+      description: "Kling motion control (image + optional video ref)",
+    },
     { type: "KLING_MULTI_IMAGE2IMAGE", description: "Kling multi-image to image" },
-    { type: "KLING_VIDEO2AUDIO", description: "Kling video to audio extraction" },
-    { type: "KLING_VIRTUAL_TRYON", description: "Kling virtual try-on (human + cloth image)" },
-    { type: "KLING_IMAGE_RECOGNIZE", description: "Kling image recognition / segmentation" },
   ],
 };
 
@@ -188,7 +187,8 @@ export const createWorkflowTool: VerxioTool = {
       return {
         success: false,
         error: `A workflow named "${trimmedName}" already exists. Please choose a different name.`,
-        suggestion: "Use a unique name, e.g. add a number or descriptor (e.g. 'My Workflow 2', 'Daily Report v1').",
+        suggestion:
+          "Use a unique name, e.g. add a number or descriptor (e.g. 'My Workflow 2', 'Daily Report v1').",
       };
     }
     const workflow = await prisma.workflow.create({

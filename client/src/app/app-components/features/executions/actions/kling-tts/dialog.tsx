@@ -33,7 +33,11 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 
 const formSchema = z.object({
-  variables: z.string().min(1).regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .min(1)
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   text: z.string().min(1, "Text is required").max(1000),
   voice_id: z.string().min(1, "Voice ID is required"),
   voice_language: z.literal("en"),
@@ -83,7 +87,8 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
         <DialogHeader>
           <DialogTitle>Kling TTS</DialogTitle>
           <DialogDescription>
-            Convert text to speech. Get voice_id from Kling AI voice list (e.g. preset or custom voice ID).
+            Convert text to speech. Get voice_id from Kling AI voice list (e.g. preset or custom
+            voice ID).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -155,7 +160,9 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                       <SelectItem value="calm_story1">Lore (calm_story1)</SelectItem>
                       <SelectItem value="uk_man2">Crag (uk_man2)</SelectItem>
                       <SelectItem value="laopopo_speech02">Prattle (laopopo_speech02)</SelectItem>
-                      <SelectItem value="heainainai_speech02">Hearth (heainainai_speech02)</SelectItem>
+                      <SelectItem value="heainainai_speech02">
+                        Hearth (heainainai_speech02)
+                      </SelectItem>
                       <SelectItem value="reader_en_m-v1">The Reader (reader_en_m-v1)</SelectItem>
                       <SelectItem value="commercial_lady_en_f-v1">
                         Commercial Lady (commercial_lady_en_f-v1)
@@ -201,7 +208,11 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

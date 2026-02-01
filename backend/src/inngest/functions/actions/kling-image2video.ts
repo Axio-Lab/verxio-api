@@ -103,9 +103,7 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
     }
 
     const compiledPrompt = prompt ? compile(prompt) : undefined;
-    const compiledNegative = data?.negative_prompt
-      ? compile(data.negative_prompt)
-      : undefined;
+    const compiledNegative = data?.negative_prompt ? compile(data.negative_prompt) : undefined;
 
     const body: Record<string, unknown> = {
       model_name: data?.model_name ?? "kling-v1",

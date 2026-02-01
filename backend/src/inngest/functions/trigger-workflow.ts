@@ -261,7 +261,9 @@ export const triggerWorkflow = inngest.createFunction(
     // Initialize context with initial data from trigger
     const rawContext = event.data.initialData || event.data.data || {};
     let context =
-      rawContext && typeof rawContext === "object" ? { ...(rawContext as Record<string, any>) } : {};
+      rawContext && typeof rawContext === "object"
+        ? { ...(rawContext as Record<string, any>) }
+        : {};
     if ("nodeOverrides" in context) {
       delete context.nodeOverrides;
     }

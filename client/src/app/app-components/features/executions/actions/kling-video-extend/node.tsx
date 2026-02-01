@@ -24,7 +24,8 @@ export const KlingVideoExtendNode = memo((props: NodeProps) => {
 
   const nodeData = props.data as Record<string, unknown>;
   const vid = nodeData?.video_id as string;
-  const description = vid?.length > 30 ? `${vid.slice(0, 30)}...` : vid || "Configure Kling Video Extend";
+  const description =
+    vid?.length > 30 ? `${vid.slice(0, 30)}...` : vid || "Configure Kling Video Extend";
 
   return (
     <>

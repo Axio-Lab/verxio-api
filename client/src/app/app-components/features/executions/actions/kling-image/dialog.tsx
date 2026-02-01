@@ -39,7 +39,11 @@ const IMAGE_SIZE_ERROR_MSG =
 
 const formSchema = z
   .object({
-    variables: z.string().min(1).regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+    variables: z
+      .string()
+      .min(1)
+      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+      .optional(),
     prompt: z.string().min(1, "Prompt is required").max(2500),
     negative_prompt: z.string().max(2500).optional(),
     image: z.string().optional(),
@@ -252,7 +256,11 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
               )}
             />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => imageInputRef.current?.click()}
+              >
                 Upload image
               </Button>
               <input
@@ -437,7 +445,11 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

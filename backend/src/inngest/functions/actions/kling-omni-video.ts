@@ -97,9 +97,7 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
       }
     }
     if (Array.isArray(data?.referenceImages)) {
-      imageSources.push(
-        ...data.referenceImages.map((img) => ({ src: img.file, type: img.type }))
-      );
+      imageSources.push(...data.referenceImages.map((img) => ({ src: img.file, type: img.type })));
     }
 
     const image_list: Array<{ image_url: string; type?: string }> = [];

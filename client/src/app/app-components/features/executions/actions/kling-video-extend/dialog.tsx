@@ -9,7 +9,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -19,7 +26,10 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 
 const formSchema = z.object({
-  variables: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   video_id: z.string().min(1, "Video ID is required"),
   prompt: z.string().max(2500).optional(),
   negative_prompt: z.string().max(2500).optional(),
@@ -35,7 +45,12 @@ interface Props {
   defaultValues?: Partial<KlingVideoExtendFormValues>;
 }
 
-export const KlingVideoExtendDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingVideoExtendDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const form = useForm<KlingVideoExtendFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -62,7 +77,8 @@ export const KlingVideoExtendDialog = ({ open, onOpenChange, onSubmit, defaultVa
         <DialogHeader>
           <DialogTitle>Kling Video Extend</DialogTitle>
           <DialogDescription>
-            Extend a Kling video. Set video_id from a previous Kling video node (e.g. {"{{klingText2Video.videoId}}"}).
+            Extend a Kling video. Set video_id from a previous Kling video node (e.g.{" "}
+            {"{{klingText2Video.videoId}}"}).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -133,9 +149,15 @@ export const KlingVideoExtendDialog = ({ open, onOpenChange, onSubmit, defaultVa
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

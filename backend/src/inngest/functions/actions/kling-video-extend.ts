@@ -68,9 +68,7 @@ export const klingVideoExtendExecutor: NodeExecutor<KlingVideoExtendData> = asyn
       throw err;
     }
 
-    const prompt = data?.prompt?.trim()
-      ? Handlebars.compile(data.prompt)(context)
-      : undefined;
+    const prompt = data?.prompt?.trim() ? Handlebars.compile(data.prompt)(context) : undefined;
     const negative_prompt = data?.negative_prompt?.trim()
       ? Handlebars.compile(data.negative_prompt)(context)
       : undefined;

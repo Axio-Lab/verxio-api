@@ -9,8 +9,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,7 +38,10 @@ const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
 const formSchema = z.object({
-  variables: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   prompt: z.string().max(2500).optional(),
   image_list: z.string().max(2000).optional(),
   referenceImages: z
@@ -50,7 +66,12 @@ interface Props {
   defaultValues?: Partial<KlingMultiImage2VideoFormValues>;
 }
 
-export const KlingMultiImage2VideoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingMultiImage2VideoDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const [referenceImageFiles, setReferenceImageFiles] = useState<
     Array<{ file: File | null; base64: string; filename: string; mimeType: string }>
   >([]);
@@ -156,34 +177,58 @@ export const KlingMultiImage2VideoDialog = ({ open, onOpenChange, onSubmit, defa
       <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Kling Multi-Image to Video</DialogTitle>
-          <DialogDescription>
-            Generate video from multiple reference images.
-          </DialogDescription>
+          <DialogDescription>Generate video from multiple reference images.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField control={form.control} name="variables" render={({ field }) => (
-              <FormItem><FormLabel>Output variable name</FormLabel>
-                <FormControl><Input {...field} placeholder="klingMultiImage2Video" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="prompt" render={({ field }) => (
-              <FormItem><FormLabel>Prompt (optional)</FormLabel>
-                <FormControl><Textarea {...field} placeholder="Describe the video..." rows={2} /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="image_list" render={({ field }) => (
-              <FormItem><FormLabel>Image list</FormLabel>
-                <FormControl><Input {...field} placeholder='["{{klingImage.imageUrls[0]}}","https://.../2.png"]' /></FormControl>
-                <FormMessage />
-                <p className="text-xs text-muted-foreground max-w-full break-words">
-                  Pass multiple URLs as a JSON array, e.g.
-                  <span className="ml-1 block font-mono break-all">
-                    [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
-                  </span>
-                </p>
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="variables"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Output variable name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="klingMultiImage2Video" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="prompt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prompt (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Describe the video..." rows={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="image_list"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Image list</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder='["{{klingImage.imageUrls[0]}}","https://.../2.png"]'
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground max-w-full break-words">
+                    Pass multiple URLs as a JSON array, e.g.
+                    <span className="ml-1 block font-mono break-all">
+                      [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
+                    </span>
+                  </p>
+                </FormItem>
+              )}
+            />
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Button
@@ -209,10 +254,7 @@ export const KlingMultiImage2VideoDialog = ({ open, onOpenChange, onSubmit, defa
                     const showPreview =
                       img.base64.startsWith("data:") || img.base64.startsWith("http");
                     return (
-                      <div
-                        key={`${img.filename}-${index}`}
-                        className="flex items-center gap-2"
-                      >
+                      <div key={`${img.filename}-${index}`} className="flex items-center gap-2">
                         {showPreview ? (
                           <img
                             src={img.base64}
@@ -242,32 +284,81 @@ export const KlingMultiImage2VideoDialog = ({ open, onOpenChange, onSubmit, defa
               )}
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <FormField control={form.control} name="mode" render={({ field }) => (
-                <FormItem><FormLabel>Mode</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="std">Standard</SelectItem><SelectItem value="pro">Pro</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="aspect_ratio" render={({ field }) => (
-                <FormItem><FormLabel>Aspect ratio</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="16:9">16:9</SelectItem><SelectItem value="9:16">9:16</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="duration" render={({ field }) => (
-                <FormItem><FormLabel>Duration</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="5">5s</SelectItem><SelectItem value="10">10s</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="mode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mode</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="std">Standard</SelectItem>
+                        <SelectItem value="pro">Pro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="aspect_ratio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aspect ratio</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="16:9">16:9</SelectItem>
+                        <SelectItem value="9:16">9:16</SelectItem>
+                        <SelectItem value="1:1">1:1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="5">5s</SelectItem>
+                        <SelectItem value="10">10s</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

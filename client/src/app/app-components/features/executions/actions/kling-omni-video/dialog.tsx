@@ -9,8 +9,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,7 +38,10 @@ const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
 const formSchema = z.object({
-  variables: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   prompt: z.string().min(1, "Prompt is required").max(2500),
   model_name: z.enum(["kling-video-o1"]),
   image_list: z.string().max(2000).optional(),
@@ -53,7 +69,12 @@ interface Props {
   defaultValues?: Partial<KlingOmniVideoFormValues>;
 }
 
-export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingOmniVideoDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const [referenceImageFiles, setReferenceImageFiles] = useState<
     Array<{ file: File | null; base64: string; filename: string; mimeType: string; type?: string }>
   >([]);
@@ -145,9 +166,7 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
   };
 
   const updateImageType = (index: number, type: string) => {
-    setReferenceImageFiles((prev) =>
-      prev.map((img, i) => (i === index ? { ...img, type } : img))
-    );
+    setReferenceImageFiles((prev) => prev.map((img, i) => (i === index ? { ...img, type } : img)));
   };
 
   const removeReferenceImage = (index: number) => {
@@ -159,7 +178,10 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
       values.referenceImages = referenceImageFiles.map((img) => ({
         file: img.base64,
         filename: img.filename,
-        type: img.type && img.type !== "reference" ? (img.type as "first_frame" | "end_frame") : undefined,
+        type:
+          img.type && img.type !== "reference"
+            ? (img.type as "first_frame" | "end_frame")
+            : undefined,
       }));
     }
     onSubmit(values);
@@ -172,7 +194,8 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
         <DialogHeader>
           <DialogTitle>Kling Omni Video</DialogTitle>
           <DialogDescription>
-            Kling O1 unified multimodal video. Prompt required. Optional image_list (JSON array or URL).
+            Kling O1 unified multimodal video. Prompt required. Optional image_list (JSON array or
+            URL).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -324,7 +347,9 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
                     <FormLabel>Mode</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="std">Standard</SelectItem>
@@ -343,7 +368,9 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
                     <FormLabel>Aspect ratio</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="16:9">16:9</SelectItem>
@@ -363,7 +390,9 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
                     <FormLabel>Duration</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="3">3s</SelectItem>
@@ -382,9 +411,15 @@ export const KlingOmniVideoDialog = ({ open, onOpenChange, onSubmit, defaultValu
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

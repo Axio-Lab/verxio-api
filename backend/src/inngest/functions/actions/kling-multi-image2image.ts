@@ -94,7 +94,10 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
         subjectSources.push(...(Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]));
       } catch {
         subjectSources.push(
-          ...subjectListRaw.split(",").map((s) => compile(s.trim())).filter(Boolean)
+          ...subjectListRaw
+            .split(",")
+            .map((s) => compile(s.trim()))
+            .filter(Boolean)
         );
       }
     }
@@ -168,9 +171,7 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
       if (fileType) {
         const asset = nodeAssets.find((a: any) => a.fileType === fileType);
         if (asset?.fileData) {
-          return asset.fileData.startsWith("data:")
-            ? asset.fileData.split(",")[1]
-            : asset.fileData;
+          return asset.fileData.startsWith("data:") ? asset.fileData.split(",")[1] : asset.fileData;
         }
       }
       return undefined;

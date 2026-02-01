@@ -278,7 +278,8 @@ const executionNodes: NodeTypeOption[] = [
   {
     type: NodeType.KLING_TEXT2VIDEO,
     label: "Kling Text-to-Video",
-    description: "Generate videos from text using Kling AI. Supports multiple models, aspect ratios, and durations.",
+    description:
+      "Generate videos from text using Kling AI. Supports multiple models, aspect ratios, and durations.",
     icon: Video,
   },
   {
@@ -312,12 +313,6 @@ const executionNodes: NodeTypeOption[] = [
     icon: Palette,
   },
   {
-    type: NodeType.KLING_TEXT2AUDIO,
-    label: "Kling Text-to-Audio",
-    description: "Generate audio from text prompt (async).",
-    icon: "/logo/elevenlabs.svg",
-  },
-  {
     type: NodeType.KLING_VIDEO_EXTEND,
     label: "Kling Video Extend",
     description: "Extend a Kling video using video_id (e.g. from Text-to-Video).",
@@ -336,45 +331,9 @@ const executionNodes: NodeTypeOption[] = [
     icon: Video,
   },
   {
-    type: NodeType.KLING_AVATAR,
-    label: "Kling Avatar",
-    description: "Lip-sync avatar video from image and audio.",
-    icon: Video,
-  },
-  {
-    type: NodeType.KLING_VIDEO_EFFECTS,
-    label: "Kling Video Effects",
-    description: "Apply video effects to an input image.",
-    icon: Video,
-  },
-  {
-    type: NodeType.KLING_IMAGE_EXPAND,
-    label: "Kling Image Expand",
-    description: "Expand image boundaries (outpainting).",
-    icon: Palette,
-  },
-  {
     type: NodeType.KLING_MULTI_IMAGE2IMAGE,
     label: "Kling Multi-Image to Image",
     description: "Generate image from multiple reference images.",
-    icon: Palette,
-  },
-  {
-    type: NodeType.KLING_VIDEO2AUDIO,
-    label: "Kling Video to Audio",
-    description: "Extract audio from a video URL.",
-    icon: "/logo/elevenlabs.svg",
-  },
-  {
-    type: NodeType.KLING_VIRTUAL_TRYON,
-    label: "Kling Virtual Try-On",
-    description: "Virtual try-on with human image and garment image.",
-    icon: Palette,
-  },
-  {
-    type: NodeType.KLING_IMAGE_RECOGNIZE,
-    label: "Kling Image Recognize",
-    description: "Image recognition / segmentation (returns segmentation URLs).",
     icon: Palette,
   },
   {
@@ -1122,18 +1081,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_TEXT2AUDIO) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Text-to-Audio",
-            variables: "klingText2Audio",
-          },
-          type: NodeType.KLING_TEXT2AUDIO,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
       } else if (selection.type === NodeType.KLING_VIDEO_EXTEND) {
         const newNode = {
           id: createId(),
@@ -1170,42 +1117,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_AVATAR) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Avatar",
-            variables: "klingAvatar",
-          },
-          type: NodeType.KLING_AVATAR,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_VIDEO_EFFECTS) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Video Effects",
-            variables: "klingVideoEffects",
-          },
-          type: NodeType.KLING_VIDEO_EFFECTS,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_IMAGE_EXPAND) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Image Expand",
-            variables: "klingImageExpand",
-          },
-          type: NodeType.KLING_IMAGE_EXPAND,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
       } else if (selection.type === NodeType.KLING_MULTI_IMAGE2IMAGE) {
         const newNode = {
           id: createId(),
@@ -1214,42 +1125,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             variables: "klingMultiImage2Image",
           },
           type: NodeType.KLING_MULTI_IMAGE2IMAGE,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_VIDEO2AUDIO) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Video to Audio",
-            variables: "klingVideo2Audio",
-          },
-          type: NodeType.KLING_VIDEO2AUDIO,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_VIRTUAL_TRYON) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Virtual Try-On",
-            variables: "klingVirtualTryon",
-          },
-          type: NodeType.KLING_VIRTUAL_TRYON,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.KLING_IMAGE_RECOGNIZE) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Kling Image Recognize",
-            variables: "klingImageRecognize",
-          },
-          type: NodeType.KLING_IMAGE_RECOGNIZE,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);
@@ -1402,10 +1277,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
               <div className="flex items-center gap-1">
                 {getPaginationItems().map((item, index) =>
                   item === "ellipsis" ? (
-                    <span
-                      key={`ellipsis-${index}`}
-                      className="px-2 text-sm text-muted-foreground"
-                    >
+                    <span key={`ellipsis-${index}`} className="px-2 text-sm text-muted-foreground">
                       ...
                     </span>
                   ) : (

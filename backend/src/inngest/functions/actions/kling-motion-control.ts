@@ -33,23 +33,6 @@ const publishStatus = async (
   });
 };
 
-const safePublishStatus = async (
-  publish: any,
-  step: any,
-  nodeId: string,
-  status: "loading" | "error" | "success"
-) => {
-  try {
-    await publishStatus(publish, step, nodeId, status);
-  } catch {
-    try {
-      await publish(klingChannel().status({ nodeId, status }));
-    } catch {
-      // noop: status publish should not crash execution
-    }
-  }
-};
-
 export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = async ({
   data,
   nodeId,
@@ -58,10 +41,10 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
   publish,
 }) => {
   try {
-    await safePublishStatus(publish, step, nodeId, "loading");
+    await publishStatus(publish, step, nodeId, "loading");
 
     if (!process.env.KLING_ACCESS_KEY) {
-      await safePublishStatus(publish, step, nodeId, "error");
+      await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError("KLING_ACCESS_KEY is not configured");
       await step.run(`kling-motion-err-${nodeId}`, async () => {
         await publish(
@@ -93,10 +76,8 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
       }
     }
     if (!imageInput || !videoInput) {
-      await safePublishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        "Kling Motion Control: image and video_url are required"
-      );
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError("Kling Motion Control: image and video_url are required");
       await step.run(`kling-motion-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({
@@ -204,7 +185,7 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
     }
 
     if (!imageBase64 || (!videoBase64 && !videoUrl)) {
-      await safePublishStatus(publish, step, nodeId, "error");
+      await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError(
         "Kling Motion Control: could not resolve image or video_url"
       );
@@ -262,7 +243,7 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
     }
 
     const variablesName = String(data?.variables ?? "klingMotionControl");
-    await safePublishStatus(publish, step, nodeId, "success");
+    await publishStatus(publish, step, nodeId, "success");
     const output = {
       ...context,
       [variablesName]: {
@@ -277,7 +258,7 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
     });
     return output;
   } catch (e) {
-    await safePublishStatus(publish, step, nodeId, "error");
+    await publishStatus(publish, step, nodeId, "error");
     const message = e instanceof Error ? e.message : "Kling Motion Control failed";
     await step.run(`kling-motion-err-${nodeId}`, async () => {
       await publish(

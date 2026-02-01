@@ -9,8 +9,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -28,7 +41,10 @@ const VIDEO_SIZE_ERROR_MSG =
   "Video exceeds 100MB. Please compress the video to under 100MB and try again.";
 
 const formSchema = z.object({
-  variables: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
   prompt: z.string().max(2500).optional(),
   image: z.string().min(1, "Image is required"),
   imageFilename: z.string().optional(),
@@ -50,7 +66,12 @@ interface Props {
   defaultValues?: Partial<KlingMotionControlFormValues>;
 }
 
-export const KlingMotionControlDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+export const KlingMotionControlDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  defaultValues = {},
+}: Props) => {
   const [imageFile, setImageFile] = useState<{
     file: File | null;
     base64: string;
@@ -204,23 +225,51 @@ export const KlingMotionControlDialog = ({ open, onOpenChange, onSubmit, default
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField control={form.control} name="variables" render={({ field }) => (
-              <FormItem><FormLabel>Output variable name</FormLabel>
-                <FormControl><Input {...field} placeholder="klingMotionControl" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="prompt" render={({ field }) => (
-              <FormItem><FormLabel>Prompt (optional)</FormLabel>
-                <FormControl><Textarea {...field} placeholder="Describe motion..." rows={2} /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="image" render={({ field }) => (
-              <FormItem><FormLabel>Image (URL or variable)</FormLabel>
-                <FormControl><Input {...field} placeholder="{{klingImage.imageUrls[0]}}" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="variables"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Output variable name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="klingMotionControl" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="prompt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prompt (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Describe motion..." rows={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="image"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Image (URL or variable)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="{{klingImage.imageUrls[0]}}" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => imageInputRef.current?.click()}
+              >
                 Upload image
               </Button>
               <input
@@ -264,13 +313,25 @@ export const KlingMotionControlDialog = ({ open, onOpenChange, onSubmit, default
                 <span className="text-xs text-muted-foreground">{imageFile.filename}</span>
               </div>
             )}
-            <FormField control={form.control} name="video_url" render={({ field }) => (
-              <FormItem><FormLabel>Video reference URL</FormLabel>
-                <FormControl><Input {...field} placeholder="{{klingText2Video.videoUrl}}" /></FormControl>
-                <FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="video_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Video reference URL</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="{{klingText2Video.videoUrl}}" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => videoInputRef.current?.click()}
+              >
                 Upload video
               </Button>
               <input
@@ -304,54 +365,125 @@ export const KlingMotionControlDialog = ({ open, onOpenChange, onSubmit, default
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="keep_original_sound" render={({ field }) => (
-                <FormItem><FormLabel>Keep original sound</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="character_orientation" render={({ field }) => (
-                <FormItem><FormLabel>Character orientation</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="image">Match image</SelectItem>
-                      <SelectItem value="video">Match video</SelectItem>
-                    </SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="keep_original_sound"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Keep original sound</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="character_orientation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Character orientation</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="image">Match image</SelectItem>
+                        <SelectItem value="video">Match video</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <FormField control={form.control} name="mode" render={({ field }) => (
-                <FormItem><FormLabel>Mode</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="std">Standard</SelectItem><SelectItem value="pro">Pro</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="aspect_ratio" render={({ field }) => (
-                <FormItem><FormLabel>Aspect ratio</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="16:9">16:9</SelectItem><SelectItem value="9:16">9:16</SelectItem><SelectItem value="1:1">1:1</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="duration" render={({ field }) => (
-                <FormItem><FormLabel>Duration</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="5">5s</SelectItem><SelectItem value="10">10s</SelectItem></SelectContent>
-                  </Select><FormMessage /></FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="mode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mode</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="std">Standard</SelectItem>
+                        <SelectItem value="pro">Pro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="aspect_ratio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aspect ratio</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="16:9">16:9</SelectItem>
+                        <SelectItem value="9:16">9:16</SelectItem>
+                        <SelectItem value="1:1">1:1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="5">5s</SelectItem>
+                        <SelectItem value="10">10s</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {form.formState.isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </form>

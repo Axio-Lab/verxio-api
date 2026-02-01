@@ -40,17 +40,10 @@ import { klingImageExecutor } from "./actions/kling-image";
 import { klingTtsExecutor } from "./actions/kling-tts";
 import { klingOmniVideoExecutor } from "./actions/kling-omni-video";
 import { klingOmniImageExecutor } from "./actions/kling-omni-image";
-import { klingText2AudioExecutor } from "./actions/kling-text2audio";
 import { klingVideoExtendExecutor } from "./actions/kling-video-extend";
 import { klingMultiImage2VideoExecutor } from "./actions/kling-multi-image2video";
 import { klingMotionControlExecutor } from "./actions/kling-motion-control";
-import { klingAvatarExecutor } from "./actions/kling-avatar";
-import { klingVideoEffectsExecutor } from "./actions/kling-video-effects";
-import { klingImageExpandExecutor } from "./actions/kling-image-expand";
 import { klingMultiImage2ImageExecutor } from "./actions/kling-multi-image2image";
-import { klingVideo2AudioExecutor } from "./actions/kling-video2audio";
-import { klingVirtualTryonExecutor } from "./actions/kling-virtual-tryon";
-import { klingImageRecognizeExecutor } from "./actions/kling-image-recognize";
 import { outputExecutor } from "./actions/output";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
@@ -109,17 +102,10 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.KLING_TTS]: klingTtsExecutor as NodeExecutor,
   [NodeType.KLING_OMNI_VIDEO]: klingOmniVideoExecutor as NodeExecutor,
   [NodeType.KLING_OMNI_IMAGE]: klingOmniImageExecutor as NodeExecutor,
-  [NodeType.KLING_TEXT2AUDIO]: klingText2AudioExecutor as NodeExecutor,
   [NodeType.KLING_VIDEO_EXTEND]: klingVideoExtendExecutor as NodeExecutor,
   [NodeType.KLING_MULTI_IMAGE2VIDEO]: klingMultiImage2VideoExecutor as NodeExecutor,
   [NodeType.KLING_MOTION_CONTROL]: klingMotionControlExecutor as NodeExecutor,
-  [NodeType.KLING_AVATAR]: klingAvatarExecutor as NodeExecutor,
-  [NodeType.KLING_VIDEO_EFFECTS]: klingVideoEffectsExecutor as NodeExecutor,
-  [NodeType.KLING_IMAGE_EXPAND]: klingImageExpandExecutor as NodeExecutor,
   [NodeType.KLING_MULTI_IMAGE2IMAGE]: klingMultiImage2ImageExecutor as NodeExecutor,
-  [NodeType.KLING_VIDEO2AUDIO]: klingVideo2AudioExecutor as NodeExecutor,
-  [NodeType.KLING_VIRTUAL_TRYON]: klingVirtualTryonExecutor as NodeExecutor,
-  [NodeType.KLING_IMAGE_RECOGNIZE]: klingImageRecognizeExecutor as NodeExecutor,
   // OUTPUT node for displaying and downloading workflow outputs
   [NodeType.OUTPUT]: outputExecutor as NodeExecutor,
 };
