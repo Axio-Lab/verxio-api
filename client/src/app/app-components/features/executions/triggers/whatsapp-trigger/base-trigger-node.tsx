@@ -54,6 +54,7 @@ export const BaseTriggerNode = memo(
       canExecute,
     } = useExecuteNode({
       nodeId: id,
+      nodeData: (data as Record<string, unknown>) ?? null,
     });
 
     // Show info icon if node has executed (success or error status)

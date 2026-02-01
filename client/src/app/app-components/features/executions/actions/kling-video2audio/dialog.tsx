@@ -51,7 +51,7 @@ export const KlingVideo2AudioDialog = ({ open, onOpenChange, onSubmit, defaultVa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Kling Video to Audio</DialogTitle>
           <DialogDescription>

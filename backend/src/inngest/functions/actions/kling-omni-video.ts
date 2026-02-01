@@ -7,7 +7,10 @@ import { basePrismaClient } from "@/lib/prisma";
 
 type KlingOmniVideoData = {
   prompt?: string;
+  model_name?: "kling-video-o1";
   image_list?: string; // JSON array of image URLs/templates or single image
+  referenceImages?: Array<{ file: string; filename?: string; type?: "first_frame" | "end_frame" }>;
+  element_list?: string;
   mode?: "std" | "pro";
   aspect_ratio?: string;
   duration?: string;
@@ -69,43 +72,103 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
 
     const compile = (s: string) => Handlebars.compile(s)(context);
     const compiledPrompt = compile(prompt);
+    const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
 
-    let image_list: string[] | undefined;
+    const imageSources: Array<{ src: string; type?: "first_frame" | "end_frame" }> = [];
     const imageListRaw = data?.image_list?.trim();
     if (imageListRaw) {
       try {
         const parsed = JSON.parse(compile(imageListRaw)) as unknown;
-        image_list = Array.isArray(parsed) ? parsed.map(String) : [String(parsed)];
-      } catch {
-        image_list = [compile(imageListRaw)];
-      }
-      const resolved: string[] = [];
-      for (const src of image_list) {
-        const b64 = await resolveImageSource(src, context as Record<string, unknown>, compile);
-        if (b64) resolved.push(b64);
-        else {
-          const assets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
-          for (const a of assets) {
-            if (a.fileData) {
-              const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
-              if (raw) {
-                resolved.push(raw);
-                break;
-              }
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item) => {
+            if (typeof item === "string") {
+              imageSources.push({ src: item });
+            } else if (item && typeof item === "object") {
+              const src = String((item as any).image_url ?? (item as any).image ?? "");
+              const type = (item as any).type as "first_frame" | "end_frame" | undefined;
+              if (src) imageSources.push({ src, type });
             }
-          }
+          });
+        } else if (parsed) {
+          imageSources.push({ src: String(parsed) });
+        }
+      } catch {
+        imageSources.push({ src: compile(imageListRaw) });
+      }
+    }
+    if (Array.isArray(data?.referenceImages)) {
+      imageSources.push(
+        ...data.referenceImages.map((img) => ({ src: img.file, type: img.type }))
+      );
+    }
+
+    const image_list: Array<{ image_url: string; type?: string }> = [];
+    for (const { src, type } of imageSources) {
+      if (!src) continue;
+      if (src.startsWith("asset:")) {
+        const filename = src.replace("asset:", "").trim();
+        const asset = nodeAssets.find((a: any) => a.filename === filename);
+        if (asset?.fileData) {
+          const raw = asset.fileData.startsWith("data:")
+            ? asset.fileData.split(",")[1]
+            : asset.fileData;
+          if (raw) image_list.push({ image_url: raw, ...(type ? { type } : {}) });
+        }
+        continue;
+      }
+      const b64 = await resolveImageSource(src, context as Record<string, unknown>, compile);
+      if (b64) image_list.push({ image_url: b64, ...(type ? { type } : {}) });
+    }
+
+    if (image_list.length === 0) {
+      const assetImages = nodeAssets.filter((a: any) =>
+        [
+          "kling-omni-video-image",
+          "kling-omni-video-image-first_frame",
+          "kling-omni-video-image-end_frame",
+        ].includes(a.fileType)
+      );
+      for (const a of assetImages) {
+        if (!a.fileData) continue;
+        const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
+        if (raw) {
+          const type =
+            a.fileType === "kling-omni-video-image-first_frame"
+              ? "first_frame"
+              : a.fileType === "kling-omni-video-image-end_frame"
+                ? "end_frame"
+                : undefined;
+          image_list.push({ image_url: raw, ...(type ? { type } : {}) });
         }
       }
-      if (resolved.length > 0) image_list = resolved;
+    }
+
+    let element_list: Array<{ element_id: number }> | undefined;
+    const elementListRaw = data?.element_list?.trim();
+    if (elementListRaw) {
+      try {
+        const parsed = JSON.parse(compile(elementListRaw)) as unknown;
+        if (Array.isArray(parsed)) {
+          element_list = parsed
+            .map((item) => ({
+              element_id: Number((item as any)?.element_id ?? item),
+            }))
+            .filter((item) => Number.isFinite(item.element_id));
+        }
+      } catch {
+        element_list = undefined;
+      }
     }
 
     const body: Record<string, unknown> = {
+      model_name: data?.model_name ?? "kling-video-o1",
       prompt: compiledPrompt,
       mode: data?.mode ?? "std",
       aspect_ratio: data?.aspect_ratio ?? "16:9",
       duration: data?.duration ?? "5",
     };
-    if (image_list?.length) body.image_list = image_list;
+    if (image_list.length) body.image_list = image_list;
+    if (element_list && element_list.length > 0) body.element_list = element_list;
 
     const { task_id } = await step.run("kling-omni-video-create", async () => {
       return createTask(PATH, body);

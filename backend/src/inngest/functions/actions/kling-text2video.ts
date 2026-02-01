@@ -2,9 +2,10 @@ import type { NodeExecutor } from "../types";
 import { klingChannel } from "@/inngest/channels/kling";
 import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
-import { createTask, getTask, pollUntilDone } from "@/services/klingApi";
+import { createTask, pollUntilDone } from "@/services/klingApi";
 
 type KlingText2VideoData = {
+  variables?: string;
   prompt?: string;
   negative_prompt?: string;
   model_name?: string;
@@ -12,6 +13,17 @@ type KlingText2VideoData = {
   aspect_ratio?: "16:9" | "9:16" | "1:1";
   duration?: "5" | "10";
   sound?: "on" | "off";
+  camera_control?: {
+    type?: "simple" | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
+    config?: {
+      horizontal?: number;
+      vertical?: number;
+      pan?: number;
+      tilt?: number;
+      roll?: number;
+      zoom?: number;
+    };
+  };
 };
 
 const PATH = "/v1/videos/text2video";
@@ -81,6 +93,24 @@ export const klingText2VideoExecutor: NodeExecutor<KlingText2VideoData> = async 
       sound: data?.sound ?? "off",
     };
     if (compiledNegative) body.negative_prompt = compiledNegative;
+    if (data?.camera_control?.type) {
+      body.camera_control =
+        data.camera_control.type === "simple"
+          ? {
+              type: data.camera_control.type,
+              config: {
+                horizontal: data.camera_control.config?.horizontal ?? 0,
+                vertical: data.camera_control.config?.vertical ?? 0,
+                pan: data.camera_control.config?.pan ?? 0,
+                tilt: data.camera_control.config?.tilt ?? 0,
+                roll: data.camera_control.config?.roll ?? 0,
+                zoom: data.camera_control.config?.zoom ?? 0,
+              },
+            }
+          : {
+              type: data.camera_control.type,
+            };
+    }
 
     const { task_id } = await step.run("kling-t2v-create", async () => {
       return createTask(PATH, body);

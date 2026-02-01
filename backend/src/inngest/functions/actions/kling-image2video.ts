@@ -6,6 +6,7 @@ import { createTask, pollUntilDone, resolveImageSource } from "@/services/klingA
 import { basePrismaClient } from "@/lib/prisma";
 
 type KlingImage2VideoData = {
+  variables?: string;
   prompt?: string;
   image?: string; // URL, base64, or Handlebars template
   model_name?: string;
@@ -72,20 +73,33 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
 
     const compile = (s: string) => Handlebars.compile(s)(context);
     let imageBase64: string | null = null;
+    const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
+      where: { nodeId },
+    });
     if (imageInput) {
       imageBase64 = await step.run("kling-i2v-resolve-image", async () => {
-        const resolved = await resolveImageSource(imageInput, context as Record<string, unknown>, compile);
+        const resolved = await resolveImageSource(
+          imageInput,
+          context as Record<string, unknown>,
+          compile
+        );
         if (resolved) return resolved;
-        const assets = await (basePrismaClient as any).nodeAsset.findMany({
-          where: { nodeId },
-        });
-        for (const a of assets) {
+        for (const a of nodeAssets) {
           if (!a.fileData) continue;
           const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
           if (raw) return raw;
         }
         return null;
       });
+    } else if (nodeAssets.length > 0) {
+      for (const a of nodeAssets) {
+        if (!a.fileData) continue;
+        const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
+        if (raw) {
+          imageBase64 = raw;
+          break;
+        }
+      }
     }
 
     const compiledPrompt = prompt ? compile(prompt) : undefined;

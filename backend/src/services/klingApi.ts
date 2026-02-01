@@ -4,6 +4,8 @@
  * Auth: Bearer token (KLING_ACCESS_KEY).
  */
 
+import crypto from "crypto";
+
 const DEFAULT_BASE_URL = "https://api-singapore.klingai.com";
 
 export type KlingApiResponse<T = unknown> = {
@@ -40,11 +42,41 @@ function getBaseUrl(): string {
 }
 
 function getAuthHeader(): string {
-  const key = process.env.KLING_ACCESS_KEY;
-  if (!key) {
-    throw new Error("KLING_ACCESS_KEY is not configured");
+  const rawKey = process.env.KLING_ACCESS_KEY;
+  const key = rawKey?.trim();
+  const rawSecret = process.env.KLING_SECRET_KEY;
+  const secret = rawSecret?.trim();
+  if (!key || !secret) {
+    throw new Error("KLING_ACCESS_KEY or KLING_SECRET_KEY is not configured");
   }
-  return `Bearer ${key}`;
+  return `Bearer ${createKlingJwt(key, secret)}`;
+}
+
+function base64UrlEncode(input: string | Buffer): string {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+function createKlingJwt(accessKey: string, secretKey: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: "HS256",
+    typ: "JWT",
+  };
+  const payload = {
+    iss: accessKey,
+    exp: now + 1800,
+    nbf: now - 5,
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signature = crypto.createHmac("sha256", secretKey).update(signingInput).digest();
+  const encodedSignature = base64UrlEncode(signature);
+  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
 
 export async function klingFetch<T>(

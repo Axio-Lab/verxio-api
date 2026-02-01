@@ -11,6 +11,7 @@ import { toast } from "sonner";
 interface UseExecuteNodeOptions {
   nodeId: string;
   workflowId?: string;
+  nodeData?: Record<string, unknown> | null;
 }
 
 interface UseExecuteNodeReturn {
@@ -30,6 +31,7 @@ interface UseExecuteNodeReturn {
 export function useExecuteNode({
   nodeId,
   workflowId: workflowIdOverride,
+  nodeData,
 }: UseExecuteNodeOptions): UseExecuteNodeReturn {
   const params = useParams();
   const routeWorkflowId =
@@ -45,6 +47,16 @@ export function useExecuteNode({
   const [isExecuting, setIsExecuting] = useState(false);
   const lastExecuteTimeRef = useRef<number>(0);
   const DEBOUNCE_MS = 1000; // 1 second debounce
+  const MAX_OVERRIDE_BYTES = 2_500_000; // Keep below Inngest 3MB limit
+
+  const getSerializableNodeData = (data: Record<string, unknown> | null | undefined) => {
+    if (!data) return undefined;
+    try {
+      return JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+    } catch {
+      return undefined;
+    }
+  };
 
   const executeNode = useCallback(async () => {
     if (!workflowId) {
@@ -52,10 +64,26 @@ export function useExecuteNode({
       return;
     }
 
-    // Check for unsaved changes before executing
-    if (hasUnsavedChanges) {
+    const overrideData = getSerializableNodeData(nodeData);
+    const shouldSendOverrides = hasUnsavedChanges;
+
+    // If we can't serialize the node data and there are unsaved changes, block execution
+    if (hasUnsavedChanges && !overrideData) {
       toast.error("Please save your workflow before executing");
       return;
+    }
+
+    if (hasUnsavedChanges && overrideData) {
+      try {
+        const payloadSize = new TextEncoder().encode(JSON.stringify(overrideData)).length;
+        if (payloadSize > MAX_OVERRIDE_BYTES) {
+          toast.error("Payload too large. Save the workflow before executing.");
+          return;
+        }
+      } catch {
+        toast.error("Please save your workflow before executing");
+        return;
+      }
     }
 
     // Debounce: prevent multiple rapid clicks
@@ -76,9 +104,17 @@ export function useExecuteNode({
       // Set executing state immediately
       setIsExecuting(true);
 
-      // Trigger the single node execution
+      // Trigger the single node execution (include latest node data if available)
       await triggerWorkflow.mutateAsync({
         id: workflowId,
+        data:
+          shouldSendOverrides && overrideData
+            ? {
+                nodeOverrides: {
+                  [nodeId]: overrideData,
+                },
+              }
+            : undefined,
         nodeId,
       });
 
@@ -93,9 +129,17 @@ export function useExecuteNode({
       // Reset node status on error
       setNodeStatus(nodeId, "error");
     }
-  }, [workflowId, nodeId, hasUnsavedChanges, triggerWorkflow, isExecuting, setNodeStatus]);
+  }, [
+    workflowId,
+    nodeId,
+    nodeData,
+    hasUnsavedChanges,
+    triggerWorkflow,
+    isExecuting,
+    setNodeStatus,
+  ]);
 
-  const canExecute = Boolean(workflowId) && !hasUnsavedChanges;
+  const canExecute = Boolean(workflowId);
 
   return {
     executeNode,

@@ -8,10 +8,13 @@ import { basePrismaClient } from "@/lib/prisma";
 type KlingOmniImageData = {
   prompt?: string;
   image_list?: string;
-  resolution?: string;
+  referenceImages?: Array<{ file: string; filename?: string }>;
+  element_list?: string;
+  resolution?: "1k" | "2k";
   n?: number;
   aspect_ratio?: string;
   variables?: string;
+  model_name?: "kling-image-o1";
 };
 
 const PATH = "/v1/images/omni-image";
@@ -69,43 +72,74 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
 
     const compile = (s: string) => Handlebars.compile(s)(context);
     const compiledPrompt = compile(prompt);
+    const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
 
-    let image_list: string[] | undefined;
+    const imageSources: string[] = [];
     const imageListRaw = data?.image_list?.trim();
     if (imageListRaw) {
       try {
         const parsed = JSON.parse(compile(imageListRaw)) as unknown;
-        image_list = Array.isArray(parsed) ? parsed.map(String) : [String(parsed)];
+        imageSources.push(...(Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]));
       } catch {
-        image_list = [compile(imageListRaw)];
+        imageSources.push(compile(imageListRaw));
       }
-      const resolved: string[] = [];
-      for (const src of image_list) {
-        const b64 = await resolveImageSource(src, context as Record<string, unknown>, compile);
-        if (b64) resolved.push(b64);
-        else {
-          const assets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
-          for (const a of assets) {
-            if (a.fileData) {
-              const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
-              if (raw) {
-                resolved.push(raw);
-                break;
-              }
-            }
-          }
+    }
+    if (Array.isArray(data?.referenceImages)) {
+      imageSources.push(...data.referenceImages.map((img) => img.file));
+    }
+
+    const image_list: string[] = [];
+    for (const src of imageSources) {
+      if (src.startsWith("asset:")) {
+        const filename = src.replace("asset:", "").trim();
+        const asset = nodeAssets.find((a: any) => a.filename === filename);
+        if (asset?.fileData) {
+          const raw = asset.fileData.startsWith("data:")
+            ? asset.fileData.split(",")[1]
+            : asset.fileData;
+          if (raw) image_list.push(raw);
         }
+        continue;
       }
-      if (resolved.length > 0) image_list = resolved;
+      const b64 = await resolveImageSource(src, context as Record<string, unknown>, compile);
+      if (b64) image_list.push(b64);
+    }
+
+    if (image_list.length === 0) {
+      const assetImages = nodeAssets.filter((a: any) => a.fileType === "kling-omni-image-image");
+      for (const a of assetImages) {
+        if (!a.fileData) continue;
+        const raw = a.fileData.startsWith("data:") ? a.fileData.split(",")[1] : a.fileData;
+        if (raw) image_list.push(raw);
+      }
+    }
+
+    let element_list: Array<{ element_id: number }> | undefined;
+    const elementListRaw = data?.element_list?.trim();
+    if (elementListRaw) {
+      try {
+        const parsed = JSON.parse(compile(elementListRaw)) as unknown;
+        if (Array.isArray(parsed)) {
+          element_list = parsed
+            .map((item) => ({
+              element_id: Number((item as any)?.element_id ?? item),
+            }))
+            .filter((item) => Number.isFinite(item.element_id));
+        }
+      } catch {
+        element_list = undefined;
+      }
     }
 
     const body: Record<string, unknown> = {
+      model_name: data?.model_name ?? "kling-image-o1",
       prompt: compiledPrompt,
-      resolution: data?.resolution ?? "1080p",
+      resolution: data?.resolution ?? "1k",
       n: typeof data?.n === "number" ? data.n : 1,
-      aspect_ratio: data?.aspect_ratio ?? "1:1",
+      aspect_ratio: data?.aspect_ratio ?? "auto",
     };
-    if (image_list?.length) body.image_list = image_list;
+    if (image_list.length) body.image_list = image_list.map((image) => ({ image }));
+    if (element_list && element_list.length > 0) body.element_list = element_list;
 
     const { task_id } = await step.run("kling-omni-image-create", async () => {
       return createTask(PATH, body);

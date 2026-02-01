@@ -16,9 +16,37 @@ export const KlingText2VideoNode = memo((props: NodeProps) => {
   const handleOpenSettings = () => setDialogOpen(true);
 
   const handleSubmit = (values: KlingText2VideoFormValues) => {
+    const cameraControlType = values.camera_control_type || undefined;
+    const cameraControlConfig =
+      cameraControlType === "simple"
+        ? {
+            horizontal: values.camera_control_horizontal ?? 0,
+            vertical: values.camera_control_vertical ?? 0,
+            pan: values.camera_control_pan ?? 0,
+            tilt: values.camera_control_tilt ?? 0,
+            roll: values.camera_control_roll ?? 0,
+            zoom: values.camera_control_zoom ?? 0,
+          }
+        : undefined;
+    const cameraControl =
+      cameraControlType && cameraControlType !== "none"
+        ? {
+            type: cameraControlType,
+            ...(cameraControlType === "simple" ? { config: cameraControlConfig } : {}),
+          }
+        : undefined;
     setNodes((nodes) =>
       nodes.map((node) =>
-        node.id === props.id ? { ...node, data: { ...node.data, ...values } } : node
+        node.id === props.id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                ...values,
+                ...(cameraControl ? { camera_control: cameraControl } : {}),
+              },
+            }
+          : node
       )
     );
   };

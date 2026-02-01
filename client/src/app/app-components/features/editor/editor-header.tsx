@@ -99,19 +99,20 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
 
       // Normalize data objects for comparison (sort keys for consistent comparison)
       // Exclude internal scheduling fields that are added by the backend
-      // Also exclude asset fields (sourceImage, referenceImages) that are stored separately as assets
+      // Also exclude certain asset fields that are stored separately and may have format differences
       const normalizeData = (data: any) => {
         if (!data || typeof data !== "object") return data;
         // Remove internal fields that shouldn't affect the comparison
+        // Note: We no longer exclude image/referenceImages since the save response now includes
+        // the assets properly, allowing accurate change detection for image uploads
         const {
           scheduledEventId,
           scheduledEventTime,
           lastRunTime,
           cancelled,
-          sourceImage, // Stored as asset, not in node.data
-          sourceImageFilename, // Stored as asset, not in node.data
-          sourceImageMimeType, // Stored as asset, not in node.data
-          referenceImages, // Stored as assets, not in node.data
+          sourceImage, // Stored as asset, not in node.data (DESIGN_PRO)
+          sourceImageFilename, // Stored as asset, not in node.data (DESIGN_PRO)
+          sourceImageMimeType, // Stored as asset, not in node.data (DESIGN_PRO)
           assets, // REMOTION assets stored separately
           backgroundAudio, // REMOTION audio stored separately
           backgroundAudioFilename, // REMOTION audio stored separately

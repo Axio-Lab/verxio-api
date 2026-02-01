@@ -36,8 +36,8 @@ const formSchema = z.object({
   variables: z.string().min(1).regex(/^[A-Za-z_$][A-Za-z0-9_]*$/).optional(),
   text: z.string().min(1, "Text is required").max(1000),
   voice_id: z.string().min(1, "Voice ID is required"),
-  voice_language: z.enum(["zh", "en"]),
-  voice_speed: z.coerce.number().min(0.8).max(2).default(1),
+  voice_language: z.literal("en"),
+  voice_speed: z.coerce.number().min(0.8).max(2),
 });
 
 export type KlingTtsFormValues = z.infer<typeof formSchema>;
@@ -55,7 +55,7 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
     defaultValues: {
       text: defaultValues.text ?? "",
       voice_id: defaultValues.voice_id ?? "",
-      voice_language: defaultValues.voice_language ?? "en",
+      voice_language: "en",
       voice_speed: defaultValues.voice_speed ?? 1,
     },
   });
@@ -66,7 +66,7 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
         variables: defaultValues.variables ?? "klingTts",
         text: defaultValues.text ?? "",
         voice_id: defaultValues.voice_id ?? "",
-        voice_language: defaultValues.voice_language ?? "en",
+        voice_language: "en",
         voice_speed: defaultValues.voice_speed ?? 1,
       });
     }
@@ -79,7 +79,7 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Kling TTS</DialogTitle>
           <DialogDescription>
@@ -119,36 +119,69 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
               name="voice_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Voice ID</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g. from Kling voice list" />
-                  </FormControl>
+                  <FormLabel>Voice</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a voice" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="genshin_vindi2">Sunny (genshin_vindi2)</SelectItem>
+                      <SelectItem value="zhinen_xuesheng">Sage (zhinen_xuesheng)</SelectItem>
+                      <SelectItem value="AOT">Ace (AOT)</SelectItem>
+                      <SelectItem value="ai_shatang">Blossom (ai_shatang)</SelectItem>
+                      <SelectItem value="genshin_klee2">Peppy (genshin_klee2)</SelectItem>
+                      <SelectItem value="genshin_kirara">Dove (genshin_kirara)</SelectItem>
+                      <SelectItem value="ai_kaiya">Shine (ai_kaiya)</SelectItem>
+                      <SelectItem value="oversea_male1">Anchor (oversea_male1)</SelectItem>
+                      <SelectItem value="ai_chenjiahao_712">Lyric (ai_chenjiahao_712)</SelectItem>
+                      <SelectItem value="girlfriend_4_speech02">
+                        Melody (girlfriend_4_speech02)
+                      </SelectItem>
+                      <SelectItem value="chat1_female_new-3">
+                        Tender (chat1_female_new-3)
+                      </SelectItem>
+                      <SelectItem value="chat_0407_5-1">Siren (chat_0407_5-1)</SelectItem>
+                      <SelectItem value="cartoon-boy-07">Zippy (cartoon-boy-07)</SelectItem>
+                      <SelectItem value="uk_boy1">Bud (uk_boy1)</SelectItem>
+                      <SelectItem value="cartoon-girl-01">Sprite (cartoon-girl-01)</SelectItem>
+                      <SelectItem value="PeppaPig_platform">Candy (PeppaPig_platform)</SelectItem>
+                      <SelectItem value="ai_huangzhong_712">Beacon (ai_huangzhong_712)</SelectItem>
+                      <SelectItem value="ai_huangyaoshi_712">Rock (ai_huangyaoshi_712)</SelectItem>
+                      <SelectItem value="ai_laoguowang_712">Titan (ai_laoguowang_712)</SelectItem>
+                      <SelectItem value="chengshu_jiejie">Grace (chengshu_jiejie)</SelectItem>
+                      <SelectItem value="you_pingjing">Helen (you_pingjing)</SelectItem>
+                      <SelectItem value="calm_story1">Lore (calm_story1)</SelectItem>
+                      <SelectItem value="uk_man2">Crag (uk_man2)</SelectItem>
+                      <SelectItem value="laopopo_speech02">Prattle (laopopo_speech02)</SelectItem>
+                      <SelectItem value="heainainai_speech02">Hearth (heainainai_speech02)</SelectItem>
+                      <SelectItem value="reader_en_m-v1">The Reader (reader_en_m-v1)</SelectItem>
+                      <SelectItem value="commercial_lady_en_f-v1">
+                        Commercial Lady (commercial_lady_en_f-v1)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
+                  <p className="text-xs text-muted-foreground">
+                    Preview voices:{" "}
+                    <a
+                      href="https://docs.qingque.cn/s/home/eZQDvafJ4vXQkP8T9ZPvmye8S?identityId=2E1MlYrrPk4"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      className="underline"
+                    >
+                      Kling voice list
+                    </a>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Voice preview file naming: Voice Name#Voice ID#Voice Language
+                  </p>
                 </FormItem>
               )}
             />
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="voice_language"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="zh">Chinese</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="voice_speed"
