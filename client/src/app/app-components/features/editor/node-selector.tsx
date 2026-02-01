@@ -276,6 +276,108 @@ const executionNodes: NodeTypeOption[] = [
     icon: Video,
   },
   {
+    type: NodeType.KLING_TEXT2VIDEO,
+    label: "Kling Text-to-Video",
+    description: "Generate videos from text using Kling AI. Supports multiple models, aspect ratios, and durations.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_IMAGE2VIDEO,
+    label: "Kling Image-to-Video",
+    description: "Animate an image into video using Kling AI.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_IMAGE,
+    label: "Kling Image",
+    description: "Generate images from text using Kling AI. Optional reference image.",
+    icon: Palette,
+  },
+  {
+    type: NodeType.KLING_TTS,
+    label: "Kling TTS",
+    description: "Convert text to speech using Kling AI voices.",
+    icon: "/logo/elevenlabs.svg",
+  },
+  {
+    type: NodeType.KLING_OMNI_VIDEO,
+    label: "Kling Omni Video",
+    description: "Kling O1 unified multimodal video from prompt and optional image list.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_OMNI_IMAGE,
+    label: "Kling Omni Image",
+    description: "Kling O1 omni-image generation from prompt and optional image list.",
+    icon: Palette,
+  },
+  {
+    type: NodeType.KLING_TEXT2AUDIO,
+    label: "Kling Text-to-Audio",
+    description: "Generate audio from text prompt (async).",
+    icon: "/logo/elevenlabs.svg",
+  },
+  {
+    type: NodeType.KLING_VIDEO_EXTEND,
+    label: "Kling Video Extend",
+    description: "Extend a Kling video using video_id (e.g. from Text-to-Video).",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_MULTI_IMAGE2VIDEO,
+    label: "Kling Multi-Image to Video",
+    description: "Generate video from multiple reference images.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_MOTION_CONTROL,
+    label: "Kling Motion Control",
+    description: "Motion control video with image and optional video reference.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_AVATAR,
+    label: "Kling Avatar",
+    description: "Lip-sync avatar video from image and audio.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_VIDEO_EFFECTS,
+    label: "Kling Video Effects",
+    description: "Apply video effects to an input image.",
+    icon: Video,
+  },
+  {
+    type: NodeType.KLING_IMAGE_EXPAND,
+    label: "Kling Image Expand",
+    description: "Expand image boundaries (outpainting).",
+    icon: Palette,
+  },
+  {
+    type: NodeType.KLING_MULTI_IMAGE2IMAGE,
+    label: "Kling Multi-Image to Image",
+    description: "Generate image from multiple reference images.",
+    icon: Palette,
+  },
+  {
+    type: NodeType.KLING_VIDEO2AUDIO,
+    label: "Kling Video to Audio",
+    description: "Extract audio from a video URL.",
+    icon: "/logo/elevenlabs.svg",
+  },
+  {
+    type: NodeType.KLING_VIRTUAL_TRYON,
+    label: "Kling Virtual Try-On",
+    description: "Virtual try-on with human image and garment image.",
+    icon: Palette,
+  },
+  {
+    type: NodeType.KLING_IMAGE_RECOGNIZE,
+    label: "Kling Image Recognize",
+    description: "Image recognition / segmentation (returns segmentation URLs).",
+    icon: Palette,
+  },
+  {
     type: NodeType.OUTPUT,
     label: "Output",
     description:
@@ -344,6 +446,37 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
   }, [filteredNodes, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredNodes.length / itemsPerPage);
+
+  const getPaginationItems = useCallback(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages: Array<number | "ellipsis"> = [];
+    const showLeftEllipsis = currentPage > 3;
+    const showRightEllipsis = currentPage < totalPages - 2;
+
+    pages.push(1);
+
+    if (showLeftEllipsis) {
+      pages.push("ellipsis");
+    }
+
+    const startPage = showLeftEllipsis ? Math.max(2, currentPage - 1) : 2;
+    const endPage = showRightEllipsis ? Math.min(totalPages - 1, currentPage + 1) : totalPages - 1;
+
+    for (let page = startPage; page <= endPage; page += 1) {
+      pages.push(page);
+    }
+
+    if (showRightEllipsis) {
+      pages.push("ellipsis");
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  }, [currentPage, totalPages]);
 
   // Reset to page 1 when search changes
   useEffect(() => {
@@ -917,6 +1050,210 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_TEXT2VIDEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Text-to-Video",
+            variables: "klingText2Video",
+          },
+          type: NodeType.KLING_TEXT2VIDEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_IMAGE2VIDEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Image-to-Video",
+            variables: "klingImage2Video",
+          },
+          type: NodeType.KLING_IMAGE2VIDEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_IMAGE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Image",
+            variables: "klingImage",
+          },
+          type: NodeType.KLING_IMAGE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_TTS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling TTS",
+            variables: "klingTts",
+          },
+          type: NodeType.KLING_TTS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_OMNI_VIDEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Omni Video",
+            variables: "klingOmniVideo",
+          },
+          type: NodeType.KLING_OMNI_VIDEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_OMNI_IMAGE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Omni Image",
+            variables: "klingOmniImage",
+          },
+          type: NodeType.KLING_OMNI_IMAGE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_TEXT2AUDIO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Text-to-Audio",
+            variables: "klingText2Audio",
+          },
+          type: NodeType.KLING_TEXT2AUDIO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_VIDEO_EXTEND) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Video Extend",
+            variables: "klingVideoExtend",
+          },
+          type: NodeType.KLING_VIDEO_EXTEND,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_MULTI_IMAGE2VIDEO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Multi-Image to Video",
+            variables: "klingMultiImage2Video",
+          },
+          type: NodeType.KLING_MULTI_IMAGE2VIDEO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_MOTION_CONTROL) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Motion Control",
+            variables: "klingMotionControl",
+          },
+          type: NodeType.KLING_MOTION_CONTROL,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_AVATAR) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Avatar",
+            variables: "klingAvatar",
+          },
+          type: NodeType.KLING_AVATAR,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_VIDEO_EFFECTS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Video Effects",
+            variables: "klingVideoEffects",
+          },
+          type: NodeType.KLING_VIDEO_EFFECTS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_IMAGE_EXPAND) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Image Expand",
+            variables: "klingImageExpand",
+          },
+          type: NodeType.KLING_IMAGE_EXPAND,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_MULTI_IMAGE2IMAGE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Multi-Image to Image",
+            variables: "klingMultiImage2Image",
+          },
+          type: NodeType.KLING_MULTI_IMAGE2IMAGE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_VIDEO2AUDIO) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Video to Audio",
+            variables: "klingVideo2Audio",
+          },
+          type: NodeType.KLING_VIDEO2AUDIO,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_VIRTUAL_TRYON) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Virtual Try-On",
+            variables: "klingVirtualTryon",
+          },
+          type: NodeType.KLING_VIRTUAL_TRYON,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.KLING_IMAGE_RECOGNIZE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Kling Image Recognize",
+            variables: "klingImageRecognize",
+          },
+          type: NodeType.KLING_IMAGE_RECOGNIZE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
       } else if (selection.type === NodeType.OUTPUT) {
         const newNode = {
           id: createId(),
@@ -1063,19 +1400,28 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
               </button>
 
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                      currentPage === page
-                        ? "bg-primary text-white"
-                        : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {getPaginationItems().map((item, index) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="px-2 text-sm text-muted-foreground"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item)}
+                      className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                        currentPage === item
+                          ? "bg-primary text-white"
+                          : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
               </div>
 
               <button

@@ -275,6 +275,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const klingSub = useInngestSubscription({
+    refreshToken: createRefreshToken("kling"),
+    enabled: true,
+  });
+
   const outputSub = useInngestSubscription({
     refreshToken: createRefreshToken("output"),
     enabled: true,
@@ -350,6 +355,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     designProSub.data,
     remotionSub.data,
     veoSub.data,
+    klingSub.data,
     outputSub.data,
   ]);
 

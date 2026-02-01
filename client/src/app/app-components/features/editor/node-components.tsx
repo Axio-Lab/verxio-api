@@ -43,6 +43,23 @@ import { LoyaltyDealNode } from "@/app/app-components/features/executions/action
 import { LoyaltyProgramNode } from "@/app/app-components/features/executions/actions/loyalty-program/node";
 import { RemotionNode } from "@/app/app-components/features/executions/actions/remotion/node";
 import { VeoNode } from "@/app/app-components/features/executions/actions/veo/node";
+import { KlingText2VideoNode } from "@/app/app-components/features/executions/actions/kling-text2video/node";
+import { KlingImage2VideoNode } from "@/app/app-components/features/executions/actions/kling-image2video/node";
+import { KlingImageNode } from "@/app/app-components/features/executions/actions/kling-image/node";
+import { KlingTtsNode } from "@/app/app-components/features/executions/actions/kling-tts/node";
+import { KlingOmniVideoNode } from "@/app/app-components/features/executions/actions/kling-omni-video/node";
+import { KlingOmniImageNode } from "@/app/app-components/features/executions/actions/kling-omni-image/node";
+import { KlingText2AudioNode } from "@/app/app-components/features/executions/actions/kling-text2audio/node";
+import { KlingVideoExtendNode } from "@/app/app-components/features/executions/actions/kling-video-extend/node";
+import { KlingMultiImage2VideoNode } from "@/app/app-components/features/executions/actions/kling-multi-image2video/node";
+import { KlingMotionControlNode } from "@/app/app-components/features/executions/actions/kling-motion-control/node";
+import { KlingAvatarNode } from "@/app/app-components/features/executions/actions/kling-avatar/node";
+import { KlingVideoEffectsNode } from "@/app/app-components/features/executions/actions/kling-video-effects/node";
+import { KlingImageExpandNode } from "@/app/app-components/features/executions/actions/kling-image-expand/node";
+import { KlingMultiImage2ImageNode } from "@/app/app-components/features/executions/actions/kling-multi-image2image/node";
+import { KlingVideo2AudioNode } from "@/app/app-components/features/executions/actions/kling-video2audio/node";
+import { KlingVirtualTryonNode } from "@/app/app-components/features/executions/actions/kling-virtual-tryon/node";
+import { KlingImageRecognizeNode } from "@/app/app-components/features/executions/actions/kling-image-recognize/node";
 import { OutputNode } from "@/app/app-components/features/executions/actions/output/node";
 
 export const NodeComponents = {
@@ -84,6 +101,23 @@ export const NodeComponents = {
   [NodeType.LOYALTY_PROGRAM]: LoyaltyProgramNode,
   [NodeType.REMOTION]: RemotionNode,
   [NodeType.VEO]: VeoNode,
+  [NodeType.KLING_TEXT2VIDEO]: KlingText2VideoNode,
+  [NodeType.KLING_IMAGE2VIDEO]: KlingImage2VideoNode,
+  [NodeType.KLING_IMAGE]: KlingImageNode,
+  [NodeType.KLING_TTS]: KlingTtsNode,
+  [NodeType.KLING_OMNI_VIDEO]: KlingOmniVideoNode,
+  [NodeType.KLING_OMNI_IMAGE]: KlingOmniImageNode,
+  [NodeType.KLING_TEXT2AUDIO]: KlingText2AudioNode,
+  [NodeType.KLING_VIDEO_EXTEND]: KlingVideoExtendNode,
+  [NodeType.KLING_MULTI_IMAGE2VIDEO]: KlingMultiImage2VideoNode,
+  [NodeType.KLING_MOTION_CONTROL]: KlingMotionControlNode,
+  [NodeType.KLING_AVATAR]: KlingAvatarNode,
+  [NodeType.KLING_VIDEO_EFFECTS]: KlingVideoEffectsNode,
+  [NodeType.KLING_IMAGE_EXPAND]: KlingImageExpandNode,
+  [NodeType.KLING_MULTI_IMAGE2IMAGE]: KlingMultiImage2ImageNode,
+  [NodeType.KLING_VIDEO2AUDIO]: KlingVideo2AudioNode,
+  [NodeType.KLING_VIRTUAL_TRYON]: KlingVirtualTryonNode,
+  [NodeType.KLING_IMAGE_RECOGNIZE]: KlingImageRecognizeNode,
   [NodeType.OUTPUT]: OutputNode,
 } as const satisfies NodeTypes;
 
