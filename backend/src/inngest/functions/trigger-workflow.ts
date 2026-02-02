@@ -218,12 +218,12 @@ export const triggerWorkflow = inngest.createFunction(
         const resolvedNode =
           overrideData && typeof overrideData === "object"
             ? {
-              ...targetNode,
-              data: {
-                ...(targetNode.data || {}),
-                ...overrideData,
-              },
-            }
+                ...targetNode,
+                data: {
+                  ...(targetNode.data || {}),
+                  ...overrideData,
+                },
+              }
             : targetNode;
         workflow = {
           ...fetchedWorkflow,

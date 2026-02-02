@@ -65,10 +65,7 @@ export const topologicalSort = (nodes: any[], connections: any[]): any[] => {
  * @param connections - Workflow connections (source -> target)
  * @returns Array of levels; each level is an array of nodes that can execute in parallel
  */
-export function groupNodesByLevel(
-  sortedNodes: any[],
-  connections: any[]
-): any[][] {
+export function groupNodesByLevel(sortedNodes: any[], connections: any[]): any[][] {
   const nodeIdSet = new Set(sortedNodes.map((n) => n.id));
   const inDegree = new Map<string, number>();
   const adjacency = new Map<string, string[]>();

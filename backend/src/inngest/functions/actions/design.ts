@@ -176,7 +176,10 @@ export const designExecutor: NodeExecutor<DesignData> = async ({
       let imageFilename: string | undefined;
 
       if (result.imageBase64) {
-        const saveResult = await saveImageToDisk(result.imageBase64, result.mimeType || "image/jpeg");
+        const saveResult = await saveImageToDisk(
+          result.imageBase64,
+          result.mimeType || "image/jpeg"
+        );
         if (saveResult.success) {
           const baseUrl = process.env.API_URL;
           imageUrl = `${baseUrl}${saveResult.url}`;

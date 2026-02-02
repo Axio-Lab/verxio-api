@@ -60,12 +60,13 @@ export function useCentralizedNodeStatusSubscriptions() {
   const setNodeExecutionStatus = useSetNodeExecutionStatus();
   const setNodeOutput = useSetNodeOutput();
 
-  const createRefreshToken = (channelKey: string) => async (): Promise<Realtime.Subscribe.Token> => {
-    const tokens = await fetchTokens();
-    const token = tokens[channelKey];
-    if (!token) throw new Error(`Token not found for channel: ${channelKey}`);
-    return token;
-  };
+  const createRefreshToken =
+    (channelKey: string) => async (): Promise<Realtime.Subscribe.Token> => {
+      const tokens = await fetchTokens();
+      const token = tokens[channelKey];
+      if (!token) throw new Error(`Token not found for channel: ${channelKey}`);
+      return token;
+    };
 
   const httpRequestSub = useInngestSubscription({
     refreshToken: createRefreshToken("httpRequest"),
