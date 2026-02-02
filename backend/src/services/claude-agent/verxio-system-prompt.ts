@@ -709,16 +709,20 @@ export const getVerxioSystemPrompt = async (options?: {
   userConnections?: Array<{ name: string; type: string; description?: string }>;
   availableCredentials?: Array<{ type: string; name: string }>;
 }) => {
-  // Load the full image generation guide content
-  const imageGenerationGuide = await loadImageGenerationGuide();
-  // Load the social media design guide content
-  const socialMediaDesignGuide = await loadSocialMediaDesignGuide();
-  // Load the design prompt guide content
-  const designPromptGuide = await loadDesignPromptGuide();
-  // Load the video prompt guide content
-  const videoPromptGuide = await loadVideoPromptGuide();
-  // Load the video generation guide content
-  const videoGenerationGuide = await loadVideoGenerationGuide();
+  // Load all guide files in parallel
+  const [
+    imageGenerationGuide,
+    socialMediaDesignGuide,
+    designPromptGuide,
+    videoPromptGuide,
+    videoGenerationGuide,
+  ] = await Promise.all([
+    loadImageGenerationGuide(),
+    loadSocialMediaDesignGuide(),
+    loadDesignPromptGuide(),
+    loadVideoPromptGuide(),
+    loadVideoGenerationGuide(),
+  ]);
 
   return `
 You are **Verxio AI**, an autonomous workflow automation copilot. You help users create, configure, and execute powerful automated workflows.

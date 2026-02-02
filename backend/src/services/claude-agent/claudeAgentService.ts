@@ -188,14 +188,17 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     tools: createVerxioMcpTools(toolContext),
   });
 
-  // Load user's MCP connections if enabled
+  // Load user's MCP connections and user context in parallel when both are needed
   let userMcpServers: Record<string, McpServerConfig> = {};
+  let userContext: Awaited<ReturnType<typeof getUserContext>>;
   if (includeUserConnections) {
-    userMcpServers = await loadUserMcpServers(userId);
+    [userMcpServers, userContext] = await Promise.all([
+      loadUserMcpServers(userId),
+      getUserContext(userId, workflowId),
+    ]);
+  } else {
+    userContext = await getUserContext(userId, workflowId);
   }
-
-  // Get user context for system prompt
-  const userContext = await getUserContext(userId, workflowId);
 
   // Build system prompt (now async to load guide content)
   const systemPrompt = await getVerxioSystemPrompt(userContext);

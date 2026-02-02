@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/useSubscription";
 import { AnimatedEdge } from "./animated-edge";
 import { useWorkflowOutputsSync } from "../executions/hooks/use-workflow-outputs-sync";
+import { useCentralizedNodeStatusSubscriptions } from "../executions/hooks/use-centralized-status";
 
 // Custom edge types for animated connections during execution
 const edgeTypes = {
@@ -62,6 +63,9 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   // Subscribe to all workflow outputs and populate global store
   // This allows OUTPUT nodes to read from any source node immediately
   useWorkflowOutputsSync();
+
+  // Single subscription manager for all node status/output channels (33 channels once, not per node)
+  useCentralizedNodeStatusSubscriptions();
 
   useEffect(() => {
     const hasTouch =

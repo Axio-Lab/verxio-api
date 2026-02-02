@@ -11,74 +11,58 @@ import * as path from "path";
 // Path to guides directory
 const GUIDES_DIR = path.join(__dirname, "guides");
 
+const guideCache = new Map<string, { content: string; timestamp: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function loadGuideWithCache(guideFileName: string): Promise<string> {
+  const cached = guideCache.get(guideFileName);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.content;
+  }
+  try {
+    const guidePath = path.join(GUIDES_DIR, guideFileName);
+    const content = await fs.readFile(guidePath, "utf-8");
+    guideCache.set(guideFileName, { content, timestamp: Date.now() });
+    return content;
+  } catch (error) {
+    console.error(`[ImagePromptHelpers] Error loading guide ${guideFileName}:`, error);
+    return "";
+  }
+}
+
 /**
  * Load the image generation guide content
  */
 export async function loadImageGenerationGuide(): Promise<string> {
-  try {
-    const guidePath = path.join(GUIDES_DIR, "image-generation-guide.txt");
-    const content = await fs.readFile(guidePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("[ImagePromptHelpers] Error loading image generation guide:", error);
-    return "";
-  }
+  return loadGuideWithCache("image-generation-guide.txt");
 }
 
 /**
  * Load the video generation guide content
  */
 export async function loadVideoGenerationGuide(): Promise<string> {
-  try {
-    const guidePath = path.join(GUIDES_DIR, "video-generation-guide.txt");
-    const content = await fs.readFile(guidePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("[ImagePromptHelpers] Error loading video generation guide:", error);
-    return "";
-  }
+  return loadGuideWithCache("video-generation-guide.txt");
 }
 
 /**
  * Load the social media design guide content
  */
 export async function loadSocialMediaDesignGuide(): Promise<string> {
-  try {
-    const guidePath = path.join(GUIDES_DIR, "social-media-design-guide.txt");
-    const content = await fs.readFile(guidePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("[ImagePromptHelpers] Error loading social media design guide:", error);
-    return "";
-  }
+  return loadGuideWithCache("social-media-design-guide.txt");
 }
 
 /**
  * Load the design prompt guide content
  */
 export async function loadDesignPromptGuide(): Promise<string> {
-  try {
-    const guidePath = path.join(GUIDES_DIR, "design-prompt-guide.txt");
-    const content = await fs.readFile(guidePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("[ImagePromptHelpers] Error loading design prompt guide:", error);
-    return "";
-  }
+  return loadGuideWithCache("design-prompt-guide.txt");
 }
 
 /**
  * Load the video prompt guide content
  */
 export async function loadVideoPromptGuide(): Promise<string> {
-  try {
-    const guidePath = path.join(GUIDES_DIR, "video-prompt-guide.txt");
-    const content = await fs.readFile(guidePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("[ImagePromptHelpers] Error loading video prompt guide:", error);
-    return "";
-  }
+  return loadGuideWithCache("video-prompt-guide.txt");
 }
 
 /**

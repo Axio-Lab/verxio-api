@@ -56,3 +56,54 @@ export const topologicalSort = (nodes: any[], connections: any[]): any[] => {
   // Return sorted connected nodes first, then unconnected nodes
   return [...sortedNodes, ...unconnectedNodes];
 };
+
+/**
+ * Groups topologically sorted nodes by dependency level.
+ * Nodes at the same level have no dependencies on each other and can run in parallel.
+ *
+ * @param sortedNodes - Nodes already in topological order
+ * @param connections - Workflow connections (source -> target)
+ * @returns Array of levels; each level is an array of nodes that can execute in parallel
+ */
+export function groupNodesByLevel(
+  sortedNodes: any[],
+  connections: any[]
+): any[][] {
+  const nodeIdSet = new Set(sortedNodes.map((n) => n.id));
+  const inDegree = new Map<string, number>();
+  const adjacency = new Map<string, string[]>();
+
+  for (const node of sortedNodes) {
+    inDegree.set(node.id, 0);
+    adjacency.set(node.id, []);
+  }
+
+  for (const conn of connections) {
+    if (!nodeIdSet.has(conn.source) || !nodeIdSet.has(conn.target)) {
+      continue;
+    }
+    inDegree.set(conn.target, (inDegree.get(conn.target) ?? 0) + 1);
+    adjacency.get(conn.source)!.push(conn.target);
+  }
+
+  const nodeMap = new Map(sortedNodes.map((n) => [n.id, n]));
+  const levels: any[][] = [];
+  let current = sortedNodes.filter((n) => inDegree.get(n.id) === 0);
+
+  while (current.length > 0) {
+    levels.push(current);
+    const nextIds: string[] = [];
+    for (const node of current) {
+      for (const childId of adjacency.get(node.id) ?? []) {
+        const newDegree = (inDegree.get(childId) ?? 0) - 1;
+        inDegree.set(childId, newDegree);
+        if (newDegree === 0) {
+          nextIds.push(childId);
+        }
+      }
+    }
+    current = nextIds.map((id) => nodeMap.get(id)).filter((n): n is any => n != null);
+  }
+
+  return levels;
+}
