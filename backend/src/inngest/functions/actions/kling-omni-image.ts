@@ -37,9 +37,38 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
   context,
   step,
   publish,
+  userId,
 }) => {
   try {
     await publishStatus(publish, step, nodeId, "loading");
+
+    // Check subscription access for Kling nodes
+    const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+    await checkNodeAccess(userId, "KLING_OMNI_IMAGE");
+
+    // Consume premium quota once per workflow run for this node
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST } = await import("@/config/rate-limits");
+    try {
+      await step.run(`kling-omni-image-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, QUOTA_COST.KLING_OMNI_IMAGE);
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`kling-omni-image-quota-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
 
     if (!process.env.KLING_ACCESS_KEY) {
       await publishStatus(publish, step, nodeId, "error");

@@ -355,6 +355,16 @@ const NODE_TYPE_TO_FEATURE: Record<string, string> = {
   FIRECRAWL: "firecrawl",
   APIFY: "apify",
   PLAN: "plan-node",
+  KLING_TEXT2VIDEO: "kling-nodes",
+  KLING_IMAGE2VIDEO: "kling-nodes",
+  KLING_IMAGE: "kling-nodes",
+  KLING_TTS: "kling-nodes",
+  KLING_OMNI_VIDEO: "kling-nodes",
+  KLING_OMNI_IMAGE: "kling-nodes",
+  KLING_VIDEO_EXTEND: "kling-nodes",
+  KLING_MULTI_IMAGE2VIDEO: "kling-nodes",
+  KLING_MOTION_CONTROL: "kling-nodes",
+  KLING_MULTI_IMAGE2IMAGE: "kling-nodes",
 };
 
 export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {

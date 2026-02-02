@@ -28,7 +28,18 @@ export const QUOTA_COST = {
   REMOTION: 15,
   DESIGN_AGENT_PRO: 10,
   // TIMED_TRIGGER: 5,
-  DEFAULT_PREMIUM_NODE: 5, // Code Block, ElevenLabs, Firecrawl, Apify
+  DEFAULT_PREMIUM_NODE: 10, // Code Block, ElevenLabs, Firecrawl, Apify
+  // Kling node costs
+  KLING_IMAGE: 10,
+  KLING_TEXT2VIDEO: 15,
+  KLING_IMAGE2VIDEO: 15,
+  KLING_MULTI_IMAGE2VIDEO: 15,
+  KLING_OMNI_IMAGE: 15,
+  KLING_OMNI_VIDEO: 20,
+  KLING_TTS: 10,
+  KLING_VIDEO_EXTEND: 10,
+  KLING_MULTI_IMAGE2IMAGE: 10,
+  KLING_MOTION_CONTROL: 10,
 } as const;
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
