@@ -5,7 +5,10 @@ import { useInngestSubscription } from "@inngest/realtime/hooks";
 import { useEffect, useState, useMemo } from "react";
 import type { NodeStatus } from "@/components/node-status-indicator";
 import { authenticatedGet } from "@/lib/api-client";
-import { useSetNodeExecutionStatus } from "@/app/app-components/features/editor/execution-status-store";
+import {
+  useSetNodeExecutionStatus,
+  useNodeExecutionStatus,
+} from "@/app/app-components/features/editor/execution-status-store";
 
 interface useNodeStatusOptions {
   nodeId: string;
@@ -82,13 +85,19 @@ const fetchTokens = async (): Promise<Record<string, Realtime.Subscribe.Token>> 
 export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
   const [status, setStatus] = useState<NodeStatus>("initial");
   const [nodeOutput, setNodeOutput] = useState<Record<string, unknown> | null>(null);
+  const storeStatus = useNodeExecutionStatus(nodeId);
 
   // Sync status to shared store for edge animations
   const setNodeExecutionStatus = useSetNodeExecutionStatus();
 
   useEffect(() => {
-    setNodeExecutionStatus(nodeId, status);
-  }, [nodeId, status, setNodeExecutionStatus]);
+    if (status === "initial" && storeStatus !== "initial") {
+      return;
+    }
+    if (status !== storeStatus) {
+      setNodeExecutionStatus(nodeId, status);
+    }
+  }, [nodeId, status, storeStatus, setNodeExecutionStatus]);
 
   // Create refresh token function for a specific channel (uses shared cache)
   const createRefreshToken =
@@ -275,6 +284,11 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     enabled: true,
   });
 
+  const klingSub = useInngestSubscription({
+    refreshToken: createRefreshToken("kling"),
+    enabled: true,
+  });
+
   const outputSub = useInngestSubscription({
     refreshToken: createRefreshToken("output"),
     enabled: true,
@@ -315,6 +329,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
       ...(designProSub.data || []),
       ...(remotionSub.data || []),
       ...(veoSub.data || []),
+      ...(klingSub.data || []),
       ...(outputSub.data || []),
     ];
   }, [
@@ -350,6 +365,7 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
     designProSub.data,
     remotionSub.data,
     veoSub.data,
+    klingSub.data,
     outputSub.data,
   ]);
 
@@ -399,9 +415,18 @@ export function useNodeStatus({ nodeId }: useNodeStatusOptions) {
 
       if (latestOutput?.data?.output) {
         setNodeOutput(latestOutput.data.output);
+        const hasError = Boolean((latestOutput.data.output as any)?.error);
+        if (hasError && status !== "error") {
+          setStatus("error");
+        } else if (!hasError && status === "loading") {
+          // If output arrives without error and status is still loading, mark success
+          setStatus("success");
+        }
       }
     }
   }, [allMessages, nodeId]);
 
-  return { status, output: nodeOutput };
+  const resolvedStatus = status !== "initial" ? status : storeStatus;
+
+  return { status: resolvedStatus, output: nodeOutput };
 }

@@ -246,8 +246,131 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       }
     }
 
+    // For KLING_IMAGE2VIDEO nodes, merge image asset back into node.data
+    if (node.type === "KLING_IMAGE2VIDEO" && node.assets && node.assets.length > 0) {
+      const imageAsset =
+        node.assets.find((a: any) => a.fileType === "kling-image2video-image") || node.assets[0];
+      if (imageAsset) {
+        nodeData.image = imageAsset.fileData || `asset:${imageAsset.filename}`;
+        nodeData.imageFilename = imageAsset.filename;
+      }
+    }
+
+    // For KLING_MULTI_IMAGE2VIDEO nodes, merge reference images back into node.data
+    if (node.type === "KLING_MULTI_IMAGE2VIDEO" && node.assets && node.assets.length > 0) {
+      const referenceAssets = node.assets.filter(
+        (a: any) => a.fileType === "kling-multi-image2video-image"
+      );
+      if (referenceAssets.length > 0) {
+        nodeData.referenceImages = referenceAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+    }
+
+    // For KLING_IMAGE nodes, merge reference image back into node.data
+    if (node.type === "KLING_IMAGE" && node.assets && node.assets.length > 0) {
+      const imageAsset =
+        node.assets.find((a: any) => a.fileType === "kling-image-reference") || node.assets[0];
+      if (imageAsset) {
+        nodeData.image = imageAsset.fileData || `asset:${imageAsset.filename}`;
+        nodeData.imageFilename = imageAsset.filename;
+      }
+    }
+
+    // For KLING_MULTI_IMAGE2IMAGE nodes, merge subject/scene/style images back into node.data
+    if (node.type === "KLING_MULTI_IMAGE2IMAGE" && node.assets && node.assets.length > 0) {
+      const subjectAssets = node.assets.filter(
+        (a: any) => a.fileType === "kling-multi-image2image-subject"
+      );
+      if (subjectAssets.length > 0) {
+        nodeData.subjectImages = subjectAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+
+      const sceneAsset = node.assets.find(
+        (a: any) => a.fileType === "kling-multi-image2image-scene"
+      );
+      if (sceneAsset) {
+        nodeData.scene_image = sceneAsset.fileData || `asset:${sceneAsset.filename}`;
+        nodeData.sceneImageFilename = sceneAsset.filename;
+      }
+
+      const styleAsset = node.assets.find(
+        (a: any) => a.fileType === "kling-multi-image2image-style"
+      );
+      if (styleAsset) {
+        nodeData.style_image = styleAsset.fileData || `asset:${styleAsset.filename}`;
+        nodeData.styleImageFilename = styleAsset.filename;
+      }
+    }
+
+    // For KLING_OMNI_IMAGE nodes, merge reference images back into node.data
+    if (node.type === "KLING_OMNI_IMAGE" && node.assets && node.assets.length > 0) {
+      const referenceAssets = node.assets.filter(
+        (a: any) => a.fileType === "kling-omni-image-image"
+      );
+      if (referenceAssets.length > 0) {
+        nodeData.referenceImages = referenceAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+    }
+
+    // For KLING_OMNI_VIDEO nodes, merge reference images back into node.data
+    if (node.type === "KLING_OMNI_VIDEO" && node.assets && node.assets.length > 0) {
+      const referenceAssets = node.assets.filter((a: any) =>
+        [
+          "kling-omni-video-image",
+          "kling-omni-video-image-first_frame",
+          "kling-omni-video-image-end_frame",
+        ].includes(a.fileType)
+      );
+      if (referenceAssets.length > 0) {
+        nodeData.referenceImages = referenceAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+          type:
+            asset.fileType === "kling-omni-video-image-first_frame"
+              ? "first_frame"
+              : asset.fileType === "kling-omni-video-image-end_frame"
+                ? "end_frame"
+                : "reference",
+        }));
+      }
+    }
+
+    // For KLING_MOTION_CONTROL nodes, merge image/video assets back into node.data
+    if (node.type === "KLING_MOTION_CONTROL" && node.assets && node.assets.length > 0) {
+      const imageAsset = node.assets.find((a: any) => a.fileType === "kling-motion-image");
+      if (imageAsset) {
+        nodeData.image = imageAsset.fileData || `asset:${imageAsset.filename}`;
+        nodeData.imageFilename = imageAsset.filename;
+      }
+      const videoAsset = node.assets.find((a: any) => a.fileType === "kling-motion-video");
+      if (videoAsset) {
+        nodeData.video_url = videoAsset.fileData || `asset:${videoAsset.filename}`;
+        nodeData.videoFilename = videoAsset.filename;
+      }
+    }
+
     // Only update data if we modified it
-    if (node.type === "REMOTION" || node.type === "DESIGN_PRO" || node.type === "VEO") {
+    if (
+      node.type === "REMOTION" ||
+      node.type === "DESIGN_PRO" ||
+      node.type === "VEO" ||
+      node.type === "KLING_IMAGE2VIDEO" ||
+      node.type === "KLING_MULTI_IMAGE2VIDEO" ||
+      node.type === "KLING_IMAGE" ||
+      node.type === "KLING_MULTI_IMAGE2IMAGE" ||
+      node.type === "KLING_OMNI_IMAGE" ||
+      node.type === "KLING_OMNI_VIDEO" ||
+      node.type === "KLING_MOTION_CONTROL"
+    ) {
       return {
         ...node,
         data: nodeData,
@@ -573,13 +696,24 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
     }
   }
 
-  // Load assets WITH fileData for nodes that need them (VEO, DESIGN_PRO, REMOTION)
+  // Load assets WITH fileData for nodes that need them (VEO, DESIGN_PRO, REMOTION, KLING_*)
   // Load EACH ASSET ONE AT A TIME to avoid 5MB limit per query
   const assetsByNodeId = new Map<string, any[]>();
 
   for (const node of workflow.nodes) {
     const nodeType = node.type as string;
-    const needsAssets = ["VEO", "DESIGN_PRO", "REMOTION"].includes(nodeType);
+    const needsAssets = [
+      "VEO",
+      "DESIGN_PRO",
+      "REMOTION",
+      "KLING_IMAGE2VIDEO",
+      "KLING_MULTI_IMAGE2VIDEO",
+      "KLING_IMAGE",
+      "KLING_MULTI_IMAGE2IMAGE",
+      "KLING_OMNI_IMAGE",
+      "KLING_OMNI_VIDEO",
+      "KLING_MOTION_CONTROL",
+    ].includes(nodeType);
 
     if (needsAssets) {
       // First, get asset IDs for this node (small query)
@@ -704,13 +838,24 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
     }
   }
 
-  // Load assets WITH fileData for nodes that need them (VEO, DESIGN_PRO, REMOTION)
+  // Load assets WITH fileData for nodes that need them (VEO, DESIGN_PRO, REMOTION, KLING_*)
   // Load EACH ASSET ONE AT A TIME to avoid 5MB limit per query
   const assetsByNodeId = new Map<string, any[]>();
 
   for (const node of workflow.nodes) {
     const nodeType = node.type as string;
-    const needsAssets = ["VEO", "DESIGN_PRO", "REMOTION"].includes(nodeType);
+    const needsAssets = [
+      "VEO",
+      "DESIGN_PRO",
+      "REMOTION",
+      "KLING_IMAGE2VIDEO",
+      "KLING_MULTI_IMAGE2VIDEO",
+      "KLING_IMAGE",
+      "KLING_MULTI_IMAGE2IMAGE",
+      "KLING_OMNI_IMAGE",
+      "KLING_OMNI_VIDEO",
+      "KLING_MOTION_CONTROL",
+    ].includes(nodeType);
 
     if (needsAssets) {
       // First, get asset IDs for this node (small query)
@@ -1106,6 +1251,172 @@ export const updateWorkflowData = async (
         }
       }
 
+      // Extract KLING_IMAGE2VIDEO assets (image)
+      if (node.type === "KLING_IMAGE2VIDEO" && nodeData) {
+        if (nodeData.image && typeof nodeData.image === "string") {
+          if (nodeData.image.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.imageFilename || "kling-image2video.png",
+              fileType: "kling-image2video-image",
+              fileData: nodeData.image,
+              isBackgroundAudio: false,
+            });
+          }
+          // Remove image fields once stored (or if it's an asset placeholder)
+          delete nodeData.image;
+          delete nodeData.imageFilename;
+        }
+      }
+
+      // Extract KLING_MULTI_IMAGE2VIDEO assets (reference images)
+      if (node.type === "KLING_MULTI_IMAGE2VIDEO" && nodeData) {
+        if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+          const validRefs = nodeData.referenceImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validRefs.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `kling-multi-image2video-${idx + 1}.png`,
+              fileType: "kling-multi-image2video-image",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceImages;
+        }
+      }
+
+      // Extract KLING_IMAGE assets (reference image)
+      if (node.type === "KLING_IMAGE" && nodeData) {
+        if (nodeData.image && typeof nodeData.image === "string") {
+          if (nodeData.image.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.imageFilename || "kling-image-reference.png",
+              fileType: "kling-image-reference",
+              fileData: nodeData.image,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.image;
+          delete nodeData.imageFilename;
+        }
+      }
+
+      // Extract KLING_MULTI_IMAGE2IMAGE assets (subject/scene/style images)
+      if (node.type === "KLING_MULTI_IMAGE2IMAGE" && nodeData) {
+        if (Array.isArray(nodeData.subjectImages) && nodeData.subjectImages.length > 0) {
+          const validSubjects = nodeData.subjectImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validSubjects.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `kling-multi-image2image-subject-${idx + 1}.png`,
+              fileType: "kling-multi-image2image-subject",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.subjectImages;
+        }
+
+        if (nodeData.scene_image && typeof nodeData.scene_image === "string") {
+          if (nodeData.scene_image.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.sceneImageFilename || "kling-multi-image2image-scene.png",
+              fileType: "kling-multi-image2image-scene",
+              fileData: nodeData.scene_image,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.scene_image;
+          delete nodeData.sceneImageFilename;
+        }
+
+        if (nodeData.style_image && typeof nodeData.style_image === "string") {
+          if (nodeData.style_image.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.styleImageFilename || "kling-multi-image2image-style.png",
+              fileType: "kling-multi-image2image-style",
+              fileData: nodeData.style_image,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.style_image;
+          delete nodeData.styleImageFilename;
+        }
+      }
+
+      // Extract KLING_OMNI_IMAGE assets (reference images)
+      if (node.type === "KLING_OMNI_IMAGE" && nodeData) {
+        if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+          const validRefs = nodeData.referenceImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validRefs.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `kling-omni-image-${idx + 1}.png`,
+              fileType: "kling-omni-image-image",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceImages;
+        }
+      }
+
+      // Extract KLING_OMNI_VIDEO assets (reference images)
+      if (node.type === "KLING_OMNI_VIDEO" && nodeData) {
+        if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+          const validRefs = nodeData.referenceImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validRefs.forEach((r: any, idx: number) => {
+            const type = r.type === "first_frame" || r.type === "end_frame" ? r.type : "reference";
+            const fileType =
+              type === "first_frame"
+                ? "kling-omni-video-image-first_frame"
+                : type === "end_frame"
+                  ? "kling-omni-video-image-end_frame"
+                  : "kling-omni-video-image";
+            assetsToStore.push({
+              filename: r.filename || `kling-omni-video-${type}-${idx + 1}.png`,
+              fileType,
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceImages;
+        }
+      }
+
+      // Extract KLING_MOTION_CONTROL assets (image/video)
+      if (node.type === "KLING_MOTION_CONTROL" && nodeData) {
+        if (nodeData.image && typeof nodeData.image === "string") {
+          if (nodeData.image.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.imageFilename || "kling-motion-image.png",
+              fileType: "kling-motion-image",
+              fileData: nodeData.image,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.image;
+          delete nodeData.imageFilename;
+        }
+        if (nodeData.video_url && typeof nodeData.video_url === "string") {
+          if (nodeData.video_url.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.videoFilename || "kling-motion-video.mp4",
+              fileType: "kling-motion-video",
+              fileData: nodeData.video_url,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.video_url;
+          delete nodeData.videoFilename;
+        }
+      }
+
       if (assetsToStore.length > 0) {
         assetsByNodeId[node.id.trim()] = assetsToStore;
       }
@@ -1202,31 +1513,16 @@ export const updateWorkflowData = async (
     throw new AppError("Workflow not found after update", 500);
   }
 
-  // Build workflow response from data we already have (avoids fetching large node.data)
-  const workflow = {
-    ...workflowBase,
-    nodes: nodesToCreate.map((n) => ({
-      ...n,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      credentialId: null,
-      assets: [], // Assets created below
-    })),
-    connections: connectionsToCreate.map((c, idx) => ({
-      id: `conn-${idx}`, // Temporary ID for response
-      ...c,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })),
-  };
-
   // Create assets AFTER workflow update (to avoid timeout)
   // This is safe because nodes are already created and have IDs
+  // We need to create assets BEFORE building the response so we can include them
+  const createdAssetsByNodeId = new Map<string, any[]>();
+
   if (Object.keys(assetsByNodeId).length > 0) {
     const allAssets = [];
     for (const [nodeId, assets] of Object.entries(assetsByNodeId)) {
       for (const asset of assets) {
-        allAssets.push({
+        const assetData = {
           nodeId,
           filename: asset.filename,
           fileType: asset.fileType,
@@ -1237,7 +1533,14 @@ export const updateWorkflowData = async (
           size: asset.size || null,
           isBackgroundAudio: asset.isBackgroundAudio,
           volume: asset.volume ?? null,
-        });
+        };
+        allAssets.push(assetData);
+
+        // Track assets by nodeId for response
+        if (!createdAssetsByNodeId.has(nodeId)) {
+          createdAssetsByNodeId.set(nodeId, []);
+        }
+        createdAssetsByNodeId.get(nodeId)!.push(assetData);
       }
     }
 
@@ -1253,6 +1556,24 @@ export const updateWorkflowData = async (
       }
     }
   }
+
+  // Build workflow response with assets attached to nodes
+  const workflow = {
+    ...workflowBase,
+    nodes: nodesToCreate.map((n) => ({
+      ...n,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      credentialId: null,
+      assets: createdAssetsByNodeId.get(n.id) || [],
+    })),
+    connections: connectionsToCreate.map((c, idx) => ({
+      id: `conn-${idx}`, // Temporary ID for response
+      ...c,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })),
+  };
 
   const transformedWorkflow = transformWorkflow(workflow);
 

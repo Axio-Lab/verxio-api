@@ -111,6 +111,22 @@ export const AVAILABLE_NODE_TYPES = {
     { type: "DESIGN", description: "AI image generation" },
     { type: "DESIGN_PRO", description: "Advanced AI image generation with editing capabilities" },
     { type: "VEO", description: "AI video generation using Veo 3.1" },
+    { type: "KLING_TEXT2VIDEO", description: "Kling AI text-to-video generation" },
+    { type: "KLING_IMAGE2VIDEO", description: "Kling AI image-to-video (animate an image)" },
+    { type: "KLING_IMAGE", description: "Kling AI image generation from text" },
+    { type: "KLING_TTS", description: "Kling AI text-to-speech" },
+    { type: "KLING_OMNI_VIDEO", description: "Kling O1 omni-video (prompt + optional image list)" },
+    { type: "KLING_OMNI_IMAGE", description: "Kling O1 omni-image generation" },
+    {
+      type: "KLING_VIDEO_EXTEND",
+      description: "Kling video extend (video_id from previous Kling video)",
+    },
+    { type: "KLING_MULTI_IMAGE2VIDEO", description: "Kling multi-image to video" },
+    {
+      type: "KLING_MOTION_CONTROL",
+      description: "Kling motion control (image + optional video ref)",
+    },
+    { type: "KLING_MULTI_IMAGE2IMAGE", description: "Kling multi-image to image" },
   ],
 };
 
@@ -171,7 +187,8 @@ export const createWorkflowTool: VerxioTool = {
       return {
         success: false,
         error: `A workflow named "${trimmedName}" already exists. Please choose a different name.`,
-        suggestion: "Use a unique name, e.g. add a number or descriptor (e.g. 'My Workflow 2', 'Daily Report v1').",
+        suggestion:
+          "Use a unique name, e.g. add a number or descriptor (e.g. 'My Workflow 2', 'Daily Report v1').",
       };
     }
     const workflow = await prisma.workflow.create({

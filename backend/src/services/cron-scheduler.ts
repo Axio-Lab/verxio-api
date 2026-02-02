@@ -1,4 +1,6 @@
 import * as cron from "node-cron";
+import * as fs from "fs";
+import * as path from "path";
 import { inngest } from "../inngest";
 import { basePrismaClient } from "../lib/prisma";
 import { cleanupOldImages } from "../lib/imageStorage";
@@ -210,6 +212,9 @@ export async function initializeCronScheduler(): Promise<void> {
 
   // Schedule video cleanup job
   scheduleVideoCleanup();
+
+  // Schedule chat uploads cleanup job
+  scheduleChatUploadsCleanup();
 }
 
 /**
@@ -270,4 +275,69 @@ function scheduleVideoCleanup(): void {
   });
 
   console.log("[video-cleanup] Scheduled video cleanup to run every 30 minutes");
+}
+
+/**
+ * Clean up old chat uploads (older than specified hours)
+ */
+function cleanupOldChatUploads(maxAgeHours: number = 24): number {
+  try {
+    const CHAT_UPLOADS_DIR = path.join(process.cwd(), "public", "chat-uploads");
+
+    if (!fs.existsSync(CHAT_UPLOADS_DIR)) {
+      return 0;
+    }
+
+    const files = fs.readdirSync(CHAT_UPLOADS_DIR);
+    const now = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+    let deletedCount = 0;
+
+    for (const file of files) {
+      // Skip .gitignore and .gitkeep files
+      if (file === ".gitignore" || file === ".gitkeep") {
+        continue;
+      }
+
+      const filepath = path.join(CHAT_UPLOADS_DIR, file);
+      const stats = fs.statSync(filepath);
+
+      // Skip if it's a directory
+      if (stats.isDirectory()) {
+        continue;
+      }
+
+      const age = now - stats.mtimeMs;
+
+      if (age > maxAgeMs) {
+        fs.unlinkSync(filepath);
+        deletedCount++;
+      }
+    }
+
+    return deletedCount;
+  } catch (error) {
+    console.error("[chat-uploads-cleanup] Error cleaning up old chat uploads:", error);
+    return 0;
+  }
+}
+
+/**
+ * Schedule chat uploads cleanup cron job
+ * Runs every 30 minutes to clean up old chat uploads (images, videos, audio)
+ */
+function scheduleChatUploadsCleanup(): void {
+  // Cron expression: "*/30 * * * *" = every 30 minutes
+  cron.schedule("*/30 * * * *", async () => {
+    try {
+      const deletedCount = cleanupOldChatUploads(24); // Clean up files older than 24 hours
+      if (deletedCount > 0) {
+        console.log(`[chat-uploads-cleanup] Cleaned up ${deletedCount} old file(s)`);
+      }
+    } catch (error) {
+      console.error("[chat-uploads-cleanup] Error cleaning up old chat uploads:", error);
+    }
+  });
+
+  console.log("[chat-uploads-cleanup] Scheduled chat uploads cleanup to run every 30 minutes");
 }

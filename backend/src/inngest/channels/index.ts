@@ -36,6 +36,7 @@ import { designChannel } from "./design";
 import { designProChannel } from "./designPro";
 import { remotionChannel } from "./remotion";
 import { veoChannel } from "./veo";
+import { klingChannel } from "./kling";
 import { outputChannel } from "./output";
 
 export const nodeStatusChannels = {
@@ -73,6 +74,7 @@ export const nodeStatusChannels = {
   designPro: designProChannel,
   remotion: remotionChannel,
   veo: veoChannel,
+  kling: klingChannel,
   output: outputChannel,
 } as const;
 
@@ -114,5 +116,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   designPro: "design-pro-execution",
   remotion: "remotion-execution",
   veo: "veo-execution",
+  kling: "kling-execution",
   output: "output-execution",
 };

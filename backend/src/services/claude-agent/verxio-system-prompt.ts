@@ -248,17 +248,79 @@ const NODE_TYPES_DOCUMENTATION = `
 - Output: { success: boolean, videoUrl: string }
 - **When to use:** Use REMOTION for motion graphics, animated designs, code-based video generation, or when you need programmatic control over video composition. Use VEO for photorealistic video generation with audio.
 
+**KLING_TEXT2VIDEO**
+- Fields: { prompt: string (REQUIRED), negative_prompt?: string, model_name?: string, mode?: "std"|"pro", aspect_ratio?: "16:9"|"9:16"|"1:1", duration?: "5"|"10", sound?: "on"|"off" }
+- Description: Generate video from text using Kling AI. Supports multiple models (kling-v1, kling-v1-6, kling-v2-*, etc.), aspect ratios, and 5s/10s duration.
+- Output: { videoUrl, videoId, duration, task_id } — use variables field for output name (e.g. variables: "klingVideo" → {{klingVideo.videoUrl}})
+- **When to use:** Use for Kling AI text-to-video when user wants video from a text prompt via Kling (alternative to VEO).
+
+**KLING_IMAGE2VIDEO**
+- Fields: { prompt?: string, image: string (REQUIRED — URL or template e.g. {{design.imageUrls[0]}}), model_name?: string, mode?: "std"|"pro", duration?: "5"|"10", negative_prompt?: string }
+- Description: Animate an image into video using Kling AI.
+- Output: { videoUrl, videoId, duration, task_id }
+- **When to use:** Use when user wants to animate a single image into video with Kling AI.
+
+**KLING_IMAGE**
+- Fields: { prompt: string (REQUIRED), negative_prompt?: string, image?: string (optional reference image URL or variable), model_name?: string, aspect_ratio?: string, n?: number (1–9), resolution?: "1k"|"2k" }
+- Description: Generate images from text using Kling AI. Optional reference image for image-to-image.
+- Output: { imageUrls: string[], images: Array<{index, url}>, task_id }
+- **When to use:** Use for Kling AI image generation (alternative to DESIGN/DESIGN_PRO when user specifies Kling).
+
+**KLING_TTS**
+- Fields: { text: string (REQUIRED), voice_id: string (REQUIRED — from Kling voice list), voice_language?: "zh"|"en", voice_speed?: number (0.8–2) }
+- Description: Convert text to speech using Kling AI voices.
+- Output: { audioUrl, audioId, duration, task_id }
+- **When to use:** Use for Kling AI text-to-speech (alternative to ELEVENLABS when user specifies Kling).
+
+**KLING_OMNI_VIDEO**
+- Fields: { prompt: string (REQUIRED), image_list?: string (JSON array or URLs), mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
+- Description: Kling O1 unified multimodal video from prompt and optional image list.
+- Output: { videoUrl, videoId, duration, task_id }
+- **When to use:** Use for Kling O1 omni-video with multiple reference images.
+
+**KLING_OMNI_IMAGE**
+- Fields: { prompt: string (REQUIRED), image_list?: string, resolution?: string, n?: number, aspect_ratio?: string }
+- Description: Kling O1 omni-image generation from prompt and optional image list.
+- Output: { imageUrls, task_id }
+- **When to use:** Use for Kling O1 omni-image (multi-reference image generation).
+
+**KLING_VIDEO_EXTEND**
+- Fields: { video_id: string (REQUIRED — e.g. {{klingText2Video.videoId}}), prompt?: string, negative_prompt?: string, cfg_scale?: number }
+- Description: Extend a Kling video. video_id must come from a previous Kling video node.
+- Output: { videoUrl, videoId, duration, task_id }
+- **When to use:** Use when user wants to extend a Kling-generated video.
+
+**KLING_MULTI_IMAGE2VIDEO**
+- Fields: { prompt?: string, image_list?: string (JSON array or URLs), mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
+- Description: Generate video from multiple reference images.
+- Output: { videoUrl, videoId, duration, task_id }
+- **When to use:** Use when user wants video from multiple reference images.
+
+**KLING_MOTION_CONTROL**
+- Fields: { prompt?: string, image?: string, video_url?: string, mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
+- Description: Motion control video with image and optional video reference.
+- Output: { videoUrl, videoId, duration, task_id }
+- **When to use:** Use for precise motion control over trajectories.
+
+**KLING_MULTI_IMAGE2IMAGE**
+- Fields: { prompt?: string, image_list?: string, n?: number, aspect_ratio?: string }
+- Description: Generate image from multiple reference images.
+- Output: { imageUrls, task_id }
+- **When to use:** Use when user wants one image from multiple references.
+
 **OUTPUT**
 - Fields: { variables: string (REQUIRED), contentType: "image"|"video"|"audio" (REQUIRED, default: "image"), imageSource?: string, videoSource?: string, audioSource?: string, outputFilename?: string }
 - **Content Types - SELECT BASED ON PREVIOUS NODE:**
-  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO)
-  - "video": Use when previous node outputs video (VEO, REMOTION)
-  - "audio": Use when previous node outputs audio (ELEVENLABS)
+  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE)
+  - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL)
+  - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS)
 - **CRITICAL: Match contentType to Previous Node:**
   - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
+  - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_MULTI_IMAGE2IMAGE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
   - After VEO → contentType: "video", videoSource: "{{veo.videoUrl}}"
   - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
-  - After ELEVENLABS → contentType: "audio", audioSource: "{{elevenlabs.audioUrl}}"
+  - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
+  - After ELEVENLABS / KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
 - **Features:**
   - Image: Preview with lightbox (full size view), open in new tab
   - Video: Built-in HTML5 player with controls (play/pause), open in new tab
@@ -429,9 +491,33 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{veo.videoUrl}} - Direct downloadable URL; use this in extension mode as sourceVideo so backend can resolve to veoFileRef
   - {{veo.videoFilename}} - Filename of the saved video
   - {{veo.resolution}} - Video resolution ("720p", "1080p", "4k")
-  - {{veo.aspectRatio}} - Video aspect ratio ("16:9", "9:16")
-  - {{veo.durationSeconds}} - Video duration in seconds
-- Extension: set sourceVideo to {{veo.videoUrl}}; backend uses that node's veoFileRef for the extend API—not the URL.
+
+**KLING_TEXT2VIDEO** / **KLING_IMAGE2VIDEO** (if variables: e.g. "klingVideo")
+- Outputs: { videoUrl: string, videoId: string, duration: string, task_id: string }
+- Template examples:
+  - {{klingVideo.videoUrl}} - Direct downloadable URL to the generated video
+  - {{klingVideo.videoId}} - Kling task video ID (use for Video Extend or other Kling APIs)
+  - {{klingVideo.duration}} - Video duration in seconds
+
+**KLING_IMAGE** (if variables: e.g. "klingImage")
+- Outputs: { imageUrls: string[], images: Array<{index, url}>, task_id: string }
+- Template examples:
+  - {{klingImage.imageUrls[0]}} - First generated image URL
+  - {{klingImage.imageUrls}} - Array of all image URLs
+
+**KLING_TTS** (if variables: e.g. "klingTts")
+- Outputs: { audioUrl: string, audioId: string, duration: string, task_id: string }
+- Template examples:
+  - {{klingTts.audioUrl}} - Direct downloadable URL to the generated audio
+  - {{klingTts.duration}} - Audio duration
+
+**KLING_OMNI_VIDEO** / **KLING_VIDEO_EXTEND** / **KLING_MULTI_IMAGE2VIDEO** / **KLING_MOTION_CONTROL**
+- Outputs: { videoUrl: string, videoId: string, duration: string, task_id: string }
+- Template examples: {{nodeName.videoUrl}}, {{nodeName.videoId}} (use videoId for KLING_VIDEO_EXTEND)
+
+**KLING_OMNI_IMAGE** / **KLING_MULTI_IMAGE2IMAGE**
+- Outputs: { imageUrls: string[], task_id: string }
+- Template examples: {{nodeName.imageUrls[0]}}
 
 **OUTPUT** (if variables: "output")
 - Outputs: { content: string, contentType: "image"|"video"|"audio", filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }

@@ -34,7 +34,10 @@ function TemplateCard({ template }: { template: WorkflowTemplateListItem }) {
               <Download className="size-3 shrink-0" />
               {template.downloadCount ?? 0} downloads
             </span>
-            <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={template.creatorUsername}>
+            <span
+              className="text-xs text-muted-foreground truncate max-w-[120px]"
+              title={template.creatorUsername}
+            >
               by {template.creatorUsername}
             </span>
             {template.category && (

@@ -212,9 +212,22 @@ export const triggerWorkflow = inngest.createFunction(
         if (!targetNode) {
           throw new NonRetriableError(`Node with id "${singleNodeId}" not found in workflow`);
         }
+        const nodeOverrides = (event.data?.data as any)?.nodeOverrides;
+        const overrideData =
+          nodeOverrides && typeof nodeOverrides === "object" ? nodeOverrides[singleNodeId] : null;
+        const resolvedNode =
+          overrideData && typeof overrideData === "object"
+            ? {
+                ...targetNode,
+                data: {
+                  ...(targetNode.data || {}),
+                  ...overrideData,
+                },
+              }
+            : targetNode;
         workflow = {
           ...fetchedWorkflow,
-          nodes: [targetNode], // Only execute the single node
+          nodes: [resolvedNode], // Only execute the single node
         };
       } else {
         // Find trigger node (pass connections to check if trigger is connected)
@@ -246,7 +259,14 @@ export const triggerWorkflow = inngest.createFunction(
     }
 
     // Initialize context with initial data from trigger
-    let context = event.data.initialData || event.data.data || {};
+    const rawContext = event.data.initialData || event.data.data || {};
+    let context =
+      rawContext && typeof rawContext === "object"
+        ? { ...(rawContext as Record<string, any>) }
+        : {};
+    if ("nodeOverrides" in context) {
+      delete context.nodeOverrides;
+    }
 
     // Extract trigger-specific payloads and add to context
     if (event.data.data?.airtablePayload) {

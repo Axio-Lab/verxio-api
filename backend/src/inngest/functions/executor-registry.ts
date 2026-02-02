@@ -34,6 +34,16 @@ import { loyaltyDealExecutor } from "./actions/loyalty-deal";
 import { loyaltyProgramExecutor } from "./actions/loyalty-program";
 import { remotionExecutor } from "./actions/remotion";
 import { veoExecutor } from "./actions/veo";
+import { klingText2VideoExecutor } from "./actions/kling-text2video";
+import { klingImage2VideoExecutor } from "./actions/kling-image2video";
+import { klingImageExecutor } from "./actions/kling-image";
+import { klingTtsExecutor } from "./actions/kling-tts";
+import { klingOmniVideoExecutor } from "./actions/kling-omni-video";
+import { klingOmniImageExecutor } from "./actions/kling-omni-image";
+import { klingVideoExtendExecutor } from "./actions/kling-video-extend";
+import { klingMultiImage2VideoExecutor } from "./actions/kling-multi-image2video";
+import { klingMotionControlExecutor } from "./actions/kling-motion-control";
+import { klingMultiImage2ImageExecutor } from "./actions/kling-multi-image2image";
 import { outputExecutor } from "./actions/output";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
@@ -86,6 +96,16 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.REMOTION]: remotionExecutor as NodeExecutor,
   // VEO node for Veo 3.1 video generation
   [NodeType.VEO]: veoExecutor as NodeExecutor,
+  [NodeType.KLING_TEXT2VIDEO]: klingText2VideoExecutor as NodeExecutor,
+  [NodeType.KLING_IMAGE2VIDEO]: klingImage2VideoExecutor as NodeExecutor,
+  [NodeType.KLING_IMAGE]: klingImageExecutor as NodeExecutor,
+  [NodeType.KLING_TTS]: klingTtsExecutor as NodeExecutor,
+  [NodeType.KLING_OMNI_VIDEO]: klingOmniVideoExecutor as NodeExecutor,
+  [NodeType.KLING_OMNI_IMAGE]: klingOmniImageExecutor as NodeExecutor,
+  [NodeType.KLING_VIDEO_EXTEND]: klingVideoExtendExecutor as NodeExecutor,
+  [NodeType.KLING_MULTI_IMAGE2VIDEO]: klingMultiImage2VideoExecutor as NodeExecutor,
+  [NodeType.KLING_MOTION_CONTROL]: klingMotionControlExecutor as NodeExecutor,
+  [NodeType.KLING_MULTI_IMAGE2IMAGE]: klingMultiImage2ImageExecutor as NodeExecutor,
   // OUTPUT node for displaying and downloading workflow outputs
   [NodeType.OUTPUT]: outputExecutor as NodeExecutor,
 };

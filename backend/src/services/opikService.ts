@@ -448,7 +448,12 @@ export function withTracing<T extends (...args: any[]) => AsyncGenerator<any, an
   traceType: TraceMetadata["traceType"]
 ): T {
   return async function* (...args: Parameters<T>) {
-    const options = args[0] as { userId: string; workflowId?: string; model?: string; [key: string]: unknown };
+    const options = args[0] as {
+      userId: string;
+      workflowId?: string;
+      model?: string;
+      [key: string]: unknown;
+    };
 
     const context = createTrace(
       `${traceType}_call`,
