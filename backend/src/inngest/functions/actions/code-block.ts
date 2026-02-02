@@ -86,23 +86,23 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
       throw error;
     }
 
-    // Fetch credentials if provided
-    const credentials: Record<string, string> = {};
-    if (data.credentialIds && data.credentialIds.length > 0) {
-      await step.run("fetch-credentials", async () => {
-        for (const credentialId of data.credentialIds || []) {
+    // Fetch credentials if provided (inside step.run for proper memoization)
+    const credentials = await step.run(`fetch-credentials-${nodeId}`, async () => {
+      const creds: Record<string, string> = {};
+      if (data.credentialIds && data.credentialIds.length > 0) {
+        for (const credentialId of data.credentialIds) {
           try {
             const credential = await getCredential(credentialId, userId);
             // Use credential name as key, value as the credential value
-            credentials[credential.name] = credential.value;
+            creds[credential.name] = credential.value;
           } catch (error) {
             console.error(`Failed to fetch credential ${credentialId}:`, error);
             // Continue with other credentials even if one fails
           }
         }
-        return credentials;
-      });
-    }
+      }
+      return creds;
+    });
 
     // Prepare inputs for CODE_BLOCK execution
     // Context contains all previous node outputs, which will be passed to Daytona sandbox
