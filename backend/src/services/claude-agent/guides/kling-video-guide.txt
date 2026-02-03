@@ -1,0 +1,74 @@
+Kling Video Guide (Quickstart Summary)
+
+Purpose
+- Use this guide for Kling video nodes: KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MOTION_CONTROL, KLING_MULTI_IMAGE2VIDEO.
+
+Core Video Prompt Structure
+1) Subject: who/what appears in the scene.
+2) Action: what happens over time (movement, interaction, progression).
+3) Scene: environment, time of day, weather, background elements.
+4) Camera: shot type, movement (pan/tilt/dolly/zoom/orbit), speed.
+5) Style: cinematic, documentary, ad, anime, etc., plus lighting and color.
+6) Constraints: negatives (avoid flicker, distortions, extra limbs, logos).
+
+Text-to-Video
+- Describe clear action and temporal evolution.
+- Specify camera movement if needed; otherwise allow default stability.
+- Keep prompts concise and consistent.
+
+Image-to-Video
+- Preserve identity and key visual traits from the source image.
+- Describe desired motion (e.g., "gentle head turn", "slow camera push-in").
+- Avoid adding new unrelated subjects that conflict with the reference.
+
+Omni Video (Multi-Input)
+- Use multiple references to guide identity, style, and scene.
+- Assign roles to references (subject vs. background).
+- Keep references consistent to avoid visual drift.
+
+Video Extension (Extend with Prompt)
+- Describe how the video should continue (direction, action, mood).
+- Match style, lighting, and camera motion to the original.
+- Avoid abrupt scene changes unless explicitly desired.
+
+Motion Control
+- Provide a clear image and a reference motion video if required.
+- Define whether character orientation should follow the image or the video.
+- Keep prompts aligned with the reference motion to avoid mismatch.
+
+Standard vs Professional Mode
+- Standard: faster, lower cost, good for drafts.
+- Professional: higher fidelity, better motion/consistency, use for final outputs.
+
+Camera Movement Guidance
+- Use explicit verbs: pan left/right, tilt up/down, dolly in/out, zoom in/out, orbit.
+- Specify speed: slow, steady, fast, subtle.
+- Combine with framing: wide, medium, close-up.
+
+Start & End Frames
+- If using start/end frames, describe the first and last frame explicitly.
+- Keep transitions realistic and avoid abrupt motion changes.
+
+Audio (Kling 2.6 Audio)
+- If supported, specify ambience (wind, crowd, traffic) or music mood.
+- Keep audio instructions short and aligned with the scene.
+
+Parameter Selection
+- aspect_ratio: match platform (16:9 YouTube, 9:16 Shorts, 1:1 social).
+- duration: keep short for quality; extend only when needed.
+- mode: use "pro" for premium outputs where available.
+
+Outputs and Variables
+- Store outputs in unique variables per node to avoid overwrites.
+- Chain Kling nodes by passing the correct output variables (video_id/url).
+
+Sources
+- https://app.klingai.com/global/quickstart/klingai-video-o1-user-guide
+- https://app.klingai.com/global/quickstart/klingai-video-26-audio-user-guide
+- https://app.klingai.com/global/quickstart/motion-control-user-guide
+- https://app.klingai.com/global/quickstart/text-to-video-prompt-guide
+- https://app.klingai.com/global/quickstart/image-to-video-guide
+- https://app.klingai.com/global/quickstart/ai-video-extension
+- https://app.klingai.com/global/quickstart/how-to-choose-video-mode
+- https://app.klingai.com/global/quickstart/ai-camera-control-guide
+- https://app.klingai.com/global/quickstart/ai-video-start-end-frames

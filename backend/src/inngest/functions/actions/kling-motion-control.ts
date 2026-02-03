@@ -15,7 +15,6 @@ type KlingMotionControlData = {
   character_orientation?: "image" | "video";
   mode?: "std" | "pro";
   aspect_ratio?: string;
-  duration?: string;
   variables?: string;
 };
 
@@ -232,7 +231,6 @@ export const klingMotionControlExecutor: NodeExecutor<KlingMotionControlData> = 
     const body: Record<string, unknown> = {
       mode: data?.mode ?? "std",
       aspect_ratio: data?.aspect_ratio ?? "16:9",
-      duration: data?.duration ?? "5",
       keep_original_sound: data?.keep_original_sound ?? "yes",
       character_orientation: data?.character_orientation ?? "image",
     };

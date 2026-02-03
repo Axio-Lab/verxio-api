@@ -66,6 +66,20 @@ export async function loadVideoPromptGuide(): Promise<string> {
 }
 
 /**
+ * Load the Kling image guide content
+ */
+export async function loadKlingImageGuide(): Promise<string> {
+  return loadGuideWithCache("kling-image-guide.txt");
+}
+
+/**
+ * Load the Kling video guide content
+ */
+export async function loadKlingVideoGuide(): Promise<string> {
+  return loadGuideWithCache("kling-video-guide.txt");
+}
+
+/**
  * Format image specifications as JSON prompt (helper for reference)
  * This can be used by Claude Code as a reference for creating proper JSON prompts
  */

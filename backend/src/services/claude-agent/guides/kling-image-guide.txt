@@ -1,0 +1,51 @@
+Kling Image Guide (Quickstart Summary)
+
+Purpose
+- Use this guide for Kling image nodes: KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE, and KLING_VIRTUAL_TRYON.
+- Focus on clarity, consistency, and controllability in prompts and references.
+
+Core Prompt Structure
+1) Subject: who/what is in the image (identity, age, gender, pose, clothing, key details).
+2) Scene: environment, background, props, time of day, weather, location.
+3) Style: photographic/illustration style, mood, color palette, lighting, lens/camera cues.
+4) Composition: framing, angle, depth of field, focal points, aspect ratio.
+5) Constraints: negatives and exclusions to avoid undesired artifacts.
+
+Prompt Quality Tips
+- Be specific and concrete (materials, textures, lighting, camera).
+- Avoid contradictory instructions (e.g., "wide shot" and "tight close-up").
+- Prefer short, descriptive sentences over long, ambiguous paragraphs.
+- For consistency across multiple outputs, keep subject + style phrasing stable.
+
+Image References (Image-to-Image / Omni)
+- Use references to preserve identity, objects, or style.
+- Call out which attributes to preserve (face, pose, outfit, brand colors).
+- When using multiple references, define each role (e.g., subject identity vs. background mood).
+- Keep a single dominant reference for identity consistency.
+
+Multi-Image to Image
+- Provide up to the allowed number of reference images.
+- Assign clear roles for each reference (subject, scene, style, palette).
+- Avoid conflicting references; consistency is more important than variety.
+
+Virtual Try-On
+- Describe the garment precisely (type, fabric, fit, color, pattern, logos).
+- Specify model pose, body type, and camera framing (full-body / half-body).
+- Request a clean, well-lit background for accurate garment rendering.
+- Emphasize realistic fabric drape and shadows.
+
+Parameter Selection
+- aspect_ratio: choose based on target usage (1:1, 4:5, 9:16, 16:9, etc.).
+- resolution: select 1k for speed, 2k for higher detail.
+- n: number of outputs (use 1 for consistent outputs, higher for exploration).
+
+Outputs and Variables
+- Store outputs in unique variables to avoid overwrites.
+- For multiple Kling nodes in one workflow, use distinct variable names per node.
+
+Sources
+- https://app.klingai.com/global/quickstart/klingai-image-o1-user-guide
+- https://app.klingai.com/global/quickstart/ai-image-prompt-formula
+- https://app.klingai.com/global/quickstart/ai-image-size-guide
+- https://app.klingai.com/global/quickstart/ai-image-reference-guide
+- https://app.klingai.com/global/quickstart/ai-virtual-try-on-guide

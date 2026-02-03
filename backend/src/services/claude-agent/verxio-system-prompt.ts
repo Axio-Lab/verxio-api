@@ -12,6 +12,8 @@ import {
   loadDesignPromptGuide,
   loadVideoPromptGuide,
   loadVideoGenerationGuide,
+  loadKlingImageGuide,
+  loadKlingVideoGuide,
 } from "./imagePromptHelpers";
 
 // ============================================
@@ -716,12 +718,16 @@ export const getVerxioSystemPrompt = async (options?: {
     designPromptGuide,
     videoPromptGuide,
     videoGenerationGuide,
+    klingImageGuide,
+    klingVideoGuide,
   ] = await Promise.all([
     loadImageGenerationGuide(),
     loadSocialMediaDesignGuide(),
     loadDesignPromptGuide(),
     loadVideoPromptGuide(),
     loadVideoGenerationGuide(),
+    loadKlingImageGuide(),
+    loadKlingVideoGuide(),
   ]);
 
   return `
@@ -1122,6 +1128,22 @@ ${videoPromptGuide}
 The following is the complete video generation guide that you MUST follow when creating prompts for VIDEO nodes. This guide contains comprehensive JSON structure templates, technical specifications, and detailed examples for generating high-quality video prompts.
 
 ${videoGenerationGuide}
+
+---
+
+## Kling Image Guide (Quickstart Reference)
+
+Use this guide when creating prompts or configuring Kling image nodes (Kling Image, Omni Image, Multi-Image to Image, Virtual Try-On). It covers prompt structure, reference usage, and parameter selection.
+
+${klingImageGuide}
+
+---
+
+## Kling Video Guide (Quickstart Reference)
+
+Use this guide when creating prompts or configuring Kling video nodes (Text-to-Video, Image-to-Video, Omni Video, Video Extend, Motion Control, Multi-Image to Video). It covers camera movement, start/end frames, extension prompts, and mode selection.
+
+${klingVideoGuide}
 `;
 };
 

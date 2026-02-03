@@ -54,7 +54,6 @@ const formSchema = z.object({
   character_orientation: z.enum(["image", "video"]),
   mode: z.enum(["std", "pro"]),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1"]).optional(),
-  duration: z.string().optional(),
 });
 
 export type KlingMotionControlFormValues = z.infer<typeof formSchema>;
@@ -99,7 +98,6 @@ export const KlingMotionControlDialog = ({
       character_orientation: defaultValues.character_orientation ?? "image",
       mode: defaultValues.mode ?? "std",
       aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
-      duration: defaultValues.duration ?? "5",
     },
   });
 
@@ -116,7 +114,6 @@ export const KlingMotionControlDialog = ({
         character_orientation: defaultValues.character_orientation ?? "image",
         mode: defaultValues.mode ?? "std",
         aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
-        duration: defaultValues.duration ?? "5",
       });
 
       if (defaultValues.image) {
@@ -408,7 +405,7 @@ export const KlingMotionControlDialog = ({
                 )}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="mode"
@@ -446,27 +443,6 @@ export const KlingMotionControlDialog = ({
                         <SelectItem value="16:9">16:9</SelectItem>
                         <SelectItem value="9:16">9:16</SelectItem>
                         <SelectItem value="1:1">1:1</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="5">5s</SelectItem>
-                        <SelectItem value="10">10s</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
