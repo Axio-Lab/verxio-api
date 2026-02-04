@@ -33,6 +33,7 @@ import { billingStatusRouter } from "./routes/billing/status";
 import { billingCheckoutRouter } from "./routes/billing/checkout";
 import { manualPaymentRouter } from "./routes/manual-payment";
 import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
+import { openclawRouter } from "./routes/openclaw";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -118,6 +119,11 @@ app.use(
       "X-API-Key",
       "X-User-Email",
       "Accept",
+      "X-OpenClaw-Secret",
+      "X-OpenClaw-User-Id",
+      "X-OpenClaw-Integration-Id",
+      "X-OpenClaw-Platform",
+      "X-OpenClaw-External-Id",
     ],
   })
 );
@@ -191,6 +197,7 @@ app.use("/api/billing", billingStatusRouter);
 app.use("/api/billing", billingCheckoutRouter);
 app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
+app.use("/api/openclaw", openclawRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,
