@@ -304,132 +304,173 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       localAspectRatio || (localTemplate && DESIGN_TEMPLATES[localTemplate]?.aspectRatio) || "1:1";
 
     const finalModel = (localModel as any) || "gemini-3-pro-image-preview";
-    let result: any;
     const MAX_RETRIES = 3;
 
-    // Helper function to retry image generation with exponential backoff
-    const retryImageGeneration = async (
-      generateFn: () => Promise<any>,
-      maxRetries: number = MAX_RETRIES
-    ): Promise<any> => {
-      let lastError: string | undefined;
-      let lastResult: any;
+    // Generate image and save to disk inside step.run for memoization
+    // This ensures the same image URL is used across resumes/retries
+    const imageResult = await step.run(`generate-image-${nodeId}`, async () => {
+      // Helper function to retry image generation with exponential backoff
+      const retryImageGeneration = async (
+        generateFn: () => Promise<any>,
+        maxRetries: number = MAX_RETRIES
+      ): Promise<any> => {
+        let lastError: string | undefined;
+        let lastResult: any;
 
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        if (attempt > 0) {
-          // Exponential backoff: 1s, 2s, 4s
-          const delayMs = Math.pow(2, attempt - 1) * 1000;
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          if (attempt > 0) {
+            const delayMs = Math.pow(2, attempt - 1) * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
 
-        lastResult = await generateFn();
+          lastResult = await generateFn();
 
-        if (lastResult.success) {
-          return lastResult; // Success, return result
-        }
+          if (lastResult.success) {
+            return lastResult;
+          }
 
-        lastError = lastResult.error;
-        // Don't retry on certain errors (e.g., invalid prompt, content policy violations)
-        if (
-          lastResult.error?.includes("content policy") ||
-          lastResult.error?.includes("safety") ||
-          lastResult.error?.includes("invalid") ||
-          lastResult.error?.includes("forbidden")
-        ) {
-          break; // Non-retriable error
-        }
-      }
-
-      return { ...lastResult, error: lastError || lastResult.error };
-    };
-
-    // Handle different modes
-    switch (localMode) {
-      case "generate": {
-        // Text-to-image generation (same as DESIGN) with retry
-        result = await retryImageGeneration(() =>
-          generateImage({
-            prompt: compiledPrompt,
-            model: finalModel,
-            aspectRatio: computedAspectRatio,
-            imageSize: localImageSize,
-            template: localTemplate,
-          })
-        );
-        break;
-      }
-
-      case "edit": {
-        // Edit existing image
-        if (!imageData.sourceImage) {
-          throw new NonRetriableError(
-            "DESIGN_PRO node (edit mode): sourceImage is required. No assets found in database."
-          );
-        }
-
-        const sourceResolved = await resolveImageSource(imageData.sourceImage, minimalContext);
-        if (!sourceResolved) {
-          throw new NonRetriableError("DESIGN_PRO node: Failed to resolve source image");
-        }
-
-        result = await retryImageGeneration(() =>
-          editImage({
-            prompt: compiledPrompt,
-            imageBase64: sourceResolved.base64,
-            imageMimeType: sourceResolved.mimeType || imageData.sourceImageMimeType,
-            model: finalModel,
-            aspectRatio: computedAspectRatio,
-            imageSize: localImageSize,
-          })
-        );
-        break;
-      }
-
-      case "editWithReferences": {
-        // Edit with reference images
-        const referenceImages: ReferenceImage[] = [];
-
-        if (imageData.referenceImages && imageData.referenceImages.length > 0) {
-          for (const refImg of imageData.referenceImages) {
-            const resolved = await resolveImageSource(refImg.image, minimalContext);
-            if (resolved) {
-              referenceImages.push({
-                base64: resolved.base64,
-                mimeType: resolved.mimeType || refImg.mimeType || "image/png",
-                type: refImg.type,
-              });
-            }
+          lastError = lastResult.error;
+          if (
+            lastResult.error?.includes("content policy") ||
+            lastResult.error?.includes("safety") ||
+            lastResult.error?.includes("invalid") ||
+            lastResult.error?.includes("forbidden")
+          ) {
+            break;
           }
         }
 
-        const sourceImage = imageData.sourceImage
-          ? await resolveImageSource(imageData.sourceImage, minimalContext)
-          : undefined;
+        return { ...lastResult, error: lastError || lastResult.error };
+      };
 
-        result = await retryImageGeneration(() =>
-          editImageWithReferences({
-            prompt: compiledPrompt,
-            baseImage: sourceImage?.base64,
-            baseImageMimeType: sourceImage?.mimeType,
-            referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-            model: finalModel,
-            aspectRatio: computedAspectRatio,
-            imageSize: localImageSize,
-            useGoogleSearch: localUseGoogleSearch,
-          })
-        );
-        break;
+      let result: any;
+
+      // Handle different modes
+      switch (localMode) {
+        case "generate": {
+          result = await retryImageGeneration(() =>
+            generateImage({
+              prompt: compiledPrompt,
+              model: finalModel,
+              aspectRatio: computedAspectRatio,
+              imageSize: localImageSize,
+              template: localTemplate,
+            })
+          );
+          break;
+        }
+
+        case "edit": {
+          if (!imageData.sourceImage) {
+            return {
+              success: false,
+              error:
+                "DESIGN_PRO node (edit mode): sourceImage is required. No assets found in database.",
+            };
+          }
+
+          const sourceResolved = await resolveImageSource(imageData.sourceImage, minimalContext);
+          if (!sourceResolved) {
+            return {
+              success: false,
+              error: "DESIGN_PRO node: Failed to resolve source image",
+            };
+          }
+
+          result = await retryImageGeneration(() =>
+            editImage({
+              prompt: compiledPrompt,
+              imageBase64: sourceResolved.base64,
+              imageMimeType: sourceResolved.mimeType || imageData.sourceImageMimeType,
+              model: finalModel,
+              aspectRatio: computedAspectRatio,
+              imageSize: localImageSize,
+            })
+          );
+          break;
+        }
+
+        case "editWithReferences": {
+          const referenceImages: ReferenceImage[] = [];
+
+          if (imageData.referenceImages && imageData.referenceImages.length > 0) {
+            for (const refImg of imageData.referenceImages) {
+              const resolved = await resolveImageSource(refImg.image, minimalContext);
+              if (resolved) {
+                referenceImages.push({
+                  base64: resolved.base64,
+                  mimeType: resolved.mimeType || refImg.mimeType || "image/png",
+                  type: refImg.type,
+                });
+              }
+            }
+          }
+
+          const sourceImage = imageData.sourceImage
+            ? await resolveImageSource(imageData.sourceImage, minimalContext)
+            : undefined;
+
+          result = await retryImageGeneration(() =>
+            editImageWithReferences({
+              prompt: compiledPrompt,
+              baseImage: sourceImage?.base64,
+              baseImageMimeType: sourceImage?.mimeType,
+              referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+              model: finalModel,
+              aspectRatio: computedAspectRatio,
+              imageSize: localImageSize,
+              useGoogleSearch: localUseGoogleSearch,
+            })
+          );
+          break;
+        }
+
+        default:
+          return {
+            success: false,
+            error: `DESIGN_PRO node: Unknown mode "${localMode}"`,
+          };
       }
 
-      default:
-        throw new NonRetriableError(`DESIGN_PRO node: Unknown mode "${localMode}"`);
-    }
-    const fullBase64 = result.imageBase64;
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error || "Image generation failed",
+          attempts: MAX_RETRIES + 1,
+        };
+      }
 
-    if (!result.success) {
+      // Save image to disk and return URL (all inside step.run for memoization)
+      let imageUrl: string | undefined;
+      let imageFilename: string | undefined;
+
+      if (result.imageBase64) {
+        const saveResult = await saveImageToDisk(
+          result.imageBase64,
+          result.mimeType || "image/jpeg"
+        );
+        if (saveResult.success) {
+          const baseUrl = process.env.API_URL;
+          imageUrl = `${baseUrl}${saveResult.url}`;
+          imageFilename = saveResult.filename;
+        }
+      }
+
+      return {
+        success: true,
+        mimeType: result.mimeType,
+        text: result.text,
+        mode: localMode as string,
+        imageUrl,
+        imageFilename,
+      };
+    });
+
+    if (!imageResult.success) {
       await publishStatus(publish, step, nodeId, "error");
+      const errResult = imageResult as { success: false; error: string; attempts?: number };
       const error = new NonRetriableError(
-        `DESIGN_PRO node: Image generation failed after ${MAX_RETRIES + 1} attempts - ${result.error}`
+        `DESIGN_PRO node: Image generation failed - ${errResult.error}`
       );
       await step.run(`publish-output-error-generation-${nodeId}`, async () => {
         await publish(
@@ -438,8 +479,8 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
             output: {
               ...context,
               error: {
-                message: result.error || "Image generation failed",
-                attempts: MAX_RETRIES + 1,
+                message: errResult.error || "Image generation failed",
+                attempts: errResult.attempts,
               },
             },
           })
@@ -448,34 +489,15 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       throw error;
     }
 
-    // Save image to disk and get public URL
-    let imageUrl: string | undefined;
-    let imageFilename: string | undefined;
-
-    if (fullBase64) {
-      const saveResult = await saveImageToDisk(fullBase64, result.mimeType || "image/jpeg");
-      if (saveResult.success) {
-        // Build full URL based on environment
-        const baseUrl = process.env.API_URL;
-        imageUrl = `${baseUrl}${saveResult.url}`;
-        imageFilename = saveResult.filename;
-      }
-    }
-
-    // Store metadata and image URL in step (for Inngest tracking/replay)
-    const imageResult = await step.run("log-image-generation", async () => {
-      return {
-        success: result.success,
-        // Only include errorMessage (not error) to avoid Inngest deserialization issues
-        ...(result.error ? { errorMessage: result.error } : {}),
-        mimeType: result.mimeType,
-        text: result.text,
-        mode: localMode as string,
-        imageUrl, // Include URL - it's just a string, so it's safe
-        imageFilename,
-        // Do NOT include base64 here - it would exceed Inngest limits
-      };
-    });
+    // TypeScript narrowing: imageResult.success === true at this point
+    const successResult = imageResult as {
+      success: true;
+      mimeType: string;
+      text?: string;
+      mode: string;
+      imageUrl?: string;
+      imageFilename?: string;
+    };
 
     // Build result with image URL and data (use minimal context)
     const outputContext: Record<string, any> = {};
@@ -485,22 +507,20 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
       }
     }
 
-    // Determine final aspect ratio (reuse computed value)
-    const finalAspectRatio = computedAspectRatio;
-
+    // Use ONLY memoized imageResult values
     const fullResult = {
       ...outputContext,
       [localVariablesName]: {
         success: true,
         prompt: compiledPrompt,
-        mimeType: result.mimeType,
-        text: result.text,
-        aspectRatio: finalAspectRatio,
+        mimeType: successResult.mimeType,
+        text: successResult.text,
+        aspectRatio: computedAspectRatio,
         imageSize: localImageSize,
         template: localTemplate,
         mode: localMode,
-        imageUrl,
-        imageFilename,
+        imageUrl: successResult.imageUrl,
+        imageFilename: successResult.imageFilename,
       },
     };
 

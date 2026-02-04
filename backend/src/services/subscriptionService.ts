@@ -149,12 +149,12 @@ export async function getUserSubscription(userId: string) {
     const isActive = await isSubscriptionActive(userId);
     const rateLimitConfig = getRateLimitConfig(user.subscriptionPlan);
 
-    // Get features from plan if subscriptionFeatures is null/empty
-    // This ensures free users get an empty array, not null
-    const features =
-      user.subscriptionFeatures && user.subscriptionFeatures.length > 0
-        ? user.subscriptionFeatures
-        : getPlanFeatures(user.subscriptionPlan);
+    // Merge plan features with stored features to avoid missing new flags
+    // (e.g., if subscriptionFeatures was set before a new feature existed)
+    const planFeatures = getPlanFeatures(user.subscriptionPlan);
+    const features = Array.from(
+      new Set([...(planFeatures || []), ...(user.subscriptionFeatures || [])])
+    );
 
     // For beta-testers, use the daily credits constant; for others use config
     const rateLimitTotal =

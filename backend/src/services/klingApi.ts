@@ -140,14 +140,27 @@ export async function getTask(path: string, taskId: string): Promise<KlingTaskDa
 
 /**
  * Poll until task succeeds or fails. Returns task result data.
+ * Uses exponential backoff: starts at initialIntervalMs, increases by 1.5x each poll, capped at maxIntervalMs.
  */
 export async function pollUntilDone(
   path: string,
   taskId: string,
-  options: { intervalMs?: number; maxWaitMs?: number } = {}
+  options: {
+    initialIntervalMs?: number;
+    maxIntervalMs?: number;
+    maxWaitMs?: number;
+    /** @deprecated Use initialIntervalMs. Kept for backward compatibility. */
+    intervalMs?: number;
+  } = {}
 ): Promise<KlingTaskData> {
-  const { intervalMs = 4000, maxWaitMs = 600000 } = options;
+  const {
+    initialIntervalMs = 1000,
+    maxIntervalMs = 8000,
+    maxWaitMs = 600000,
+    intervalMs: legacyIntervalMs,
+  } = options;
   const start = Date.now();
+  let interval = legacyIntervalMs ?? initialIntervalMs;
 
   while (Date.now() - start < maxWaitMs) {
     const task = await getTask(path, taskId);
@@ -157,7 +170,8 @@ export async function pollUntilDone(
     if (task.task_status === "failed") {
       throw new Error(task.task_status_msg || "Kling task failed");
     }
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await new Promise((r) => setTimeout(r, interval));
+    interval = Math.min(interval * 1.5, maxIntervalMs);
   }
 
   throw new Error("Kling task timed out");

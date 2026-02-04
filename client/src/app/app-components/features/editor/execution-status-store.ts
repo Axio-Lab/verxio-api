@@ -10,6 +10,9 @@ type NodeStatusMap = Record<string, NodeStatus>;
 
 export const nodeStatusMapAtom = atom<NodeStatusMap>({});
 
+// Per-node latest output (for display in node components)
+export const nodeOutputMapAtom = atom<Record<string, Record<string, unknown> | null>>({});
+
 // Hook to update a single node's status
 export function useSetNodeExecutionStatus() {
   const setStatusMap = useSetAtom(nodeStatusMapAtom);
@@ -42,12 +45,28 @@ export function useSetMultipleNodeStatuses() {
   };
 }
 
+// Hook to set a single node's output (used by centralized subscription)
+export function useSetNodeOutput() {
+  const setOutputMap = useSetAtom(nodeOutputMapAtom);
+  return (nodeId: string, output: Record<string, unknown> | null) => {
+    setOutputMap((prev) => ({ ...prev, [nodeId]: output }));
+  };
+}
+
+// Hook to get a specific node's latest output
+export function useNodeOutput(nodeId: string): Record<string, unknown> | null {
+  const outputMap = useAtomValue(nodeOutputMapAtom);
+  return outputMap[nodeId] ?? null;
+}
+
 // Hook to reset all node statuses to initial (before a new execution)
 export function useResetAllNodeStatuses() {
   const setStatusMap = useSetAtom(nodeStatusMapAtom);
+  const setOutputMap = useSetAtom(nodeOutputMapAtom);
 
   return () => {
     setStatusMap({});
+    setOutputMap({});
   };
 }
 
