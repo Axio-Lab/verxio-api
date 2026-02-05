@@ -616,6 +616,36 @@ async function sendTelegramMedia(botToken: string, chatId: string, item: MediaIt
   });
 }
 
+/** Send up to 10 photos as a single Telegram album (media group). */
+async function sendTelegramPhotoAlbum(
+  botToken: string,
+  chatId: string,
+  photoItems: MediaItem[],
+  caption?: string
+) {
+  const MAX_ALBUM = 10;
+  const slice = photoItems.slice(0, MAX_ALBUM);
+  const media = slice.map((item, i) => ({
+    type: "photo" as const,
+    media: item.url,
+    caption: i === 0 && caption ? formatTelegramMessage(caption) : undefined,
+    parse_mode: i === 0 && caption ? "HTML" : undefined,
+  }));
+  if (media.length === 0) return;
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMediaGroup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      media,
+    }),
+  });
+  // If there are more than 10, send the rest as individual photos
+  for (let i = MAX_ALBUM; i < photoItems.length; i++) {
+    await sendTelegramMedia(botToken, chatId, photoItems[i]);
+  }
+}
+
 async function runWorkflowAndWait(options: {
   workflowId: string;
   userId: string;
@@ -1265,7 +1295,20 @@ async function handleRunWorkflow(
         if (result.success) {
           const output = result.output as Record<string, unknown>;
           const mediaItems = extractMediaItems(output);
-          for (const item of mediaItems) {
+          const photos = mediaItems.filter((m) => m.type === "photo");
+          const nonPhotos = mediaItems.filter((m) => m.type !== "photo");
+
+          if (photos.length > 0) {
+            await sendTelegramPhotoAlbum(
+              integration.telegramBotToken,
+              chatId,
+              photos,
+              photos.length > 1
+                ? `**Workflow completed.** ${photos.length} image(s).`
+                : `**Workflow completed.** Output (${photos[0].label}).`
+            );
+          }
+          for (const item of nonPhotos) {
             await sendTelegramMedia(integration.telegramBotToken, chatId, item);
           }
           const summary = await buildResultSummaryWithAgent({
