@@ -4,31 +4,35 @@ import { AppError } from "./errorHandler";
 import crypto from "crypto";
 
 /**
- * OpenClaw Authentication Middleware
+ * ChatIntegration Authentication Middleware
  *
- * Validates incoming requests from OpenClaw using shared secret authentication.
- * The shared secret is sent via the X-OpenClaw-Secret header and must match
- * the user's configured secret in the OpenClawIntegration record.
+ * Validates incoming requests from ChatIntegration using shared secret authentication.
+ * The shared secret is sent via the X-ChatIntegration-Secret header and must match
+ * the user's configured secret in the ChatIntegration record.
  *
  * Headers required:
- * - X-OpenClaw-Secret: The shared secret for authentication
- * - X-OpenClaw-User-Id: The Verxio user ID (for lookup)
- * - X-OpenClaw-Integration-Id: The OpenClaw integration ID (recommended)
+ * - X-ChatIntegration-Secret: The shared secret for authentication
+ * - X-ChatIntegration-User-Id: The Verxio user ID (for lookup)
+ * - X-ChatIntegration-Integration-Id: The Chat Integration integration ID (recommended)
  *
  * Or alternatively:
- * - X-OpenClaw-Secret: The shared secret for authentication
- * - X-OpenClaw-Platform: Platform identifier (e.g., "telegram")
- * - X-OpenClaw-External-Id: External platform user ID
+ * - X-ChatIntegration-Secret: The shared secret for authentication
+ * - X-ChatIntegration-Platform: Platform identifier (e.g., "telegram")
+ * - X-ChatIntegration-External-Id: External platform user ID
  */
-export const openclawAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const chatIntegrationAuthMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const secret = req.headers["x-openclaw-secret"] as string;
-    const userId = req.headers["x-openclaw-user-id"] as string;
-    const integrationId = req.headers["x-openclaw-integration-id"] as string;
+    const secret = req.headers["x-chat-integration-secret"] as string;
+    const userId = req.headers["x-chat-integration-user-id"] as string;
+    const integrationId = req.headers["x-chat-integration-integration-id"] as string;
 
     if (!secret) {
       throw new AppError(
-        "OpenClaw authentication required. X-OpenClaw-Secret header is missing.",
+        "ChatIntegration authentication required. X-ChatIntegration-Secret header is missing.",
         401
       );
     }
@@ -36,17 +40,17 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
     // If userId is provided directly, use it for lookup
     if (userId) {
       if (!integrationId) {
-        const count = await (prisma as any).openClawIntegration.count({ where: { userId } });
+        const count = await (prisma as any).chatIntegration.count({ where: { userId } });
         if (count > 1) {
           throw new AppError(
-            "Multiple OpenClaw integrations found. Provide X-OpenClaw-Integration-Id.",
+            "Multiple Chat Integration integrations found. Provide X-Chat Integration-Integration-Id.",
             400
           );
         }
       }
 
       const where = integrationId ? { id: integrationId, userId } : { userId };
-      const integration = await (prisma as any).openClawIntegration.findFirst({
+      const integration = await (prisma as any).chatIntegration.findFirst({
         where,
         include: {
           user: {
@@ -62,13 +66,13 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
 
       if (!integration) {
         throw new AppError(
-          "OpenClaw integration not found for this user. Provide X-OpenClaw-Integration-Id.",
+          "Chat Integration integration not found for this user. Provide X-ChatIntegration-Integration-Id.",
           404
         );
       }
 
       if (!integration.isActive) {
-        throw new AppError("OpenClaw integration is disabled.", 403);
+        throw new AppError("Chat Integration integration is disabled.", 403);
       }
 
       // Use timing-safe comparison to prevent timing attacks
@@ -78,11 +82,11 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
       );
 
       if (!secretMatch) {
-        throw new AppError("Invalid OpenClaw secret.", 401);
+        throw new AppError("Invalid ChatIntegration secret.", 401);
       }
 
       // Update last used timestamp and increment request count
-      await (prisma as any).openClawIntegration.update({
+      await (prisma as any).chatIntegration.update({
         where: { id: integration.id },
         data: {
           lastUsedAt: new Date(),
@@ -92,14 +96,14 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
 
       // Attach user and integration info to request
       (req as any).user = integration.user;
-      (req as any).openclawIntegration = integration;
+      (req as any).chatIntegration = integration;
 
       return next();
     }
 
     // Fallback: Look up by external identity if platform info is provided
-    const platform = req.headers["x-openclaw-platform"] as string;
-    const externalId = req.headers["x-openclaw-external-id"] as string;
+    const platform = req.headers["x-chat-integration-platform"] as string;
+    const externalId = req.headers["x-chat-integration-external-id"] as string;
 
     if (platform && externalId) {
       const externalIdentity = await (prisma as any).externalIdentity.findUnique({
@@ -123,7 +127,7 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
       });
 
       if (externalIdentity && externalIdentity.isActive) {
-        const integration = await (prisma as any).openClawIntegration.findFirst({
+        const integration = await (prisma as any).chatIntegration.findFirst({
           where: {
             id: integrationId || externalIdentity.integrationId,
             userId: externalIdentity.userId,
@@ -140,7 +144,7 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
           if (secretMatch) {
             // Update timestamps
             await Promise.all([
-              (prisma as any).openClawIntegration.update({
+              (prisma as any).chatIntegration.update({
                 where: { id: integration.id },
                 data: {
                   lastUsedAt: new Date(),
@@ -155,7 +159,7 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
 
             // Attach user and integration info to request
             (req as any).user = externalIdentity.user;
-            (req as any).openclawIntegration = integration;
+            (req as any).chatIntegration = integration;
             (req as any).externalIdentity = externalIdentity;
 
             return next();
@@ -165,15 +169,15 @@ export const openclawAuthMiddleware = async (req: Request, res: Response, next: 
     }
 
     throw new AppError(
-      "OpenClaw authentication failed. Provide X-OpenClaw-User-Id or valid platform/external ID.",
+      "ChatIntegration authentication failed. Provide X-ChatIntegration-User-Id or valid platform/external ID.",
       401
     );
   } catch (error) {
     if (error instanceof AppError) {
       return next(error);
     }
-    console.error("[OpenClaw Auth] Error:", error);
-    next(new AppError("OpenClaw authentication failed", 401));
+    console.error("[ChatIntegration Auth] Error:", error);
+    next(new AppError("ChatIntegration authentication failed", 401));
   }
 };
 

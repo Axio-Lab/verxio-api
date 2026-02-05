@@ -12,7 +12,7 @@ import { toast } from "sonner";
 // Types
 // ============================================
 
-export interface OpenClawIntegration {
+export interface ChatIntegration {
   id: string;
   label: string;
   platform: "TELEGRAM" | "WHATSAPP" | "DISCORD" | "SLACK";
@@ -31,7 +31,7 @@ export interface OpenClawIntegration {
   telegramBotTokenSet?: boolean;
 }
 
-export interface OpenClawSecret {
+export interface ChatIntegrationSecret {
   sharedSecret: string;
   webhookUrl: string;
 }
@@ -109,14 +109,14 @@ export interface SaveTelegramTokenResult {
 // ============================================
 
 /**
- * Get the user's OpenClaw integrations
+ * Get the user's Chat Integration integrations
  */
-export function useOpenClawIntegrations() {
-  return useProtectedQuery<{ success: boolean; integrations: OpenClawIntegration[] }>({
-    queryKey: ["openclaw", "integrations"],
+export function useChatIntegrations() {
+  return useProtectedQuery<{ success: boolean; integrations: ChatIntegration[] }>({
+    queryKey: ["chatIntegration", "integrations"],
     queryFn: () =>
-      authenticatedGet<{ success: boolean; integrations: OpenClawIntegration[] }>(
-        "/api/openclaw/integrations"
+      authenticatedGet<{ success: boolean; integrations: ChatIntegration[] }>(
+        "/api/chat-integrations/integrations"
       ),
   });
 }
@@ -124,13 +124,13 @@ export function useOpenClawIntegrations() {
 /**
  * Get a specific integration
  */
-export function useOpenClawIntegration(integrationId?: string) {
-  return useProtectedQuery<{ success: boolean; integration: OpenClawIntegration }>({
-    queryKey: ["openclaw", "integration", integrationId],
+export function useChatIntegration(integrationId?: string) {
+  return useProtectedQuery<{ success: boolean; integration: ChatIntegration }>({
+    queryKey: ["chatIntegration", "integration", integrationId],
     enabled: !!integrationId,
     queryFn: () =>
-      authenticatedGet<{ success: boolean; integration: OpenClawIntegration }>(
-        `/api/openclaw/integrations/${integrationId}`
+      authenticatedGet<{ success: boolean; integration: ChatIntegration }>(
+        `/api/chat-integrations/integrations/${integrationId}`
       ),
   });
 }
@@ -138,13 +138,13 @@ export function useOpenClawIntegration(integrationId?: string) {
 /**
  * Get the full shared secret (for setup)
  */
-export function useOpenClawSecret(integrationId?: string) {
+export function useChatIntegrationSecret(integrationId?: string) {
   return useProtectedQuery<{ success: boolean; sharedSecret: string; webhookUrl: string }>({
-    queryKey: ["openclaw", "secret", integrationId],
+    queryKey: ["chatIntegration", "secret", integrationId],
     enabled: !!integrationId,
     queryFn: () =>
       authenticatedGet<{ success: boolean; sharedSecret: string; webhookUrl: string }>(
-        `/api/openclaw/integrations/${integrationId}/secret`
+        `/api/chat-integrations/integrations/${integrationId}/secret`
       ),
     // Don't cache the secret for too long
     staleTime: 1000 * 60, // 1 minute
@@ -154,23 +154,23 @@ export function useOpenClawSecret(integrationId?: string) {
 /**
  * Update integration settings
  */
-export function useUpdateOpenClawIntegration(integrationId: string) {
+export function useUpdateChatIntegration(integrationId: string) {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<
-    { success: boolean; integration: OpenClawIntegration },
+    { success: boolean; integration: ChatIntegration },
     Error,
     UpdateIntegrationData
   >({
     mutationFn: (data) =>
-      authenticatedPut<{ success: boolean; integration: OpenClawIntegration }>(
-        `/api/openclaw/integrations/${integrationId}`,
+      authenticatedPut<{ success: boolean; integration: ChatIntegration }>(
+        `/api/chat-integrations/integrations/${integrationId}`,
         data
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integration", integrationId] });
-      toast.success("OpenClaw integration settings updated");
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      toast.success("Integration settings updated");
     },
     onError: (error) => {
       const errorMessage =
@@ -183,22 +183,22 @@ export function useUpdateOpenClawIntegration(integrationId: string) {
 /**
  * Create a new integration
  */
-export function useCreateOpenClawIntegration() {
+export function useCreateChatIntegration() {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<
-    { success: boolean; integration: OpenClawIntegration },
+    { success: boolean; integration: ChatIntegration },
     Error,
     CreateIntegrationData
   >({
     mutationFn: (data) =>
-      authenticatedPost<{ success: boolean; integration: OpenClawIntegration }>(
-        "/api/openclaw/integrations",
+      authenticatedPost<{ success: boolean; integration: ChatIntegration }>(
+        "/api/chat-integrations/integrations",
         data
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integrations"] });
-      toast.success("OpenClaw integration created");
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      toast.success("Integration integration created");
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to create integration";
@@ -216,12 +216,12 @@ export function useSaveTelegramBotToken(integrationId: string) {
   return useProtectedMutation<SaveTelegramTokenResult, Error, { telegramBotToken: string }>({
     mutationFn: (data) =>
       authenticatedPost<SaveTelegramTokenResult>(
-        `/api/openclaw/integrations/${integrationId}/telegram/token`,
+        `/api/chat-integrations/integrations/${integrationId}/telegram/token`,
         data
       ),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integration", integrationId] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
       toast.success(result.message);
     },
     onError: (error) => {
@@ -234,19 +234,19 @@ export function useSaveTelegramBotToken(integrationId: string) {
 /**
  * Regenerate the shared secret
  */
-export function useRegenerateOpenClawSecret(integrationId: string) {
+export function useRegenerateChatIntegrationSecret(integrationId: string) {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<{ success: boolean; message: string; sharedSecret: string }, Error>({
     mutationFn: () =>
       authenticatedPost<{ success: boolean; message: string; sharedSecret: string }>(
-        `/api/openclaw/integrations/${integrationId}/regenerate-secret`,
+        `/api/chat-integrations/integrations/${integrationId}/regenerate-secret`,
         {}
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "secret", integrationId] });
-      toast.success("Shared secret regenerated. Update your OpenClaw configuration.");
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "secret", integrationId] });
+      toast.success("Shared secret regenerated. Update your ChatIntegration configuration.");
     },
     onError: (error) => {
       const errorMessage =
@@ -259,19 +259,19 @@ export function useRegenerateOpenClawSecret(integrationId: string) {
 /**
  * Delete the integration
  */
-export function useDeleteOpenClawIntegration(integrationId: string) {
+export function useDeleteChatIntegration(integrationId: string) {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<{ success: boolean; message: string }, Error>({
     mutationFn: () =>
       authenticatedDelete<{ success: boolean; message: string }>(
-        `/api/openclaw/integrations/${integrationId}`
+        `/api/chat-integrations/integrations/${integrationId}`
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw"] });
-      toast.success("OpenClaw integration deleted");
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration"] });
+      toast.success("Integration deleted");
     },
-    onError: (error) => {
+    onError: (error) => {   
       const errorMessage = error instanceof Error ? error.message : "Failed to delete integration";
       toast.error(errorMessage);
     },
@@ -281,18 +281,18 @@ export function useDeleteOpenClawIntegration(integrationId: string) {
 /**
  * Test the integration connection
  */
-export function useTestOpenClawConnection(integrationId: string) {
+export function useTestChatIntegrationConnection(integrationId: string) {
   const queryClient = useQueryClient();
 
   return useProtectedMutation<TestConnectionResult, Error>({
     mutationFn: () =>
       authenticatedPost<TestConnectionResult>(
-        `/api/openclaw/integrations/${integrationId}/test`,
+        `/api/chat-integrations/integrations/${integrationId}/test`,
         {}
       ),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "integration", integrationId] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
       if (result.success) {
         toast.success(result.message);
       } else {
@@ -315,10 +315,10 @@ export function useTestOpenClawConnection(integrationId: string) {
  */
 export function useExternalIdentities(integrationId?: string) {
   return useProtectedQuery<{ success: boolean; identities: ExternalIdentity[] }>({
-    queryKey: ["openclaw", "identities", integrationId],
+    queryKey: ["chatIntegration", "identities", integrationId],
     queryFn: () =>
       authenticatedGet<{ success: boolean; identities: ExternalIdentity[] }>(
-        `/api/openclaw/identities${integrationId ? `?integrationId=${integrationId}` : ""}`
+        `/api/chat-integrations/identities${integrationId ? `?integrationId=${integrationId}` : ""}`
       ),
   });
 }
@@ -336,12 +336,12 @@ export function useLinkExternalIdentity() {
   >({
     mutationFn: (data) =>
       authenticatedPost<{ success: boolean; message: string; identity: ExternalIdentity }>(
-        "/api/openclaw/identities/link",
+        "/api/chat-integrations/identities/link",
         data
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({
-        queryKey: ["openclaw", "identities", result.identity?.integrationId],
+        queryKey: ["chatIntegration", "identities", result.identity?.integrationId],
       });
       toast.success(result.message);
     },
@@ -366,12 +366,12 @@ export function useUnlinkExternalIdentity(integrationId?: string) {
   >({
     mutationFn: ({ platform, externalId }) =>
       authenticatedDelete<{ success: boolean; message: string }>(
-        `/api/openclaw/identities/${platform}/${externalId}${
+        `/api/chat-integrations/identities/${platform}/${externalId}${
           integrationId ? `?integrationId=${integrationId}` : ""
         }`
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["openclaw", "identities", integrationId] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "identities", integrationId] });
       toast.success("External identity unlinked");
     },
     onError: (error) => {

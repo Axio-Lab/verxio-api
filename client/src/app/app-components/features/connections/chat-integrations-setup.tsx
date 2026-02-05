@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  useOpenClawIntegrations,
-  useOpenClawSecret,
-  useUpdateOpenClawIntegration,
+  useChatIntegrations,
+  useChatIntegrationSecret,
+  useUpdateChatIntegration,
   useSaveTelegramBotToken,
-  useRegenerateOpenClawSecret,
-  useTestOpenClawConnection,
-  useDeleteOpenClawIntegration,
+  useRegenerateChatIntegrationSecret,
+  useTestChatIntegrationConnection,
   useExternalIdentities,
   useUnlinkExternalIdentity,
-  useCreateOpenClawIntegration,
-} from "@/hooks/useOpenClaw";
+  useCreateChatIntegration,
+} from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,13 +62,24 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 // ============================================
-// Main OpenClaw Setup Component
+// Main ChatIntegration Setup Component
 // ============================================
 
-export function OpenClawSetup() {
-  const { data: integrationsData, isLoading, error } = useOpenClawIntegrations();
+export function ChatIntegrationsSetup({
+  initialIntegrationId,
+  hideCreate = false,
+  hideIntegrationSelector = false,
+  createOnly = false,
+}: {
+  initialIntegrationId?: string;
+  hideCreate?: boolean;
+  hideIntegrationSelector?: boolean;
+  createOnly?: boolean;
+}) {
+  const router = useRouter();
+  const { data: integrationsData, isLoading, error } = useChatIntegrations();
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>("");
-  const { data: secretData, isLoading: secretLoading } = useOpenClawSecret(
+  const { data: secretData, isLoading: secretLoading } = useChatIntegrationSecret(
     selectedIntegrationId || undefined
   );
   const {
@@ -78,17 +89,15 @@ export function OpenClawSetup() {
   } = useExternalIdentities(selectedIntegrationId || undefined);
   const { data: workflowsData } = useWorkflows(1, 100);
 
-  const updateIntegration = useUpdateOpenClawIntegration(selectedIntegrationId || "");
+  const updateIntegration = useUpdateChatIntegration(selectedIntegrationId || "");
   const saveTelegramToken = useSaveTelegramBotToken(selectedIntegrationId || "");
-  const regenerateSecret = useRegenerateOpenClawSecret(selectedIntegrationId || "");
-  const testConnection = useTestOpenClawConnection(selectedIntegrationId || "");
-  const deleteIntegration = useDeleteOpenClawIntegration(selectedIntegrationId || "");
+  const regenerateSecret = useRegenerateChatIntegrationSecret(selectedIntegrationId || "");
+  const testConnection = useTestChatIntegrationConnection(selectedIntegrationId || "");
   const unlinkIdentity = useUnlinkExternalIdentity(selectedIntegrationId || undefined);
-  const createIntegration = useCreateOpenClawIntegration();
+  const createIntegration = useCreateChatIntegration();
 
   const [showSecret, setShowSecret] = useState(false);
   const [secretJustRegenerated, setSecretJustRegenerated] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [botToken, setBotToken] = useState("");
   const [labelDraft, setLabelDraft] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -98,12 +107,18 @@ export function OpenClawSetup() {
   const [newScope, setNewScope] = useState<"SINGLE_WORKFLOW" | "ALL_WORKFLOWS" | "ALLOW_LIST">(
     "ALL_WORKFLOWS"
   );
+  const [newScopeWorkflowId, setNewScopeWorkflowId] = useState("none");
+  const [newAllowedWorkflowIds, setNewAllowedWorkflowIds] = useState<string[]>([]);
 
   useEffect(() => {
+    if (initialIntegrationId) {
+      setSelectedIntegrationId(initialIntegrationId);
+      return;
+    }
     if (integrationsData?.integrations?.length && !selectedIntegrationId) {
       setSelectedIntegrationId(integrationsData.integrations[0].id);
     }
-  }, [integrationsData?.integrations, selectedIntegrationId]);
+  }, [integrationsData?.integrations, selectedIntegrationId, initialIntegrationId]);
 
   useEffect(() => {
     const integration = integrationsData?.integrations?.find(
@@ -118,7 +133,7 @@ export function OpenClawSetup() {
   }, [integrationsData?.integrations, selectedIntegrationId]);
 
   if (isLoading) {
-    return <OpenClawSetupSkeleton />;
+    return <ChatIntegrationsSetupSkeleton />;
   }
 
   if (error) {
@@ -127,7 +142,7 @@ export function OpenClawSetup() {
         <CardContent className="pt-6">
           <div className="text-center py-8">
             <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Failed to load OpenClaw integration</p>
+            <p className="text-sm text-muted-foreground">Failed to load Chat Integration integration</p>
           </div>
         </CardContent>
       </Card>
@@ -148,26 +163,147 @@ export function OpenClawSetup() {
       toast.error("Please enter a label for this integration.");
       return;
     }
+    const scopeWorkflowId =
+      newScope === "SINGLE_WORKFLOW"
+        ? newScopeWorkflowId === "none"
+          ? null
+          : newScopeWorkflowId
+        : null;
+    const allowedWorkflowIds = newScope === "ALLOW_LIST" ? newAllowedWorkflowIds : [];
     createIntegration.mutate(
       {
         label: newLabel.trim(),
         platform: newPlatform,
         scope: newScope,
+        scopeWorkflowId,
+        allowedWorkflowIds,
       },
       {
         onSuccess: (result) => {
           setNewLabel("");
+          setNewScopeWorkflowId("none");
+          setNewAllowedWorkflowIds([]);
           setSelectedIntegrationId(result.integration.id);
+          // If in createOnly mode, navigate back to integrations page
+          if (createOnly) {
+            router.push("/integrations");
+          }
         },
       }
     );
   };
 
-  if (integrations.length === 0) {
+  // If createOnly is true, only show the create form
+  if (createOnly && !hideCreate) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Create OpenClaw Integration</CardTitle>
+          <CardTitle className="text-base">Create New Integration</CardTitle>
+          <CardDescription>Set up a new chat integration.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Integration Label</Label>
+              <Input
+                placeholder="e.g. Support Bot"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Platform</Label>
+              <Select value={newPlatform} onValueChange={(value) => setNewPlatform(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select platform" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TELEGRAM">Telegram</SelectItem>
+                  <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                  <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
+                  <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Workflow Scope</Label>
+            <Select value={newScope} onValueChange={(value) => setNewScope(value as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
+                <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
+                <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {newScope === "SINGLE_WORKFLOW" && (
+            <div className="space-y-2">
+              <Label>Scoped Workflow</Label>
+              <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select workflow" />
+                </SelectTrigger>
+                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                  <SelectItem value="none">None</SelectItem>
+                  {workflows.map((workflow) => (
+                    <SelectItem key={workflow.id} value={workflow.id}>
+                      {workflow.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {newScope === "ALLOW_LIST" && (
+            <div className="space-y-2">
+              <Label>Allowed Workflows</Label>
+              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
+                <div className="grid gap-2 md:grid-cols-2">
+                  {workflows.map((workflow) => {
+                    const checked = newAllowedWorkflowIds.includes(workflow.id);
+                    return (
+                      <label
+                        key={workflow.id}
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setNewAllowedWorkflowIds((current) =>
+                              e.target.checked
+                                ? Array.from(new Set([...current, workflow.id]))
+                                : current.filter((id) => id !== workflow.id)
+                            );
+                          }}
+                        />
+                        <span>{workflow.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
+              {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Integration
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (integrations.length === 0 && !hideCreate) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Create a new integration interface</CardTitle>
           <CardDescription>Set up your first chat integration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -206,11 +342,73 @@ export function OpenClawSetup() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
-            {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Create Integration
-          </Button>
+          {newScope === "SINGLE_WORKFLOW" && (
+            <div className="space-y-2">
+              <Label>Scoped Workflow</Label>
+              <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select workflow" />
+                </SelectTrigger>
+                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                  <SelectItem value="none">None</SelectItem>
+                  {workflows.map((workflow) => (
+                    <SelectItem key={workflow.id} value={workflow.id}>
+                      {workflow.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {newScope === "ALLOW_LIST" && (
+            <div className="space-y-2">
+              <Label>Allowed Workflows</Label>
+              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
+                <div className="grid gap-2 md:grid-cols-2">
+                  {workflows.map((workflow) => {
+                    const checked = newAllowedWorkflowIds.includes(workflow.id);
+                    return (
+                      <label
+                        key={workflow.id}
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setNewAllowedWorkflowIds((current) =>
+                              e.target.checked
+                                ? Array.from(new Set([...current, workflow.id]))
+                                : current.filter((id) => id !== workflow.id)
+                            );
+                          }}
+                        />
+                        <span>{workflow.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
+              {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Integration
+            </Button>
+          </div>
         </CardContent>
+      </Card>
+    );
+  }
+
+  if (integrations.length === 0 && hideCreate) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">No integrations available</CardTitle>
+          <CardDescription>Create an integration to continue.</CardDescription>
+        </CardHeader>
       </Card>
     );
   }
@@ -329,76 +527,134 @@ export function OpenClawSetup() {
     updateIntegration.mutate({ allowedWorkflowIds: next });
   };
 
-  const handleDeleteIntegration = async () => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    await deleteIntegration.mutateAsync();
-  };
-
   const handleUnlinkIdentity = (platform: string, externalId: string) => {
     unlinkIdentity.mutate({ platform, externalId });
   };
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Integration
-          </CardTitle>
-          <CardDescription>Select or create a chat integration.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Active Integration</Label>
-            <Select value={selectedIntegrationId} onValueChange={setSelectedIntegrationId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select integration" />
-              </SelectTrigger>
-              <SelectContent>
-                {integrations.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.label} • {item.platform}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-2 md:col-span-2">
-              <Label>New Integration Label</Label>
-              <Input
-                placeholder="e.g. Support Bot"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-              />
+      {!hideCreate && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Integration
+            </CardTitle>
+            <CardDescription>Select or create a chat integration.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!hideIntegrationSelector && (
+              <div className="space-y-2">
+                <Label>Active Integration</Label>
+                <Select value={selectedIntegrationId} onValueChange={setSelectedIntegrationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select integration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {integrations.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label} • {item.platform}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-2 md:col-span-2">
+                <Label>New Integration Label</Label>
+                <Input
+                  placeholder="e.g. Support Bot"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Platform</Label>
+                <Select value={newPlatform} onValueChange={(value) => setNewPlatform(value as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TELEGRAM">Telegram</SelectItem>
+                    <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                    <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
+                    <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Platform</Label>
-              <Select value={newPlatform} onValueChange={(value) => setNewPlatform(value as any)}>
+              <Label>Workflow Scope</Label>
+              <Select value={newScope} onValueChange={(value) => setNewScope(value as any)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
+                  <SelectValue placeholder="Select scope" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TELEGRAM">Telegram</SelectItem>
-                  <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
-                  <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
-                  <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                  <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
+                  <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
+                  <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
-              {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Integration
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            {newScope === "SINGLE_WORKFLOW" && (
+              <div className="space-y-2">
+                <Label>Scoped Workflow</Label>
+                <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select workflow" />
+                  </SelectTrigger>
+                  <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="none">None</SelectItem>
+                    {workflows.map((workflow) => (
+                      <SelectItem key={workflow.id} value={workflow.id}>
+                        {workflow.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {newScope === "ALLOW_LIST" && (
+              <div className="space-y-2">
+                <Label>Allowed Workflows</Label>
+                <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {workflows.map((workflow) => {
+                      const checked = newAllowedWorkflowIds.includes(workflow.id);
+                      return (
+                        <label
+                          key={workflow.id}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setNewAllowedWorkflowIds((current) =>
+                                e.target.checked
+                                  ? Array.from(new Set([...current, workflow.id]))
+                                  : current.filter((id) => id !== workflow.id)
+                              );
+                            }}
+                          />
+                          <span>{workflow.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
+                {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create Integration
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Header */}
       {/* <Card>
         <CardHeader>
@@ -406,17 +662,17 @@ export function OpenClawSetup() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <img
-                  src="https://openclaw.ai/favicon.ico"
-                  alt="OpenClaw"
+                  src="https://chatIntegration.ai/favicon.ico"
+                  alt="ChatIntegration"
                   className="h-6 w-6"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
                 />
-                OpenClaw Setup
+                ChatIntegration Setup
               </CardTitle>
               <CardDescription>
-                Verxio hosts the OpenClaw gateway so users never install anything.
+                Verxio hosts the ChatIntegration gateway so users never install anything.
               </CardDescription>
             </div>
             <Badge variant={integration?.isActive ? "default" : "secondary"}>
@@ -578,7 +834,7 @@ export function OpenClawSetup() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Settings</CardTitle>
-          <CardDescription>Control how OpenClaw can interact with your workflows.</CardDescription>
+          <CardDescription>Control how ChatIntegration can interact with your workflows.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -634,7 +890,7 @@ export function OpenClawSetup() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select workflow" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                   <SelectItem value="none">None</SelectItem>
                   {workflows.map((workflow) => (
                     <SelectItem key={workflow.id} value={workflow.id}>
@@ -649,23 +905,25 @@ export function OpenClawSetup() {
           {integration?.scope === "ALLOW_LIST" && (
             <div className="space-y-2">
               <Label>Allowed Workflows</Label>
-              <div className="grid gap-2 md:grid-cols-2">
-                {workflows.map((workflow) => {
-                  const checked = integration?.allowedWorkflowIds?.includes(workflow.id) || false;
-                  return (
-                    <label
-                      key={workflow.id}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => handleAllowListToggle(workflow.id, e.target.checked)}
-                      />
-                      <span>{workflow.name}</span>
-                    </label>
-                  );
-                })}
+              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
+                <div className="grid gap-2 md:grid-cols-2">
+                  {workflows.map((workflow) => {
+                    const checked = integration?.allowedWorkflowIds?.includes(workflow.id) || false;
+                    return (
+                      <label
+                        key={workflow.id}
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => handleAllowListToggle(workflow.id, e.target.checked)}
+                        />
+                        <span>{workflow.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -674,7 +932,7 @@ export function OpenClawSetup() {
             <div>
               <Label>Integration Active</Label>
               <p className="text-sm text-muted-foreground">
-                Enable or disable the OpenClaw integration.
+                Enable or disable the Chat Integration integration.
               </p>
             </div>
             <Switch
@@ -688,7 +946,7 @@ export function OpenClawSetup() {
             <div>
               <Label>Allow Plan Mode</Label>
               <p className="text-sm text-muted-foreground">
-                Let OpenClaw create and modify workflows using plan mode.
+                Let ChatIntegration create and modify workflows using plan mode.
               </p>
             </div>
             <Switch
@@ -702,7 +960,7 @@ export function OpenClawSetup() {
             <div>
               <Label>Allow Workflow Execution</Label>
               <p className="text-sm text-muted-foreground">
-                Let OpenClaw trigger workflow runs from chat commands.
+                Let ChatIntegration trigger workflow runs from chat commands.
               </p>
             </div>
             <Switch
@@ -738,99 +996,90 @@ export function OpenClawSetup() {
       {/* Advanced */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Advanced</CardTitle>
-          <CardDescription>Show technical configuration details if needed.</CardDescription>
+          <CardTitle className="text-base">Configuration</CardTitle>
+          <CardDescription>Webhook URL and shared secret for your chat integration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Switch checked={showAdvanced} onCheckedChange={setShowAdvanced} />
-            <Label>Show advanced configuration</Label>
-          </div>
-          {showAdvanced && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Webhook URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={integration?.webhookUrl || ""}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Shared Secret</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type={showSecret ? "text" : "password"}
-                    value={
-                      secretLoading
-                        ? "Loading..."
-                        : showSecret
-                          ? secretData?.sharedSecret || ""
-                          : integration?.secretPreview || "••••••••••••"
-                    }
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button variant="outline" size="icon" onClick={() => setShowSecret(!showSecret)}>
-                    {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  {showSecret && (
-                    <Button variant="outline" size="icon" onClick={handleCopySecret}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Add this secret to the X-OpenClaw-Secret header in your OpenClaw config.
-                  </p>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-xs">
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                        Regenerate
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Regenerate Shared Secret?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will invalidate your current secret. You&apos;ll need to update your
-                          OpenClaw configuration with the new secret.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleRegenerateSecret}
-                          disabled={regenerateSecret.isPending}
-                        >
-                          {regenerateSecret.isPending && (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          )}
-                          Regenerate
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-                {secretJustRegenerated && (
-                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                      <strong>Important:</strong> Copy the new secret above and update your OpenClaw
-                      configuration. The old secret will no longer work.
-                    </p>
-                  </div>
-                )}
-              </div>
+          <div className="space-y-2">
+            <Label>Webhook URL</Label>
+            <div className="flex gap-2">
+              <Input
+                value={integration?.webhookUrl || ""}
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
+                <Copy className="h-4 w-4" />
+              </Button>
             </div>
-          )}
+          </div>
+          <div className="space-y-2">
+            <Label>Shared Secret</Label>
+            <div className="flex gap-2">
+              <Input
+                type={showSecret ? "text" : "password"}
+                value={
+                  secretLoading
+                    ? "Loading..."
+                    : showSecret
+                      ? secretData?.sharedSecret || ""
+                      : integration?.secretPreview || "••••••••••••"
+                }
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button variant="outline" size="icon" onClick={() => setShowSecret(!showSecret)}>
+                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+              {showSecret && (
+                <Button variant="outline" size="icon" onClick={handleCopySecret}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Add this secret to the X-ChatIntegration-Secret header in your ChatIntegration config.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Regenerate
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Regenerate Shared Secret?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will invalidate your current secret. You&apos;ll need to update your
+                      ChatIntegration configuration with the new secret.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleRegenerateSecret}
+                      disabled={regenerateSecret.isPending}
+                    >
+                      {regenerateSecret.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
+                      Regenerate
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            {secretJustRegenerated && (
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  <strong>Important:</strong> Copy the new secret above and update your ChatIntegration
+                  configuration. The old secret will no longer work.
+                </p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -838,7 +1087,7 @@ export function OpenClawSetup() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Linked Accounts</CardTitle>
-          <CardDescription>Accounts linked to Verxio through OpenClaw.</CardDescription>
+          <CardDescription>Accounts linked to Verxio through ChatIntegration.</CardDescription>
         </CardHeader>
         <CardContent>
           {identities.length === 0 ? (
@@ -910,44 +1159,6 @@ export function OpenClawSetup() {
           )}
         </CardContent>
       </Card>
-
-      {/* Danger Zone */}
-      <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
-          <CardDescription>Irreversible actions for your OpenClaw integration</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Integration
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete OpenClaw Integration?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete your OpenClaw integration and unlink all connected
-                  accounts. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteIntegration}
-                  disabled={deleteIntegration.isPending}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {deleteIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Delete Integration
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -956,7 +1167,7 @@ export function OpenClawSetup() {
 // Loading Skeleton
 // ============================================
 
-function OpenClawSetupSkeleton() {
+function ChatIntegrationsSetupSkeleton() {
   return (
     <div className="space-y-6">
       <Card>

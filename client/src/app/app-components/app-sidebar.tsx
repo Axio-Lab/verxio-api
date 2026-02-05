@@ -8,10 +8,10 @@ import {
   LayoutTemplate,
   LogOutIcon,
   Loader2,
-  MessageSquare,
-  PlugIcon,
-  SparklesIcon,
+  // PlugIcon,
+  // SparklesIcon,
   StarIcon,
+  Cable,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -55,15 +55,15 @@ const menuItems = [
         url: "/credentials",
         icon: <KeyIcon />,
       },
+      // {
+      //   title: "Connections",
+      //   url: "/connections",
+      //   icon: <PlugIcon />,
+      // },
       {
-        title: "Connections",
-        url: "/connections",
-        icon: <PlugIcon />,
-      },
-      {
-        title: "OpenClaw",
-        url: "/openclaw",
-        icon: <MessageSquare />,
+        title: "Integrations",
+        url: "/integrations",
+        icon: <Cable />,
       },
     ],
   },

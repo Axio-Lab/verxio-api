@@ -1,16 +1,28 @@
 import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
-import { openclawAuthMiddleware } from "../middleware/openclawAuth";
+import { chatIntegrationAuthMiddleware } from "../middleware/chatIntegrationAuth";
 import { AppError } from "../middleware/errorHandler";
-import * as openclawService from "../services/openclawService";
+import * as chatIntegrationService from "../services/chatIntegrationService";
 
-export const openclawRouter: Router = Router();
+export const chatIntegrationRouter: Router = Router();
+
+/** Return webhook URL for API responses; for Telegram, derive from integration id when not yet stored. */
+function getEffectiveWebhookUrl(integration: {
+  webhookUrl?: string | null;
+  platform: string;
+  id: string;
+}) {
+  if (integration.webhookUrl) return integration.webhookUrl;
+  if (integration.platform === "TELEGRAM")
+    return chatIntegrationService.getHostedTelegramWebhookUrl(integration.id);
+  return null;
+}
 
 async function requireSingleIntegration(userId: string) {
-  const integrations = await openclawService.listIntegrations(userId);
+  const integrations = await chatIntegrationService.listIntegrations(userId);
   if (integrations.length === 0) {
-    throw new AppError("No OpenClaw integration found.", 404);
+    throw new AppError("No chat integration found.", 404);
   }
   if (integrations.length > 1) {
     throw new AppError("Multiple integrations found. Please specify an integration ID.", 400);
@@ -23,16 +35,16 @@ async function requireSingleIntegration(userId: string) {
 // ============================================
 
 /**
- * GET /api/openclaw/integrations
- * List user's OpenClaw integrations
+ * GET /api/chat-integrations/integrations
+ * List user's chat integrations
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/integrations",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const integrations = await openclawService.listIntegrations(user.id);
+      const integrations = await chatIntegrationService.listIntegrations(user.id);
       res.json({
         success: true,
         integrations: integrations.map((integration: any) => ({
@@ -42,7 +54,7 @@ openclawRouter.get(
           scope: integration.scope,
           scopeWorkflowId: integration.scopeWorkflowId,
           allowedWorkflowIds: integration.allowedWorkflowIds,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
           isActive: integration.isActive,
           defaultWorkflowId: integration.defaultWorkflowId,
@@ -61,10 +73,10 @@ openclawRouter.get(
 );
 
 /**
- * POST /api/openclaw/integrations
+ * POST /api/chat-integrations/integrations
  * Create a new integration
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integrations",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -85,7 +97,7 @@ openclawRouter.post(
         throw new AppError("Integration label is required", 400);
       }
 
-      const integration = await openclawService.createIntegration(user.id, {
+      const integration = await chatIntegrationService.createIntegration(user.id, {
         label: label.trim(),
         platform,
         scope,
@@ -105,7 +117,7 @@ openclawRouter.post(
           scope: integration.scope,
           scopeWorkflowId: integration.scopeWorkflowId,
           allowedWorkflowIds: integration.allowedWorkflowIds,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
           isActive: integration.isActive,
           defaultWorkflowId: integration.defaultWorkflowId,
@@ -121,17 +133,17 @@ openclawRouter.post(
 );
 
 /**
- * GET /api/openclaw/integrations/:id
+ * GET /api/chat-integrations/integrations/:id
  * Get integration details
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/integrations/:id",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const integration = await openclawService.getIntegration(user.id, id);
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
       if (!integration) {
         throw new AppError("Integration not found", 404);
       }
@@ -145,7 +157,7 @@ openclawRouter.get(
           scope: integration.scope,
           scopeWorkflowId: integration.scopeWorkflowId,
           allowedWorkflowIds: integration.allowedWorkflowIds,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
           isActive: integration.isActive,
           defaultWorkflowId: integration.defaultWorkflowId,
@@ -164,17 +176,17 @@ openclawRouter.get(
 );
 
 /**
- * GET /api/openclaw/integrations/:id/secret
+ * GET /api/chat-integrations/integrations/:id/secret
  * Get the full shared secret (use sparingly)
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/integrations/:id/secret",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const integration = await openclawService.getIntegration(user.id, id);
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
       if (!integration) {
         throw new AppError("Integration not found", 404);
       }
@@ -182,7 +194,7 @@ openclawRouter.get(
       res.json({
         success: true,
         sharedSecret: integration.sharedSecret,
-        webhookUrl: integration.webhookUrl,
+        webhookUrl: getEffectiveWebhookUrl(integration),
       });
     } catch (error) {
       next(error);
@@ -191,10 +203,10 @@ openclawRouter.get(
 );
 
 /**
- * PUT /api/openclaw/integrations/:id
+ * PUT /api/chat-integrations/integrations/:id
  * Update integration settings
  */
-openclawRouter.put(
+chatIntegrationRouter.put(
   "/integrations/:id",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -214,7 +226,7 @@ openclawRouter.put(
         telegramBotToken,
       } = req.body;
 
-      const integration = await openclawService.updateIntegration(user.id, id, {
+      const integration = await chatIntegrationService.updateIntegration(user.id, id, {
         label,
         platform,
         scope,
@@ -250,10 +262,10 @@ openclawRouter.put(
 );
 
 /**
- * POST /api/openclaw/integrations/:id/telegram/token
+ * POST /api/chat-integrations/integrations/:id/telegram/token
  * Save Telegram bot token and configure hosted webhook
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integrations/:id/telegram/token",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -266,7 +278,7 @@ openclawRouter.post(
         throw new AppError("Telegram bot token is required", 400);
       }
 
-      const integration = await openclawService.saveTelegramBotToken(
+      const integration = await chatIntegrationService.saveTelegramBotToken(
         user.id,
         id,
         telegramBotToken.trim()
@@ -278,7 +290,7 @@ openclawRouter.post(
         integration: {
           id: integration.id,
           telegramBotTokenSet: !!integration.telegramBotToken,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
         },
       });
     } catch (error) {
@@ -288,21 +300,22 @@ openclawRouter.post(
 );
 
 /**
- * POST /api/openclaw/integrations/:id/regenerate-secret
+ * POST /api/chat-integrations/integrations/:id/regenerate-secret
  * Regenerate the shared secret
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integrations/:id/regenerate-secret",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const newSecret = await openclawService.regenerateSecret(user.id, id);
+      const newSecret = await chatIntegrationService.regenerateSecret(user.id, id);
 
       res.json({
         success: true,
-        message: "Shared secret regenerated successfully. Update your OpenClaw configuration.",
+        message:
+          "Shared secret regenerated successfully. Update your chat integration configuration.",
         sharedSecret: newSecret,
       });
     } catch (error) {
@@ -312,17 +325,17 @@ openclawRouter.post(
 );
 
 /**
- * DELETE /api/openclaw/integrations/:id
+ * DELETE /api/chat-integrations/integrations/:id
  * Delete an integration and linked identities
  */
-openclawRouter.delete(
+chatIntegrationRouter.delete(
   "/integrations/:id",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      await openclawService.deleteIntegration(user.id, id);
+      await chatIntegrationService.deleteIntegration(user.id, id);
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -331,17 +344,17 @@ openclawRouter.delete(
 );
 
 /**
- * POST /api/openclaw/integrations/:id/test
+ * POST /api/chat-integrations/integrations/:id/test
  * Test integration connection
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integrations/:id/test",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const result = await openclawService.testConnection(user.id, id);
+      const result = await chatIntegrationService.testConnection(user.id, id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -350,10 +363,10 @@ openclawRouter.post(
 );
 
 /**
- * GET /api/openclaw/integration
- * Get the user's OpenClaw integration settings
+ * GET /api/chat-integrations/integration
+ * Get the user's chat integration settings
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/integration",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -371,7 +384,7 @@ openclawRouter.get(
           scope: integration.scope,
           scopeWorkflowId: integration.scopeWorkflowId,
           allowedWorkflowIds: integration.allowedWorkflowIds,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
           isActive: integration.isActive,
           defaultWorkflowId: integration.defaultWorkflowId,
@@ -390,10 +403,10 @@ openclawRouter.get(
 );
 
 /**
- * GET /api/openclaw/integration/secret
+ * GET /api/chat-integrations/integration/secret
  * Get the full shared secret (use sparingly, for initial setup)
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/integration/secret",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -404,7 +417,7 @@ openclawRouter.get(
       res.json({
         success: true,
         sharedSecret: integration.sharedSecret,
-        webhookUrl: integration.webhookUrl,
+        webhookUrl: getEffectiveWebhookUrl(integration),
       });
     } catch (error) {
       next(error);
@@ -413,10 +426,10 @@ openclawRouter.get(
 );
 
 /**
- * PUT /api/openclaw/integration
+ * PUT /api/chat-integrations/integration
  * Update integration settings
  */
-openclawRouter.put(
+chatIntegrationRouter.put(
   "/integration",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -431,13 +444,17 @@ openclawRouter.put(
       } = req.body;
 
       const integrationToUpdate = await requireSingleIntegration(user.id);
-      const integration = await openclawService.updateIntegration(user.id, integrationToUpdate.id, {
-        isActive,
-        defaultWorkflowId,
-        allowPlanMode,
-        allowWorkflowExecution,
-        telegramBotToken,
-      });
+      const integration = await chatIntegrationService.updateIntegration(
+        user.id,
+        integrationToUpdate.id,
+        {
+          isActive,
+          defaultWorkflowId,
+          allowPlanMode,
+          allowWorkflowExecution,
+          telegramBotToken,
+        }
+      );
 
       res.json({
         success: true,
@@ -462,10 +479,10 @@ openclawRouter.put(
 );
 
 /**
- * POST /api/openclaw/telegram/token
+ * POST /api/chat-integrations/telegram/token
  * Save Telegram bot token and configure hosted webhook
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/telegram/token",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -478,7 +495,7 @@ openclawRouter.post(
       }
 
       const integrationToUpdate = await requireSingleIntegration(user.id);
-      const integration = await openclawService.saveTelegramBotToken(
+      const integration = await chatIntegrationService.saveTelegramBotToken(
         user.id,
         integrationToUpdate.id,
         telegramBotToken.trim()
@@ -490,7 +507,7 @@ openclawRouter.post(
         integration: {
           id: integration.id,
           telegramBotTokenSet: !!integration.telegramBotToken,
-          webhookUrl: integration.webhookUrl,
+          webhookUrl: getEffectiveWebhookUrl(integration),
         },
       });
     } catch (error) {
@@ -500,21 +517,25 @@ openclawRouter.post(
 );
 
 /**
- * POST /api/openclaw/integration/regenerate-secret
+ * POST /api/chat-integrations/integration/regenerate-secret
  * Regenerate the shared secret
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integration/regenerate-secret",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const integrationToUpdate = await requireSingleIntegration(user.id);
-      const newSecret = await openclawService.regenerateSecret(user.id, integrationToUpdate.id);
+      const newSecret = await chatIntegrationService.regenerateSecret(
+        user.id,
+        integrationToUpdate.id
+      );
 
       res.json({
         success: true,
-        message: "Shared secret regenerated successfully. Update your OpenClaw configuration.",
+        message:
+          "Shared secret regenerated successfully. Update your chat integration configuration.",
         sharedSecret: newSecret,
       });
     } catch (error) {
@@ -524,21 +545,21 @@ openclawRouter.post(
 );
 
 /**
- * DELETE /api/openclaw/integration
+ * DELETE /api/chat-integrations/integration
  * Delete the integration and all linked identities
  */
-openclawRouter.delete(
+chatIntegrationRouter.delete(
   "/integration",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const integrationToDelete = await requireSingleIntegration(user.id);
-      await openclawService.deleteIntegration(user.id, integrationToDelete.id);
+      await chatIntegrationService.deleteIntegration(user.id, integrationToDelete.id);
 
       res.json({
         success: true,
-        message: "OpenClaw integration deleted successfully.",
+        message: "chat integration deleted successfully.",
       });
     } catch (error) {
       next(error);
@@ -547,17 +568,17 @@ openclawRouter.delete(
 );
 
 /**
- * POST /api/openclaw/integration/test
+ * POST /api/chat-integrations/integration/test
  * Test the integration connection
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/integration/test",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const integrationToTest = await requireSingleIntegration(user.id);
-      const result = await openclawService.testConnection(user.id, integrationToTest.id);
+      const result = await chatIntegrationService.testConnection(user.id, integrationToTest.id);
 
       res.json(result);
     } catch (error) {
@@ -571,17 +592,17 @@ openclawRouter.post(
 // ============================================
 
 /**
- * GET /api/openclaw/identities
+ * GET /api/chat-integrations/identities
  * Get all linked external identities for the user
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/identities",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const integrationId = req.query.integrationId as string | undefined;
-      const identities = await openclawService.getExternalIdentities(user.id, integrationId);
+      const identities = await chatIntegrationService.getExternalIdentities(user.id, integrationId);
 
       res.json({
         success: true,
@@ -594,10 +615,10 @@ openclawRouter.get(
 );
 
 /**
- * POST /api/openclaw/identities/link
+ * POST /api/chat-integrations/identities/link
  * Link a new external identity (for manual linking via dashboard)
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/identities/link",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -609,7 +630,7 @@ openclawRouter.post(
         throw new AppError("Platform and external ID are required", 400);
       }
 
-      const identity = await openclawService.linkExternalIdentity(
+      const identity = await chatIntegrationService.linkExternalIdentity(
         user.id,
         platform,
         externalId,
@@ -630,10 +651,10 @@ openclawRouter.post(
 );
 
 /**
- * DELETE /api/openclaw/identities/:platform/:externalId
+ * DELETE /api/chat-integrations/identities/:platform/:externalId
  * Unlink an external identity
  */
-openclawRouter.delete(
+chatIntegrationRouter.delete(
   "/identities/:platform/:externalId",
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
@@ -642,7 +663,12 @@ openclawRouter.delete(
       const { platform, externalId } = req.params;
       const integrationId = req.query.integrationId as string | undefined;
 
-      await openclawService.unlinkExternalIdentity(user.id, platform, externalId, integrationId);
+      await chatIntegrationService.unlinkExternalIdentity(
+        user.id,
+        platform,
+        externalId,
+        integrationId
+      );
 
       res.json({
         success: true,
@@ -655,24 +681,24 @@ openclawRouter.delete(
 );
 
 // ============================================
-// Hosted Telegram Webhook (no OpenClaw required)
+// Hosted Telegram Webhook (no chat integration required)
 // ============================================
 
 /**
- * POST /api/openclaw/telegram/webhook/:integrationId
+ * POST /api/chat-integrations/telegram/webhook/:integrationId
  * Receive Telegram updates directly and respond using hosted gateway mode.
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/telegram/webhook/:integrationId",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { integrationId } = req.params;
       const telegramUpdate = req.body;
 
-      const resolvedIntegration = await openclawService.getIntegrationById(integrationId);
+      const resolvedIntegration = await chatIntegrationService.getIntegrationById(integrationId);
 
       if (!resolvedIntegration) {
-        throw new AppError("OpenClaw integration not found", 404);
+        throw new AppError("chat integration not found", 404);
       }
       if (resolvedIntegration.platform !== "TELEGRAM") {
         throw new AppError("This integration is not configured for Telegram.", 400);
@@ -726,7 +752,7 @@ openclawRouter.post(
 
       // Auto-link external identity if not already linked
       try {
-        await openclawService.linkExternalIdentity(
+        await chatIntegrationService.linkExternalIdentity(
           userId,
           "telegram",
           senderId,
@@ -738,8 +764,8 @@ openclawRouter.post(
         // Ignore if already linked to same user
       }
 
-      // Process message through OpenClaw logic
-      const result = await openclawService.processMessage(userId, resolvedIntegration, {
+      // Process message through chat integration logic
+      const result = await chatIntegrationService.processMessage(userId, resolvedIntegration, {
         platform: "telegram",
         externalId: senderId,
         externalName: senderName,
@@ -753,7 +779,7 @@ openclawRouter.post(
 
       // Send response back to Telegram
       if (result?.message) {
-        const formatted = openclawService.formatTelegramMessage(result.message);
+        const formatted = chatIntegrationService.formatTelegramMessage(result.message);
         await fetch(
           `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
           {
@@ -776,31 +802,31 @@ openclawRouter.post(
 );
 
 // ============================================
-// Telegram Message Routes (require OpenClaw Auth)
+// Telegram Message Routes (require Chat Integration Auth)
 // ============================================
 
 /**
- * POST /api/openclaw/telegram/message
- * Process incoming Telegram message from OpenClaw
+ * POST /api/chat-integrations/telegram/message
+ * Process incoming Telegram message from ChatIntegration
  *
- * This is the main endpoint that OpenClaw calls with user messages.
+ * This is the main endpoint that chat integration calls with user messages.
  * It uses the shared secret for authentication.
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/telegram/message",
-  openclawAuthMiddleware,
+  chatIntegrationAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const integration = (req as any).openclawIntegration;
+      const integration = (req as any).chatIntegration;
       const { message, senderId, senderName, attachments, metadata } = req.body;
 
       if (!message || typeof message !== "string") {
         throw new AppError("Message is required", 400);
       }
 
-      // Build the OpenClaw message object
-      const openclawMessage: openclawService.OpenClawMessage = {
+      // Build the ChatIntegration message object
+      const chatIntegrationMessage: chatIntegrationService.ChatIntegrationMessage = {
         platform: "telegram",
         externalId: senderId || (req as any).externalIdentity?.externalId || "unknown",
         externalName: senderName || (req as any).externalIdentity?.externalName,
@@ -810,7 +836,11 @@ openclawRouter.post(
       };
 
       // Process the message
-      const result = await openclawService.processMessage(user.id, integration, openclawMessage);
+      const result = await chatIntegrationService.processMessage(
+        user.id,
+        integration,
+        chatIntegrationMessage
+      );
 
       res.json(result);
     } catch (error) {
@@ -820,16 +850,16 @@ openclawRouter.post(
 );
 
 /**
- * POST /api/openclaw/telegram/message/stream
+ * POST /api/chat-integrations/telegram/message/stream
  * Process incoming Telegram message with SSE streaming
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/telegram/message/stream",
-  openclawAuthMiddleware,
+  chatIntegrationAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const integration = (req as any).openclawIntegration;
+      const integration = (req as any).chatIntegration;
       const { message, senderId, senderName, attachments, metadata } = req.body;
 
       if (!message || typeof message !== "string") {
@@ -843,7 +873,7 @@ openclawRouter.post(
         Connection: "keep-alive",
       });
 
-      const openclawMessage: openclawService.OpenClawMessage = {
+      const chatIntegrationMessage: chatIntegrationService.ChatIntegrationMessage = {
         platform: "telegram",
         externalId: senderId || (req as any).externalIdentity?.externalId || "unknown",
         externalName: senderName || (req as any).externalIdentity?.externalName,
@@ -853,10 +883,10 @@ openclawRouter.post(
       };
 
       try {
-        for await (const event of openclawService.processMessageStreaming(
+        for await (const event of chatIntegrationService.processMessageStreaming(
           user.id,
           integration,
-          openclawMessage
+          chatIntegrationMessage
         )) {
           res.write(`data: ${JSON.stringify(event)}\n\n`);
         }
@@ -879,15 +909,15 @@ openclawRouter.post(
 );
 
 /**
- * POST /api/openclaw/telegram/link
- * Link a Telegram user to a Verxio account via OpenClaw
+ * POST /api/chat-integrations/telegram/link
+ * Link a Telegram user to a Verxio account via ChatIntegration
  *
- * Called by OpenClaw when a user wants to link their Telegram account.
+ * Called by chat integration when a user wants to link their Telegram account.
  * This creates an external identity mapping.
  */
-openclawRouter.post(
+chatIntegrationRouter.post(
   "/telegram/link",
-  openclawAuthMiddleware,
+  chatIntegrationAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
@@ -900,7 +930,7 @@ openclawRouter.post(
 
       const fullName = [telegramFirstName, telegramLastName].filter(Boolean).join(" ");
 
-      const identity = await openclawService.linkExternalIdentity(
+      const identity = await chatIntegrationService.linkExternalIdentity(
         user.id,
         "telegram",
         telegramId.toString(),
@@ -930,16 +960,16 @@ openclawRouter.post(
 );
 
 /**
- * GET /api/openclaw/telegram/status
+ * GET /api/chat-integrations/telegram/status
  * Check the link status for a Telegram user
  */
-openclawRouter.get(
+chatIntegrationRouter.get(
   "/telegram/status",
-  openclawAuthMiddleware,
+  chatIntegrationAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const integration = (req as any).openclawIntegration;
+      const integration = (req as any).chatIntegration;
       const externalIdentity = (req as any).externalIdentity;
 
       res.json({

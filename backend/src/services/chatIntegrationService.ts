@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { generateSharedSecret } from "../middleware/openclawAuth";
+import { generateSharedSecret } from "../middleware/chatIntegrationAuth";
 import { sendPlanningMessage, sendPlanningMessageStreaming } from "./planningService";
 import { simpleAgentQuery } from "./claude-agent/claudeAgentService";
 import * as workflowService from "./workflowService";
@@ -7,9 +7,9 @@ import * as credentialService from "./credentialService";
 import { inngest } from "../inngest";
 
 /**
- * OpenClaw Integration Service
+ * Chat Integration Integration Service
  *
- * Handles all OpenClaw-related operations including:
+ * Handles all ChatIntegration-related operations including:
  * - Integration setup and management
  * - External identity linking
  * - Message processing (plan mode, workflow execution)
@@ -23,14 +23,14 @@ import { inngest } from "../inngest";
  * List integrations for a user
  */
 export async function listIntegrations(userId: string) {
-  return (prisma as any).openClawIntegration.findMany({
+  return (prisma as any).chatIntegration.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
   });
 }
 
 /**
- * Create a new OpenClaw integration for a user
+ * Create a new Chat Integration integration for a user
  */
 export async function createIntegration(
   userId: string,
@@ -46,7 +46,7 @@ export async function createIntegration(
   }
 ) {
   const secret = generateSharedSecret();
-  return (prisma as any).openClawIntegration.create({
+  return (prisma as any).chatIntegration.create({
     data: {
       userId,
       label: data.label,
@@ -67,7 +67,7 @@ export async function createIntegration(
  * Get integration for a user by ID
  */
 export async function getIntegration(userId: string, integrationId: string) {
-  return (prisma as any).openClawIntegration.findFirst({
+  return (prisma as any).chatIntegration.findFirst({
     where: { id: integrationId, userId },
   });
 }
@@ -76,7 +76,7 @@ export async function getIntegration(userId: string, integrationId: string) {
  * Get integration by ID
  */
 export async function getIntegrationById(id: string) {
-  return (prisma as any).openClawIntegration.findUnique({
+  return (prisma as any).chatIntegration.findUnique({
     where: { id },
   });
 }
@@ -103,10 +103,10 @@ export async function updateIntegration(
 ) {
   const existing = await getIntegration(userId, integrationId);
   if (!existing) {
-    throw new Error("OpenClaw integration not found.");
+    throw new Error("Chat Integration integration not found.");
   }
 
-  return (prisma as any).openClawIntegration.update({
+  return (prisma as any).chatIntegration.update({
     where: { id: integrationId },
     data,
   });
@@ -117,7 +117,7 @@ export async function updateIntegration(
  */
 export function getHostedTelegramWebhookUrl(integrationId: string) {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
-  return `${backendUrl}/api/openclaw/telegram/webhook/${integrationId}`;
+  return `${backendUrl}/api/chat-integration/telegram/webhook/${integrationId}`;
 }
 
 /**
@@ -163,7 +163,7 @@ export async function saveTelegramBotToken(
 ) {
   const integration = await getIntegration(userId, integrationId);
   if (!integration) {
-    throw new Error("OpenClaw integration not found.");
+    throw new Error("Chat Integration integration not found.");
   }
   if (integration.platform !== "TELEGRAM") {
     throw new Error("Telegram token can only be set for TELEGRAM integrations.");
@@ -175,7 +175,7 @@ export async function saveTelegramBotToken(
     integration.sharedSecret
   );
 
-  return (prisma as any).openClawIntegration.update({
+  return (prisma as any).chatIntegration.update({
     where: { id: integration.id },
     data: {
       telegramBotToken: botToken,
@@ -208,7 +208,7 @@ export async function getTelegramWebhookInfo(botToken: string) {
 export async function regenerateSecret(userId: string, integrationId: string) {
   const newSecret = generateSharedSecret();
 
-  await (prisma as any).openClawIntegration.update({
+  await (prisma as any).chatIntegration.update({
     where: { id: integrationId },
     data: { sharedSecret: newSecret },
   });
@@ -225,7 +225,7 @@ export async function deleteIntegration(userId: string, integrationId: string) {
     where: { userId, integrationId },
   });
 
-  return (prisma as any).openClawIntegration.delete({
+  return (prisma as any).chatIntegration.delete({
     where: { id: integrationId },
   });
 }
@@ -350,7 +350,7 @@ export async function findUserByExternalIdentity(
 // Message Processing
 // ============================================
 
-export interface OpenClawMessage {
+export interface ChatIntegrationMessage {
   platform: string;
   externalId: string;
   externalName?: string;
@@ -365,7 +365,7 @@ export interface OpenClawMessage {
   metadata?: Record<string, unknown>;
 }
 
-export interface OpenClawResponse {
+export interface ChatIntegrationResponse {
   success: boolean;
   type: "plan" | "workflow" | "link" | "error" | "info";
   message: string;
@@ -406,12 +406,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildWorkflowName(message: OpenClawMessage): string {
+function buildWorkflowName(message: ChatIntegrationMessage): string {
   const sender = message.externalName || message.externalId || "Unknown";
   const normalized = message.message.replace(/\s+/g, " ").trim();
   const words = normalized.split(" ").slice(0, 8).join(" ");
   const suffix = words ? ` - ${words}` : "";
-  return `OpenClaw ${sender}${suffix}`.slice(0, 80);
+  return `ChatIntegration ${sender}${suffix}`.slice(0, 80);
 }
 
 function buildResultSummaryBasic(output: Record<string, unknown>): string | null {
@@ -685,7 +685,7 @@ async function runWorkflowAndWait(options: {
       webhookHeaders: {},
     };
   } else {
-    eventData.data = { message, source: "openclaw" };
+    eventData.data = { message, source: "chat-integration" };
   }
 
   await inngest.send({
@@ -710,13 +710,13 @@ async function runWorkflowAndWait(options: {
 }
 
 /**
- * Process incoming message from OpenClaw
+ * Process incoming message from ChatIntegration
  */
 export async function processMessage(
   userId: string,
   integration: any,
-  message: OpenClawMessage
-): Promise<OpenClawResponse> {
+  message: ChatIntegrationMessage
+): Promise<ChatIntegrationResponse> {
   const text = message.message.trim();
   const lowerText = text.toLowerCase();
 
@@ -753,8 +753,8 @@ async function handleCommand(
   userId: string,
   integration: any,
   command: string,
-  message: OpenClawMessage
-): Promise<OpenClawResponse> {
+  message: ChatIntegrationMessage
+): Promise<ChatIntegrationResponse> {
   const parts = command.slice(1).split(" ");
   const cmd = parts[0].toLowerCase();
   const args = parts.slice(1).join(" ");
@@ -832,7 +832,7 @@ Just send a message to interact with the AI assistant. It can help you:
         success: true,
         type: "info",
         message:
-          "To link your Telegram account, please visit your Verxio dashboard and use the OpenClaw page to complete setup.",
+          "To link your Telegram account, please visit your Verxio dashboard and use the ChatIntegration page to complete setup.",
       };
 
     default:
@@ -850,8 +850,8 @@ Just send a message to interact with the AI assistant. It can help you:
 async function handlePlanMessage(
   userId: string,
   integration: any,
-  message: OpenClawMessage
-): Promise<OpenClawResponse> {
+  message: ChatIntegrationMessage
+): Promise<ChatIntegrationResponse> {
   try {
     // Get or use default workflow for planning
     let workflowId = integration.defaultWorkflowId;
@@ -908,7 +908,7 @@ async function handlePlanMessage(
       },
     };
   } catch (error) {
-    console.error("[OpenClaw] Plan message error:", error);
+    console.error("[ChatIntegration] Plan message error:", error);
     return {
       success: false,
       type: "error",
@@ -920,7 +920,10 @@ async function handlePlanMessage(
 /**
  * Handle listing workflows
  */
-async function handleListWorkflows(userId: string, integration: any): Promise<OpenClawResponse> {
+async function handleListWorkflows(
+  userId: string,
+  integration: any
+): Promise<ChatIntegrationResponse> {
   try {
     const result = await workflowService.getWorkflows(userId, 1, 100);
     const allowedIds = resolveAllowedWorkflowIds(integration);
@@ -950,7 +953,7 @@ async function handleListWorkflows(userId: string, integration: any): Promise<Op
       },
     };
   } catch (error) {
-    console.error("[OpenClaw] List workflows error:", error);
+    console.error("[ChatIntegration] List workflows error:", error);
     return {
       success: false,
       type: "error",
@@ -966,7 +969,7 @@ async function handleWorkflowDetails(
   userId: string,
   integration: any,
   workflowNameOrId: string
-): Promise<OpenClawResponse> {
+): Promise<ChatIntegrationResponse> {
   const trimmed = workflowNameOrId.trim();
   if (!trimmed) {
     return {
@@ -1015,7 +1018,7 @@ async function handleCreateWorkflow(
   userId: string,
   integration: any,
   name: string
-): Promise<OpenClawResponse> {
+): Promise<ChatIntegrationResponse> {
   const trimmed = name.trim();
   if (!trimmed) {
     return {
@@ -1056,7 +1059,7 @@ async function handleDeleteWorkflow(
   userId: string,
   integration: any,
   workflowNameOrId: string
-): Promise<OpenClawResponse> {
+): Promise<ChatIntegrationResponse> {
   const trimmed = workflowNameOrId.trim();
   if (!trimmed) {
     return {
@@ -1114,7 +1117,7 @@ async function handleDeleteWorkflow(
 /**
  * Handle credential listing
  */
-async function handleListCredentials(userId: string): Promise<OpenClawResponse> {
+async function handleListCredentials(userId: string): Promise<ChatIntegrationResponse> {
   const result = await credentialService.getCredentials(userId, 1, 50);
   if (result.credentials.length === 0) {
     return {
@@ -1138,7 +1141,7 @@ async function handleListCredentials(userId: string): Promise<OpenClawResponse> 
 /**
  * Handle credential creation
  */
-async function handleAddCredential(userId: string, args: string): Promise<OpenClawResponse> {
+async function handleAddCredential(userId: string, args: string): Promise<ChatIntegrationResponse> {
   const parts = args.split(" ").filter(Boolean);
   const type = parts[0];
   const name = parts[1];
@@ -1170,7 +1173,10 @@ async function handleAddCredential(userId: string, args: string): Promise<OpenCl
 /**
  * Handle credential deletion
  */
-async function handleDeleteCredential(userId: string, args: string): Promise<OpenClawResponse> {
+async function handleDeleteCredential(
+  userId: string,
+  args: string
+): Promise<ChatIntegrationResponse> {
   const id = args.trim();
   if (!id) {
     return {
@@ -1195,8 +1201,8 @@ async function handleRunWorkflow(
   userId: string,
   integration: any,
   workflowNameOrId: string,
-  message: OpenClawMessage
-): Promise<OpenClawResponse> {
+  message: ChatIntegrationMessage
+): Promise<ChatIntegrationResponse> {
   try {
     const trimmed = workflowNameOrId.trim();
     let workflow: any | null = null;
@@ -1210,7 +1216,7 @@ async function handleRunWorkflow(
           return {
             success: false,
             type: "error",
-            message: "Configured workflow not found. Update your OpenClaw integration.",
+            message: "Configured workflow not found. Update your Chat Integration integration.",
           };
         }
       } else {
@@ -1272,7 +1278,7 @@ async function handleRunWorkflow(
       return {
         success: false,
         type: "error",
-        message: "This workflow is not allowed for the current OpenClaw integration.",
+        message: "This workflow is not allowed for the current Chat Integration integration.",
       };
     }
 
@@ -1344,7 +1350,7 @@ async function handleRunWorkflow(
         workflowId: workflow.id,
         userId,
         data: {
-          source: "openclaw",
+          source: "chat-integration",
         },
       },
     });
@@ -1359,7 +1365,7 @@ async function handleRunWorkflow(
       },
     };
   } catch (error) {
-    console.error("[OpenClaw] Run workflow error:", error);
+    console.error("[ChatIntegration] Run workflow error:", error);
     return {
       success: false,
       type: "error",
@@ -1374,7 +1380,7 @@ async function handleRunWorkflow(
 export async function* processMessageStreaming(
   userId: string,
   integration: any,
-  message: OpenClawMessage
+  message: ChatIntegrationMessage
 ): AsyncGenerator<{ type: string; data?: unknown }> {
   const text = message.message.trim();
   const lowerText = text.toLowerCase();
@@ -1420,7 +1426,7 @@ export async function* processMessageStreaming(
       yield event;
     }
   } catch (error) {
-    console.error("[OpenClaw] Streaming error:", error);
+    console.error("[ChatIntegration] Streaming error:", error);
     yield {
       type: "error",
       data: error instanceof Error ? error.message : "Failed to process message",
@@ -1445,7 +1451,7 @@ export async function testConnection(
     if (!integration) {
       return {
         success: false,
-        message: "OpenClaw integration not found. Please set up the integration first.",
+        message: "Chat Integration integration not found. Please set up the integration first.",
       };
     }
     if (integration.platform !== "TELEGRAM") {
@@ -1459,7 +1465,7 @@ export async function testConnection(
     if (!integration.isActive) {
       return {
         success: false,
-        message: "OpenClaw integration is disabled.",
+        message: "Chat Integration integration is disabled.",
         integration,
       };
     }
@@ -1491,7 +1497,7 @@ export async function testConnection(
       },
     };
   } catch (error) {
-    console.error("[OpenClaw] Test connection error:", error);
+    console.error("[ChatIntegration] Test connection error:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Failed to test connection",

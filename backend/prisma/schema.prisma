@@ -275,7 +275,7 @@ model User {
   subscriptionFeatures  String[]             @default([]) // Array of feature IDs user has access to
   manualPayments        ManualPayment[]
   externalIdentities    ExternalIdentity[]
-  openClawIntegrations  OpenClawIntegration[]
+  chatIntegrations      ChatIntegration[]
 
   @@map("user")
 }
@@ -681,7 +681,7 @@ model ManualPayment {
 }
 
 // ============================================
-// External Identity Mapping (OpenClaw, Telegram, etc.)
+// External Identity Mapping (Chat Integrations, Telegram, etc.)
 // ============================================
 
 model ExternalIdentity {
@@ -689,7 +689,7 @@ model ExternalIdentity {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   integrationId   String?
-  integration     OpenClawIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  integration     ChatIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   platform        String   // "telegram", "discord", "slack", etc.
   externalId      String   // Platform-specific user ID (e.g., Telegram sender ID)
   externalName    String?  // Display name from the platform
@@ -709,26 +709,26 @@ model ExternalIdentity {
 }
 
 // ============================================
-// OpenClaw Integration Settings
+// Chat Integration Settings
 // ============================================
 
-model OpenClawIntegration {
+model ChatIntegration {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label           String   @default("OpenClaw Integration") // User-defined label
-  platform        OpenClawPlatform @default(TELEGRAM)
-  scope           OpenClawScope    @default(ALL_WORKFLOWS)
+  label           String   @default("Chat Integration") // User-defined label
+  platform        ChatPlatform @default(TELEGRAM)
+  scope           ChatScope    @default(ALL_WORKFLOWS)
   scopeWorkflowId String?  // Workflow ID for SINGLE_WORKFLOW scope
   allowedWorkflowIds String[] @default([]) // Workflow IDs for ALLOW_LIST scope
   /// @encrypted
-  sharedSecret    String   // Secret for authenticating incoming OpenClaw requests
+  sharedSecret    String   // Secret for authenticating incoming requests
   /// @encrypted
   telegramBotToken String? // Optional Telegram bot token for guided setup
   isActive        Boolean  @default(true)
-  webhookUrl      String?  // Generated webhook URL for OpenClaw to call
+  webhookUrl      String?  // Generated webhook URL for external services to call
   defaultWorkflowId String? // Optional default workflow to use
-  lastRunWorkflowId String? // Last workflow run via OpenClaw
+  lastRunWorkflowId String? // Last workflow run via chat integration
   allowPlanMode   Boolean  @default(true) // Allow plan mode interactions
   allowWorkflowExecution Boolean @default(true) // Allow direct workflow execution
   externalIdentities ExternalIdentity[]
@@ -740,17 +740,17 @@ model OpenClawIntegration {
   @@index([userId])
   @@index([platform])
   @@index([scope])
-  @@map("openclaw_integrations")
+  @@map("chat_integrations")
 }
 
-enum OpenClawPlatform {
+enum ChatPlatform {
   TELEGRAM
   WHATSAPP
   DISCORD
   SLACK
 }
 
-enum OpenClawScope {
+enum ChatScope {
   SINGLE_WORKFLOW
   ALL_WORKFLOWS
   ALLOW_LIST
