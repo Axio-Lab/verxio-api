@@ -14,6 +14,7 @@ import { voucherRouter } from "./routes/voucher";
 import { dealRouter } from "./routes/deal";
 import { workflowRouter } from "./routes/workflow";
 import { credentialRouter } from "./routes/credential";
+import { skillRouter } from "./routes/skill";
 import { connectionRouter } from "./routes/connections";
 import { googleFormRouter } from "./routes/triggers/google-form";
 import { airtableRouter } from "./routes/triggers/airtable";
@@ -61,9 +62,10 @@ const defaultOrigins = [
   "https://www.verxio.xyz",
   "https://verxio.xyz",
 ];
-const envOrigins = process.env.ALLOWED_ORIGINS?.split(",")
-  .map((o) => o.trim())
-  .filter(Boolean) || [];
+const envOrigins =
+  process.env.ALLOWED_ORIGINS?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) || [];
 const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 const serverPort = "8080";
 const serverOrigin = `http://localhost:${serverPort}`;
@@ -193,6 +195,7 @@ app.use("/workflow-generation", workflowGenerationRouter);
 app.use("/workflow-template", workflowTemplateRouter);
 app.use("/planning", planningRouter);
 app.use("/credential", credentialRouter);
+app.use("/skill", skillRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);
 app.use("/api/elevenlabs", elevenlabsRouter);

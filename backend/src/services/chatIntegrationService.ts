@@ -8,6 +8,7 @@ import {
 import { simpleAgentQuery } from "./claude-agent/claudeAgentService";
 import * as workflowService from "./workflowService";
 import * as credentialService from "./credentialService";
+import * as skillService from "./skillService";
 import { inngest } from "../inngest";
 
 /**
@@ -593,6 +594,19 @@ function resolveAllowedWorkflowIds(integration: any): string[] | null {
   return null;
 }
 
+/**
+ * Check if user has premium access (plan mode requires premium)
+ */
+function hasPremiumAccess(user: { subscriptionPlan?: string | null }): boolean {
+  const plan = user.subscriptionPlan?.toLowerCase();
+  // Free plan users don't have premium access
+  if (!plan || plan === "free") {
+    return false;
+  }
+  // Premium plans: pro, enterprise, beta-tester, etc.
+  return true;
+}
+
 function isWorkflowAllowed(integration: any, workflowId: string): boolean {
   const allowed = resolveAllowedWorkflowIds(integration);
   if (!allowed) return true;
@@ -815,6 +829,10 @@ async function handleCommand(
 /credentials - List your credentials
 /add-credential <TYPE> <NAME> <VALUE> - Add a credential
 /delete-credential <credential_id> - Delete a credential
+/skills - List your skills
+/add-skill <url> - Add a skill file from URL
+/update-skill <skill_id> <url> - Update a skill from URL
+/remove-skill <skill_id> - Remove a skill
 /status - Check integration status
 /link - Link your Telegram to Verxio (if not already linked)
 /clear - Clear workflow conversation history
@@ -879,6 +897,18 @@ Just send a message to interact with the AI assistant. It can help you:
 
     case "clear":
       return handleClearConversation(userId, integration);
+
+    case "add-skill":
+      return handleAddSkill(userId, args);
+
+    case "skills":
+      return handleListSkills(userId);
+
+    case "remove-skill":
+      return handleRemoveSkill(userId, args);
+
+    case "update-skill":
+      return handleUpdateSkill(userId, args);
 
     default:
       return {
@@ -1289,6 +1319,149 @@ async function handleDeleteCredential(
 }
 
 /**
+ * Handle adding a skill
+ */
+async function handleAddSkill(userId: string, args: string): Promise<ChatIntegrationResponse> {
+  const url = args.trim();
+  if (!url) {
+    return {
+      success: false,
+      type: "error",
+      message: "Usage: /add-skill <url>. Example: /add-skill https://solana.com/SKILL.md",
+    };
+  }
+
+  try {
+    const content = await skillService.fetchSkillFromUrl(url);
+    const metadata = skillService.parseSkillMetadata(content);
+    const skill = await skillService.createSkill({
+      userId,
+      name: metadata.name,
+      description: metadata.description,
+      url,
+      content,
+    });
+
+    return {
+      success: true,
+      type: "info",
+      message: `Skill added: **${skill.name}** — \`${skill.id}\``,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to add skill",
+    };
+  }
+}
+
+/**
+ * Handle listing skills
+ */
+async function handleListSkills(userId: string): Promise<ChatIntegrationResponse> {
+  try {
+    const result = await skillService.getSkills(userId, 1, 50);
+    if (result.skills.length === 0) {
+      return {
+        success: true,
+        type: "info",
+        message: "You don't have any skills yet. Use /add-skill <url> to add one.",
+      };
+    }
+
+    const skillList = result.skills
+      .map(
+        (skill) =>
+          `• **${skill.name}** — \`${skill.id}\`${skill.description ? `\n  ${skill.description}` : ""}`
+      )
+      .join("\n");
+
+    return {
+      success: true,
+      type: "info",
+      message: `**Your Skills (${result.total}):**\n\n${skillList}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to list skills",
+    };
+  }
+}
+
+/**
+ * Handle updating a skill
+ */
+async function handleUpdateSkill(userId: string, args: string): Promise<ChatIntegrationResponse> {
+  const parts = args.trim().split(/\s+/);
+  const id = parts[0];
+  const url = parts.slice(1).join(" ");
+
+  if (!id || !url) {
+    return {
+      success: false,
+      type: "error",
+      message:
+        "Usage: /update-skill <skill_id> <url>. Example: /update-skill cm123abc https://solana.com/SKILL.md",
+    };
+  }
+
+  try {
+    const content = await skillService.fetchSkillFromUrl(url);
+    const metadata = skillService.parseSkillMetadata(content);
+    const skill = await skillService.updateSkill(userId, id, {
+      name: metadata.name,
+      description: metadata.description,
+      url,
+      content,
+    });
+
+    return {
+      success: true,
+      type: "info",
+      message: `Skill updated: **${skill.name}** — \`${skill.id}\``,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to update skill",
+    };
+  }
+}
+
+/**
+ * Handle removing a skill
+ */
+async function handleRemoveSkill(userId: string, args: string): Promise<ChatIntegrationResponse> {
+  const id = args.trim();
+  if (!id) {
+    return {
+      success: false,
+      type: "error",
+      message: "Usage: /remove-skill <skill_id>",
+    };
+  }
+
+  try {
+    await skillService.deleteSkill(userId, id);
+    return {
+      success: true,
+      type: "info",
+      message: `Skill removed: \`${id}\``,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to remove skill",
+    };
+  }
+}
+
+/**
  * Handle running a workflow
  */
 async function handleRunWorkflow(
@@ -1498,6 +1671,28 @@ export async function* processMessageStreaming(
     return;
   }
 
+  // Check premium access before allowing plan mode
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionPlan: true },
+  });
+
+  if (!user || !hasPremiumAccess(user)) {
+    yield {
+      type: "complete",
+      data: {
+        success: false,
+        type: "error",
+        message: `**Plan Mode is a Premium Feature**
+
+Plan Mode (AI assistant) requires a premium subscription. Upgrade plan to use this feature.
+
+Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
+      },
+    };
+    return;
+  }
+
   try {
     let workflowId = integration.defaultWorkflowId;
 
@@ -1592,14 +1787,11 @@ export async function testConnection(
     }
 
     // Send a generic test message (no agent) so user can verify delivery without using tokens
-    const genericTestMessage =
-      "Connection test successful. Your Verxio integration is working.";
+    const genericTestMessage = "Connection test successful. Your Verxio integration is working.";
     let testMessageSent = false;
     try {
       const identities = await getExternalIdentities(userId, integrationId);
-      const telegramIdentity = identities.find(
-        (i: any) => i.platform === "telegram"
-      );
+      const telegramIdentity = identities.find((i: any) => i.platform === "telegram");
       const chatId =
         telegramIdentity?.metadata?.chatId != null
           ? String(telegramIdentity.metadata.chatId)

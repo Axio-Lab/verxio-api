@@ -12,6 +12,7 @@ import {
   // SparklesIcon,
   StarIcon,
   Cable,
+  BookOpen,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -64,6 +65,11 @@ const menuItems = [
         title: "Integrations",
         url: "/integrations",
         icon: <Cable />,
+      },
+      {
+        title: "Skills",
+        url: "/skills",
+        icon: <BookOpen />,
       },
     ],
   },

@@ -179,7 +179,9 @@ export function useUpdateChatIntegration(integrationId: string) {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
       toast.success("Integration settings updated");
     },
     onError: (error) => {
@@ -231,7 +233,9 @@ export function useSaveTelegramBotToken(integrationId: string) {
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
       toast.success(result.message);
     },
     onError: (error) => {
@@ -255,7 +259,9 @@ export function useRefreshTelegramWebhook(integrationId: string) {
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
       toast.success(result.message);
     },
     onError: (error) => {
@@ -306,7 +312,7 @@ export function useDeleteChatIntegration(integrationId: string) {
       queryClient.invalidateQueries({ queryKey: ["chatIntegration"] });
       toast.success("Integration deleted");
     },
-    onError: (error) => {   
+    onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete integration";
       toast.error(errorMessage);
     },
@@ -327,7 +333,9 @@ export function useTestChatIntegrationConnection(integrationId: string) {
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
       if (result.success) {
         toast.success(result.message);
       } else {

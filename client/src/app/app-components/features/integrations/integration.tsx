@@ -49,7 +49,11 @@ export const IntegrationsContainer = ({
       header={<IntegrationsHeader disabled={disabled} />}
       search={
         searchValue !== undefined && onSearchChange ? (
-          <EntitySearch value={searchValue} onChange={onSearchChange} placeholder="Search integrations" />
+          <EntitySearch
+            value={searchValue}
+            onChange={onSearchChange}
+            placeholder="Search integrations"
+          />
         ) : undefined
       }
     >

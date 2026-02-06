@@ -10,6 +10,7 @@ import { basePrismaClient } from "../../lib/prisma";
 import { NodeType } from "../../lib/node-types";
 import { inngest } from "../../inngest";
 import * as connectionService from "../connectionService";
+import * as skillService from "../skillService";
 
 const prisma = basePrismaClient as any;
 
@@ -1529,6 +1530,160 @@ export const createMultipleVideoNodesTool: VerxioTool = {
 };
 
 // ============================================
+// Tool: Get Skills
+// ============================================
+
+export const getSkillsTool: VerxioTool = {
+  name: "getSkills",
+  description: "List user's skills that extend AI capabilities",
+  inputSchema: z.object({}),
+  execute: async (_, context) => {
+    const skills = await prisma.userSkill.findMany({
+      where: { userId: context.userId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        url: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      success: true,
+      skills,
+      count: skills.length,
+    };
+  },
+};
+
+// ============================================
+// Tool: Add Skill
+// ============================================
+
+export const addSkillTool: VerxioTool = {
+  name: "addSkill",
+  description:
+    "Add a new skill from a URL. The skill file will be fetched and parsed automatically.",
+  inputSchema: z.object({
+    url: z.string().url().describe("URL to the skill file (e.g., https://solana.com/SKILL.md)"),
+  }),
+  execute: async ({ url }, context) => {
+    try {
+      const content = await skillService.fetchSkillFromUrl(url);
+      const metadata = skillService.parseSkillMetadata(content);
+      const skill = await skillService.createSkill({
+        userId: context.userId,
+        name: metadata.name,
+        description: metadata.description,
+        url,
+        content,
+      });
+
+      return {
+        success: true,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          url: skill.url,
+        },
+        message: `Skill "${skill.name}" added successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to add skill",
+      };
+    }
+  },
+};
+
+// ============================================
+// Tool: Update Skill
+// ============================================
+
+export const updateSkillTool: VerxioTool = {
+  name: "updateSkill",
+  description:
+    "Update an existing skill from a URL. The skill file will be fetched and parsed automatically.",
+  inputSchema: z.object({
+    skillId: z.string().describe("ID of the skill to update"),
+    url: z.string().url().describe("URL to the updated skill file"),
+  }),
+  execute: async ({ skillId, url }, context) => {
+    try {
+      const content = await skillService.fetchSkillFromUrl(url);
+      const metadata = skillService.parseSkillMetadata(content);
+      const skill = await skillService.updateSkill(context.userId, skillId, {
+        name: metadata.name,
+        description: metadata.description,
+        url,
+        content,
+      });
+
+      return {
+        success: true,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          url: skill.url,
+        },
+        message: `Skill "${skill.name}" updated successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update skill",
+      };
+    }
+  },
+};
+
+// ============================================
+// Tool: Remove Skill
+// ============================================
+
+export const removeSkillTool: VerxioTool = {
+  name: "removeSkill",
+  description: "Remove a skill from the user's skill collection",
+  inputSchema: z.object({
+    skillId: z.string().describe("ID of the skill to remove"),
+  }),
+  execute: async ({ skillId }, context) => {
+    try {
+      // Get skill name before deletion for the response
+      const skill = await prisma.userSkill.findFirst({
+        where: { id: skillId, userId: context.userId },
+        select: { name: true },
+      });
+
+      if (!skill) {
+        return {
+          success: false,
+          error: "Skill not found",
+        };
+      }
+
+      await skillService.deleteSkill(context.userId, skillId);
+
+      return {
+        success: true,
+        message: `Skill "${skill.name}" removed successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to remove skill",
+      };
+    }
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -1550,6 +1705,10 @@ export const verxioTools: VerxioTool[] = [
   listWorkflowsTool,
   createMultipleDesignNodesTool,
   createMultipleVideoNodesTool,
+  getSkillsTool,
+  addSkillTool,
+  updateSkillTool,
+  removeSkillTool,
 ];
 
 export default verxioTools;

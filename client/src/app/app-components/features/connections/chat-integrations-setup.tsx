@@ -145,7 +145,9 @@ export function ChatIntegrationsSetup({
         <CardContent className="pt-6">
           <div className="text-center py-8">
             <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Failed to load Chat Integration integration</p>
+            <p className="text-sm text-muted-foreground">
+              Failed to load Chat Integration integration
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -249,7 +251,10 @@ export function ChatIntegrationsSetup({
                 <SelectTrigger>
                   <SelectValue placeholder="Select workflow" />
                 </SelectTrigger>
-                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                <SelectContent
+                  side="bottom"
+                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                >
                   <SelectItem value="none">None</SelectItem>
                   {workflows.map((workflow) => (
                     <SelectItem key={workflow.id} value={workflow.id}>
@@ -352,7 +357,10 @@ export function ChatIntegrationsSetup({
                 <SelectTrigger>
                   <SelectValue placeholder="Select workflow" />
                 </SelectTrigger>
-                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                <SelectContent
+                  side="bottom"
+                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                >
                   <SelectItem value="none">None</SelectItem>
                   {workflows.map((workflow) => (
                     <SelectItem key={workflow.id} value={workflow.id}>
@@ -614,7 +622,10 @@ export function ChatIntegrationsSetup({
                   <SelectTrigger>
                     <SelectValue placeholder="Select workflow" />
                   </SelectTrigger>
-                  <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                  <SelectContent
+                    side="bottom"
+                    className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                  >
                     <SelectItem value="none">None</SelectItem>
                     {workflows.map((workflow) => (
                       <SelectItem key={workflow.id} value={workflow.id}>
@@ -798,7 +809,7 @@ export function ChatIntegrationsSetup({
               onClick={handleRefreshStatus}
               disabled={identitiesLoading || identitiesFetching || refreshWebhook.isPending}
             >
-              {(identitiesLoading || identitiesFetching || refreshWebhook.isPending) ? (
+              {identitiesLoading || identitiesFetching || refreshWebhook.isPending ? (
                 <Loader2 className="h-3 w-3 mr-1 animate-spin" />
               ) : null}
               Refresh status
@@ -842,7 +853,9 @@ export function ChatIntegrationsSetup({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Settings</CardTitle>
-          <CardDescription>Control how Chat Integration can interact with your workflows.</CardDescription>
+          <CardDescription>
+            Control how Chat Integration can interact with your workflows.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -898,7 +911,10 @@ export function ChatIntegrationsSetup({
                 <SelectTrigger>
                   <SelectValue placeholder="Select workflow" />
                 </SelectTrigger>
-                <SelectContent side="bottom" className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                <SelectContent
+                  side="bottom"
+                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                >
                   <SelectItem value="none">None</SelectItem>
                   {workflows.map((workflow) => (
                     <SelectItem key={workflow.id} value={workflow.id}>
@@ -1005,17 +1021,15 @@ export function ChatIntegrationsSetup({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Configuration</CardTitle>
-          <CardDescription>Webhook URL and shared secret for your chat integration.</CardDescription>
+          <CardDescription>
+            Webhook URL and shared secret for your chat integration.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Webhook URL</Label>
             <div className="flex gap-2">
-              <Input
-                value={integration?.webhookUrl || ""}
-                readOnly
-                className="font-mono text-sm"
-              />
+              <Input value={integration?.webhookUrl || ""} readOnly className="font-mono text-sm" />
               <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
                 <Copy className="h-4 w-4" />
               </Button>
@@ -1047,7 +1061,8 @@ export function ChatIntegrationsSetup({
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                Add this secret to the X-ChatIntegration-Secret header in your ChatIntegration config.
+                Add this secret to the X-ChatIntegration-Secret header in your ChatIntegration
+                config.
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1082,8 +1097,8 @@ export function ChatIntegrationsSetup({
             {secretJustRegenerated && (
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                  <strong>Important:</strong> Copy the new secret above and update your ChatIntegration
-                  configuration. The old secret will no longer work.
+                  <strong>Important:</strong> Copy the new secret above and update your
+                  ChatIntegration configuration. The old secret will no longer work.
                 </p>
               </div>
             )}

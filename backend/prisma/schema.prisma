@@ -276,6 +276,7 @@ model User {
   manualPayments        ManualPayment[]
   externalIdentities    ExternalIdentity[]
   chatIntegrations      ChatIntegration[]
+  skills                UserSkill[]
 
   @@map("user")
 }
@@ -754,4 +755,20 @@ enum ChatScope {
   SINGLE_WORKFLOW
   ALL_WORKFLOWS
   ALLOW_LIST
+}
+
+model UserSkill {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  url         String?
+  content     String   // Full markdown content
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, name])
+  @@map("user_skills")
 }
