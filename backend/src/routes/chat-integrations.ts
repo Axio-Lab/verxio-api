@@ -300,6 +300,34 @@ chatIntegrationRouter.post(
 );
 
 /**
+ * POST /api/chat-integrations/integrations/:id/telegram/refresh-webhook
+ * Refresh Telegram webhook using stored bot token
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/telegram/refresh-webhook",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const integration = await chatIntegrationService.refreshTelegramWebhook(user.id, id);
+
+      res.json({
+        success: true,
+        message: "Telegram webhook refreshed.",
+        integration: {
+          id: integration.id,
+          telegramBotTokenSet: !!integration.telegramBotToken,
+          webhookUrl: getEffectiveWebhookUrl(integration),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * POST /api/chat-integrations/integrations/:id/regenerate-secret
  * Regenerate the shared secret
  */

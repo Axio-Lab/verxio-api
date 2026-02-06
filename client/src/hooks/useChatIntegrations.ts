@@ -104,6 +104,16 @@ export interface SaveTelegramTokenResult {
   };
 }
 
+export interface RefreshTelegramWebhookResult {
+  success: boolean;
+  message: string;
+  integration: {
+    id: string;
+    telegramBotTokenSet: boolean;
+    webhookUrl?: string | null;
+  };
+}
+
 // ============================================
 // Integration Hooks
 // ============================================
@@ -226,6 +236,31 @@ export function useSaveTelegramBotToken(integrationId: string) {
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to save Telegram token";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+/**
+ * Refresh Telegram webhook using stored bot token
+ */
+export function useRefreshTelegramWebhook(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<RefreshTelegramWebhookResult, Error>({
+    mutationFn: () =>
+      authenticatedPost<RefreshTelegramWebhookResult>(
+        `/api/chat-integrations/integrations/${integrationId}/telegram/refresh-webhook`,
+        {}
+      ),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integration", integrationId] });
+      toast.success(result.message);
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to refresh Telegram webhook";
       toast.error(errorMessage);
     },
   });

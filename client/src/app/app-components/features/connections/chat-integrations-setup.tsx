@@ -12,6 +12,7 @@ import {
   useExternalIdentities,
   useUnlinkExternalIdentity,
   useCreateChatIntegration,
+  useRefreshTelegramWebhook,
 } from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -85,6 +86,7 @@ export function ChatIntegrationsSetup({
   const {
     data: identitiesData,
     isLoading: identitiesLoading,
+    isFetching: identitiesFetching,
     refetch: refetchIdentities,
   } = useExternalIdentities(selectedIntegrationId || undefined);
   const { data: workflowsData } = useWorkflows(1, 100);
@@ -95,6 +97,7 @@ export function ChatIntegrationsSetup({
   const testConnection = useTestChatIntegrationConnection(selectedIntegrationId || "");
   const unlinkIdentity = useUnlinkExternalIdentity(selectedIntegrationId || undefined);
   const createIntegration = useCreateChatIntegration();
+  const refreshWebhook = useRefreshTelegramWebhook(selectedIntegrationId || "");
 
   const [showSecret, setShowSecret] = useState(false);
   const [secretJustRegenerated, setSecretJustRegenerated] = useState(false);
@@ -425,6 +428,13 @@ export function ChatIntegrationsSetup({
       navigator.clipboard.writeText(secretData.sharedSecret);
       toast.success("Shared secret copied to clipboard");
     }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (integration?.platform === "TELEGRAM" && integration?.telegramBotTokenSet) {
+      await refreshWebhook.mutateAsync();
+    }
+    await refetchIdentities();
   };
 
   const handleRegenerateSecret = async () => {
@@ -785,10 +795,12 @@ export function ChatIntegrationsSetup({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => refetchIdentities()}
-              disabled={identitiesLoading}
+              onClick={handleRefreshStatus}
+              disabled={identitiesLoading || identitiesFetching || refreshWebhook.isPending}
             >
-              {identitiesLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              {(identitiesLoading || identitiesFetching || refreshWebhook.isPending) ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : null}
               Refresh status
             </Button>
           </div>
@@ -817,12 +829,8 @@ export function ChatIntegrationsSetup({
               testConnection.isPending || !integration?.id || integration?.platform !== "TELEGRAM"
             }
           >
-            {testConnection.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <TestTube2 className="h-4 w-4 mr-2" />
-            )}
-            Run Test
+            {testConnection.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Send test message
           </Button>
           {testConnection.data && (
             <p className="text-sm text-muted-foreground">{testConnection.data.message}</p>
@@ -834,7 +842,7 @@ export function ChatIntegrationsSetup({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Settings</CardTitle>
-          <CardDescription>Control how ChatIntegration can interact with your workflows.</CardDescription>
+          <CardDescription>Control how Chat Integration can interact with your workflows.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -1053,7 +1061,7 @@ export function ChatIntegrationsSetup({
                     <AlertDialogTitle>Regenerate Shared Secret?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This will invalidate your current secret. You&apos;ll need to update your
-                      ChatIntegration configuration with the new secret.
+                      Integration configuration with the new secret.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

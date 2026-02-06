@@ -52,7 +52,7 @@ app.set("trust proxy", 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration: default origins are always included; ALLOWED_ORIGINS adds extra
 const defaultOrigins = [
   "http://localhost:3000",
   "https://deals.verxio.xyz",
@@ -61,10 +61,10 @@ const defaultOrigins = [
   "https://www.verxio.xyz",
   "https://verxio.xyz",
 ];
-const allowedOrigins =
-  process.env.ALLOWED_ORIGINS?.split(",")
-    .map((o) => o.trim())
-    .filter(Boolean) || defaultOrigins;
+const envOrigins = process.env.ALLOWED_ORIGINS?.split(",")
+  .map((o) => o.trim())
+  .filter(Boolean) || [];
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 const serverPort = "8080";
 const serverOrigin = `http://localhost:${serverPort}`;
 
@@ -81,6 +81,11 @@ app.use(
         return callback(null, true);
       }
 
+      // Always allow localhost dev origins (frontend at 3000, etc.)
+      if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        return callback(null, true);
+      }
+
       // Allow requests from production API domain (for Swagger UI)
       if (origin === "https://api.verxio.xyz") {
         return callback(null, true);
@@ -91,12 +96,12 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow requests from allowed origins (from environment variable)
+      // Allow requests from allowed origins (defaults + ALLOWED_ORIGINS)
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // In development mode, allow all localhost origins
+      // In development mode, allow any origin containing localhost
       if (process.env.NODE_ENV === "development" && origin.includes("localhost")) {
         return callback(null, true);
       }

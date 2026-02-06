@@ -1,6 +1,10 @@
 import { prisma } from "../lib/prisma";
 import { generateSharedSecret } from "../middleware/chatIntegrationAuth";
-import { sendPlanningMessage, sendPlanningMessageStreaming } from "./planningService";
+import {
+  sendPlanningMessage,
+  sendPlanningMessageStreaming,
+  clearPlanningConversation,
+} from "./planningService";
 import { simpleAgentQuery } from "./claude-agent/claudeAgentService";
 import * as workflowService from "./workflowService";
 import * as credentialService from "./credentialService";
@@ -116,8 +120,11 @@ export async function updateIntegration(
  * Build hosted Telegram webhook URL for a specific integration.
  */
 export function getHostedTelegramWebhookUrl(integrationId: string) {
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
-  return `${backendUrl}/api/chat-integration/telegram/webhook/${integrationId}`;
+  const base = process.env.API_URL?.trim();
+  if (!base) {
+    throw new Error("API_URL is required to build the Telegram webhook URL.");
+  }
+  return `${base.replace(/\/$/, "")}/api/chat-integrations/telegram/webhook/${integrationId}`;
 }
 
 /**
@@ -129,6 +136,11 @@ export async function configureTelegramWebhook(
   sharedSecret: string
 ) {
   const webhookUrl = getHostedTelegramWebhookUrl(integrationId);
+  if (!webhookUrl.startsWith("https://")) {
+    throw new Error(
+      "Telegram requires an HTTPS webhook URL. Set CHAT_WEBHOOK_PUBLIC_URL or BACKEND_URL to your public HTTPS URL (e.g. your ngrok URL: https://your-subdomain.ngrok-free.app)."
+    );
+  }
   const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
     method: "POST",
     headers: {
@@ -179,6 +191,35 @@ export async function saveTelegramBotToken(
     where: { id: integration.id },
     data: {
       telegramBotToken: botToken,
+      webhookUrl,
+    },
+  });
+}
+
+/**
+ * Refresh Telegram webhook using stored bot token.
+ */
+export async function refreshTelegramWebhook(userId: string, integrationId: string) {
+  const integration = await getIntegration(userId, integrationId);
+  if (!integration) {
+    throw new Error("Chat Integration integration not found.");
+  }
+  if (integration.platform !== "TELEGRAM") {
+    throw new Error("Telegram webhook can only be refreshed for TELEGRAM integrations.");
+  }
+  if (!integration.telegramBotToken) {
+    throw new Error("Telegram bot token is not configured.");
+  }
+
+  const webhookUrl = await configureTelegramWebhook(
+    integration.telegramBotToken,
+    integration.id,
+    integration.sharedSecret
+  );
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integration.id },
+    data: {
       webhookUrl,
     },
   });
@@ -776,6 +817,7 @@ async function handleCommand(
 /delete-credential <credential_id> - Delete a credential
 /status - Check integration status
 /link - Link your Telegram to Verxio (if not already linked)
+/clear - Clear workflow conversation history
 
 **Plan Mode:**
 Just send a message to interact with the AI assistant. It can help you:
@@ -835,12 +877,64 @@ Just send a message to interact with the AI assistant. It can help you:
           "To link your Telegram account, please visit your Verxio dashboard and use the ChatIntegration page to complete setup.",
       };
 
+    case "clear":
+      return handleClearConversation(userId, integration);
+
     default:
       return {
         success: false,
         type: "error",
         message: `Unknown command: /${cmd}. Use /help for available commands.`,
       };
+  }
+}
+
+/**
+ * Handle clear conversation command
+ */
+async function handleClearConversation(
+  userId: string,
+  integration: any
+): Promise<ChatIntegrationResponse> {
+  try {
+    // Get workflow ID using same logic as plan mode
+    let workflowId = integration.defaultWorkflowId;
+    const allowedIds = resolveAllowedWorkflowIds(integration);
+
+    if (integration.scope === "SINGLE_WORKFLOW" && integration.scopeWorkflowId) {
+      workflowId = integration.scopeWorkflowId;
+    } else if (
+      integration.scope === "ALLOW_LIST" &&
+      allowedIds &&
+      allowedIds.length > 0 &&
+      (!workflowId || !allowedIds.includes(workflowId))
+    ) {
+      workflowId = allowedIds[0];
+    }
+
+    if (!workflowId) {
+      return {
+        success: false,
+        type: "error",
+        message:
+          "No workflow found. Start a conversation first by sending a message, then you can clear it.",
+      };
+    }
+
+    await clearPlanningConversation(workflowId);
+
+    return {
+      success: true,
+      type: "info",
+      message: "Conversation history cleared. Starting fresh!",
+    };
+  } catch (error) {
+    console.error("[ChatIntegration] Clear conversation error:", error);
+    return {
+      success: false,
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to clear conversation",
+    };
   }
 }
 
@@ -1482,11 +1576,59 @@ export async function testConnection(
     const expectedUrl = getHostedTelegramWebhookUrl(integration.id);
     const webhookOk = info?.url === expectedUrl;
 
+    if (!webhookOk) {
+      return {
+        success: false,
+        message: "Telegram webhook is not configured correctly. Re-save the bot token.",
+        integration: {
+          webhookUrl: integration.webhookUrl,
+          isActive: integration.isActive,
+          allowPlanMode: integration.allowPlanMode,
+          allowWorkflowExecution: integration.allowWorkflowExecution,
+          totalRequests: integration.totalRequests,
+          lastUsedAt: integration.lastUsedAt,
+        },
+      };
+    }
+
+    // Send a generic test message (no agent) so user can verify delivery without using tokens
+    const genericTestMessage =
+      "Connection test successful. Your Verxio integration is working.";
+    let testMessageSent = false;
+    try {
+      const identities = await getExternalIdentities(userId, integrationId);
+      const telegramIdentity = identities.find(
+        (i: any) => i.platform === "telegram"
+      );
+      const chatId =
+        telegramIdentity?.metadata?.chatId != null
+          ? String(telegramIdentity.metadata.chatId)
+          : telegramIdentity?.externalId;
+      if (chatId && integration.telegramBotToken) {
+        const formatted = formatTelegramMessage(genericTestMessage);
+        const res = await fetch(
+          `https://api.telegram.org/bot${integration.telegramBotToken}/sendMessage`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: formatted,
+              parse_mode: "HTML",
+            }),
+          }
+        );
+        testMessageSent = res.ok;
+      }
+    } catch (sendErr) {
+      console.warn("[Chat Integration] Test message send failed:", sendErr);
+    }
+
     return {
-      success: webhookOk,
-      message: webhookOk
-        ? "Telegram webhook is configured and active."
-        : "Telegram webhook is not configured correctly. Re-save the bot token.",
+      success: true,
+      message: testMessageSent
+        ? "A test message was sent to your Telegram."
+        : "Telegram webhook is configured and active. Link an account and message the bot to receive a test in Telegram.",
       integration: {
         webhookUrl: integration.webhookUrl,
         isActive: integration.isActive,
