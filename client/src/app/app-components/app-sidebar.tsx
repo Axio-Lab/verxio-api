@@ -8,9 +8,11 @@ import {
   LayoutTemplate,
   LogOutIcon,
   Loader2,
-  PlugIcon,
-  SparklesIcon,
+  // PlugIcon,
+  // SparklesIcon,
   StarIcon,
+  Cable,
+  BookOpen,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -54,10 +56,20 @@ const menuItems = [
         url: "/credentials",
         icon: <KeyIcon />,
       },
+      // {
+      //   title: "Connections",
+      //   url: "/connections",
+      //   icon: <PlugIcon />,
+      // },
       {
-        title: "Connections",
-        url: "/connections",
-        icon: <PlugIcon />,
+        title: "Integrations",
+        url: "/integrations",
+        icon: <Cable />,
+      },
+      {
+        title: "Skills",
+        url: "/skills",
+        icon: <BookOpen />,
       },
     ],
   },

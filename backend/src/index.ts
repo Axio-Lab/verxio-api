@@ -14,6 +14,7 @@ import { voucherRouter } from "./routes/voucher";
 import { dealRouter } from "./routes/deal";
 import { workflowRouter } from "./routes/workflow";
 import { credentialRouter } from "./routes/credential";
+import { skillRouter } from "./routes/skill";
 import { connectionRouter } from "./routes/connections";
 import { googleFormRouter } from "./routes/triggers/google-form";
 import { airtableRouter } from "./routes/triggers/airtable";
@@ -33,6 +34,7 @@ import { billingStatusRouter } from "./routes/billing/status";
 import { billingCheckoutRouter } from "./routes/billing/checkout";
 import { manualPaymentRouter } from "./routes/manual-payment";
 import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
+import { chatIntegrationRouter } from "./routes/chat-integrations";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -51,7 +53,7 @@ app.set("trust proxy", 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration: default origins are always included; ALLOWED_ORIGINS adds extra
 const defaultOrigins = [
   "http://localhost:3000",
   "https://deals.verxio.xyz",
@@ -60,10 +62,11 @@ const defaultOrigins = [
   "https://www.verxio.xyz",
   "https://verxio.xyz",
 ];
-const allowedOrigins =
+const envOrigins =
   process.env.ALLOWED_ORIGINS?.split(",")
     .map((o) => o.trim())
-    .filter(Boolean) || defaultOrigins;
+    .filter(Boolean) || [];
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 const serverPort = "8080";
 const serverOrigin = `http://localhost:${serverPort}`;
 
@@ -80,6 +83,11 @@ app.use(
         return callback(null, true);
       }
 
+      // Always allow localhost dev origins (frontend at 3000, etc.)
+      if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        return callback(null, true);
+      }
+
       // Allow requests from production API domain (for Swagger UI)
       if (origin === "https://api.verxio.xyz") {
         return callback(null, true);
@@ -90,12 +98,12 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow requests from allowed origins (from environment variable)
+      // Allow requests from allowed origins (defaults + ALLOWED_ORIGINS)
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // In development mode, allow all localhost origins
+      // In development mode, allow any origin containing localhost
       if (process.env.NODE_ENV === "development" && origin.includes("localhost")) {
         return callback(null, true);
       }
@@ -118,6 +126,11 @@ app.use(
       "X-API-Key",
       "X-User-Email",
       "Accept",
+      "X-ChatIntegration-Secret",
+      "X-ChatIntegration-User-Id",
+      "X-ChatIntegration-Integration-Id",
+      "X-ChatIntegration-Platform",
+      "X-ChatIntegration-External-Id",
     ],
   })
 );
@@ -182,6 +195,7 @@ app.use("/workflow-generation", workflowGenerationRouter);
 app.use("/workflow-template", workflowTemplateRouter);
 app.use("/planning", planningRouter);
 app.use("/credential", credentialRouter);
+app.use("/skill", skillRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);
 app.use("/api/elevenlabs", elevenlabsRouter);
@@ -191,6 +205,7 @@ app.use("/api/billing", billingStatusRouter);
 app.use("/api/billing", billingCheckoutRouter);
 app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
+app.use("/api/chat-integrations", chatIntegrationRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,

@@ -132,11 +132,18 @@ async function getUserContext(userId: string, workflowId?: string) {
     select: { name: true, type: true, description: true },
   });
 
+  // Get user's skills
+  const skills = await prisma.userSkill.findMany({
+    where: { userId },
+    select: { name: true, description: true, content: true },
+  });
+
   return {
     userId,
     workflowId,
     availableCredentials: credentials,
     userConnections: connections,
+    userSkills: skills,
   };
 }
 

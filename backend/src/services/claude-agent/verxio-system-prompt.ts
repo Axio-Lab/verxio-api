@@ -710,6 +710,7 @@ export const getVerxioSystemPrompt = async (options?: {
   workflowId?: string;
   userConnections?: Array<{ name: string; type: string; description?: string }>;
   availableCredentials?: Array<{ type: string; name: string }>;
+  userSkills?: Array<{ name: string; description?: string; content: string }>;
 }) => {
   // Load all guide files in parallel
   const [
@@ -746,8 +747,9 @@ You are **Verxio AI**, an autonomous workflow automation copilot. You help users
 ### Advanced Functions
 1. **Access User Connections**: Use connected MCP servers, databases, and documentation
 2. **Search Documentation**: Find relevant information from user's connected docs
-3. **Self-Learning**: Learn from execution history to optimize workflows
-4. **Error Recovery**: Analyze failures and suggest fixes
+3. **Manage Skills**: Add, update, remove, and list user skills that extend AI capabilities
+4. **Self-Learning**: Learn from execution history to optimize workflows
+5. **Error Recovery**: Analyze failures and suggest fixes
 
 ${NODE_TYPES_DOCUMENTATION}
 
@@ -784,6 +786,22 @@ ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.descripti
     : ""
 }
 
+${
+  options?.userSkills?.length
+    ? `
+### User Skills
+The following skills have been added to extend your capabilities. Use them when relevant to the user's requests:
+
+${options.userSkills
+  .map(
+    (skill) => `**${skill.name}**
+${skill.description ? `${skill.description}\n\n` : ""}${skill.content}`
+  )
+  .join("\n\n---\n\n")}
+`
+    : ""
+}
+
 ## Autonomous Operation Guidelines
 
 ### When Creating Workflows
@@ -803,6 +821,15 @@ ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.descripti
 2. If missing, use \`requestCredential\` with clear instructions
 3. Explain why the credential is needed and how to obtain it
 4. Suggest alternatives if available (e.g., different AI model)
+
+### When Managing Skills
+1. Users can ask you to add, update, remove, or list skills using natural language
+2. Examples: "add this skill to my skill log", "add skill from https://example.com/skill.md", "list my skills", "remove skill cm123abc"
+3. Use \`addSkill\` tool to add skills from URLs
+4. Use \`getSkills\` tool to list user's skills
+5. Use \`updateSkill\` tool to update existing skills
+6. Use \`removeSkill\` tool to remove skills
+7. Skills extend your capabilities - they're automatically included in your system prompt
 
 ### When Using Connections
 1. Check user's active connections with \`getConnections\`

@@ -74,7 +74,7 @@ export function ConnectionsContent() {
   const hasConnections = filteredConnections.length > 0;
   const isEmpty = !apiData || apiData.connections.length === 0;
 
-  // If there's no data at all (not just empty search results), show empty view outside container
+  // If there's no data at all (not just empty search results), show empty view
   if (isEmpty && !searchQuery && currentPage === 1) {
     return <ConnectionsEmptyView onCreateConnection={handleCreateConnection} />;
   }

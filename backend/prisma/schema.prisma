@@ -274,6 +274,9 @@ model User {
   rateLimitResetAt      DateTime?            // When rate limit resets
   subscriptionFeatures  String[]             @default([]) // Array of feature IDs user has access to
   manualPayments        ManualPayment[]
+  externalIdentities    ExternalIdentity[]
+  chatIntegrations      ChatIntegration[]
+  skills                UserSkill[]
 
   @@map("user")
 }
@@ -676,4 +679,96 @@ model ManualPayment {
   @@index([userId])
   @@index([status])
   @@map("manual_payments")
+}
+
+// ============================================
+// External Identity Mapping (Chat Integrations, Telegram, etc.)
+// ============================================
+
+model ExternalIdentity {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integrationId   String?
+  integration     ChatIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  platform        String   // "telegram", "discord", "slack", etc.
+  externalId      String   // Platform-specific user ID (e.g., Telegram sender ID)
+  externalName    String?  // Display name from the platform
+  metadata        Json?    // Additional platform-specific data
+  linkedAt        DateTime @default(now())
+  lastActiveAt    DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([platform, externalId, integrationId])
+  @@index([userId])
+  @@index([integrationId])
+  @@index([platform])
+  @@index([externalId])
+  @@map("external_identities")
+}
+
+// ============================================
+// Chat Integration Settings
+// ============================================
+
+model ChatIntegration {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label           String   @default("Chat Integration") // User-defined label
+  platform        ChatPlatform @default(TELEGRAM)
+  scope           ChatScope    @default(ALL_WORKFLOWS)
+  scopeWorkflowId String?  // Workflow ID for SINGLE_WORKFLOW scope
+  allowedWorkflowIds String[] @default([]) // Workflow IDs for ALLOW_LIST scope
+  /// @encrypted
+  sharedSecret    String   // Secret for authenticating incoming requests
+  /// @encrypted
+  telegramBotToken String? // Optional Telegram bot token for guided setup
+  isActive        Boolean  @default(true)
+  webhookUrl      String?  // Generated webhook URL for external services to call
+  defaultWorkflowId String? // Optional default workflow to use
+  lastRunWorkflowId String? // Last workflow run via chat integration
+  allowPlanMode   Boolean  @default(true) // Allow plan mode interactions
+  allowWorkflowExecution Boolean @default(true) // Allow direct workflow execution
+  externalIdentities ExternalIdentity[]
+  lastUsedAt      DateTime?
+  totalRequests   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([platform])
+  @@index([scope])
+  @@map("chat_integrations")
+}
+
+enum ChatPlatform {
+  TELEGRAM
+  WHATSAPP
+  DISCORD
+  SLACK
+}
+
+enum ChatScope {
+  SINGLE_WORKFLOW
+  ALL_WORKFLOWS
+  ALLOW_LIST
+}
+
+model UserSkill {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  url         String?
+  content     String   // Full markdown content
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, name])
+  @@map("user_skills")
 }
