@@ -15,6 +15,7 @@ Read individual rule files for detailed explanations and code examples:
 
 - [rules/3d.md](rules/3d.md) - 3D content in Remotion using Three.js and React Three Fiber
 - [rules/animations.md](rules/animations.md) - Fundamental animation skills for Remotion
+- [rules/no-placeholders.md](rules/no-placeholders.md) - NEVER use {{placeholders}} - implement full visual content from the prompt
 - [rules/assets.md](rules/assets.md) - Importing images, videos, audio, and fonts into Remotion
 - [rules/audio.md](rules/audio.md) - Using audio and sound in Remotion - importing, trimming, volume, speed, pitch
 - [rules/calculate-metadata.md](rules/calculate-metadata.md) - Dynamically set composition duration, dimensions, and props
