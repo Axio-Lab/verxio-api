@@ -4,23 +4,15 @@ import { useTriggerWorkflow } from "@/hooks/useWorkflows";
 import { useAtomValue } from "jotai";
 import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
 import { useResetWorkflowOutputs } from "@/app/app-components/features/editor/workflow-outputs-store";
-import {
-  useSetMultipleNodeStatuses,
-  useResetAllNodeStatuses,
-} from "@/app/app-components/features/editor/execution-status-store";
-import type { NodeStatus } from "@/components/node-status-indicator";
+import { useResetAllNodeStatuses } from "@/app/app-components/features/editor/execution-status-store";
 import { toast } from "sonner";
 import { useRef, useCallback, useState } from "react";
-import { useNodes } from "@xyflow/react";
 
 export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) => {
   const triggerWorkflow = useTriggerWorkflow();
   const hasUnsavedChanges = useAtomValue(hasUnsavedChangesAtom);
   const resetWorkflowOutputs = useResetWorkflowOutputs();
-  const setMultipleNodeStatuses: (nodeIds: string[], status: NodeStatus) => void =
-    useSetMultipleNodeStatuses();
   const resetAllNodeStatuses: () => void = useResetAllNodeStatuses();
-  const nodes = useNodes();
   const lastClickTimeRef = useRef<number>(0);
   const DEBOUNCE_MS = 1000; // 1 second debounce
 
@@ -60,13 +52,8 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
         id: workflowId,
       });
 
-      // After the API call completes, set all nodes to loading
-      // This aligns the status change with the end of the spinner
+      // After the API call completes, reset statuses and let runtime updates drive progress
       resetAllNodeStatuses();
-      const allNodeIds = nodes.map((node) => node.id);
-      if (allNodeIds.length > 0) {
-        setMultipleNodeStatuses(allNodeIds, "loading");
-      }
 
       setIsExecuting(false);
     } catch (error) {
@@ -82,8 +69,6 @@ export const ExecuteWorkflowButton = ({ workflowId }: { workflowId: string }) =>
     triggerWorkflow,
     isExecuting,
     resetWorkflowOutputs,
-    nodes,
-    setMultipleNodeStatuses,
     resetAllNodeStatuses,
   ]);
 

@@ -148,6 +148,12 @@ app.post("/render", async (req, res) => {
             continue; // CSS files are handled by webpack/bundler, don't need to be created
           }
 
+          // Skip imports that contain unresolved template expressions (e.g. ${compositionId})
+          if (importPath.includes("${")) {
+            console.warn(`Skipping import validation for unresolved template path: ${importPath}`);
+            continue;
+          }
+
           const baseName = importPath.replace(/^\.\//, "");
           const possibleNames = [
             baseName,
@@ -164,12 +170,8 @@ app.post("/render", async (req, res) => {
         }
 
         if (missingFiles.length > 0) {
-          return res.status(400).json({
-            error: `Missing required files that are imported in index.ts`,
-            missingFiles: missingFiles.map((f) => `${f}.tsx`),
-            importsFound: [...new Set(imports)],
-            suggestion: `Please include these files in your 'files' object: ${missingFiles.map((f) => `"${f}.tsx"`).join(", ")}`,
-          });
+          console.warn(`Missing files detected: ${missingFiles.join(", ")}. Continuing anyway – bundler will report actual errors.`);
+          // Don't reject – let the bundler handle it so we get a better error message
         }
       }
     } else if (codeData.entryFile && codeData.rootFile && codeData.compositionFile) {
@@ -255,7 +257,13 @@ app.post("/render", async (req, res) => {
         const cssExtensions = [".css", ".scss", ".sass", ".less", ".styl"];
         const isCssFile = cssExtensions.some((ext) => importPath.endsWith(ext));
         if (isCssFile) {
-          continue; // CSS files are handled by webpack/bundler, don't need to be created
+          continue;
+        }
+
+        // Skip imports with unresolved template expressions
+        if (importPath.includes("${")) {
+          console.warn(`Skipping import validation for unresolved template path: ${importPath}`);
+          continue;
         }
 
         // Remove ./ prefix
@@ -276,12 +284,7 @@ app.post("/render", async (req, res) => {
       }
 
       if (missingFiles.length > 0) {
-        return res.status(400).json({
-          error: `Missing required files that are imported`,
-          missingFiles: missingFiles.map((f) => `${f}.tsx`),
-          importsFound: [...new Set(imports)],
-          suggestion: `Please use the 'files' format and include all imported files: { files: { "index.ts": "...", "Root.tsx": "...", "${missingFiles[0]}.tsx": "...", ... } }`,
-        });
+        console.warn(`Missing files detected: ${missingFiles.join(", ")}. Continuing anyway.`);
       }
     } else {
       return res.status(400).json({
@@ -425,6 +428,44 @@ app.post("/render", async (req, res) => {
         // Fix common syntax errors: newline between function params and arrow
         // Pattern: )\n  => becomes ) =>
         content = content.replace(/\)\s*\n\s*=>/g, ") =>");
+
+        // Fix missing "=" in arrow component export (e.g. "export const Root () =>" -> "export const Root = () =>")
+        // esbuild reports "Expected '}' but found '{'" at line 2 when = is missing
+        content = content.replace(
+          /export\s+const\s+(\w+)\s+\(\s*\)\s*=>/g,
+          "export const $1 = () =>"
+        );
+        content = content.replace(
+          /export\s+const\s+(\w+)\s+\(\s*(\w+)\s*\)\s*=>/g,
+          "export const $1 = ($2) =>"
+        );
+
+        // Fix unresolved template expressions ONLY for known AI placeholders.
+        // Do NOT replace runtime variables like ${scale}, ${frame}, etc. – those are valid.
+        const knownPlaceholders = ["videoDescription", "compositionId", "fps", "durationInFrames", "width", "height"];
+        const defaults: Record<string, string> = { fps: "30", durationInFrames: "300", width: "1920", height: "1080" };
+        content = content.replace(
+          /\$\{JSON\.stringify\((\w+)\)\}/g,
+          (m, k) => (knownPlaceholders.includes(k) ? '""' : m)
+        );
+        // ${details.fps}, ${config.width}, etc. – replace with defaults
+        content = content.replace(
+          /\$\{(\w+)\.(fps|durationInFrames|width|height)\}/g,
+          (m, _obj, prop) => defaults[prop] ?? m
+        );
+        content = content.replace(
+          /\$\{(\w+)\}/g,
+          (m, k) => (knownPlaceholders.includes(k) ? '""' : m)
+        );
+
+        // Fix {{identifier}} double-brace JSX patterns → {identifier}
+        // In JSX, {{foo}} creates an object {foo:value} which React can't render
+        if (fileName.endsWith(".tsx") || fileName.endsWith(".jsx")) {
+          content = content.replace(
+            /\{\{(\s*[a-zA-Z_$][\w$]*\s*)\}\}/g,
+            (match, inner) => `{${inner.trim()}}`
+          );
+        }
       }
       writeFileSync(filePath, content);
     }
@@ -549,6 +590,19 @@ app.post("/render", async (req, res) => {
       return res.status(400).json({ error: "Missing index.ts or index.tsx file" });
     }
 
+    // Ensure index.ts contains registerRoot – AI sometimes puts composition code in index
+    const entryContent = files["index.ts"] || files["index.tsx"] || "";
+    if (!entryContent.includes("registerRoot")) {
+      const rootExists = files["Root.tsx"] || files["root.tsx"];
+      const rootImport = rootExists ? "Root" : "RemotionRoot";
+      const rootPath = files["Root.tsx"] ? "./Root" : files["root.tsx"] ? "./root" : "./RemotionRoot";
+      const validEntry = `import { registerRoot } from 'remotion';\nimport { ${rootImport} } from '${rootPath}';\n\nregisterRoot(${rootImport});\n`;
+      files["index.ts"] = validEntry;
+      const indexPath = path.join(projectDir, "src", "index.ts");
+      writeFileSync(indexPath, validEntry);
+      console.warn("index.ts did not contain registerRoot – replaced with valid entry point.");
+    }
+
     // Bundle the project
     console.log("Bundling...");
     const entryPoint = files["index.ts"]
@@ -561,10 +615,11 @@ app.post("/render", async (req, res) => {
       publicDir, // Tell Remotion bundler about the public directory for staticFile()
     });
 
-    // Get composition
+    // Get composition (selectComposition loads the root and can hit delayRender)
     const composition = await selectComposition({
       serveUrl: bundleLocation,
       id: compositionId,
+      timeoutInMilliseconds: 120000, // 2 min for loading root / resolving delayRender
     });
 
     // Render video
@@ -575,8 +630,8 @@ app.post("/render", async (req, res) => {
         serveUrl: bundleLocation,
         codec: "h264",
         outputLocation: outputPath,
-        // Add timeout to prevent hanging
         timeoutInMilliseconds: 300000, // 5 minutes
+        concurrency: 2, // Lower concurrency to avoid Chrome memory pressure (can cause delayRender timeouts)
       });
     } catch (renderError: any) {
       // Check if it's an FFmpeg volume filter error
