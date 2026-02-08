@@ -172,14 +172,41 @@ export async function startSession(
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
+    const ownerJid = (sock as any).__ownerJid as string | null;
+
+    // Credential-only session (workflow trigger): process all 1:1 messages (self-chat + incoming from others)
+    if (row.credentialId && !row.integrationId) {
+      for (const msg of messages) {
+        const fromMe = msg.key.fromMe === true;
+        const remoteJid = msg.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith("@g.us")) continue;
+        const isSelfChat = fromMe && remoteJid === ownerJid;
+        const isIncoming = !fromMe;
+        if (!isSelfChat && !isIncoming) continue;
+        const payload = normalizeMessage(msg as WAMessage);
+        if (!payload) continue;
+        try {
+          console.log("[WhatsApp Connector] Incoming (credential) from %s: %s", payload.from, (payload.body || "").slice(0, 60));
+          await onIncoming({
+            sessionId,
+            integrationId: undefined,
+            credentialId: row.credentialId,
+            payload,
+          });
+        } catch (err) {
+          console.error("[WhatsApp Connector] onIncoming error:", err);
+        }
+      }
+      return;
+    }
+
+    // Chat Integration session: use only-owner setting
     if (!row.integrationId) return;
     const integration = await (prisma as any).chatIntegration.findUnique({
       where: { id: row.integrationId },
       select: { whatsappOnlyOwnerCanChat: true },
     }).catch(() => null);
-    // Default to only-owner (true) when missing so we never process others' messages by mistake
     const onlyOwnerMode = integration?.whatsappOnlyOwnerCanChat !== false;
-    const ownerJid = (sock as any).__ownerJid as string | null;
     if (!onlyOwnerModeLogged) {
       console.log(
         "[WhatsApp Connector] only-owner mode: %s (only self-chat processed when on)",

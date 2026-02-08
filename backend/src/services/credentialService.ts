@@ -10,6 +10,7 @@ export enum CredentialType {
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
+  WHATSAPP = "WHATSAPP",
   AIRTABLE = "AIRTABLE",
 }
 
@@ -84,7 +85,8 @@ export const createCredential = async (data: CreateCredentialData): Promise<Cred
     throw new AppError("Credential name is required", 400);
   }
 
-  if (!data.value || data.value.trim() === "") {
+  // WHATSAPP credentials get their "value" from linking a device via QR; placeholder is ok
+  if (data.type !== CredentialType.WHATSAPP && (!data.value || data.value.trim() === "")) {
     throw new AppError("Credential value is required", 400);
   }
 
@@ -116,7 +118,7 @@ export const createCredential = async (data: CreateCredentialData): Promise<Cred
   const credential = await prismaClient.credential.create({
     data: {
       name: data.name.trim(),
-      value: data.value.trim(),
+      value: data.type === CredentialType.WHATSAPP ? (data.value?.trim() || "linked") : data.value.trim(),
       type: data.type,
       userId: data.userId,
     },

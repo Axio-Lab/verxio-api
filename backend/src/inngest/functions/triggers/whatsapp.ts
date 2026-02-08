@@ -3,6 +3,7 @@ import { whatsappChannel } from "@/inngest/channels/whatsapp";
 import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
+import { formatWhatsAppMessage } from "@/services/chatIntegrationService";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("json", (context) => {
@@ -14,6 +15,8 @@ type WhatsAppData = {
   phoneNumber?: string;
   message?: string;
   credentialId?: string;
+  /** WhatsApp connection (Chat Integration) id – use when workflow is not triggered by WhatsApp */
+  integrationId?: string;
 };
 
 // Helper to publish status updates
@@ -43,14 +46,15 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
 
     const variablesName = data.variables || "whatsapp";
     const sessionRef =
-      data.credentialId ??
       (context as any).whatsappSessionRef ??
+      data.integrationId ??
+      data.credentialId ??
       (context as any).whatsappPayload?.__integrationId;
 
     if (!sessionRef) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError(
-        "WhatsApp node: No session. Attach a WhatsApp credential to this node, or run this workflow from a WhatsApp trigger."
+        "WhatsApp node: No session. Select a WhatsApp connection in this node, or run the workflow from a WhatsApp trigger."
       );
       await publish(
         whatsappChannel().output({
@@ -92,7 +96,8 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
       throw error;
     }
 
-    const message = Handlebars.compile(data.message)(context);
+    const messageRaw = Handlebars.compile(data.message)(context);
+    const message = formatWhatsAppMessage(messageRaw);
 
     const result = await step.run("send-whatsapp-message", async () => {
       const response = await sendWhatsAppMessage({

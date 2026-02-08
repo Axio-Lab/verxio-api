@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import NextLink from "next/link";
 import { EntityPagination } from "@/app/app-components/features/editor/entity-component";
 
 // ============================================
@@ -323,6 +324,9 @@ export function ChatIntegrationsSetup({
             <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
               {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Create Integration
+            </Button>
+            <Button variant="outline" asChild>
+              <NextLink href="/integrations">Cancel</NextLink>
             </Button>
           </div>
         </CardContent>

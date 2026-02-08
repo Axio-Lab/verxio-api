@@ -270,6 +270,31 @@ export async function getOrCreateWhatsAppSession(integrationId: string) {
 }
 
 /**
+ * Get or create WhatsAppSession for a Credential (workflow trigger/send only, no Chat Integration agent).
+ */
+export async function getOrCreateWhatsAppSessionForCredential(
+  credentialId: string,
+  userId: string
+) {
+  const credential = await (prisma as any).credential.findFirst({
+    where: { id: credentialId, userId },
+  });
+  if (!credential) return null;
+  if (credential.type !== "WHATSAPP") return null;
+  const existing = await (prisma as any).whatsAppSession.findUnique({
+    where: { credentialId },
+  });
+  if (existing) return existing;
+  const session = await (prisma as any).whatsAppSession.create({
+    data: {
+      credentialId,
+      status: "disconnected",
+    },
+  });
+  return session;
+}
+
+/**
  * Regenerate shared secret
  */
 export async function regenerateSecret(userId: string, integrationId: string) {

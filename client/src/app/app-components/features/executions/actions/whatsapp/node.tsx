@@ -11,6 +11,7 @@ type WhatsAppNodeData = {
   variables?: string;
   phoneNumber?: string;
   message?: string;
+  credentialId?: string;
 };
 
 export const WhatsAppNode = memo((props: NodeProps) => {

@@ -235,12 +235,15 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
     const transformedNodes = nodesToSave.map((node) => {
       // Remove temporary fields from data (isDeleting, onDelete, label)
       const { isDeleting, onDelete, label, ...nodeData } = node.data || {};
+      const credentialId =
+        (node as any).credentialId ?? (nodeData as any).credentialId ?? undefined;
       return {
         id: node.id,
         name: typeof node.data?.label === "string" ? node.data.label : node.id,
         type: node.type || "INITIAL",
         position: node.position,
         data: nodeData,
+        ...(credentialId ? { credentialId } : {}),
       };
     });
 
@@ -278,7 +281,10 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
           data: {
             ...node.data,
             label: node.name,
+            ...(node.credentialId ? { credentialId: node.credentialId } : {}),
+            ...(node.data?.integrationId ? { integrationId: node.data.integrationId } : {}),
           },
+          ...(node.credentialId ? { credentialId: node.credentialId } : {}),
         }));
 
         // Transform saved connections back to ReactFlow edges

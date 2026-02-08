@@ -123,6 +123,35 @@ router.post("/incoming", async (req: Request, res: Response) => {
       }
     })();
 
+    // Also trigger workflows that have WHATSAPP_TRIGGER linked to this integration (node.data.integrationId)
+    try {
+      const triggerNodes = await (prisma as any).node.findMany({
+        where: { type: "WHATSAPP_TRIGGER" },
+        include: { workflow: { select: { id: true, userId: true } } },
+      });
+      const matching = triggerNodes.filter(
+        (n: any) => (n.data && (n.data as any).integrationId) === integrationId
+      );
+      for (const node of matching) {
+        if (node.workflow) {
+          await inngest.send({
+            name: "workflow/trigger",
+            data: {
+              workflowId: node.workflow.id,
+              userId: node.workflow.userId,
+              whatsappNodeId: node.id,
+              initialData: {
+                whatsappPayload: payload,
+                whatsappSessionRef: integrationId,
+              },
+            },
+          });
+        }
+      }
+    } catch (triggerErr) {
+      console.error("[WhatsApp incoming] workflow trigger by integrationId failed:", triggerErr);
+    }
+
     return res.json({ ok: true });
   }
 

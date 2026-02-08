@@ -1,8 +1,13 @@
 import { Router, Request, Response, NextFunction } from "express";
 import * as credentialService from "../services/credentialService";
+import * as chatIntegrationService from "../services/chatIntegrationService";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
 import { CredentialType, isValidCredentialType } from "../services/credentialService";
+import {
+  startWhatsAppSession,
+  getWhatsAppSessionStatus,
+} from "../services/whatsappConnectorClient";
 
 export const credentialRouter: Router = Router();
 
@@ -149,8 +154,13 @@ credentialRouter.post("/", async (req: Request, res: Response, next: NextFunctio
     const user = (req as any).user;
     const { name, value, type } = req.body;
 
-    if (!name || !value || !type) {
-      throw new AppError("Name, value, and type are required", 400);
+    if (!name || !type) {
+      throw new AppError("Name and type are required", 400);
+    }
+    // WHATSAPP uses QR link; value optional
+    const valueToUse = type === CredentialType.WHATSAPP ? (value ?? "linked") : value;
+    if (type !== CredentialType.WHATSAPP && !valueToUse) {
+      throw new AppError("Value is required for this credential type", 400);
     }
 
     // Validate type (allows known types and custom types)
@@ -163,7 +173,7 @@ credentialRouter.post("/", async (req: Request, res: Response, next: NextFunctio
 
     const credential = await credentialService.createCredential({
       name,
-      value,
+      value: valueToUse,
       type,
       userId: user.id,
     });
@@ -214,6 +224,68 @@ credentialRouter.post("/", async (req: Request, res: Response, next: NextFunctio
  *       401:
  *         description: Unauthorized
  */
+/**
+ * POST /credential/:id/whatsapp/connect
+ * Create/link WhatsApp session for this credential (workflow-only, no Chat Integration agent) and start connector session; returns QR if needed.
+ */
+credentialRouter.post(
+  "/:id/whatsapp/connect",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const credential = await credentialService.getCredential(id, user.id);
+      if (credential.type !== CredentialType.WHATSAPP) {
+        throw new AppError("This credential is not a WhatsApp credential.", 400);
+      }
+      const session = await chatIntegrationService.getOrCreateWhatsAppSessionForCredential(
+        id,
+        user.id
+      );
+      if (!session) throw new AppError("Failed to get or create WhatsApp session.", 500);
+      const result = await startWhatsAppSession(session.id);
+      res.json({
+        success: true,
+        sessionId: session.id,
+        status: result.status,
+        qr: result.qr,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /credential/:id/whatsapp/status
+ * Get WhatsApp session status and optional QR for this credential.
+ */
+credentialRouter.get(
+  "/:id/whatsapp/status",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const credential = await credentialService.getCredential(id, user.id);
+      if (credential.type !== CredentialType.WHATSAPP) {
+        throw new AppError("This credential is not a WhatsApp credential.", 400);
+      }
+      const session = await chatIntegrationService.getOrCreateWhatsAppSessionForCredential(
+        id,
+        user.id
+      );
+      if (!session) {
+        return res.json({ status: "disconnected", qr: null });
+      }
+      const status = await getWhatsAppSessionStatus(session.id);
+      if (!status) return res.json({ status: "disconnected", qr: null });
+      res.json({ status: status.status, qr: status.qr });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 credentialRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = (req as any).user;
