@@ -5,6 +5,8 @@ import {
   useCreateCredential,
   useCredential,
   useUpdateCredential,
+  useConnectCredentialWhatsApp,
+  useCredentialWhatsAppStatus,
 } from "@/hooks/useCredentials";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -62,7 +64,8 @@ const formSchema = z
     value: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    // Require value for all credential types
+    // WHATSAPP uses QR link; value optional
+    if ((data.type as string) === CredentialType.WHATSAPP) return;
     if (!data.value || data.value.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -98,6 +101,11 @@ export const credentialTypeOptions: Array<{
     label: "Telegram",
     value: CredentialType.TELEGRAM,
     logo: "/logo/telegram.svg",
+  },
+  {
+    label: "WhatsApp",
+    value: CredentialType.WHATSAPP,
+    logo: "/logo/whatsapp.svg",
   },
   {
     label: "Airtable",
@@ -240,23 +248,34 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
                   <FormLabel>
                     {form.watch("type") === CredentialType.AIRTABLE
                       ? "Personal Access Token"
-                      : form.watch("type") === CredentialType.CUSTOM
-                        ? "Credential Value"
-                        : "API Key"}
+                      : form.watch("type") === CredentialType.WHATSAPP
+                        ? "Value (optional)"
+                        : form.watch("type") === CredentialType.CUSTOM
+                          ? "Credential Value"
+                          : "API Key"}
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="password"
                       {...field}
                       placeholder={
-                        form.watch("type") === CredentialType.AIRTABLE
-                          ? "patXXXXXXXXXXXXXX"
-                          : form.watch("type") === CredentialType.CUSTOM
-                            ? "Enter your API key or credential value"
-                            : "AI-..."
+                        form.watch("type") === CredentialType.WHATSAPP
+                          ? "Leave blank – connect via QR after saving"
+                          : form.watch("type") === CredentialType.AIRTABLE
+                            ? "patXXXXXXXXXXXXXX"
+                            : form.watch("type") === CredentialType.CUSTOM
+                              ? "Enter your API key or credential value"
+                              : "AI-..."
                       }
                     />
                   </FormControl>
+                  {form.watch("type") === CredentialType.WHATSAPP && (
+                    <FormDescription>
+                      Leave blank. After saving, use the Connect WhatsApp section below to scan the
+                      QR code. This number will only be used for workflow triggers and Send WhatsApp
+                      nodes.
+                    </FormDescription>
+                  )}
                   {form.watch("type") === CredentialType.AIRTABLE && (
                     <FormDescription>
                       Enter your Airtable Personal Access Token (starts with "pat"). Get it from{" "}
@@ -301,6 +320,11 @@ export function CredentialForm({ initialData }: CredentialFormProps) {
 
 export const CredentialDetail = ({ credentialId }: { credentialId: string }) => {
   const { data: credential, isLoading } = useCredential(credentialId);
+  const connectWhatsApp = useConnectCredentialWhatsApp(credentialId);
+  const { data: whatsappStatus } = useCredentialWhatsAppStatus(
+    credentialId,
+    (credential?.type as string) === CredentialType.WHATSAPP
+  );
 
   // Show loading only if we don't have cached data
   if (isLoading && !credential) {
@@ -313,6 +337,59 @@ export const CredentialDetail = ({ credentialId }: { credentialId: string }) => 
     );
   }
 
-  // Use cached data immediately if available, form will update when fresh data arrives
-  return <CredentialForm initialData={credential} />;
+  const isWhatsApp = (credential?.type as string) === CredentialType.WHATSAPP;
+  const isConnected = whatsappStatus?.status === "open";
+  const qr = connectWhatsApp.data?.qr ?? whatsappStatus?.qr;
+
+  return (
+    <div className="space-y-6">
+      <CredentialForm initialData={credential} />
+      {isWhatsApp && (
+        <Card className="shadow-none">
+          <CardHeader>
+            <CardTitle className="text-base">Connect WhatsApp</CardTitle>
+            <CardDescription>
+              {isConnected
+                ? "This number is used for workflow triggers and Send WhatsApp nodes – no Chat Integration agent."
+                : "Scan the QR code with WhatsApp (Linked Devices). This number will only trigger workflows and Send WhatsApp nodes – no Chat Integration agent."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isConnected ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="inline-flex size-5 items-center justify-center rounded-full bg-green-500/20 text-green-600 dark:text-green-400">
+                  ✓
+                </span>
+                Connected
+              </div>
+            ) : (
+              <>
+                <Button
+                  onClick={() => connectWhatsApp.mutate()}
+                  disabled={connectWhatsApp.isPending}
+                >
+                  {connectWhatsApp.isPending && (
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Connect with QR
+                </Button>
+                {qr && (
+                  <div className="flex flex-col items-center gap-2">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qr)}`}
+                      alt="WhatsApp QR"
+                      className="rounded border"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Open WhatsApp → Settings → Linked Devices → Link a device
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 };

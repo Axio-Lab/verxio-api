@@ -2,6 +2,8 @@ import type { NodeExecutor } from "../types";
 import { whatsappChannel } from "@/inngest/channels/whatsapp";
 import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
+import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
+import { formatWhatsAppMessage } from "@/services/chatIntegrationService";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("json", (context) => {
@@ -12,6 +14,9 @@ type WhatsAppData = {
   variables?: string;
   phoneNumber?: string;
   message?: string;
+  credentialId?: string;
+  /** WhatsApp connection (Chat Integration) id – use when workflow is not triggered by WhatsApp */
+  integrationId?: string;
 };
 
 // Helper to publish status updates
@@ -40,58 +45,78 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
     await publishStatus(publish, nodeId, "loading");
 
     const variablesName = data.variables || "whatsapp";
-    if (!data.phoneNumber) {
+    const sessionRef =
+      (context as any).whatsappSessionRef ??
+      data.integrationId ??
+      data.credentialId ??
+      (context as any).whatsappPayload?.__integrationId;
+
+    if (!sessionRef) {
       await publishStatus(publish, nodeId, "error");
-      const error = new NonRetriableError("WhatsApp node: Phone number is required");
+      const error = new NonRetriableError(
+        "WhatsApp node: No session. Select a WhatsApp connection in this node, or run the workflow from a WhatsApp trigger."
+      );
       await publish(
         whatsappChannel().output({
           nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
+          output: { ...context, error: { message: error.message } },
         })
       );
       throw error;
     }
+
     if (!data.message) {
       await publishStatus(publish, nodeId, "error");
       const error = new NonRetriableError("WhatsApp node: Message is required");
       await publish(
         whatsappChannel().output({
           nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
-            },
-          },
+          output: { ...context, error: { message: error.message } },
         })
       );
       throw error;
     }
 
-    const phoneNumber = Handlebars.compile(data.phoneNumber)(context);
-    const message = Handlebars.compile(data.message)(context);
+    const phoneNumberRaw = data.phoneNumber?.trim();
+    const toJid =
+      phoneNumberRaw ?
+        Handlebars.compile(phoneNumberRaw)(context)
+      : (context as any).whatsappPayload?.from;
+    if (!toJid) {
+      await publishStatus(publish, nodeId, "error");
+      const error = new NonRetriableError(
+        "WhatsApp node: Phone number is required, or use a workflow triggered by WhatsApp (reply to sender)."
+      );
+      await publish(
+        whatsappChannel().output({
+          nodeId,
+          output: { ...context, error: { message: error.message } },
+        })
+      );
+      throw error;
+    }
 
-    // TODO: Implement actual WhatsApp API integration
-    // For now, we'll simulate the API call
+    const messageRaw = Handlebars.compile(data.message)(context);
+    const message = formatWhatsAppMessage(messageRaw);
+
     const result = await step.run("send-whatsapp-message", async () => {
-      // Simulate WhatsApp API call
-      // Replace this with actual WhatsApp API integration (e.g., Twilio, WhatsApp Business API)
-      const response = {
-        success: true,
-        messageId: `msg_${Date.now()}`,
-        phoneNumber,
-        message,
-      };
-
+      const response = await sendWhatsAppMessage({
+        sessionRef,
+        toJid: String(toJid).trim(),
+        text: message,
+      });
+      if (!response.success) {
+        throw new NonRetriableError(response.error || "Failed to send WhatsApp message");
+      }
       return {
         ...context,
         [variablesName]: {
-          response,
+          response: {
+            success: response.success,
+            messageId: response.messageId,
+            toJid: String(toJid).trim(),
+            message,
+          },
         },
       };
     });

@@ -35,6 +35,7 @@ import { billingCheckoutRouter } from "./routes/billing/checkout";
 import { manualPaymentRouter } from "./routes/manual-payment";
 import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
 import { chatIntegrationRouter } from "./routes/chat-integrations";
+import { internalWhatsAppRouter } from "./routes/internal/whatsapp";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -206,6 +207,7 @@ app.use("/api/billing", billingCheckoutRouter);
 app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
 app.use("/api/chat-integrations", chatIntegrationRouter);
+app.use("/api/internal/whatsapp", internalWhatsAppRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,

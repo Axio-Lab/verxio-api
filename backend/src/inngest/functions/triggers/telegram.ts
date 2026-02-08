@@ -4,6 +4,7 @@ import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
 import { getCredential } from "@/services/credentialService";
 import { CredentialType } from "@/services/credentialService";
+import { formatTelegramMessage } from "@/services/chatIntegrationService";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("json", (context) => {
@@ -140,9 +141,10 @@ export const telegramExecutor: NodeExecutor<TelegramData> = async ({
 
     // Compile Handlebars templates with workflow context
     const chatId = Handlebars.compile(data.chatId)(context);
-    const message = Handlebars.compile(data.message)(context);
+    const messageRaw = Handlebars.compile(data.message)(context);
+    const message = formatTelegramMessage(messageRaw);
 
-    // Send message via Telegram Bot API
+    // Send message via Telegram Bot API (HTML formatting, same as agent replies)
     const result = await step.run("send-telegram-message", async () => {
       const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
@@ -152,7 +154,7 @@ export const telegramExecutor: NodeExecutor<TelegramData> = async ({
         body: JSON.stringify({
           chat_id: chatId,
           text: message,
-          parse_mode: "HTML", // Support HTML formatting
+          parse_mode: "HTML",
         }),
       });
 

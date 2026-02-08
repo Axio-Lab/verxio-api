@@ -1,4 +1,3 @@
-import { NonRetriableError } from "inngest";
 import type { NodeExecutor } from "../types";
 import { timedTriggerChannel } from "@/inngest/channels/timed-trigger";
 

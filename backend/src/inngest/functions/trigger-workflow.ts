@@ -33,6 +33,7 @@ const TRIGGER_NODE_TYPES = [
   "AIRTABLE_TRIGGER",
   "STRIPE_TRIGGER",
   "TELEGRAM_TRIGGER",
+  "WHATSAPP_TRIGGER",
   "WEBHOOK",
 ] as const;
 
@@ -54,6 +55,7 @@ const findTriggerNode = (
     eventData.data?.stripeNodeId ||
     eventData.data?.webhookNodeId ||
     eventData.data?.telegramNodeId ||
+    eventData.data?.whatsappNodeId ||
     eventData.data?.timedTriggerNodeId ||
     null;
 
@@ -274,6 +276,12 @@ export const triggerWorkflow = inngest.createFunction(
     }
     if (event.data.data?.googleFormPayload) {
       context.googleFormPayload = event.data.data.googleFormPayload;
+    }
+    if (event.data.initialData?.whatsappPayload) {
+      context.whatsappPayload = event.data.initialData.whatsappPayload;
+    }
+    if (event.data.initialData?.whatsappSessionRef) {
+      context.whatsappSessionRef = event.data.initialData.whatsappSessionRef;
     }
 
     // Mark public chat run as RUNNING when used for shareable chat

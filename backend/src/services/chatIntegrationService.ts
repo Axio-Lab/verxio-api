@@ -10,6 +10,7 @@ import * as workflowService from "./workflowService";
 import * as credentialService from "./credentialService";
 import * as skillService from "./skillService";
 import { inngest } from "../inngest";
+import { sendWhatsAppMessage as sendWhatsAppViaConnector } from "./whatsappConnectorClient";
 
 /**
  * Chat Integration Integration Service
@@ -104,6 +105,7 @@ export async function updateIntegration(
     allowPlanMode?: boolean;
     allowWorkflowExecution?: boolean;
     telegramBotToken?: string | null;
+    whatsappOnlyOwnerCanChat?: boolean;
   }
 ) {
   const existing = await getIntegration(userId, integrationId);
@@ -245,6 +247,54 @@ export async function getTelegramWebhookInfo(botToken: string) {
 }
 
 /**
+ * Get or create WhatsAppSession for a Chat Integration (platform WHATSAPP).
+ */
+export async function getOrCreateWhatsAppSession(integrationId: string) {
+  const integration = await (prisma as any).chatIntegration.findFirst({
+    where: { id: integrationId, platform: "WHATSAPP" },
+    include: { whatsappSession: true },
+  });
+  if (!integration) return null;
+  if (integration.whatsappSession) return integration.whatsappSession;
+  const session = await (prisma as any).whatsAppSession.create({
+    data: {
+      integrationId,
+      status: "disconnected",
+    },
+  });
+  await (prisma as any).chatIntegration.update({
+    where: { id: integrationId },
+    data: { whatsappSessionId: session.id },
+  });
+  return session;
+}
+
+/**
+ * Get or create WhatsAppSession for a Credential (workflow trigger/send only, no Chat Integration agent).
+ */
+export async function getOrCreateWhatsAppSessionForCredential(
+  credentialId: string,
+  userId: string
+) {
+  const credential = await (prisma as any).credential.findFirst({
+    where: { id: credentialId, userId },
+  });
+  if (!credential) return null;
+  if (credential.type !== "WHATSAPP") return null;
+  const existing = await (prisma as any).whatsAppSession.findUnique({
+    where: { credentialId },
+  });
+  if (existing) return existing;
+  const session = await (prisma as any).whatsAppSession.create({
+    data: {
+      credentialId,
+      status: "disconnected",
+    },
+  });
+  return session;
+}
+
+/**
  * Regenerate shared secret
  */
 export async function regenerateSecret(userId: string, integrationId: string) {
@@ -348,13 +398,30 @@ export async function unlinkExternalIdentity(
 }
 
 /**
- * Get all external identities for a user
+ * Get external identities for a user with optional pagination
  */
-export async function getExternalIdentities(userId: string, integrationId?: string) {
-  return (prisma as any).externalIdentity.findMany({
-    where: { userId, ...(integrationId ? { integrationId } : {}) },
-    orderBy: { createdAt: "desc" },
-  });
+export async function getExternalIdentities(
+  userId: string,
+  integrationId?: string,
+  options?: { page?: number; limit?: number }
+) {
+  const where = { userId, ...(integrationId ? { integrationId } : {}) };
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+  const page = Math.max(options?.page ?? 1, 1);
+  const skip = (page - 1) * limit;
+
+  const [identities, total] = await Promise.all([
+    (prisma as any).externalIdentity.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    (prisma as any).externalIdentity.count({ where }),
+  ]);
+
+  const totalPages = Math.ceil(total / limit) || 1;
+  return { identities, total, page, limit, totalPages };
 }
 
 /**
@@ -439,6 +506,36 @@ export function formatTelegramMessage(text: string): string {
   output = output.replace(/^\s*-\s+/gm, "• ");
 
   return output;
+}
+
+/**
+ * Convert markdown-like text to WhatsApp formatting.
+ * WhatsApp supports: *bold*, _italic_, ~strikethrough~, ```monospace```.
+ * Cleans up stray Unicode and normalizes bullets/lists for readable display.
+ */
+export function formatWhatsAppMessage(text: string): string {
+  if (!text) return "";
+  let out = text;
+
+  // Remove narrow no-break space and similar that break display
+  out = out.replace(/\u202f/g, " ").replace(/\u00a0/g, " ");
+
+  // Inline `code` -> ```code``` for monospace
+  out = out.replace(/`([^`]+)`/g, "```$1```");
+
+  // Bold: **text** or __text__ -> *text* (WhatsApp bold)
+  out = out.replace(/\*\*([^*]+)\*\*/g, "*$1*");
+  out = out.replace(/__([^_]+)__/g, "*$1*");
+
+  // Italic: single *word* (not **) -> _word_
+  out = out.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1_$2_");
+
+  // Bullet lists: normalize "• " and "- " to a single bullet style
+  out = out.replace(/^\s*[•\-]\s+/gm, "• ");
+  // Numbered lists: ensure "1." "2." have a space after the dot
+  out = out.replace(/^(\d+)\.\s*/gm, "$1. ");
+
+  return out.trim();
 }
 
 const POLL_INTERVAL_MS = 1500;
@@ -706,12 +803,14 @@ async function runWorkflowAndWait(options: {
   userId: string;
   message: string;
   telegramPayload?: Record<string, unknown>;
+  whatsappPayload?: Record<string, unknown>;
 }) {
-  const { workflowId, userId, message, telegramPayload } = options;
+  const { workflowId, userId, message, telegramPayload, whatsappPayload } = options;
 
   const workflow = await workflowService.getWorkflow(workflowId, userId);
   const nodes = workflow.nodes || [];
   const telegramTrigger = nodes.find((n: any) => n.type === "TELEGRAM_TRIGGER");
+  const whatsappTrigger = nodes.find((n: any) => n.type === "WHATSAPP_TRIGGER");
   const webhookTrigger = nodes.find((n: any) => n.type === "WEBHOOK");
 
   const run = await (prisma as any).publicChatRun.create({
@@ -732,6 +831,11 @@ async function runWorkflowAndWait(options: {
     eventData.telegramNodeId = telegramTrigger.id;
     eventData.initialData = {
       telegramPayload,
+    };
+  } else if (whatsappTrigger && whatsappPayload) {
+    eventData.whatsappNodeId = whatsappTrigger.id;
+    eventData.initialData = {
+      whatsappPayload,
     };
   } else if (webhookTrigger) {
     eventData.webhookNodeId = webhookTrigger.id;
@@ -1610,6 +1714,40 @@ async function handleRunWorkflow(
       };
     }
 
+    // If WhatsApp, run workflow and send result via connector
+    if (chatId && integration?.platform === "WHATSAPP" && integration.id) {
+      void (async () => {
+        const result = await runWorkflowAndWait({
+          workflowId: workflow.id,
+          userId,
+          message: message.message,
+          telegramPayload: undefined,
+          whatsappPayload: (message.metadata as any)?.whatsappPayload,
+        });
+        const summary = result.success
+          ? await buildResultSummaryWithAgent({
+              output: result.output as Record<string, unknown>,
+              userId,
+              workflowId: workflow.id,
+            })
+          : `Workflow failed: ${result.error}`;
+        await sendWhatsAppViaConnector({
+          sessionRef: integration.id,
+          toJid: chatId,
+          text: formatWhatsAppMessage(summary),
+        });
+      })();
+      return {
+        success: true,
+        type: "workflow",
+        message: `Running **${workflow.name}**... I'll send results when it completes.`,
+        data: {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+        },
+      };
+    }
+
     // Fallback: trigger without async response
     await inngest.send({
       name: "workflow/trigger",
@@ -1743,6 +1881,72 @@ export async function testConnection(
         message: "Chat Integration integration not found. Please set up the integration first.",
       };
     }
+    if (integration.platform === "WHATSAPP") {
+      if (!integration.isActive) {
+        return {
+          success: false,
+          message: "Chat Integration integration is disabled.",
+          integration,
+        };
+      }
+      const { getWhatsAppSessionStatus, sendWhatsAppMessage } = await import(
+        "./whatsappConnectorClient"
+      );
+      const session = await getOrCreateWhatsAppSession(integrationId);
+      if (!session) {
+        return {
+          success: false,
+          message: "WhatsApp session not found for this integration.",
+          integration,
+        };
+      }
+      const status = await getWhatsAppSessionStatus(session.id);
+      if (!status) {
+        return {
+          success: true,
+          message: "WhatsApp connector is not running or session not loaded. Start the connector and connect to see status.",
+          integration: {
+            whatsappSessionId: integration.whatsappSessionId,
+            isActive: integration.isActive,
+          },
+        };
+      }
+      let testMessageSent = false;
+      const { identities } = await getExternalIdentities(userId, integrationId);
+      const waIdentity = identities.find((i: any) => i.platform === "whatsapp");
+      let toJid = waIdentity?.externalId;
+      if (!toJid && status.status === "open") {
+        const sessionRow = await (prisma as any).whatsAppSession.findUnique({
+          where: { id: session.id },
+          select: { phoneNumber: true },
+        });
+        if (sessionRow?.phoneNumber) {
+          toJid = `${String(sessionRow.phoneNumber).replace(/\D/g, "")}@s.whatsapp.net`;
+        }
+      }
+      if (toJid && status.status === "open") {
+        const result = await sendWhatsAppMessage({
+          sessionRef: integration.id,
+          toJid,
+          text: "Connection test successful. Your Verxio integration is working.",
+        });
+        testMessageSent = result.success;
+      }
+      return {
+        success: true,
+        message: testMessageSent
+          ? "A test message was sent to your WhatsApp."
+          : status.status === "open"
+            ? "WhatsApp is connected. Send a message to this number from your phone to chat, or use Test again to send a test message to the connected number."
+            : `WhatsApp session status: ${status.status}. Scan the QR code to connect.`,
+        integration: {
+          whatsappSessionId: integration.whatsappSessionId,
+          whatsappStatus: status.status,
+          isActive: integration.isActive,
+        },
+      };
+    }
+
     if (integration.platform !== "TELEGRAM") {
       return {
         success: false,
@@ -1790,7 +1994,7 @@ export async function testConnection(
     const genericTestMessage = "Connection test successful. Your Verxio integration is working.";
     let testMessageSent = false;
     try {
-      const identities = await getExternalIdentities(userId, integrationId);
+      const { identities } = await getExternalIdentities(userId, integrationId);
       const telegramIdentity = identities.find((i: any) => i.platform === "telegram");
       const chatId =
         telegramIdentity?.metadata?.chatId != null

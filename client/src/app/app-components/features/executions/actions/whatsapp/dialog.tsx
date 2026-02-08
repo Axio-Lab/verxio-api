@@ -25,6 +25,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useCredentials, CredentialType } from "@/hooks/useCredentials";
 
 const formSchema = z.object({
   variables: z
@@ -34,7 +42,8 @@ const formSchema = z.object({
       message:
         "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores",
     }),
-  phoneNumber: z.string().min(1, { message: "Phone number is required" }),
+  credentialId: z.string().min(1, { message: "Select a WhatsApp credential" }),
+  phoneNumber: z.string(),
   message: z.string().min(1, { message: "Message is required" }),
 });
 
@@ -44,14 +53,18 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: WhatsAppFormValues) => void;
-  defaultValues?: Partial<WhatsAppFormValues>;
+  defaultValues?: Partial<WhatsAppFormValues & { credentialId?: string }>;
 }
 
 export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
-  const form = useForm<WhatsAppFormValues>({
+  const { data: credentialsData } = useCredentials(1, 50, CredentialType.WHATSAPP);
+  const whatsappCredentials = credentialsData?.credentials || [];
+
+  const form = useForm<WhatsAppFormValues & { credentialId?: string }>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       variables: defaultValues.variables || "whatsapp",
+      credentialId: defaultValues.credentialId || "",
       phoneNumber: defaultValues.phoneNumber || "",
       message: defaultValues.message || "",
     },
@@ -61,6 +74,7 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
     if (open) {
       form.reset({
         variables: defaultValues.variables || "whatsapp",
+        credentialId: defaultValues.credentialId || "",
         phoneNumber: defaultValues.phoneNumber || "",
         message: defaultValues.message || "",
       });
@@ -69,7 +83,7 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
 
   const watchVariables = form.watch("variables") || "whatsapp";
 
-  const handleSubmit = async (values: WhatsAppFormValues) => {
+  const handleSubmit = async (values: WhatsAppFormValues & { credentialId?: string }) => {
     try {
       await Promise.resolve(onSubmit(values));
       onOpenChange(false);
@@ -110,6 +124,42 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
               />
               <FormField
                 control={form.control}
+                name="credentialId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>WhatsApp credential</FormLabel>
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a WhatsApp credential" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {whatsappCredentials.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            No WhatsApp credentials. Create one in Credentials and connect via QR.
+                          </SelectItem>
+                        ) : (
+                          whatsappCredentials.map((cred: { id: string; name: string }) => (
+                            <SelectItem key={cred.id} value={cred.id}>
+                              {cred.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Select the WhatsApp credential to send from. Create and connect one in Credentials if needed.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
@@ -118,7 +168,7 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                       <Input {...field} placeholder="+1234567890" />
                     </FormControl>
                     <FormDescription>
-                      Recipient's phone number. Use {"{{variables}}"} for dynamic values.
+                      Recipient number (e.g. +1234567890 or {"{{whatsapp.payload.from}}"} to reply to sender). Use {"{{variables}}"} for dynamic values.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

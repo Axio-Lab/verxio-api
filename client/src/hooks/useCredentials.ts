@@ -13,6 +13,7 @@ export enum CredentialType {
   ANTHROPIC = "ANTHROPIC",
   GEMINI = "GEMINI",
   TELEGRAM = "TELEGRAM",
+  WHATSAPP = "WHATSAPP",
   AIRTABLE = "AIRTABLE",
   CUSTOM = "CUSTOM",
 }
@@ -133,6 +134,46 @@ export function useUpdateCredential() {
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to update credential";
       toast.error(errorMessage);
+    },
+  });
+}
+
+/**
+ * Connect WhatsApp for a WHATSAPP credential (start session, get QR).
+ */
+export function useConnectCredentialWhatsApp(credentialId: string) {
+  const queryClient = useQueryClient();
+  return useProtectedMutation<
+    { success: boolean; sessionId: string; status: string; qr?: string },
+    Error,
+    void
+  >({
+    mutationFn: () =>
+      authenticatedPost<{ success: boolean; sessionId: string; status: string; qr?: string }>(
+        `/credential/${credentialId}/whatsapp/connect`,
+        {}
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["credential", credentialId] });
+    },
+  });
+}
+
+/**
+ * Get WhatsApp session status (and QR if connecting) for a WHATSAPP credential.
+ */
+export function useCredentialWhatsAppStatus(credentialId: string, enabled: boolean) {
+  return useProtectedQuery<{ status: string; qr?: string }>({
+    queryKey: ["credential", credentialId, "whatsapp-status"],
+    queryFn: () =>
+      authenticatedGet<{ status: string; qr?: string }>(
+        `/credential/${credentialId}/whatsapp/status`
+      ),
+    enabled: !!credentialId && enabled,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === "qr" || data?.status === "connecting") return 3000;
+      return false;
     },
   });
 }

@@ -1421,6 +1421,10 @@ export const updateWorkflowData = async (
         assetsByNodeId[node.id.trim()] = assetsToStore;
       }
 
+      const credentialId =
+        (node as { credentialId?: string }).credentialId ??
+        (node.data && (node.data as any).credentialId) ??
+        null;
       return {
         id: node.id.trim(),
         workflowId: id,
@@ -1428,6 +1432,7 @@ export const updateWorkflowData = async (
         type: node.type as any,
         position: node.position || { x: 0, y: 0 },
         data: nodeData,
+        credentialId: credentialId || undefined,
       };
     })
     .filter((n) => n.id && n.type);
