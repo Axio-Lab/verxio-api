@@ -12,6 +12,17 @@ import type { IncomingWhatsAppEvent, WhatsAppPayload } from "./types";
 
 const WORKER_ID = process.env.WHATSAPP_CONNECTOR_WORKER_ID || "default";
 
+/** Silent logger so we only see our own "[WhatsApp Connector] Incoming" logs, not Baileys decrypt/retry noise */
+const silentLogger = {
+  level: "silent" as const,
+  child: () => silentLogger,
+  trace: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+};
+
 export type OnIncomingCallback = (event: IncomingWhatsAppEvent) => Promise<void>;
 
 export interface SessionInfo {
@@ -73,6 +84,7 @@ export async function startSession(
     printQRInTerminal: false,
     browser: ["Verxio", "Chrome", "1.0.0"],
     syncFullHistory: false,
+    logger: silentLogger,
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -157,7 +169,6 @@ export async function startSession(
   // Only two message types are ever tracked:
   // 1. Only-owner mode ON:  self message to self (owner → own number).
   // 2. Only-owner mode OFF: another number → connected number (incoming from contact).
-  let onlyOwnerModeLogged = false;
   function shouldTrackMessage(
     onlyOwnerMode: boolean,
     fromMe: boolean,
@@ -186,7 +197,6 @@ export async function startSession(
         const payload = normalizeMessage(msg as WAMessage);
         if (!payload) continue;
         try {
-          console.log("[WhatsApp Connector] Incoming (credential) from %s: %s", payload.from, (payload.body || "").slice(0, 60));
           await onIncoming({
             sessionId,
             integrationId: undefined,
@@ -207,13 +217,6 @@ export async function startSession(
       select: { whatsappOnlyOwnerCanChat: true },
     }).catch(() => null);
     const onlyOwnerMode = integration?.whatsappOnlyOwnerCanChat !== false;
-    if (!onlyOwnerModeLogged) {
-      console.log(
-        "[WhatsApp Connector] only-owner mode: %s (only self-chat processed when on)",
-        onlyOwnerMode ? "ON" : "OFF"
-      );
-      onlyOwnerModeLogged = true;
-    }
     for (const msg of messages) {
       const fromMe = msg.key.fromMe === true;
       const remoteJid = msg.key.remoteJid;
@@ -222,8 +225,7 @@ export async function startSession(
       const payload = normalizeMessage(msg as WAMessage);
       if (!payload) continue;
       try {
-        console.log("[WhatsApp Connector] Incoming from %s: %s", payload.from, (payload.body || "").slice(0, 60));
-        await onIncoming({
+       await onIncoming({
           sessionId,
           integrationId: row.integrationId,
           credentialId: row.credentialId ?? undefined,

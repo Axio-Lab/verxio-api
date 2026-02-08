@@ -3,8 +3,8 @@
  * Connector maps Baileys messages.upsert to this shape before sending to backend.
  */
 export interface WhatsAppPayload {
-  from: string; // JID e.g. 1234567890@s.whatsapp.net
-  to: string;
+  from: string; // Sender phone number (digits only, no @s.whatsapp.net)
+  to: string; // Recipient phone number (digits only)
   body: string;
   messageId: string;
   type: "text" | "image" | "video" | "audio" | "document" | "sticker" | "unknown";

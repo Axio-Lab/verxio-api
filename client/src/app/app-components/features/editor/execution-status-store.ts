@@ -18,15 +18,10 @@ export function useSetNodeExecutionStatus() {
   const setStatusMap = useSetAtom(nodeStatusMapAtom);
 
   return (nodeId: string, status: NodeStatus) => {
-    setStatusMap((prev) => {
-      if (prev[nodeId] === status) {
-        return prev;
-      }
-      return {
-        ...prev,
-        [nodeId]: status,
-      };
-    });
+    setStatusMap((prev) => ({
+      ...prev,
+      [nodeId]: status,
+    }));
   };
 }
 

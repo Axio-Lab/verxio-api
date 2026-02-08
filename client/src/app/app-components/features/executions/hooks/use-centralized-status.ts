@@ -295,7 +295,12 @@ export function useCentralizedNodeStatusSubscriptions() {
     for (const msg of statusMessages) {
       const nodeId = msg.data.nodeId as string;
       if (msg.data.status) {
-        setNodeExecutionStatus(nodeId, mapInngestStatusToNodeStatus(msg.data.status));
+        const nodeStatus = mapInngestStatusToNodeStatus(msg.data.status);
+        // When a new run starts (loading), clear previous output so UI shows fresh state
+        if (nodeStatus === "loading") {
+          setNodeOutput(nodeId, null);
+        }
+        setNodeExecutionStatus(nodeId, nodeStatus);
       }
     }
 

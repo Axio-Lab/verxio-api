@@ -4,6 +4,14 @@ import type { WhatsAppPayload } from "./types";
 /** JIDs we never process (status/stories, etc.). */
 const IGNORED_JIDS = ["status@broadcast"];
 
+/** Extract phone number only from a JID (strip @s.whatsapp.net, @g.us, @lid, etc.). */
+function jidToNumber(jid: string): string {
+  if (!jid) return jid;
+  const at = jid.indexOf("@");
+  if (at === -1) return jid.replace(/\D/g, "") || jid;
+  return jid.slice(0, at).replace(/\D/g, "") || jid;
+}
+
 /**
  * Normalize to payload only for 1:1 chats. Caller (session-manager) then allows only:
  * - Only-owner ON:  self message to self.
@@ -69,8 +77,8 @@ export function normalizeMessage(msg: WAMessage): WhatsAppPayload | null {
   const messageId = key.id || `msg_${Date.now()}`;
 
   return {
-    from,
-    to,
+    from: jidToNumber(from),
+    to: jidToNumber(to),
     body,
     messageId,
     type,

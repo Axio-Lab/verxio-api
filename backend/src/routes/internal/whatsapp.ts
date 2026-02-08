@@ -156,13 +156,24 @@ router.post("/incoming", async (req: Request, res: Response) => {
   }
 
   if (body.credentialId) {
-    const triggerNode = await (prisma as any).node.findFirst({
+    // Prefer Node.credentialId column (set when workflow is saved)
+    let triggerNode = await (prisma as any).node.findFirst({
       where: {
         type: "WHATSAPP_TRIGGER",
         credentialId: body.credentialId,
       },
       include: { workflow: { select: { id: true, userId: true } } },
     });
+    // Fallback: match by node.data.credentialId (in case column wasn't persisted)
+    if (!triggerNode?.workflow) {
+      const allTriggerNodes = await (prisma as any).node.findMany({
+        where: { type: "WHATSAPP_TRIGGER" },
+        include: { workflow: { select: { id: true, userId: true } } },
+      });
+      triggerNode = allTriggerNodes.find(
+        (n: any) => (n.data && (n.data as any).credentialId) === body.credentialId
+      );
+    }
     if (triggerNode?.workflow) {
       await inngest.send({
         name: "workflow/trigger",
@@ -178,6 +189,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
       });
       return res.json({ ok: true, triggered: true });
     }
+    console.warn("[WhatsApp incoming] No WHATSAPP_TRIGGER node found for credentialId:", body.credentialId);
   }
 
   return res.json({ ok: true });

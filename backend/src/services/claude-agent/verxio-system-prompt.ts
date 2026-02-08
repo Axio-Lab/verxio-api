@@ -54,6 +54,18 @@ const NODE_TYPES_DOCUMENTATION = `
   3. If credential is missing, use requestCredential("TELEGRAM") to request it from the user
   4. NEVER create the node without a valid credentialId
 
+**WHATSAPP_TRIGGER**
+- Fields: { credentialId: string (REQUIRED) }
+- Description: Activates on incoming WhatsApp messages (workflow-only; uses WhatsApp credential, not Chat Integration)
+- CRITICAL: Before creating WHATSAPP_TRIGGER nodes, you MUST:
+  1. Check for existing WHATSAPP credentials using getCredentials("WHATSAPP")
+  2. If credential exists, use its credentialId in the node config
+  3. If credential is missing, use requestCredential("WHATSAPP") to request it from the user
+  4. NEVER create the node without a valid credentialId
+- Output variable name: "whatsapp". Full context also has whatsappPayload (same shape) and whatsappSessionRef (credential id for Send WhatsApp).
+- Payload shape: { body, from, to, messageId, type, pushName, timestamp, isGroup, fromMe, ... }
+- Use {{whatsapp.payload.body}} for message text, {{whatsapp.payload.from}} to reply to sender in Send WhatsApp. from and to are phone numbers only (no @s.whatsapp.net)—use as-is in Send WhatsApp to avoid errors. {{whatsapp.payload.fromMe}} is true when the connected number sent the message (e.g. self-chat).
+
 **AIRTABLE_TRIGGER**
 - Fields: { credentialId: string, baseId: string, tableId: string }
 - Description: Triggers on Airtable record changes
@@ -387,9 +399,15 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{stripe.data}} - Event data
 
 **WHATSAPP_TRIGGER** (Variable name: "whatsapp")
-- Outputs: { payload: {...messageData} }
+- Outputs: context contains whatsapp: { payload }, whatsappPayload (same as payload), whatsappSessionRef (credential id).
+- Payload shape: { body, from, to, messageId, type, pushName, timestamp, isGroup, fromMe, ... }. from and to are phone numbers only (digits, no @s.whatsapp.net)—use them as-is; do NOT append @s.whatsapp.net or any suffix.
 - Template examples:
-  - {{whatsapp.payload.message}}
+  - {{whatsapp.payload.body}} - Message text (use for the user's message content)
+  - {{whatsapp.payload.from}} - Sender phone number (use as-is in Send WhatsApp "Phone number" to reply to sender; no suffix)
+  - {{whatsapp.payload.to}} - Recipient phone number (use as-is; no suffix)
+  - {{whatsapp.payload.pushName}} - Sender display name
+  - {{whatsapp.payload.messageId}} - Message ID
+  - {{whatsapp.payload.fromMe}} - true when message was sent by the connected number (self-chat)
 
 ### AI Models (Uses "variables" field for output name)
 
@@ -977,7 +995,7 @@ When creating or configuring nodes, you MUST:
   - WEBHOOK: uses "variables" field (default "webhook") -> {{webhook.payload.data}}
   - GOOGLE_FORM_TRIGGER: "googleForm" -> {{googleForm.payload.answers}}
   - STRIPE_TRIGGER: "stripe" -> {{stripe.event}}, {{stripe.data}}
-  - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.message}}
+  - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.body}}, {{whatsapp.payload.from}} (phone number only), {{whatsapp.payload.pushName}}
 - ACTION NODES use the "variables" field value (REQUIRED for AI nodes):
   - AI nodes (ANTHROPIC, OPENAI, GEMINI) MUST have variables field set explicitly
   - If GEMINI node named "Viral Content" with variables: "viralContent" -> {{viralContent.text}}
