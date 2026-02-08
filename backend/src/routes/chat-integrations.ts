@@ -4,6 +4,10 @@ import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { chatIntegrationAuthMiddleware } from "../middleware/chatIntegrationAuth";
 import { AppError } from "../middleware/errorHandler";
 import * as chatIntegrationService from "../services/chatIntegrationService";
+import {
+  startWhatsAppSession,
+  getWhatsAppSessionStatus,
+} from "../services/whatsappConnectorClient";
 
 export const chatIntegrationRouter: Router = Router();
 
@@ -64,6 +68,8 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          whatsappSessionId: integration.whatsappSessionId,
+          whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
         })),
       });
     } catch (error) {
@@ -224,6 +230,7 @@ chatIntegrationRouter.put(
         allowPlanMode,
         allowWorkflowExecution,
         telegramBotToken,
+        whatsappOnlyOwnerCanChat,
       } = req.body;
 
       const integration = await chatIntegrationService.updateIntegration(user.id, id, {
@@ -237,6 +244,7 @@ chatIntegrationRouter.put(
         allowPlanMode,
         allowWorkflowExecution,
         telegramBotToken,
+        whatsappOnlyOwnerCanChat,
       });
 
       res.json({
@@ -253,6 +261,7 @@ chatIntegrationRouter.put(
           allowPlanMode: integration.allowPlanMode,
           allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
         },
       });
     } catch (error) {
@@ -353,6 +362,66 @@ chatIntegrationRouter.post(
 );
 
 /**
+ * POST /api/chat-integrations/integrations/:id/whatsapp/connect
+ * Get or create WhatsApp session and start connector; returns QR if needed
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/whatsapp/connect",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
+      if (!integration) throw new AppError("Integration not found", 404);
+      if (integration.platform !== "WHATSAPP")
+        throw new AppError("This integration is not WhatsApp.", 400);
+      const session = await chatIntegrationService.getOrCreateWhatsAppSession(id);
+      if (!session) throw new AppError("Failed to get or create WhatsApp session.", 500);
+      const result = await startWhatsAppSession(session.id);
+      res.json({
+        success: true,
+        sessionId: session.id,
+        status: result.status,
+        qr: result.qr,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/chat-integrations/integrations/:id/whatsapp/status
+ * Get WhatsApp session status and optional QR
+ */
+chatIntegrationRouter.get(
+  "/integrations/:id/whatsapp/status",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
+      if (!integration) throw new AppError("Integration not found", 404);
+      if (integration.platform !== "WHATSAPP")
+        throw new AppError("This integration is not WhatsApp.", 400);
+      const session = integration.whatsappSessionId
+        ? await chatIntegrationService.getOrCreateWhatsAppSession(id)
+        : null;
+      if (!session) {
+        return res.json({ status: "disconnected", qr: null });
+      }
+      const status = await getWhatsAppSessionStatus(session.id);
+      if (!status) return res.json({ status: "disconnected", qr: null });
+      res.json({ status: status.status, qr: status.qr });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * DELETE /api/chat-integrations/integrations/:id
  * Delete an integration and linked identities
  */
@@ -422,6 +491,8 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          whatsappSessionId: integration.whatsappSessionId,
+          whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
         },
       });
     } catch (error) {
@@ -621,7 +692,7 @@ chatIntegrationRouter.post(
 
 /**
  * GET /api/chat-integrations/identities
- * Get all linked external identities for the user
+ * Get linked external identities for the user with pagination (page, limit)
  */
 chatIntegrationRouter.get(
   "/identities",
@@ -630,11 +701,16 @@ chatIntegrationRouter.get(
     try {
       const user = (req as any).user;
       const integrationId = req.query.integrationId as string | undefined;
-      const identities = await chatIntegrationService.getExternalIdentities(user.id, integrationId);
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 10;
+      const result = await chatIntegrationService.getExternalIdentities(user.id, integrationId, {
+        page,
+        limit,
+      });
 
       res.json({
         success: true,
-        identities,
+        ...result,
       });
     } catch (error) {
       next(error);

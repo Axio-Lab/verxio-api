@@ -737,11 +737,39 @@ model ChatIntegration {
   totalRequests   Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  whatsappSessionId String?  @unique
+  whatsappSession   WhatsAppSession? @relation(fields: [whatsappSessionId], references: [id], onDelete: SetNull)
+  /// When true (default), only messages from the connected number (owner) trigger the agent. When false, anyone who messages the number can chat (customer support).
+  whatsappOnlyOwnerCanChat Boolean @default(true)
 
   @@index([userId])
   @@index([platform])
   @@index([scope])
+  @@index([whatsappSessionId])
   @@map("chat_integrations")
+}
+
+// ============================================
+// WhatsApp (Baileys) session state
+// ============================================
+
+model WhatsAppSession {
+  id             String   @id @default(cuid())
+  integrationId  String?  @unique // ChatIntegration.id when used for chat integration
+  credentialId   String?  @unique // Credential.id when used for workflow Send/Trigger nodes
+  authState      Json?    // Baileys auth state (serialized). Rely on DB encryption at rest for production.
+  status         String   @default("disconnected") // disconnected | connecting | open | qr
+  phoneNumber    String?  // Last known number for display
+  workerId       String?  // Connector instance that owns this session (for sharding)
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  chatIntegration ChatIntegration?
+
+  @@index([status])
+  @@index([workerId])
+  @@map("whatsapp_sessions")
 }
 
 enum ChatPlatform {

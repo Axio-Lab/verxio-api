@@ -13,6 +13,8 @@ import {
   useUnlinkExternalIdentity,
   useCreateChatIntegration,
   useRefreshTelegramWebhook,
+  useConnectWhatsApp,
+  useWhatsAppStatus,
 } from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -61,6 +63,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { EntityPagination } from "@/app/app-components/features/editor/entity-component";
 
 // ============================================
 // Main ChatIntegration Setup Component
@@ -83,12 +86,18 @@ export function ChatIntegrationsSetup({
   const { data: secretData, isLoading: secretLoading } = useChatIntegrationSecret(
     selectedIntegrationId || undefined
   );
+  const [identitiesPage, setIdentitiesPage] = useState(1);
+  const IDENTITIES_PAGE_SIZE = 5;
   const {
     data: identitiesData,
     isLoading: identitiesLoading,
     isFetching: identitiesFetching,
     refetch: refetchIdentities,
-  } = useExternalIdentities(selectedIntegrationId || undefined);
+  } = useExternalIdentities(
+    selectedIntegrationId || undefined,
+    identitiesPage,
+    IDENTITIES_PAGE_SIZE
+  );
   const { data: workflowsData } = useWorkflows(1, 100);
 
   const updateIntegration = useUpdateChatIntegration(selectedIntegrationId || "");
@@ -98,6 +107,16 @@ export function ChatIntegrationsSetup({
   const unlinkIdentity = useUnlinkExternalIdentity(selectedIntegrationId || undefined);
   const createIntegration = useCreateChatIntegration();
   const refreshWebhook = useRefreshTelegramWebhook(selectedIntegrationId || "");
+  const connectWhatsApp = useConnectWhatsApp(selectedIntegrationId || "");
+  const selectedPlatform = integrationsData?.integrations?.find(
+    (i) => i.id === selectedIntegrationId
+  )?.platform;
+  const {
+    data: whatsappStatusData,
+    refetch: refetchWhatsAppStatus,
+  } = useWhatsAppStatus(selectedIntegrationId || undefined, {
+    enabled: selectedPlatform === "WHATSAPP",
+  });
 
   const [showSecret, setShowSecret] = useState(false);
   const [secretJustRegenerated, setSecretJustRegenerated] = useState(false);
@@ -134,6 +153,10 @@ export function ChatIntegrationsSetup({
       setLabelDraft(integration.label);
     }
   }, [integrationsData?.integrations, selectedIntegrationId]);
+
+  useEffect(() => {
+    setIdentitiesPage(1);
+  }, [selectedIntegrationId]);
 
   if (isLoading) {
     return <ChatIntegrationsSetupSkeleton />;
@@ -224,7 +247,7 @@ export function ChatIntegrationsSetup({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TELEGRAM">Telegram</SelectItem>
-                  <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                  <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                   <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
                   <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
                 </SelectContent>
@@ -331,7 +354,7 @@ export function ChatIntegrationsSetup({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TELEGRAM">Telegram</SelectItem>
-                <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                 <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
                 <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
               </SelectContent>
@@ -533,6 +556,11 @@ export function ChatIntegrationsSetup({
     });
   };
 
+  const handleWhatsAppOnlyOwnerChange = (onlyOwner: boolean) => {
+    if (!integration?.id) return;
+    updateIntegration.mutate({ whatsappOnlyOwnerCanChat: onlyOwner });
+  };
+
   const handleAllowListToggle = (workflowId: string, checked: boolean) => {
     if (!integration?.id) {
       toast.error("Select an integration first.");
@@ -595,7 +623,7 @@ export function ChatIntegrationsSetup({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="TELEGRAM">Telegram</SelectItem>
-                    <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                    <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                     <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
                     <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
                   </SelectContent>
@@ -703,151 +731,254 @@ export function ChatIntegrationsSetup({
         </CardHeader>
       </Card> */}
 
-      {/* Step 1 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bot className="h-4 w-4" />
-            Step 1 — Create a Telegram Bot
-          </CardTitle>
-          <CardDescription>Create a bot with BotFather and copy the token.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <ol className="list-decimal pl-5 space-y-2">
-            <li>
-              Open Telegram and message <span className="font-mono">@BotFather</span>.
-            </li>
-            <li>
-              Run <span className="font-mono">/newbot</span> and follow the prompts.
-            </li>
-            <li>
-              Copy the bot token (looks like <span className="font-mono">123:ABC...</span>).
-            </li>
-          </ol>
-          <Button variant="outline" asChild>
-            <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open BotFather
-            </a>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Step 2 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <KeyRound className="h-4 w-4" />
-            Step 2 — Save Bot Token
-          </CardTitle>
-          <CardDescription>Paste your Telegram bot token and save it here.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {integration?.platform !== "TELEGRAM" && (
-            <Badge variant="outline">
-              Token setup is only available for Telegram integrations right now.
-            </Badge>
-          )}
-          <div className="flex flex-col gap-2">
-            <Label>Telegram Bot Token</Label>
-            <Input
-              type="password"
-              placeholder="123:ABC..."
-              value={botToken}
-              onChange={(e) => setBotToken(e.target.value)}
-              disabled={integration?.platform !== "TELEGRAM"}
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleSaveBotToken}
-                disabled={saveTelegramToken.isPending || integration?.platform !== "TELEGRAM"}
-              >
-                {saveTelegramToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Token
+      {/* ——— Telegram-only steps ——— */}
+      {integration?.platform === "TELEGRAM" && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                Step 1 — Create a Telegram Bot
+              </CardTitle>
+              <CardDescription>Create a bot with BotFather and copy the token.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <ol className="list-decimal pl-5 space-y-2">
+                <li>
+                  Open Telegram and message <span className="font-mono">@BotFather</span>.
+                </li>
+                <li>
+                  Run <span className="font-mono">/newbot</span> and follow the prompts.
+                </li>
+                <li>
+                  Copy the bot token (looks like <span className="font-mono">123:ABC...</span>).
+                </li>
+              </ol>
+              <Button variant="outline" asChild>
+                <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open BotFather
+                </a>
               </Button>
-              {tokenSaved && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Token saved
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Step 3 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Step 3 — Link Your Telegram Account
-          </CardTitle>
-          <CardDescription>Send a message to your bot to link your account.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <ol className="list-decimal pl-5 space-y-2">
-            <li>Open Telegram and DM your bot.</li>
-            <li>Say “hi” or any message.</li>
-            <li>Verxio will automatically link your account.</li>
-          </ol>
-          <div className="flex items-center gap-2">
-            {telegramLinked ? (
-              <Badge className="flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" />
-                Linked
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <KeyRound className="h-4 w-4" />
+                Step 2 — Save Bot Token
+              </CardTitle>
+              <CardDescription>Paste your Telegram bot token and save it here.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-2">
+                <Label>Telegram Bot Token</Label>
+                <Input
+                  type="password"
+                  placeholder="123:ABC..."
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleSaveBotToken}
+                    disabled={saveTelegramToken.isPending}
+                  >
+                    {saveTelegramToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Save Token
+                  </Button>
+                  {tokenSaved && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Token saved
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ——— WhatsApp: Connect with QR ——— */}
+      {integration?.platform === "WHATSAPP" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Connect WhatsApp
+            </CardTitle>
+            <CardDescription>
+              Scan the QR code with WhatsApp on your phone (Linked Devices).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {whatsappStatusData?.status === "open" ? (
+              <Badge className="flex items-center gap-1 w-fit">
+                <CheckCircle2 className="h-3 w-3" />
+                Connected
               </Badge>
             ) : (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <ShieldX className="h-3 w-3" />
-                Not linked
-              </Badge>
+              <>
+                <Button
+                  onClick={() => connectWhatsApp.mutate()}
+                  disabled={connectWhatsApp.isPending}
+                >
+                  {connectWhatsApp.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {integration?.whatsappSessionId ? "Show QR again" : "Connect with QR"}
+                </Button>
+                {(connectWhatsApp.data?.qr ?? whatsappStatusData?.qr) ? (
+                  <div className="flex flex-col items-start gap-2">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(connectWhatsApp.data?.qr ?? whatsappStatusData?.qr ?? "")}`}
+                      alt="WhatsApp QR"
+                      className="rounded border"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Open WhatsApp → Settings → Linked devices → Link a device
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetchWhatsAppStatus()}
+                      disabled={whatsappStatusData?.status === "open"}
+                    >
+                      Refresh status
+                    </Button>
+                  </div>
+                ) : (
+                  whatsappStatusData?.status === "connecting" && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Waiting for scan…
+                    </p>
+                  )
+                )}
+              </>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ——— Step 3: Telegram = Link account; WhatsApp = Chat with agent ——— */}
+      {integration?.platform === "TELEGRAM" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Step 3 — Link Your Telegram Account
+            </CardTitle>
+            <CardDescription>Send a message to your bot to link your account.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <ol className="list-decimal pl-5 space-y-2">
+              <li>Open Telegram and DM your bot.</li>
+              <li>Say hi or any message.</li>
+              <li>Verxio will automatically link your account.</li>
+            </ol>
+            <div className="flex items-center gap-2">
+              {telegramLinked ? (
+                <Badge className="flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3" />
+                  Linked
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <ShieldX className="h-3 w-3" />
+                  Not linked
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshStatus}
+                disabled={identitiesLoading || identitiesFetching || refreshWebhook.isPending}
+              >
+                {identitiesLoading || identitiesFetching || refreshWebhook.isPending ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : null}
+                Refresh status
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {integration?.platform === "WHATSAPP" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              Chat with your agent
+            </CardTitle>
+            <CardDescription>
+              Choose who can trigger the agent. Link a workflow below (e.g. Enquiries with skills and documents) for customer support.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="whatsapp-only-owner">Only I can chat with the agent</Label>
+                <p className="text-sm text-muted-foreground">
+                  When on: only messages from the connected number are processed. Others messaging this number will not trigger workflows. Message your own number (self-chat) to talk to the agent.
+                </p>
+              </div>
+              <Switch
+                id="whatsapp-only-owner"
+                checked={integration?.whatsappOnlyOwnerCanChat !== false}
+                onCheckedChange={handleWhatsAppOnlyOwnerChange}
+                disabled={!integration?.id || updateIntegration.isPending}
+              />
+            </div>
+            {integration?.whatsappOnlyOwnerCanChat === false && (
+              <p className="text-sm text-muted-foreground">
+                Customer support mode: anyone who messages this number can chat with the agent. Set scope to &quot;Single workflow&quot; below and select your Enquiries (or support) workflow with skills and documents.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ——— Step 4: Test Connection (Telegram & WhatsApp) ——— */}
+      {(integration?.platform === "TELEGRAM" || integration?.platform === "WHATSAPP") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TestTube2 className="h-4 w-4" />
+              Test Connection
+            </CardTitle>
+            <CardDescription>Verify Verxio can receive updates.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <Button
               variant="outline"
-              size="sm"
-              onClick={handleRefreshStatus}
-              disabled={identitiesLoading || identitiesFetching || refreshWebhook.isPending}
+              onClick={() => testConnection.mutate()}
+              disabled={testConnection.isPending || !integration?.id}
             >
-              {identitiesLoading || identitiesFetching || refreshWebhook.isPending ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              ) : null}
-              Refresh status
+              {testConnection.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Send test message
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+            {testConnection.data && (
+              <p className="text-sm text-muted-foreground">{testConnection.data.message}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Step 4 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TestTube2 className="h-4 w-4" />
-            Step 4 — Test Connection
-          </CardTitle>
-          <CardDescription>Verify Verxio can receive updates.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {integration?.platform !== "TELEGRAM" && (
-            <Badge variant="outline">
-              Connection test is available for Telegram integrations only.
-            </Badge>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => testConnection.mutate()}
-            disabled={
-              testConnection.isPending || !integration?.id || integration?.platform !== "TELEGRAM"
-            }
-          >
-            {testConnection.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Send test message
-          </Button>
-          {testConnection.data && (
-            <p className="text-sm text-muted-foreground">{testConnection.data.message}</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* ——— Discord / Slack: coming soon ——— */}
+      {(integration?.platform === "DISCORD" || integration?.platform === "SLACK") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              {integration?.platform === "DISCORD" ? "Discord" : "Slack"} — Coming soon
+            </CardTitle>
+            <CardDescription>
+              Setup for this platform is not available yet. Use Settings below to configure scope and workflows.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Settings */}
       <Card>
@@ -880,7 +1011,7 @@ export function ChatIntegrationsSetup({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TELEGRAM">Telegram</SelectItem>
-                <SelectItem value="WHATSAPP">WhatsApp (coming soon)</SelectItem>
+                <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
                 <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
                 <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
               </SelectContent>
@@ -1017,7 +1148,8 @@ export function ChatIntegrationsSetup({
         </CardContent>
       </Card>
 
-      {/* Advanced */}
+      {/* Configuration — Telegram only (WhatsApp uses the connector, no webhook/secret) */}
+      {integration?.platform !== "WHATSAPP" && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Configuration</CardTitle>
@@ -1061,7 +1193,7 @@ export function ChatIntegrationsSetup({
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                Add this secret to the X-ChatIntegration-Secret header in your ChatIntegration
+                Add this secret to the X-ChatIntegration-Secret header in your Chat Integration
                 config.
               </p>
               <AlertDialog>
@@ -1105,20 +1237,30 @@ export function ChatIntegrationsSetup({
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Linked Accounts */}
+      {/* Linked Accounts (Telegram: link by messaging bot; WhatsApp: automatic when they message) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Linked Accounts</CardTitle>
-          <CardDescription>Accounts linked to Verxio through ChatIntegration.</CardDescription>
+          <CardDescription>
+            {integration?.platform === "WHATSAPP"
+              ? "Senders appear here after they message. Who can trigger the agent is set above (Only I can chat / Customer support)."
+              : "Accounts linked to Verxio through Chat Integration."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {identities.length === 0 ? (
             <div className="text-center py-8">
               <Link className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground">No linked accounts yet</p>
+              <p className="text-sm text-muted-foreground">
+                {integration?.platform === "WHATSAPP"
+                  ? "No chatters yet. Send a message from WhatsApp to this number to start."
+                  : "No linked accounts yet"}
+              </p>
             </div>
           ) : (
+            <>
             <div className="space-y-3">
               {identities.map((identity) => (
                 <div
@@ -1179,6 +1321,17 @@ export function ChatIntegrationsSetup({
                 </div>
               ))}
             </div>
+            {(identitiesData?.totalPages ?? 1) > 1 && (
+              <div className="mt-4 flex justify-center">
+                <EntityPagination
+                  currentPage={identitiesPage}
+                  totalPages={identitiesData?.totalPages ?? 1}
+                  onPageChange={setIdentitiesPage}
+                  showInfo={false}
+                />
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

@@ -29,6 +29,9 @@ export interface ChatIntegration {
   lastUsedAt: Date | null;
   createdAt: Date;
   telegramBotTokenSet?: boolean;
+  whatsappSessionId?: string | null;
+  /** When true (default), only the connected number can chat with the agent. When false, anyone who messages the number can chat (customer support). */
+  whatsappOnlyOwnerCanChat?: boolean;
 }
 
 export interface ChatIntegrationSecret {
@@ -60,6 +63,7 @@ export interface UpdateIntegrationData {
   allowPlanMode?: boolean;
   allowWorkflowExecution?: boolean;
   telegramBotToken?: string | null;
+  whatsappOnlyOwnerCanChat?: boolean;
 }
 
 export interface CreateIntegrationData {
@@ -320,6 +324,59 @@ export function useDeleteChatIntegration(integrationId: string) {
 }
 
 /**
+ * Connect WhatsApp (start session, get QR)
+ */
+export function useConnectWhatsApp(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<
+    { success: boolean; sessionId: string; status: string; qr: string | null },
+    Error
+  >({
+    mutationFn: () =>
+      authenticatedPost<{
+        success: boolean;
+        sessionId: string;
+        status: string;
+        qr: string | null;
+      }>(`/api/chat-integrations/integrations/${integrationId}/whatsapp/connect`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "whatsappStatus", integrationId],
+      });
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to start WhatsApp connection";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+/**
+ * WhatsApp session status (and optional QR)
+ */
+export function useWhatsAppStatus(integrationId: string | undefined, options?: { enabled?: boolean }) {
+  return useProtectedQuery<{ status: string; qr: string | null }, Error>({
+    queryKey: ["chatIntegration", "whatsappStatus", integrationId],
+    queryFn: () =>
+      authenticatedGet<{ status: string; qr: string | null }>(
+        `/api/chat-integrations/integrations/${integrationId}/whatsapp/status`
+      ),
+    enabled: !!integrationId && (options?.enabled !== false),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "open" || status === "disconnected") return false;
+      return 3000;
+    },
+  });
+}
+
+/**
  * Test the integration connection
  */
 export function useTestChatIntegrationConnection(integrationId: string) {
@@ -353,16 +410,35 @@ export function useTestChatIntegrationConnection(integrationId: string) {
 // External Identity Hooks
 // ============================================
 
+export interface ExternalIdentitiesResponse {
+  success: boolean;
+  identities: ExternalIdentity[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 /**
- * Get all linked external identities
+ * Get linked external identities with pagination (same pattern as workflows, credentials, etc.)
  */
-export function useExternalIdentities(integrationId?: string) {
-  return useProtectedQuery<{ success: boolean; identities: ExternalIdentity[] }>({
-    queryKey: ["chatIntegration", "identities", integrationId],
-    queryFn: () =>
-      authenticatedGet<{ success: boolean; identities: ExternalIdentity[] }>(
-        `/api/chat-integrations/identities${integrationId ? `?integrationId=${integrationId}` : ""}`
-      ),
+export function useExternalIdentities(
+  integrationId?: string,
+  page: number = 1,
+  limit: number = 10
+) {
+  return useProtectedQuery<ExternalIdentitiesResponse>({
+    queryKey: ["chatIntegration", "identities", integrationId, page, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      if (integrationId) params.set("integrationId", integrationId);
+      return authenticatedGet<ExternalIdentitiesResponse>(
+        `/api/chat-integrations/identities?${params.toString()}`
+      );
+    },
   });
 }
 
