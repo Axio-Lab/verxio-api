@@ -28,15 +28,17 @@ metadata:
 ### Example: Wrong vs Right
 
 **Wrong** (generic placeholder – "Generated Video Content", gradient, etc. – does NOT implement the prompt):
+
 ```tsx
 export const MyComposition: React.FC = () => (
-  <AbsoluteFill style={{ background: 'linear-gradient(...)' }}>
-    <div>Generated Video Content</div>  {/* NEVER do this */}
+  <AbsoluteFill style={{ background: "linear-gradient(...)" }}>
+    <div>Generated Video Content</div> {/* NEVER do this */}
   </AbsoluteFill>
 );
 ```
 
 **Wrong** (displays prompt text – will show "{{videoDescription}}" or raw prompt on screen):
+
 ```tsx
 export const MyComposition: React.FC = () => (
   <AbsoluteFill>
@@ -46,13 +48,14 @@ export const MyComposition: React.FC = () => (
 ```
 
 **Right** (implements the described content):
+
 ```tsx
 export const MyComposition: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const opacity = interpolate(frame, [0, fps], [0, 1], { extrapolateRight: 'clamp' });
+  const opacity = interpolate(frame, [0, fps], [0, 1], { extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ background: '#fff', justifyContent: 'center', alignItems: 'center' }}>
+    <AbsoluteFill style={{ background: "#fff", justifyContent: "center", alignItems: "center" }}>
       <div style={{ fontSize: 48, opacity }}>Your actual visual content here</div>
     </AbsoluteFill>
   );

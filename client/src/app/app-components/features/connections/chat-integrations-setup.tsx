@@ -112,12 +112,12 @@ export function ChatIntegrationsSetup({
   const selectedPlatform = integrationsData?.integrations?.find(
     (i) => i.id === selectedIntegrationId
   )?.platform;
-  const {
-    data: whatsappStatusData,
-    refetch: refetchWhatsAppStatus,
-  } = useWhatsAppStatus(selectedIntegrationId || undefined, {
-    enabled: selectedPlatform === "WHATSAPP",
-  });
+  const { data: whatsappStatusData, refetch: refetchWhatsAppStatus } = useWhatsAppStatus(
+    selectedIntegrationId || undefined,
+    {
+      enabled: selectedPlatform === "WHATSAPP",
+    }
+  );
 
   const [showSecret, setShowSecret] = useState(false);
   const [secretJustRegenerated, setSecretJustRegenerated] = useState(false);
@@ -785,11 +785,10 @@ export function ChatIntegrationsSetup({
                   onChange={(e) => setBotToken(e.target.value)}
                 />
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handleSaveBotToken}
-                    disabled={saveTelegramToken.isPending}
-                  >
-                    {saveTelegramToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Button onClick={handleSaveBotToken} disabled={saveTelegramToken.isPending}>
+                    {saveTelegramToken.isPending && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
                     Save Token
                   </Button>
                   {tokenSaved && (
@@ -916,7 +915,8 @@ export function ChatIntegrationsSetup({
               Chat with your agent
             </CardTitle>
             <CardDescription>
-              Choose who can trigger the agent. Link a workflow below (e.g. Enquiries with skills and documents) for customer support.
+              Choose who can trigger the agent. Link a workflow below (e.g. Enquiries with skills
+              and documents) for customer support.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -924,7 +924,7 @@ export function ChatIntegrationsSetup({
               <div className="space-y-0.5">
                 <Label htmlFor="whatsapp-only-owner">Only I can chat with the agent</Label>
                 <p className="text-sm text-muted-foreground">
-                  When on: only messages from the connected number are processed. Others messaging this number will not trigger workflows. Message your own number (self-chat) to talk to the agent.
+                  When on: only messages from the connected number (self-chat) are processed.
                 </p>
               </div>
               <Switch
@@ -936,7 +936,9 @@ export function ChatIntegrationsSetup({
             </div>
             {integration?.whatsappOnlyOwnerCanChat === false && (
               <p className="text-sm text-muted-foreground">
-                Customer support mode: anyone who messages this number can chat with the agent. Set scope to &quot;Single workflow&quot; below and select your Enquiries (or support) workflow with skills and documents.
+                Customer support mode: anyone who messages this number can chat with the agent. Set
+                scope to &quot;Single workflow&quot; below and select your Enquiries (or support)
+                workflow with skills and documents.
               </p>
             )}
           </CardContent>
@@ -978,7 +980,8 @@ export function ChatIntegrationsSetup({
               {integration?.platform === "DISCORD" ? "Discord" : "Slack"} — Coming soon
             </CardTitle>
             <CardDescription>
-              Setup for this platform is not available yet. Use Settings below to configure scope and workflows.
+              Setup for this platform is not available yet. Use Settings below to configure scope
+              and workflows.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -1154,93 +1157,97 @@ export function ChatIntegrationsSetup({
 
       {/* Configuration — Telegram only (WhatsApp uses the connector, no webhook/secret) */}
       {integration?.platform !== "WHATSAPP" && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Configuration</CardTitle>
-          <CardDescription>
-            Webhook URL and shared secret for your chat integration.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Webhook URL</Label>
-            <div className="flex gap-2">
-              <Input value={integration?.webhookUrl || ""} readOnly className="font-mono text-sm" />
-              <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Shared Secret</Label>
-            <div className="flex gap-2">
-              <Input
-                type={showSecret ? "text" : "password"}
-                value={
-                  secretLoading
-                    ? "Loading..."
-                    : showSecret
-                      ? secretData?.sharedSecret || ""
-                      : integration?.secretPreview || "••••••••••••"
-                }
-                readOnly
-                className="font-mono text-sm"
-              />
-              <Button variant="outline" size="icon" onClick={() => setShowSecret(!showSecret)}>
-                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-              {showSecret && (
-                <Button variant="outline" size="icon" onClick={handleCopySecret}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Configuration</CardTitle>
+            <CardDescription>
+              Webhook URL and shared secret for your chat integration.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Webhook URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={integration?.webhookUrl || ""}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button variant="outline" size="icon" onClick={handleCopyWebhook}>
                   <Copy className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Shared Secret</Label>
+              <div className="flex gap-2">
+                <Input
+                  type={showSecret ? "text" : "password"}
+                  value={
+                    secretLoading
+                      ? "Loading..."
+                      : showSecret
+                        ? secretData?.sharedSecret || ""
+                        : integration?.secretPreview || "••••••••••••"
+                  }
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button variant="outline" size="icon" onClick={() => setShowSecret(!showSecret)}>
+                  {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+                {showSecret && (
+                  <Button variant="outline" size="icon" onClick={handleCopySecret}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Add this secret to the X-ChatIntegration-Secret header in your Chat Integration
+                  config.
+                </p>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-xs">
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Regenerate
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Regenerate Shared Secret?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will invalidate your current secret. You&apos;ll need to update your
+                        Integration configuration with the new secret.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRegenerateSecret}
+                        disabled={regenerateSecret.isPending}
+                      >
+                        {regenerateSecret.isPending && (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        )}
+                        Regenerate
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+              {secretJustRegenerated && (
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                    <strong>Important:</strong> Copy the new secret above and update your
+                    ChatIntegration configuration. The old secret will no longer work.
+                  </p>
+                </div>
               )}
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Add this secret to the X-ChatIntegration-Secret header in your Chat Integration
-                config.
-              </p>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-xs">
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Regenerate
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerate Shared Secret?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will invalidate your current secret. You&apos;ll need to update your
-                      Integration configuration with the new secret.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleRegenerateSecret}
-                      disabled={regenerateSecret.isPending}
-                    >
-                      {regenerateSecret.isPending && (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      )}
-                      Regenerate
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-            {secretJustRegenerated && (
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                  <strong>Important:</strong> Copy the new secret above and update your
-                  ChatIntegration configuration. The old secret will no longer work.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
 
       {/* Linked Accounts (Telegram: link by messaging bot; WhatsApp: automatic when they message) */}
@@ -1265,76 +1272,78 @@ export function ChatIntegrationsSetup({
             </div>
           ) : (
             <>
-            <div className="space-y-3">
-              {identities.map((identity) => (
-                <div
-                  key={identity.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
-                      {identity.platform === "telegram" ? (
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
-                        </svg>
-                      ) : (
-                        <span className="text-xs font-medium uppercase">
-                          {identity.platform.slice(0, 2)}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{identity.externalName || identity.externalId}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">
-                          {identity.platform}
-                        </Badge>
-                        <span>
-                          Linked{" "}
-                          {formatDistanceToNow(new Date(identity.linkedAt), { addSuffix: true })}
-                        </span>
+              <div className="space-y-3">
+                {identities.map((identity) => (
+                  <div
+                    key={identity.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
+                        {identity.platform === "telegram" ? (
+                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                          </svg>
+                        ) : (
+                          <span className="text-xs font-medium uppercase">
+                            {identity.platform.slice(0, 2)}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {identity.externalName || identity.externalId}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs">
+                            {identity.platform}
+                          </Badge>
+                          <span>
+                            Linked{" "}
+                            {formatDistanceToNow(new Date(identity.linkedAt), { addSuffix: true })}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive">
+                          <Unlink className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Unlink Account?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will disconnect your {identity.platform} account from Verxio.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() =>
+                              handleUnlinkIdentity(identity.platform, identity.externalId)
+                            }
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Unlink
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive">
-                        <Unlink className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Unlink Account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will disconnect your {identity.platform} account from Verxio.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() =>
-                            handleUnlinkIdentity(identity.platform, identity.externalId)
-                          }
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Unlink
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ))}
-            </div>
-            {(identitiesData?.totalPages ?? 1) > 1 && (
-              <div className="mt-4 flex justify-center">
-                <EntityPagination
-                  currentPage={identitiesPage}
-                  totalPages={identitiesData?.totalPages ?? 1}
-                  onPageChange={setIdentitiesPage}
-                  showInfo={false}
-                />
+                ))}
               </div>
-            )}
+              {(identitiesData?.totalPages ?? 1) > 1 && (
+                <div className="mt-4 flex justify-center">
+                  <EntityPagination
+                    currentPage={identitiesPage}
+                    totalPages={identitiesData?.totalPages ?? 1}
+                    onPageChange={setIdentitiesPage}
+                    showInfo={false}
+                  />
+                </div>
+              )}
             </>
           )}
         </CardContent>

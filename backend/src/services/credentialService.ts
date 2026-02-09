@@ -118,7 +118,8 @@ export const createCredential = async (data: CreateCredentialData): Promise<Cred
   const credential = await prismaClient.credential.create({
     data: {
       name: data.name.trim(),
-      value: data.type === CredentialType.WHATSAPP ? (data.value?.trim() || "linked") : data.value.trim(),
+      value:
+        data.type === CredentialType.WHATSAPP ? data.value?.trim() || "linked" : data.value.trim(),
       type: data.type,
       userId: data.userId,
     },

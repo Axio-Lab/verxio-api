@@ -64,7 +64,8 @@ export const WhatsAppTriggerDialog = ({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>WhatsApp Trigger Configuration</DialogTitle>
           <DialogDescription>
-            Select the WhatsApp credential that will trigger this workflow when someone sends a message. Create and connect one in Credentials first.
+            Select the WhatsApp credential that will trigger this workflow when someone sends a
+            message. Create and connect one in Credentials first.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
@@ -80,7 +81,8 @@ export const WhatsAppTriggerDialog = ({
               <SelectContent>
                 {whatsappCredentials.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    No WhatsApp credential. Create one in Credentials (type WhatsApp), then connect it.
+                    No WhatsApp credential. Create one in Credentials (type WhatsApp), then connect
+                    it.
                   </SelectItem>
                 ) : (
                   whatsappCredentials.map((cred: { id: string; name: string }) => (
@@ -92,7 +94,8 @@ export const WhatsAppTriggerDialog = ({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Create a WhatsApp credential in <strong>Credentials</strong>, connect it (scan QR), then select it here.
+              Create a WhatsApp credential in <strong>Credentials</strong>, connect it (scan QR),
+              then select it here.
             </p>
           </div>
 

@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import * as chatIntegrationService from "@/services/chatIntegrationService";
 import { inngest } from "@/inngest";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
+import { checkFeatureAccess } from "@/services/subscriptionCheck";
+import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
+import { consumePremiumQuota } from "@/services/subscriptionService";
+import { QUOTA_COST } from "@/config/rate-limits";
 
 const ACK_MESSAGE = "Result will be shared shortly when done.";
 
@@ -57,6 +61,37 @@ router.post("/incoming", async (req: Request, res: Response) => {
     });
     if (!integration) {
       return res.status(404).json({ error: "Integration not found" });
+    }
+
+    // WhatsApp Chat Integration (agent that replies when users message from WhatsApp) is a premium feature
+    try {
+      await checkFeatureAccess(integration.userId, SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION);
+    } catch {
+      try {
+        await sendWhatsAppMessage({
+          sessionRef: integration.whatsappSessionId || integrationId,
+          toJid: fromJid,
+          text: "WhatsApp chat with Verxio is a premium feature. Please upgrade your plan to use it.",
+        });
+      } catch (_) {}
+      return res.json({ ok: true, premiumRequired: true });
+    }
+
+    // Consume credits for this chat message (beta-tester plan only)
+    try {
+      await consumePremiumQuota(integration.userId, QUOTA_COST.WHATSAPP_CHAT_INTEGRATION);
+    } catch (quotaError) {
+      const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+      try {
+        await sendWhatsAppMessage({
+          sessionRef: integration.whatsappSessionId || integrationId,
+          toJid: fromJid,
+          text: msg.includes("credits")
+            ? "You've used your daily chat credits. Limit resets at midnight."
+            : msg,
+        });
+      } catch (_) {}
+      return res.json({ ok: true, quotaExceeded: true });
     }
 
     // Link sender so they appear in Linked Accounts (no separate "link" step needed for WhatsApp)

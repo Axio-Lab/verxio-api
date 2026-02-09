@@ -21,6 +21,10 @@ export const SUBSCRIPTION_FEATURES = {
   TIMED_TRIGGER_NODE: "timed-trigger-node",
   KLING_NODES: "kling-nodes",
 
+  // Chat integrations (agent replies when users message the connected number)
+  TELEGRAM_CHAT_INTEGRATION: "telegram-chat-integration",
+  WHATSAPP_CHAT_INTEGRATION: "whatsapp-chat-integration",
+
   // Template feature (premium)
   EXPORT_WORKFLOW_AS_TEMPLATE: "export-workflow-as-template",
 
@@ -96,6 +100,8 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.APIFY_NODE,
         SUBSCRIPTION_FEATURES.TIMED_TRIGGER_NODE,
         SUBSCRIPTION_FEATURES.KLING_NODES,
+        SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION,
+        SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
     default:

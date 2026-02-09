@@ -8,6 +8,10 @@ import {
   startWhatsAppSession,
   getWhatsAppSessionStatus,
 } from "../services/whatsappConnectorClient";
+import { checkFeatureAccess } from "../services/subscriptionCheck";
+import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
+import { consumePremiumQuota } from "../services/subscriptionService";
+import { QUOTA_COST } from "../config/rate-limits";
 
 export const chatIntegrationRouter: Router = Router();
 
@@ -101,6 +105,27 @@ chatIntegrationRouter.post(
 
       if (!label || typeof label !== "string") {
         throw new AppError("Integration label is required", 400);
+      }
+
+      if (platform === "TELEGRAM") {
+        try {
+          await checkFeatureAccess(user.id, SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION);
+        } catch {
+          throw new AppError(
+            "Telegram chat integration is a premium feature. Please upgrade your plan to connect Telegram and chat with Verxio.",
+            403
+          );
+        }
+      }
+      if (platform === "WHATSAPP") {
+        try {
+          await checkFeatureAccess(user.id, SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION);
+        } catch {
+          throw new AppError(
+            "WhatsApp chat integration is a premium feature. Please upgrade your plan to connect WhatsApp and chat with Verxio.",
+            403
+          );
+        }
       }
 
       const integration = await chatIntegrationService.createIntegration(user.id, {
@@ -232,6 +257,27 @@ chatIntegrationRouter.put(
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
       } = req.body;
+
+      if (platform === "TELEGRAM") {
+        try {
+          await checkFeatureAccess(user.id, SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION);
+        } catch {
+          throw new AppError(
+            "Telegram chat integration is a premium feature. Please upgrade your plan to connect Telegram and chat with Verxio.",
+            403
+          );
+        }
+      }
+      if (platform === "WHATSAPP") {
+        try {
+          await checkFeatureAccess(user.id, SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION);
+        } catch {
+          throw new AppError(
+            "WhatsApp chat integration is a premium feature. Please upgrade your plan to connect WhatsApp and chat with Verxio.",
+            403
+          );
+        }
+      }
 
       const integration = await chatIntegrationService.updateIntegration(user.id, id, {
         label,
@@ -848,11 +894,55 @@ chatIntegrationRouter.post(
       }
 
       const userId = resolvedIntegration.userId;
+
+      // Telegram Chat Integration is a premium feature
+      try {
+        await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION);
+      } catch {
+        const premiumMessage =
+          "Telegram chat with Verxio is a premium feature. Please upgrade your plan to use it.";
+        try {
+          const formatted = chatIntegrationService.formatTelegramMessage(premiumMessage);
+          await fetch(
+            `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+            }
+          );
+        } catch (_) { }
+        return res.status(200).json({ success: true, premiumRequired: true });
+      }
+
       const senderId = sender?.id?.toString() || "unknown";
       const senderName =
         sender?.username ||
         [sender?.first_name, sender?.last_name].filter(Boolean).join(" ") ||
         undefined;
+
+      // Consume credits for this chat message (beta-tester plan only)
+      try {
+        await consumePremiumQuota(userId, QUOTA_COST.TELEGRAM_CHAT_INTEGRATION);
+      } catch (quotaError) {
+        const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+        try {
+          const formatted = chatIntegrationService.formatTelegramMessage(
+            msg.includes("credits")
+              ? "You've used your daily chat credits. Limit resets at midnight."
+              : msg
+          );
+          await fetch(
+            `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+            }
+          );
+        } catch (_) { }
+        return res.status(200).json({ success: true, quotaExceeded: true });
+      }
 
       // Auto-link external identity if not already linked
       try {
@@ -868,9 +958,8 @@ chatIntegrationRouter.post(
         // Ignore if already linked to same user
       }
 
-      // Process message through chat integration logic
-      const result = await chatIntegrationService.processMessage(userId, resolvedIntegration, {
-        platform: "telegram",
+      const chatIntegrationMessage = {
+        platform: "telegram" as const,
         externalId: senderId,
         externalName: senderName,
         message: text || "[non-text message]",
@@ -879,24 +968,60 @@ chatIntegrationRouter.post(
           updateId: telegramUpdate?.update_id,
           telegramPayload: telegramUpdate,
         },
-      });
+      };
 
-      // Send response back to Telegram
-      if (result?.message) {
-        const formatted = chatIntegrationService.formatTelegramMessage(result.message);
+      // Send immediate ack (same as WhatsApp — user sees response right away)
+      const ACK_MESSAGE = "Result will be shared shortly when done.";
+      try {
+        const ackFormatted = chatIntegrationService.formatTelegramMessage(ACK_MESSAGE);
         await fetch(
           `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: formatted,
-              parse_mode: "HTML",
-            }),
+            body: JSON.stringify({ chat_id: chatId, text: ackFormatted, parse_mode: "HTML" }),
           }
         );
-      }
+      } catch (_) { }
+
+      // Process in background and send formatted result when done
+      void (async () => {
+        try {
+          const result = await chatIntegrationService.processMessage(
+            userId,
+            resolvedIntegration,
+            chatIntegrationMessage
+          );
+          const replyText = result.message?.trim() || "";
+          const textToSend = replyText
+            ? chatIntegrationService.formatTelegramMessage(replyText)
+            : "Done.";
+          await fetch(
+            `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId, text: textToSend, parse_mode: "HTML" }),
+            }
+          );
+        } catch (err) {
+          console.error("[Telegram webhook] processMessage error:", err);
+          try {
+            await fetch(
+              `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: chatId,
+                  text: "Something went wrong. Please try again.",
+                  parse_mode: "HTML",
+                }),
+              }
+            );
+          } catch (_) { }
+        }
+      })().catch((err) => console.error("[Telegram webhook] background error:", err));
 
       return res.status(200).json({ success: true });
     } catch (error) {
@@ -1091,11 +1216,11 @@ chatIntegrationRouter.get(
         },
         identity: externalIdentity
           ? {
-              platform: externalIdentity.platform,
-              externalId: externalIdentity.externalId,
-              externalName: externalIdentity.externalName,
-              linkedAt: externalIdentity.linkedAt,
-            }
+            platform: externalIdentity.platform,
+            externalId: externalIdentity.externalId,
+            externalName: externalIdentity.externalName,
+            linkedAt: externalIdentity.linkedAt,
+          }
           : null,
       });
     } catch (error) {

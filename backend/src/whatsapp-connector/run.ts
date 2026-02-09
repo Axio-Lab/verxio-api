@@ -15,7 +15,7 @@ process.on("unhandledRejection", (reason, p) => {
   console.error("[WhatsApp Connector] Unhandled rejection:", reason);
 });
 
-const API_URL = process.env.API_URL || process.env.BACKEND_URL;
+const API_URL = process.env.API_URL;
 const PORT = parseInt(
   process.env.WHATSAPP_CONNECTOR_PORT || process.env.PORT || "3099",
   10
