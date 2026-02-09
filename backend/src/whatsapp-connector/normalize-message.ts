@@ -83,7 +83,7 @@ export function normalizeMessage(msg: WAMessage): WhatsAppPayload | null {
     messageId,
     type,
     media,
-    timestamp: msg.messageTimestamp as number || Math.floor(Date.now() / 1000),
+    timestamp: (msg.messageTimestamp as number) || Math.floor(Date.now() / 1000),
     isGroup,
     fromMe: key.fromMe ?? false,
     pushName: msg.pushName ?? undefined,

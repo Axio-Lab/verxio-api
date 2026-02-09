@@ -128,10 +128,7 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>WhatsApp credential</FormLabel>
-                    <Select
-                      value={field.value || ""}
-                      onValueChange={field.onChange}
-                    >
+                    <Select value={field.value || ""} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a WhatsApp credential" />
@@ -152,7 +149,8 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Select the WhatsApp credential to send from. Create and connect one in Credentials if needed.
+                      Select the WhatsApp credential to send from. Create and connect one in
+                      Credentials if needed.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -168,7 +166,8 @@ export const WhatsAppDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                       <Input {...field} placeholder="+1234567890" />
                     </FormControl>
                     <FormDescription>
-                      Recipient number (e.g. +1234567890 or {"{{whatsapp.payload.from}}"} to reply to sender). Use {"{{variables}}"} for dynamic values.
+                      Recipient number (e.g. +1234567890 or {"{{whatsapp.payload.from}}"} to reply
+                      to sender). Use {"{{variables}}"} for dynamic values.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

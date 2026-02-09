@@ -474,10 +474,9 @@ You MUST correct these issues and output full Remotion code that implements ever
           const AsyncFunction = Object.getPrototypeOf(async function () {
             /* */
           }).constructor;
-          const fn = new AsyncFunction(
-            "inputs",
-            jsCode + "\nreturn await execute(inputs);"
-          ) as (inputs: Record<string, any>) => Promise<Record<string, any>>;
+          const fn = new AsyncFunction("inputs", jsCode + "\nreturn await execute(inputs);") as (
+            inputs: Record<string, any>
+          ) => Promise<Record<string, any>>;
 
           const result = await fn({
             videoDescription: localPromptText,
@@ -526,13 +525,28 @@ You MUST correct these issues and output full Remotion code that implements ever
               while (pos < code.length) {
                 if (code[pos] === "\\" && pos + 1 < code.length) {
                   const nx = code[pos + 1]!;
-                  if (nx === "`") { out += "`"; pos += 2; }
-                  else if (nx === "$") { out += "$"; pos += 2; }
-                  else if (nx === "n") { out += "\n"; pos += 2; }
-                  else if (nx === "t") { out += "\t"; pos += 2; }
-                  else if (nx === "r") { out += "\r"; pos += 2; }
-                  else if (nx === "\\") { out += "\\"; pos += 2; }
-                  else { out += nx; pos += 2; }
+                  if (nx === "`") {
+                    out += "`";
+                    pos += 2;
+                  } else if (nx === "$") {
+                    out += "$";
+                    pos += 2;
+                  } else if (nx === "n") {
+                    out += "\n";
+                    pos += 2;
+                  } else if (nx === "t") {
+                    out += "\t";
+                    pos += 2;
+                  } else if (nx === "r") {
+                    out += "\r";
+                    pos += 2;
+                  } else if (nx === "\\") {
+                    out += "\\";
+                    pos += 2;
+                  } else {
+                    out += nx;
+                    pos += 2;
+                  }
                 } else if (exprDepth === 0 && code[pos] === "$" && code[pos + 1] === "{") {
                   // Entering a ${...} template expression
                   out += "${";
@@ -540,8 +554,11 @@ You MUST correct these issues and output full Remotion code that implements ever
                   exprDepth = 1;
                 } else if (exprDepth > 0) {
                   // Inside a template expression – track brace nesting
-                  if (code[pos] === "{") { exprDepth++; out += "{"; pos++; }
-                  else if (code[pos] === "}") {
+                  if (code[pos] === "{") {
+                    exprDepth++;
+                    out += "{";
+                    pos++;
+                  } else if (code[pos] === "}") {
                     exprDepth--;
                     out += "}";
                     pos++;
@@ -552,19 +569,28 @@ You MUST correct these issues and output full Remotion code that implements ever
                     let nestedExpr = 0;
                     while (pos < code.length) {
                       if (code[pos] === "\\" && code[pos + 1] === "`") {
-                        out += "\\`"; pos += 2;
+                        out += "\\`";
+                        pos += 2;
                       } else if (code[pos] === "$" && code[pos + 1] === "{") {
-                        out += "${"; pos += 2; nestedExpr++;
+                        out += "${";
+                        pos += 2;
+                        nestedExpr++;
                       } else if (nestedExpr > 0 && code[pos] === "}") {
-                        out += "}"; pos++; nestedExpr--;
+                        out += "}";
+                        pos++;
+                        nestedExpr--;
                       } else if (nestedExpr === 0 && code[pos] === "`") {
-                        out += "`"; pos++; break;
+                        out += "`";
+                        pos++;
+                        break;
                       } else {
-                        out += code[pos]; pos++;
+                        out += code[pos];
+                        pos++;
                       }
                     }
                   } else {
-                    out += code[pos]; pos++;
+                    out += code[pos];
+                    pos++;
                   }
                 } else if (code[pos] === "`") {
                   // End of outer template literal
@@ -581,12 +607,25 @@ You MUST correct these issues and output full Remotion code that implements ever
               while (pos < code.length) {
                 if (code[pos] === "\\" && pos + 1 < code.length) {
                   const nx = code[pos + 1]!;
-                  if (nx === "n") { out += "\n"; pos += 2; }
-                  else if (nx === "t") { out += "\t"; pos += 2; }
-                  else if (nx === "r") { out += "\r"; pos += 2; }
-                  else if (nx === ch) { out += ch; pos += 2; }
-                  else if (nx === "\\") { out += "\\"; pos += 2; }
-                  else { out += nx; pos += 2; }
+                  if (nx === "n") {
+                    out += "\n";
+                    pos += 2;
+                  } else if (nx === "t") {
+                    out += "\t";
+                    pos += 2;
+                  } else if (nx === "r") {
+                    out += "\r";
+                    pos += 2;
+                  } else if (nx === ch) {
+                    out += ch;
+                    pos += 2;
+                  } else if (nx === "\\") {
+                    out += "\\";
+                    pos += 2;
+                  } else {
+                    out += nx;
+                    pos += 2;
+                  }
                 } else if (code[pos] === ch) {
                   break;
                 } else {
@@ -626,17 +665,14 @@ You MUST correct these issues and output full Remotion code that implements ever
                 // Resolve ${...} template expressions left over from the AI code
                 let content = vars[ref]!;
                 // ${JSON.stringify(varName)}
-                content = content.replace(
-                  /\$\{JSON\.stringify\((\w+)\)\}/g,
-                  (m, k) => (vars[k] !== undefined ? JSON.stringify(vars[k]!) : m)
+                content = content.replace(/\$\{JSON\.stringify\((\w+)\)\}/g, (m, k) =>
+                  vars[k] !== undefined ? JSON.stringify(vars[k]!) : m
                 );
                 // ${varName.substring(start, end)}
                 content = content.replace(
                   /\$\{(\w+)\.substring\((\d+),\s*(\d+)\)\}/g,
                   (m, vn, s, e) =>
-                    vars[vn] !== undefined
-                      ? vars[vn]!.substring(parseInt(s), parseInt(e))
-                      : m
+                    vars[vn] !== undefined ? vars[vn]!.substring(parseInt(s), parseInt(e)) : m
                 );
                 // ${varName}
                 content = content.replace(/\$\{(\w+)\}/g, (m, k) =>
@@ -673,8 +709,7 @@ You MUST correct these issues and output full Remotion code that implements ever
           }
 
           if (Object.keys(files).length === 0) {
-            const blockRegex =
-              /```(?:typescript|tsx|ts)?\s*(?:file=)?([^\n]+)?\n([\s\S]*?)```/g;
+            const blockRegex = /```(?:typescript|tsx|ts)?\s*(?:file=)?([^\n]+)?\n([\s\S]*?)```/g;
             let blockMatch;
             while ((blockMatch = blockRegex.exec(code)) !== null) {
               files[blockMatch[1]?.trim() || "index.ts"] = blockMatch[2]!.trim();
@@ -701,9 +736,7 @@ You MUST correct these issues and output full Remotion code that implements ever
 
       // ── Ensure required files ──
       if (!files["index.ts"] && !files["index.tsx"]) {
-        const tsFile = Object.keys(files).find(
-          (f) => f.endsWith(".ts") || f.endsWith(".tsx")
-        );
+        const tsFile = Object.keys(files).find((f) => f.endsWith(".ts") || f.endsWith(".tsx"));
         if (tsFile) {
           files["index.ts"] = files[tsFile]!;
         } else {
@@ -751,7 +784,7 @@ You MUST correct these issues and output full Remotion code that implements ever
             );
           }
           const baseName = compositionKey?.replace(/\.(tsx?|jsx?)$/, "") || "Composition";
-          const compContent = compositionKey ? (files[compositionKey] || "") : "";
+          const compContent = compositionKey ? files[compositionKey] || "" : "";
           const useDefaultImport = compContent.includes("export default");
           const compName = baseName.replace(/^./, (s) => s.toUpperCase());
           const importLine = useDefaultImport
@@ -810,18 +843,14 @@ export const Root: React.FC = () => (
       for (const [filename, content] of Object.entries(files)) {
         let patched = content;
         // ${JSON.stringify(varName)}
-        patched = patched.replace(
-          /\$\{JSON\.stringify\((\w+)\)\}/g,
-          (m, k) =>
-            templateValues[k] !== undefined ? JSON.stringify(templateValues[k]) : m
+        patched = patched.replace(/\$\{JSON\.stringify\((\w+)\)\}/g, (m, k) =>
+          templateValues[k] !== undefined ? JSON.stringify(templateValues[k]) : m
         );
         // ${varName.substring(start, end)}
-        patched = patched.replace(
-          /\$\{(\w+)\.substring\((\d+),\s*(\d+)\)\}/g,
-          (m, vn, s, e) =>
-            templateValues[vn] !== undefined
-              ? templateValues[vn]!.substring(parseInt(s), parseInt(e))
-              : m
+        patched = patched.replace(/\$\{(\w+)\.substring\((\d+),\s*(\d+)\)\}/g, (m, vn, s, e) =>
+          templateValues[vn] !== undefined
+            ? templateValues[vn]!.substring(parseInt(s), parseInt(e))
+            : m
         );
         // ${details.prop} or ${config.prop} – AI often uses inputs.details / inputs.config
         patched = patched.replace(
@@ -829,9 +858,8 @@ export const Root: React.FC = () => (
           (m, _obj, prop) => (templateValues[prop] !== undefined ? templateValues[prop]! : m)
         );
         // ${varName}
-        patched = patched.replace(
-          /\$\{(\w+)\}/g,
-          (m, k) => (templateValues[k] !== undefined ? templateValues[k]! : m)
+        patched = patched.replace(/\$\{(\w+)\}/g, (m, k) =>
+          templateValues[k] !== undefined ? templateValues[k]! : m
         );
         files[filename] = patched;
       }
@@ -862,15 +890,12 @@ export const Root: React.FC = () => (
       for (const [filename, content] of Object.entries(files)) {
         if (!filename.endsWith(".tsx") && !filename.endsWith(".jsx")) continue;
         let patched = content;
-        patched = patched.replace(
-          /\{\{(\s*[a-zA-Z_$][\w$]*\s*)\}\}/g,
-          (match, inner) => {
-            const trimmed = inner.trim();
-            // Only fix known variable names or simple identifiers that aren't CSS properties
-            // CSS-in-JS like {{ display: 'flex' }} has a colon after the identifier
-            return `{${trimmed}}`;
-          }
-        );
+        patched = patched.replace(/\{\{(\s*[a-zA-Z_$][\w$]*\s*)\}\}/g, (match, inner) => {
+          const trimmed = inner.trim();
+          // Only fix known variable names or simple identifiers that aren't CSS properties
+          // CSS-in-JS like {{ display: 'flex' }} has a colon after the identifier
+          return `{${trimmed}}`;
+        });
         files[filename] = patched;
       }
 

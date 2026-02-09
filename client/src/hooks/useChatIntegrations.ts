@@ -360,14 +360,17 @@ export function useConnectWhatsApp(integrationId: string) {
 /**
  * WhatsApp session status (and optional QR)
  */
-export function useWhatsAppStatus(integrationId: string | undefined, options?: { enabled?: boolean }) {
+export function useWhatsAppStatus(
+  integrationId: string | undefined,
+  options?: { enabled?: boolean }
+) {
   return useProtectedQuery<{ status: string; qr: string | null }, Error>({
     queryKey: ["chatIntegration", "whatsappStatus", integrationId],
     queryFn: () =>
       authenticatedGet<{ status: string; qr: string | null }>(
         `/api/chat-integrations/integrations/${integrationId}/whatsapp/status`
       ),
-    enabled: !!integrationId && (options?.enabled !== false),
+    enabled: !!integrationId && options?.enabled !== false,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === "open" || status === "disconnected") return false;

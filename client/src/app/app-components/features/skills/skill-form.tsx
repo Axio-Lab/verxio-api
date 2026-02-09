@@ -23,7 +23,7 @@ import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ky from "ky";
+import { authenticatedPost } from "@/lib/api-client";
 
 interface SkillFormProps {
   initialData?: {
@@ -99,13 +99,10 @@ export function SkillForm({ initialData }: SkillFormProps) {
 
     setIsFetching(true);
     try {
-      const response = await ky.get(url, {
-        timeout: 10000,
-        headers: {
-          Accept: "text/markdown, text/plain, text/*",
-        },
+      // Use backend proxy to avoid CORS when fetching from external domains
+      const { content } = await authenticatedPost<{ content: string }>("/skill/fetch-from-url", {
+        url: url.trim(),
       });
-      const content = await response.text();
 
       if (!content || content.trim().length === 0) {
         toast.error("Fetched content is empty");
@@ -148,12 +145,11 @@ export function SkillForm({ initialData }: SkillFormProps) {
       toast.success("Content fetched successfully");
     } catch (error: any) {
       console.error("Fetch error:", error);
-      if (error.name === "TimeoutError" || error.name === "AbortError") {
+      const message = error?.message || "Unknown error";
+      if (message.includes("timed out") || message.includes("Timeout")) {
         toast.error("Request timed out. Please check the URL and try again.");
-      } else if (error.response) {
-        toast.error(`Failed to fetch: ${error.response.status} ${error.response.statusText}`);
       } else {
-        toast.error(`Failed to fetch: ${error.message || "Unknown error"}`);
+        toast.error(message.includes("Failed to fetch") ? message : `Failed to fetch: ${message}`);
       }
     } finally {
       setIsFetching(false);
