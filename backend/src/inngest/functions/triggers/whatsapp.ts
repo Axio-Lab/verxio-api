@@ -78,9 +78,8 @@ export const whatsappExecutor: NodeExecutor<WhatsAppData> = async ({
     }
 
     const phoneNumberRaw = data.phoneNumber?.trim();
-    const toJid =
-      phoneNumberRaw ?
-        Handlebars.compile(phoneNumberRaw)(context)
+    const toJid = phoneNumberRaw
+      ? Handlebars.compile(phoneNumberRaw)(context)
       : (context as any).whatsappPayload?.from;
     if (!toJid) {
       await publishStatus(publish, nodeId, "error");

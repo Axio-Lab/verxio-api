@@ -52,6 +52,7 @@ export const NodeType = {
   KLING_MOTION_CONTROL: "KLING_MOTION_CONTROL",
   KLING_MULTI_IMAGE2IMAGE: "KLING_MULTI_IMAGE2IMAGE",
   OUTPUT: "OUTPUT",
+  MARKDOWN: "MARKDOWN",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

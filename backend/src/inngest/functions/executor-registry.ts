@@ -45,6 +45,7 @@ import { klingMultiImage2VideoExecutor } from "./actions/kling-multi-image2video
 import { klingMotionControlExecutor } from "./actions/kling-motion-control";
 import { klingMultiImage2ImageExecutor } from "./actions/kling-multi-image2image";
 import { outputExecutor } from "./actions/output";
+import { markdownExecutor } from "./actions/markdown";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -108,6 +109,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.KLING_MULTI_IMAGE2IMAGE]: klingMultiImage2ImageExecutor as NodeExecutor,
   // OUTPUT node for displaying and downloading workflow outputs
   [NodeType.OUTPUT]: outputExecutor as NodeExecutor,
+  // MARKDOWN node for displaying text/markdown from previous nodes and downloading as .md
+  [NodeType.MARKDOWN]: markdownExecutor as NodeExecutor,
 };
 
 /**

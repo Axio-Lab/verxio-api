@@ -71,8 +71,11 @@ flowchart TB
     AnalyticsService --> Metrics
     AnalyticsPage --> AnalyticsService
 ```
+---
 
-## Features
+## Test Credential for demo purposes
+  - Email: donatusprince@gmail.com
+  - Password: 12345678
 
 ### Core Features
 

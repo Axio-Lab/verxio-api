@@ -474,6 +474,7 @@ enum NodeType {
   KLING_MOTION_CONTROL
   KLING_MULTI_IMAGE2IMAGE
   OUTPUT
+  MARKDOWN
 }
 
 model Node {

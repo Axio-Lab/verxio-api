@@ -911,7 +911,7 @@ chatIntegrationRouter.post(
               body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
             }
           );
-        } catch (_) { }
+        } catch (_) {}
         return res.status(200).json({ success: true, premiumRequired: true });
       }
 
@@ -940,7 +940,7 @@ chatIntegrationRouter.post(
               body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
             }
           );
-        } catch (_) { }
+        } catch (_) {}
         return res.status(200).json({ success: true, quotaExceeded: true });
       }
 
@@ -982,7 +982,7 @@ chatIntegrationRouter.post(
             body: JSON.stringify({ chat_id: chatId, text: ackFormatted, parse_mode: "HTML" }),
           }
         );
-      } catch (_) { }
+      } catch (_) {}
 
       // Process in background and send formatted result when done
       void (async () => {
@@ -1019,7 +1019,7 @@ chatIntegrationRouter.post(
                 }),
               }
             );
-          } catch (_) { }
+          } catch (_) {}
         }
       })().catch((err) => console.error("[Telegram webhook] background error:", err));
 
@@ -1216,11 +1216,11 @@ chatIntegrationRouter.get(
         },
         identity: externalIdentity
           ? {
-            platform: externalIdentity.platform,
-            externalId: externalIdentity.externalId,
-            externalName: externalIdentity.externalName,
-            linkedAt: externalIdentity.linkedAt,
-          }
+              platform: externalIdentity.platform,
+              externalId: externalIdentity.externalId,
+              externalName: externalIdentity.externalName,
+              linkedAt: externalIdentity.linkedAt,
+            }
           : null,
       });
     } catch (error) {

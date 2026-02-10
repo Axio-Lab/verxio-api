@@ -212,10 +212,12 @@ export async function startSession(
 
     // Chat Integration session: use only-owner setting
     if (!row.integrationId) return;
-    const integration = await (prisma as any).chatIntegration.findUnique({
-      where: { id: row.integrationId },
-      select: { whatsappOnlyOwnerCanChat: true },
-    }).catch(() => null);
+    const integration = await (prisma as any).chatIntegration
+      .findUnique({
+        where: { id: row.integrationId },
+        select: { whatsappOnlyOwnerCanChat: true },
+      })
+      .catch(() => null);
     const onlyOwnerMode = integration?.whatsappOnlyOwnerCanChat !== false;
     for (const msg of messages) {
       const fromMe = msg.key.fromMe === true;
@@ -225,7 +227,7 @@ export async function startSession(
       const payload = normalizeMessage(msg as WAMessage);
       if (!payload) continue;
       try {
-       await onIncoming({
+        await onIncoming({
           sessionId,
           integrationId: row.integrationId,
           credentialId: row.credentialId ?? undefined,

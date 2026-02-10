@@ -1889,9 +1889,8 @@ export async function testConnection(
           integration,
         };
       }
-      const { getWhatsAppSessionStatus, sendWhatsAppMessage } = await import(
-        "./whatsappConnectorClient"
-      );
+      const { getWhatsAppSessionStatus, sendWhatsAppMessage } =
+        await import("./whatsappConnectorClient");
       const session = await getOrCreateWhatsAppSession(integrationId);
       if (!session) {
         return {
@@ -1904,7 +1903,8 @@ export async function testConnection(
       if (!status) {
         return {
           success: true,
-          message: "WhatsApp connector is not running or session not loaded. Start the connector and connect to see status.",
+          message:
+            "WhatsApp connector is not running or session not loaded. Start the connector and connect to see status.",
           integration: {
             whatsappSessionId: integration.whatsappSessionId,
             isActive: integration.isActive,

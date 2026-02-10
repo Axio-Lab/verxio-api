@@ -119,6 +119,10 @@ export function useWorkflowOutputsSync() {
     refreshToken: createRefreshToken("output"),
     enabled: true,
   });
+  const markdownSub = useInngestSubscription({
+    refreshToken: createRefreshToken("markdown"),
+    enabled: true,
+  });
 
   // Merge all output messages
   const allMessages = useMemo(() => {
@@ -134,6 +138,7 @@ export function useWorkflowOutputsSync() {
       ...(httpRequestSub.data || []),
       ...(codeBlockSub.data || []),
       ...(outputSub.data || []),
+      ...(markdownSub.data || []),
     ];
   }, [
     designProSub.data,
@@ -147,6 +152,7 @@ export function useWorkflowOutputsSync() {
     httpRequestSub.data,
     codeBlockSub.data,
     outputSub.data,
+    markdownSub.data,
   ]);
 
   // Extract outputs from all messages and merge into global store
