@@ -11,6 +11,7 @@ import {
   Palette,
   Video,
   Download,
+  FileText,
 } from "lucide-react";
 import {
   Sheet,
@@ -98,6 +99,13 @@ const triggerNodes: NodeTypeOption[] = [
 ];
 
 const executionNodes: NodeTypeOption[] = [
+  {
+    type: NodeType.MANUAL_INPUT,
+    label: "Manual Input",
+    description:
+      "Collect user-provided input when the workflow runs (e.g. prompt or variable). User enters a value at run time.",
+    icon: MousePointerIcon,
+  },
   {
     type: NodeType.HTTP_REQUEST,
     label: "HTTP Request",
@@ -342,6 +350,13 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Display and download workflow outputs. Supports images, videos, and audio with preview and download features.",
     icon: Download,
+  },
+  {
+    type: NodeType.MARKDOWN,
+    label: "Markdown",
+    description:
+      "Display a node's text output as markdown. Connect from Gemini, Claude, or any text node; download as .md file.",
+    icon: FileText,
   },
 ];
 
@@ -1148,6 +1163,19 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             contentType: "image",
           },
           type: NodeType.OUTPUT,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.MARKDOWN) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Markdown",
+            variables: "markdown",
+            textSource: "",
+          },
+          type: NodeType.MARKDOWN,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

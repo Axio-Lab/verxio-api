@@ -38,6 +38,7 @@ import { remotionChannel } from "./remotion";
 import { veoChannel } from "./veo";
 import { klingChannel } from "./kling";
 import { outputChannel } from "./output";
+import { markdownChannel } from "./markdown";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -76,6 +77,7 @@ export const nodeStatusChannels = {
   veo: veoChannel,
   kling: klingChannel,
   output: outputChannel,
+  markdown: markdownChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -118,4 +120,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   veo: "veo-execution",
   kling: "kling-execution",
   output: "output-execution",
+  markdown: "markdown-execution",
 };

@@ -16,10 +16,7 @@ process.on("unhandledRejection", (reason, p) => {
 });
 
 const API_URL = process.env.API_URL;
-const PORT = parseInt(
-  process.env.WHATSAPP_CONNECTOR_PORT || process.env.PORT || "3099",
-  10
-);
+const PORT = parseInt(process.env.WHATSAPP_CONNECTOR_PORT || process.env.PORT || "3099", 10);
 const INCOMING_SECRET = process.env.WHATSAPP_INCOMING_SECRET || "";
 
 if (!API_URL) {

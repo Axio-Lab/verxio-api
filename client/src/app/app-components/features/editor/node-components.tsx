@@ -54,6 +54,7 @@ import { KlingMultiImage2VideoNode } from "@/app/app-components/features/executi
 import { KlingMotionControlNode } from "@/app/app-components/features/executions/actions/kling-motion-control/node";
 import { KlingMultiImage2ImageNode } from "@/app/app-components/features/executions/actions/kling-multi-image2image/node";
 import { OutputNode } from "@/app/app-components/features/executions/actions/output/node";
+import { MarkdownNode } from "@/app/app-components/features/executions/actions/markdown/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -105,6 +106,7 @@ export const NodeComponents = {
   [NodeType.KLING_MOTION_CONTROL]: KlingMotionControlNode,
   [NodeType.KLING_MULTI_IMAGE2IMAGE]: KlingMultiImage2ImageNode,
   [NodeType.OUTPUT]: OutputNode,
+  [NodeType.MARKDOWN]: MarkdownNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

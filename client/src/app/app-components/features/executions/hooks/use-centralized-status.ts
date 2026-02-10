@@ -204,6 +204,10 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("output"),
     enabled: true,
   });
+  const markdownSub = useInngestSubscription({
+    refreshToken: createRefreshToken("markdown"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -241,6 +245,7 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(veoSub.data || []),
       ...(klingSub.data || []),
       ...(outputSub.data || []),
+      ...(markdownSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -277,6 +282,7 @@ export function useCentralizedNodeStatusSubscriptions() {
       veoSub.data,
       klingSub.data,
       outputSub.data,
+      markdownSub.data,
     ]
   );
 

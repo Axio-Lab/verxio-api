@@ -128,6 +128,16 @@ export const AVAILABLE_NODE_TYPES = {
       description: "Kling motion control (image + optional video ref)",
     },
     { type: "KLING_MULTI_IMAGE2IMAGE", description: "Kling multi-image to image" },
+    {
+      type: "OUTPUT",
+      description:
+        "Display and download workflow outputs (images, videos, audio) with preview and download.",
+    },
+    {
+      type: "MARKDOWN",
+      description:
+        "Display a node's text output as markdown (e.g. {{gemini.text}}). User can view and download as .md file.",
+    },
   ],
 };
 

@@ -342,6 +342,13 @@ const NODE_TYPES_DOCUMENTATION = `
 - Output: { content: string, contentType: string, filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }
 - **When to use:** Use OUTPUT as the final node in a workflow to display and preview generated media content (images, videos, audio). ALWAYS set the correct contentType based on what the previous node produces.
 - **NOTE:** OUTPUT is a display-only node - it immediately shows content when the source node completes. The workflow continues to the next node without waiting.
+
+**MARKDOWN**
+- Fields: { variables: string (REQUIRED), textSource: string (REQUIRED), outputFilename?: string }
+- **textSource:** Template pointing to text from a previous node (e.g. "{{gemini.text}}", "{{anthropic.text}}", "{{openai.text}}")
+- **outputFilename:** Optional filename for .md download (without extension)
+- **When to use:** Use MARKDOWN to display a node's text output as rendered markdown. Connect after AI text nodes (ANTHROPIC, OPENAI, GEMINI) or any node that outputs text. User can view and download as .md file.
+- **NOTE:** MARKDOWN is display-only; it shows content when the source node completes. Output: { content: string, success: boolean }
 `;
 
 // ============================================
@@ -550,6 +557,11 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{output.filename}} - Custom filename for downloads
 - **When to use:** Use OUTPUT to display and preview media content (images, videos, audio) from workflow results
 - **NOTE:** OUTPUT is a display-only node and does not block workflow execution
+
+**MARKDOWN** (if variables: "markdown")
+- Outputs: { content: string, success: boolean }
+- Template: {{markdown.content}} for the resolved text
+- **When to use:** Use MARKDOWN to display text/markdown from previous nodes (e.g. {{gemini.text}}) with optional .md download
 `;
 
 // ============================================

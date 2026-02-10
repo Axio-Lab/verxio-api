@@ -224,7 +224,10 @@ router.post("/incoming", async (req: Request, res: Response) => {
       });
       return res.json({ ok: true, triggered: true });
     }
-    console.warn("[WhatsApp incoming] No WHATSAPP_TRIGGER node found for credentialId:", body.credentialId);
+    console.warn(
+      "[WhatsApp incoming] No WHATSAPP_TRIGGER node found for credentialId:",
+      body.credentialId
+    );
   }
 
   return res.json({ ok: true });
