@@ -475,6 +475,8 @@ enum NodeType {
   KLING_MULTI_IMAGE2IMAGE
   OUTPUT
   MARKDOWN
+  SEEDANCE
+  SEEDREAM
 }
 
 model Node {

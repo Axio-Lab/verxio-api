@@ -208,6 +208,14 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("markdown"),
     enabled: true,
   });
+  const seedanceSub = useInngestSubscription({
+    refreshToken: createRefreshToken("seedance"),
+    enabled: true,
+  });
+  const seedreamSub = useInngestSubscription({
+    refreshToken: createRefreshToken("seedream"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -246,6 +254,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(klingSub.data || []),
       ...(outputSub.data || []),
       ...(markdownSub.data || []),
+      ...(seedanceSub.data || []),
+      ...(seedreamSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -283,6 +293,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       klingSub.data,
       outputSub.data,
       markdownSub.data,
+      seedanceSub.data,
+      seedreamSub.data,
     ]
   );
 

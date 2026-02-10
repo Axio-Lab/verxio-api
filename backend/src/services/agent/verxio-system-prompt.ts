@@ -1,20 +1,13 @@
 /**
- * Verxio System Prompt for Claude Agent
+ * Verxio System Prompt for the Agent
  *
  * This comprehensive prompt defines Verxio's capabilities, available nodes,
  * workflow patterns, and autonomous operation guidelines.
  */
 
 import { AVAILABLE_NODE_TYPES } from "./verxio-mcp-tools";
-import {
-  loadImageGenerationGuide,
-  loadSocialMediaDesignGuide,
-  loadDesignPromptGuide,
-  loadVideoPromptGuide,
-  loadVideoGenerationGuide,
-  loadKlingImageGuide,
-  loadKlingVideoGuide,
-} from "./imagePromptHelpers";
+import { discoverGuides, generateGuidesXml } from "./imagePromptHelpers";
+import { discoverSkills, generateSkillsXml } from "./skills/skillLoader";
 
 // ============================================
 // Node Types Documentation
@@ -46,25 +39,13 @@ const NODE_TYPES_DOCUMENTATION = `
 - Description: HTTP POST endpoint that triggers workflow
 
 **TELEGRAM_TRIGGER**
-- Fields: { credentialId: string (REQUIRED) }
-- Description: Activates on incoming Telegram messages
-- CRITICAL: Before creating TELEGRAM_TRIGGER nodes, you MUST:
-  1. Check for existing TELEGRAM credentials using getCredentials("TELEGRAM")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("TELEGRAM") to request it from the user
-  4. NEVER create the node without a valid credentialId
+- Fields: { credentialId (REQ) }
+- Credential workflow: See "Common Patterns" section below
 
 **WHATSAPP_TRIGGER**
-- Fields: { credentialId: string (REQUIRED) }
-- Description: Activates on incoming WhatsApp messages (workflow-only; uses WhatsApp credential, not Chat Integration)
-- CRITICAL: Before creating WHATSAPP_TRIGGER nodes, you MUST:
-  1. Check for existing WHATSAPP credentials using getCredentials("WHATSAPP")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("WHATSAPP") to request it from the user
-  4. NEVER create the node without a valid credentialId
-- Output variable name: "whatsapp". Full context also has whatsappPayload (same shape) and whatsappSessionRef (credential id for Send WhatsApp).
-- Payload shape: { body, from, to, messageId, type, pushName, timestamp, isGroup, fromMe, ... }
-- Use {{whatsapp.payload.body}} for message text, {{whatsapp.payload.from}} to reply to sender in Send WhatsApp. from and to are phone numbers only (no @s.whatsapp.net)—use as-is in Send WhatsApp to avoid errors. {{whatsapp.payload.fromMe}} is true when the connected number sent the message (e.g. self-chat).
+- Fields: { credentialId (REQ) }
+- Credential workflow: See "Common Patterns" section below
+- Output: "whatsapp" variable. Access {{whatsapp.payload.body}}, {{whatsapp.payload.from}} (phone number, use as-is), {{whatsapp.payload.fromMe}}
 
 **AIRTABLE_TRIGGER**
 - Fields: { credentialId: string, baseId: string, tableId: string }
@@ -73,69 +54,28 @@ const NODE_TYPES_DOCUMENTATION = `
 ### AI Models (Text Generation & Analysis)
 
 **ANTHROPIC**
-- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string (REQUIRED), userPrompt: string (REQUIRED), credentialId: string (REQUIRED) }
-  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
-  - model is REQUIRED - MUST be selected from available models: "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"
-  - credentialId is REQUIRED - MUST be set before node can be used
-- Models: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5" (faster), "claude-opus-4-5" (most capable)
-- Note: userPrompt is REQUIRED and must contain the actual prompt text
-- CRITICAL: Before creating ANTHROPIC nodes, you MUST:
-  1. Check for existing credentials using getCredentials("ANTHROPIC")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("ANTHROPIC") to request it from the user
-  4. NEVER create the node without a valid credentialId
-- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
-  - Node name "Viral Content" -> variables: "viralContent"
-  - Node name "viralcontent" -> variables: "viralcontent"
-  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
-  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
+- Fields: { variables (REQ), model (REQ), systemPrompt?, userPrompt (REQ), credentialId (REQ) }
+- Models: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5", "claude-opus-4-5"
+- Credential workflow: See "Common Patterns" section below
+- Variables: Set to camelCase of node name (e.g., "Viral Content" → "viralContent"), access via {{viralContent.text}}
 
 **OPENAI**
-- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string, userPrompt: string (REQUIRED), temperature?: number, credentialId: string (REQUIRED) }
-  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
-  - model is REQUIRED - MUST be selected from available models: "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
-  - credentialId is REQUIRED - MUST be set before node can be used
-- Models: "gpt-4o" (recommended), "gpt-4o-mini" (faster/cheaper), "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
-- Note: userPrompt is REQUIRED and must contain the actual prompt text
-- CRITICAL: Before creating OPENAI nodes, you MUST:
-  1. Check for existing credentials using getCredentials("OPENAI")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("OPENAI") to request it from the user
-  4. NEVER create the node without a valid credentialId
-- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
-  - Node name "Viral Content" -> variables: "viralContent"
-  - Node name "viralcontent" -> variables: "viralcontent"
-  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
-  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
+- Fields: { variables (REQ), model (REQ), systemPrompt?, userPrompt (REQ), temperature?, credentialId (REQ) }
+- Models: "gpt-4o" (recommended), "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
+- Credential workflow: See "Common Patterns" section below
+- Variables: Set to camelCase of node name, access via {{nodeName.text}}
 
 **GEMINI**
-- Fields: { variables: string (REQUIRED), model: string (REQUIRED), systemPrompt?: string (REQUIRED), userPrompt: string (REQUIRED), credentialId: string (REQUIRED) }
-  - variables is REQUIRED - MUST be set explicitly to match the node name converted to camelCase
-  - model is REQUIRED - MUST be selected from available models: "gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"
-  - credentialId is REQUIRED - MUST be set before node can be used
+- Fields: { variables (REQ), model (REQ), systemPrompt?, userPrompt (REQ), credentialId (REQ) }
 - Models: "gemini-2.5-flash" (recommended), "gemini-2.0-flash", "gemini-pro-latest"
-- Note: userPrompt is REQUIRED and must contain the actual prompt text
-- CRITICAL: Before creating GEMINI nodes, you MUST:
-  1. Check for existing credentials using getCredentials("GEMINI")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("GEMINI") to request it from the user
-  4. NEVER create the node without a valid credentialId
-- Variable naming: ALWAYS set variables field explicitly to the node name converted to camelCase
-  - Node name "Viral Content" -> variables: "viralContent"
-  - Node name "viralcontent" -> variables: "viralcontent"
-  - Node name "Viral Idea Generator" -> variables: "viralIdeaGenerator"
-  - Use this EXACT variable name when referencing in subsequent nodes: {{viralContent.text}}
+- Credential workflow: See "Common Patterns" section below
+- Variables: Set to camelCase of node name, access via {{nodeName.text}}
 
 ### Communication (Messaging)
 
 **TELEGRAM**
-- Fields: { variables: string, credentialId: string (REQUIRED), chatId: string (REQUIRED), message: string (REQUIRED) }
-- Note: chatId must be provided by user
-- CRITICAL: Before creating TELEGRAM nodes, you MUST:
-  1. Check for existing TELEGRAM credentials using getCredentials("TELEGRAM")
-  2. If credential exists, use its credentialId in the node config
-  3. If credential is missing, use requestCredential("TELEGRAM") to request it from the user
-  4. NEVER create the node without a valid credentialId
+- Fields: { variables, credentialId (REQ), chatId (REQ), message (REQ) }
+- Credential workflow: See "Common Patterns" section below
 
 **DISCORD**
 - Fields: { variables: string, webhookUrl: string (REQUIRED), message: string (REQUIRED), username?: string, avatarUrl?: string }
@@ -150,50 +90,25 @@ const NODE_TYPES_DOCUMENTATION = `
 ### Google Workspace (All require Google OAuth)
 
 **GOOGLE_SHEETS**
-- Fields: { variables: string, action: string (REQUIRED), spreadsheetId: string (REQUIRED for read/write), sheetName: string (REQUIRED), range: string (REQUIRED for read/write), values?: string, title?: string }
+- Fields: { variables, action (REQ), spreadsheetId (REQ for read/write), sheetName (REQ), range (REQ for read/write), values?, title? }
 - Actions: "readRange", "writeRange", "appendRow", "updateCells", "clearRange", "createSheet", "createSpreadsheet"
-- IMPORTANT: For read/write/append actions, spreadsheetId, sheetName, AND range are ALL REQUIRED
-- Range examples: "A1:D10", "Sheet1!A:D", "A2:E" (for append to end)
-- For write/append: values should be JSON array e.g. "[[value1, value2]]" or with templates "[[{{node.field1}}, {{node.field2}}]]"
+- Range: "A1:D10", "Sheet1!A:D", "A2:E" (append). Values: JSON array "[[value1, value2]]" or templates "[[{{node.field1}}, {{node.field2}}]]"
 
-**GOOGLE_DOCS**
-- Fields: { variables: string, action: string (REQUIRED), documentId?: string, content?: string, title?: string }
-- Actions: "create", "read", "append"
-
-**GOOGLE_SLIDES**
-- Fields: { variables: string, action: string (REQUIRED), presentationId?: string, title?: string, content?: string }
-- Actions: "create", "addSlide", "read"
-
-**GOOGLE_DRIVE**
-- Fields: { variables: string, action: string (REQUIRED), folderId?: string, fileName?: string }
-- Actions: "list", "upload", "download"
-
-**GOOGLE_CALENDAR**
-- Fields: { variables: string, action: string (REQUIRED), summary?: string, startTime?: string, endTime?: string }
-- Actions: "create", "list"
+**GOOGLE_DOCS** - Fields: { variables, action (REQ), documentId?, content?, title? } | Actions: "create", "read", "append"
+**GOOGLE_SLIDES** - Fields: { variables, action (REQ), presentationId?, title?, content? } | Actions: "create", "addSlide", "read"
+**GOOGLE_DRIVE** - Fields: { variables, action (REQ), folderId?, fileName? } | Actions: "list", "upload", "download"
+**GOOGLE_CALENDAR** - Fields: { variables, action (REQ), summary?, startTime?, endTime? } | Actions: "create", "list"
 
 ### Data & APIs
 
-**HTTP_REQUEST**
-- Fields: { variables: string, endpoint: string (REQUIRED), method: "GET"|"POST"|"PUT"|"DELETE"|"PATCH" (REQUIRED), body?: string }
-- Note: body should be valid JSON for POST/PUT requests
-
-**AIRTABLE**
-- Fields: { variables: string, credentialId: string, action: string (REQUIRED), baseId?: string, tableId?: string, recordId?: string, fieldsData?: string }
-- Actions: "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord"
-
-**FIRECRAWL**
-- Fields: { variables: string, action: string, url?: string, prompt?: string }
-- Actions: "scrape", "crawl", "agent"
+**HTTP_REQUEST** - Fields: { variables, endpoint (REQ), method (REQ), body? } | body: JSON for POST/PUT
+**AIRTABLE** - Fields: { variables, credentialId, action (REQ), baseId?, tableId?, recordId?, fieldsData? } | Actions: "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord"
+**FIRECRAWL** - Fields: { variables, action, url?, prompt? } | Actions: "scrape", "crawl", "agent"
 
 ### Logic & Code
 
-**DECIDER**
-- Fields: { variables: string, conditions: Array<{ field: string, operator: string, value: string, output: string }> }
-
-**CODE_BLOCK**
-- Fields: { variables: string, label: string, code: string (REQUIRED), language: "typescript"|"javascript"|"python"|"rust"|"anchor", dependencies?: string[], credentialIds?: string[] }
-- Code must export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>
+**DECIDER** - Fields: { variables, conditions: Array<{field, operator, value, output}> }
+**CODE_BLOCK** - Fields: { variables, label, code (REQ), language: "typescript"|"javascript"|"python"|"rust"|"anchor", dependencies?, credentialIds? } | Export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>
 
 ### Media
 
@@ -201,138 +116,93 @@ const NODE_TYPES_DOCUMENTATION = `
 - Fields: { variables: string, text: string (REQUIRED), voiceId: string, modelId?: string, credentialId: string }
 
 **DESIGN**
-- Fields: { variables: string, prompt: string (REQUIRED - must be JSON format), model?: string, aspectRatio?: string, template?: string }
-- **CRITICAL:** The "prompt" field must be a JSON string containing comprehensive image specifications. See guides/image-generation-guide.txt for structure.
+- Fields: { variables, prompt (REQ, JSON format), model?, aspectRatio?, template? }
 - Models: "gemini-2.5-flash-image" (default), "gemini-3-pro-image-preview"
 - Aspect ratios: "1:1", "16:9", "9:16", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "21:9"
 - Templates: "instagram_post", "instagram_story", "twitter_post", "twitter_header", "facebook_post", "linkedin_post", "presentation_slide", "youtube_thumbnail", "logo"
-- Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, template?: string, imageUrl: string, imageFilename: string }
-- **Multi-image:** When user needs multiple images (e.g., presentation slides, image series), use createMultipleDesignNodesTool to create multiple DESIGN or DESIGN_PRO nodes connected in sequence. Use DESIGN_PRO when user requests high quality, high resolution (1K/2K/4K), or professional output.
-- **Multi-scene video:** When user needs multiple video scenes (e.g., storyboards, video sequences), use createMultipleVideoNodesTool to create multiple VEO nodes. Choose "separate" strategy for storyboards or "extend" strategy for continuous video extension.
-- **JSON Prompt Format:** All prompts must be JSON strings with sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
-- **Reference guides:** See guides/image-generation-guide.txt for detailed JSON prompt structure and examples
+- Prompt: JSON string (see guides/image-generation-guide.txt). Sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
+- Multi-image: Use createMultipleDesignNodesTool for multiple images. Use DESIGN_PRO for high-res (1K/2K/4K) or professional output.
+- Output: { success, prompt, mimeType, text, aspectRatio, template?, imageUrl, imageFilename }
+- Display name: "Nano Banana"
 
 **DESIGN_PRO**
-- Fields: { variables: string, prompt: string (REQUIRED - must be JSON format), mode?: "generate"|"edit"|"chat"|"editWithReferences", model?: string, aspectRatio?: string, imageSize?: "1K"|"2K"|"4K", template?: string, sourceImage?: string, sourceImageMimeType?: string, referenceImages?: Array<{image: string, mimeType?: string, type?: "object"|"human"}>, useGoogleSearch?: boolean, thinkingMode?: boolean, conversationHistory?: Array<{role: string, content: string}> }
-- **Modes:**
-  - "generate": Text-to-image generation (same as DESIGN)
-  - "edit": Edit existing image with text prompt (requires sourceImage)
-  - "chat": Multi-turn conversational editing (maintains conversation state)
-  - "editWithReferences": Edit with up to 14 reference images (6 objects + 5 humans)
-- **CRITICAL:** The "prompt" field must be a JSON string (same format as DESIGN)
-- Models: "gemini-3-pro-image-preview" (default, recommended), "gemini-2.5-flash-image"
-- Image sizes: "1K", "2K", "4K" (Pro model only)
-- **Reference Images:** Up to 14 total (6 object images + 5 human images). Can be URLs, base64, or {{previousNode.imageUrl}}
-- **Source Image:** For edit modes, can be URL, base64, or {{previousNode.imageUrl}}
-- **Chat Mode:** Use for iterative editing. Conversation history is maintained in node output
-- **Google Search:** Enable with useGoogleSearch: true for grounding and fact verification
-- Output: { success: boolean, prompt: string, mimeType: string, text: string, aspectRatio: string, imageSize?: string, imageUrl: string, imageFilename: string, conversationHistory?: Array (chat mode only) }
-- **When to use:** Use DESIGN_PRO for advanced editing, reference images, high-res output (1K/2K/4K), multi-turn conversations, or when you need Google Search grounding
-- **When to use DESIGN:** Use DESIGN for simple text-to-image generation
-- **Display names:** When adding DESIGN or DESIGN_PRO nodes (via addNode or createMultipleDesignNodesTool), use display name "Nano Banana" for DESIGN and "Nano Banana Pro" for DESIGN_PRO (e.g. "Nano Banana", "Nano Banana Pro 1", "Nano Banana 2"). The UI shows these names to the user.
+- Fields: { variables, prompt (REQ, JSON format), mode?: "generate"|"edit"|"chat"|"editWithReferences", model?, aspectRatio?, imageSize?: "1K"|"2K"|"4K", template?, sourceImage?, sourceImageMimeType?, referenceImages?: Array<{image, mimeType?, type?: "object"|"human"}>, useGoogleSearch?, thinkingMode?, conversationHistory? }
+- Modes: "generate" (text-to-image), "edit" (requires sourceImage), "chat" (multi-turn), "editWithReferences" (up to 14 refs: 6 objects + 5 humans)
+- Models: "gemini-3-pro-image-preview" (default), "gemini-2.5-flash-image"
+- Image sizes: "1K", "2K", "4K" (Pro only)
+- Reference images: Up to 14 total. Source: URLs, base64, or {{previousNode.imageUrl}}
+- Chat mode: Maintains conversationHistory in output
+- Google Search: useGoogleSearch: true for grounding
+- Output: { success, prompt, mimeType, text, aspectRatio, imageSize?, imageUrl, imageFilename, conversationHistory? }
+- Use DESIGN_PRO for: advanced editing, ref images, high-res, multi-turn chat, Google Search
+- Use DESIGN for: simple text-to-image
+- Display name: "Nano Banana Pro"
 
 **VEO**
-- Fields: { variables: string, prompt: string (REQUIRED for all modes except extension), mode?: "text"|"image"|"reference"|"frames"|"extension", aspectRatio?: "16:9"|"9:16", resolution?: "720p"|"1080p"|"4k", durationSeconds?: "4"|"6"|"8", negativePrompt?: string, sourceImage?: string, sourceImageFilename?: string, referenceImages?: Array<{file: string, filename: string}>, firstFrame?: string, firstFrameFilename?: string, lastFrame?: string, lastFrameFilename?: string, sourceVideo?: string, sourceVideoFilename?: string }
-- **Modes:**
-  - "text": Text-to-video generation (default)
-  - "image": Image-to-video generation (requires sourceImage)
-  - "reference": Generate with up to 3 reference images (requires referenceImages array)
-  - "frames": First and last frame interpolation (requires firstFrame and lastFrame)
-  - "extension": Extend video from a previous Veo node (sourceVideo: {{previousNode.videoUrl}}; no upload)
-- **CRITICAL:** Follow the video prompt guide for creating effective video prompts. Use descriptive, cinematic language.
-- Aspect ratios: "16:9" (landscape, default), "9:16" (portrait)
-- Resolutions: "720p" (default), "1080p" (8s only), "4k" (8s only)
-- Durations: "4", "6", "8" seconds (default: "8"). Extension, reference images, 1080p, and 4k require 8s.
-- **Source Image:** For image-to-video, can be URL, base64, or {{previousNode.imageUrl}}
-- **Reference Images:** Up to 3 images. Can be URLs, base64, or {{previousNode.imageUrl}}
-- **Source Video (extension):** Set sourceVideo to {{previousNode.videoUrl}} (e.g. {{veo.videoUrl}}) to identify which previous Veo node to extend. The backend uses that node's veoFileRef (the Veo API file reference from the previous generation) for the extend call—not the URL. No upload; extension only works when the source is another Veo node in this workflow. External URLs or uploads are rejected.
-- **File Size Limits:** Each uploaded file must not exceed 5MB
-- Output: { success: boolean, prompt: string, videoUrl: string, videoFilename: string, aspectRatio: string, resolution: string, durationSeconds: string, veoFileRef: { uri: string } }
-- **veoFileRef:** Internal Veo API file reference; used by extension mode. You reference by {{node.videoUrl}}; backend resolves to that node's veoFileRef for extend.
-- **When to use:** Use VEO for high-fidelity video generation with audio. Use REMOTION for motion graphics and code-based video generation.
-- **Reference guides:** See guides/video-prompt-guide.txt and guides/video-generation-guide.txt for detailed prompt structure and examples
+- Fields: { variables (REQ), prompt (REQ, except extension), mode?: "text"|"image"|"reference"|"frames"|"extension", aspectRatio?: "16:9"|"9:16", resolution?: "720p"|"1080p"|"4k", durationSeconds?: "4"|"6"|"8", negativePrompt?, sourceImage?, sourceImageFilename?, referenceImages?: Array<{file, filename}>, firstFrame?, firstFrameFilename?, lastFrame?, lastFrameFilename?, sourceVideo?, sourceVideoFilename? }
+- Modes: "text" (default), "image" (req sourceImage), "reference" (req referenceImages, up to 3), "frames" (req firstFrame+lastFrame), "extension" (req sourceVideo: {{previousNode.videoUrl}}, no upload)
+- Prompt: Use descriptive, cinematic language (see guides/video-prompt-guide.txt)
+- Aspect ratios: "16:9" (default), "9:16"
+- Resolutions: "720p" (default), "1080p"|"4k" (8s only)
+- Durations: "4"|"6"|"8" (default "8"). Extension, ref images, 1080p, 4k require 8s.
+- Source images/video: URLs, base64, or {{previousNode.imageUrl}}/{{previousNode.videoUrl}}
+- Extension: sourceVideo must be {{previousNode.videoUrl}} from another Veo node. Backend uses veoFileRef (not URL). External URLs rejected.
+- File limit: 5MB per file
+- Output: { success, prompt, videoUrl, videoFilename, aspectRatio, resolution, durationSeconds, veoFileRef: {uri} }
+- Use VEO for: high-fidelity video with audio. Use REMOTION for motion graphics.
 
 **REMOTION**
-- Fields: { variables: string, prompt: string (REQUIRED), videoFormat?: "16:9"|"9:16"|"1:1"|"4:3"|"21:9", backgroundAudio?: string, backgroundAudioFilename?: string, backgroundAudioVolume?: number, assets?: Array<{file: string, filename: string, type: "image"|"video"|"audio", sceneDescription?: string, startTime?: number, position?: {x?: number, y?: number}, size?: {width?: number, height?: number}}> }
-- **CRITICAL:** The prompt describes the video content and Remotion code will be AI-generated based on this prompt
+- Fields: { variables (REQ), prompt (REQ), videoFormat?: "16:9"|"9:16"|"1:1"|"4:3"|"21:9", backgroundAudio?, backgroundAudioFilename?, backgroundAudioVolume?, assets?: Array<{file, filename, type: "image"|"video"|"audio", sceneDescription?, startTime?, position?, size?}> }
+- Prompt: Describes video content; Remotion code AI-generated from prompt
 - Video formats: "16:9" (default), "9:16", "1:1", "4:3", "21:9"
-- **Assets:** Can include images, videos, and audio files. Assets are stored separately and referenced in the generated Remotion code
-- **Background Audio:** Optional background audio file with volume control (0-1)
-- **File Size Limits:** Each uploaded file must not exceed 5MB
-- Output: { success: boolean, videoUrl: string }
-- **When to use:** Use REMOTION for motion graphics, animated designs, code-based video generation, or when you need programmatic control over video composition. Use VEO for photorealistic video generation with audio.
+- Assets: Images/videos/audio stored separately, referenced in generated code
+- Background audio: Optional with volume 0-1
+- File limit: 5MB per file
+- Output: { success, videoUrl }
+- Use REMOTION for: motion graphics, animated designs, code-based video. Use VEO for photorealistic video.
 
-**KLING_TEXT2VIDEO**
-- Fields: { prompt: string (REQUIRED), negative_prompt?: string, model_name?: string, mode?: "std"|"pro", aspect_ratio?: "16:9"|"9:16"|"1:1", duration?: "5"|"10", sound?: "on"|"off" }
-- Description: Generate video from text using Kling AI. Supports multiple models (kling-v1, kling-v1-6, kling-v2-*, etc.), aspect ratios, and 5s/10s duration.
-- Output: { videoUrl, videoId, duration, task_id } — use variables field for output name (e.g. variables: "klingVideo" → {{klingVideo.videoUrl}})
-- **When to use:** Use for Kling AI text-to-video when user wants video from a text prompt via Kling (alternative to VEO).
+**KLING_TEXT2VIDEO** - Fields: { prompt (REQ), negative_prompt?, model_name?, mode?: "std"|"pro", aspect_ratio?: "16:9"|"9:16"|"1:1", duration?: "5"|"10", sound?: "on"|"off" } | Output: { videoUrl, videoId, duration, task_id } | Use variables field for output name
+**KLING_IMAGE2VIDEO** - Fields: { prompt?, image (REQ), model_name?, mode?, duration?, negative_prompt? } | Output: { videoUrl, videoId, duration, task_id }
+**KLING_IMAGE** - Fields: { prompt (REQ), negative_prompt?, image?, model_name?, aspect_ratio?, n?: 1-9, resolution?: "1k"|"2k" } | Output: { imageUrls[], images[], task_id }
+**KLING_TTS** - Fields: { text (REQ), voice_id (REQ), voice_language?: "zh"|"en", voice_speed?: 0.8-2 } | Output: { audioUrl, audioId, duration, task_id }
+**KLING_OMNI_VIDEO** - Fields: { prompt (REQ), image_list?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
+**KLING_OMNI_IMAGE** - Fields: { prompt (REQ), image_list?, resolution?, n?, aspect_ratio? } | Output: { imageUrls, task_id }
+**KLING_VIDEO_EXTEND** - Fields: { video_id (REQ, e.g. {{klingText2Video.videoId}}), prompt?, negative_prompt?, cfg_scale? } | Output: { videoUrl, videoId, duration, task_id }
+**KLING_MULTI_IMAGE2VIDEO** - Fields: { prompt?, image_list?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
+**KLING_MOTION_CONTROL** - Fields: { prompt?, image?, video_url?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
+**KLING_MULTI_IMAGE2IMAGE** - Fields: { prompt?, image_list?, n?, aspect_ratio? } | Output: { imageUrls, task_id }
 
-**KLING_IMAGE2VIDEO**
-- Fields: { prompt?: string, image: string (REQUIRED — URL or template e.g. {{design.imageUrls[0]}}), model_name?: string, mode?: "std"|"pro", duration?: "5"|"10", negative_prompt?: string }
-- Description: Animate an image into video using Kling AI.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use when user wants to animate a single image into video with Kling AI.
+**SEEDANCE**
+- Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"reference"|"frames", firstFrameImage?, firstFrameImageFilename?, firstFrame?, firstFrameFilename?, lastFrame?, lastFrameFilename?, referenceImages?: Array<{file, filename}>, generateAudio?, ratio?: "16:9"|"4:3"|"1:1"|"3:4"|"9:16"|"21:9"|"adaptive", duration?: 4-12, resolution?: "480p"|"720p"|"1080p", cameraFixed?, draft?, returnLastFrame? }
+- Modes: "text" (default), "image" (req firstFrameImage), "reference" (req referenceImages, 1-4), "frames" (req firstFrame+lastFrame)
+- Model: seedance-1-5-pro-251215 (fixed)
+- Duration: 4-12s | Resolutions: "480p", "720p", "1080p" | Ratios: "16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"
+- generateAudio: true enables audio-visual (Pro only) | draft: true for preview (480p only, lower cost) | returnLastFrame: true returns last frame image
+- Source images: URLs, base64, or {{previousNode.imageUrl}}
+- Output: { videoUrl, lastFrameUrl? (if returnLastFrame), model: "seedance-1-5-pro-251215" }
 
-**KLING_IMAGE**
-- Fields: { prompt: string (REQUIRED), negative_prompt?: string, image?: string (optional reference image URL or variable), model_name?: string, aspect_ratio?: string, n?: number (1–9), resolution?: "1k"|"2k" }
-- Description: Generate images from text using Kling AI. Optional reference image for image-to-image.
-- Output: { imageUrls: string[], images: Array<{index, url}>, task_id }
-- **When to use:** Use for Kling AI image generation (alternative to DESIGN/DESIGN_PRO when user specifies Kling).
-
-**KLING_TTS**
-- Fields: { text: string (REQUIRED), voice_id: string (REQUIRED — from Kling voice list), voice_language?: "zh"|"en", voice_speed?: number (0.8–2) }
-- Description: Convert text to speech using Kling AI voices.
-- Output: { audioUrl, audioId, duration, task_id }
-- **When to use:** Use for Kling AI text-to-speech (alternative to ELEVENLABS when user specifies Kling).
-
-**KLING_OMNI_VIDEO**
-- Fields: { prompt: string (REQUIRED), image_list?: string (JSON array or URLs), mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
-- Description: Kling O1 unified multimodal video from prompt and optional image list.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use for Kling O1 omni-video with multiple reference images.
-
-**KLING_OMNI_IMAGE**
-- Fields: { prompt: string (REQUIRED), image_list?: string, resolution?: string, n?: number, aspect_ratio?: string }
-- Description: Kling O1 omni-image generation from prompt and optional image list.
-- Output: { imageUrls, task_id }
-- **When to use:** Use for Kling O1 omni-image (multi-reference image generation).
-
-**KLING_VIDEO_EXTEND**
-- Fields: { video_id: string (REQUIRED — e.g. {{klingText2Video.videoId}}), prompt?: string, negative_prompt?: string, cfg_scale?: number }
-- Description: Extend a Kling video. video_id must come from a previous Kling video node.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use when user wants to extend a Kling-generated video.
-
-**KLING_MULTI_IMAGE2VIDEO**
-- Fields: { prompt?: string, image_list?: string (JSON array or URLs), mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
-- Description: Generate video from multiple reference images.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use when user wants video from multiple reference images.
-
-**KLING_MOTION_CONTROL**
-- Fields: { prompt?: string, image?: string, video_url?: string, mode?: "std"|"pro", aspect_ratio?: string, duration?: string }
-- Description: Motion control video with image and optional video reference.
-- Output: { videoUrl, videoId, duration, task_id }
-- **When to use:** Use for precise motion control over trajectories.
-
-**KLING_MULTI_IMAGE2IMAGE**
-- Fields: { prompt?: string, image_list?: string, n?: number, aspect_ratio?: string }
-- Description: Generate image from multiple reference images.
-- Output: { imageUrls, task_id }
-- **When to use:** Use when user wants one image from multiple references.
+**SEEDREAM**
+- Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"multi", sourceImage?, sourceImageFilename?, referenceImages?: Array<{file, filename}>, size?: "2K"|"4K"|"widthxheight", sequentialImageGeneration?: "disabled"|"auto", maxImages?: 1-14 }
+- Modes: "text" (default), "image" (req sourceImage), "multi" (req referenceImages, 1-4)
+- Model: seedream-4-5-251128 (fixed)
+- Size: "2K"|"4K" or explicit "widthxheight" (e.g. "2048x2048")
+- sequentialImageGeneration: "auto" enables batch | maxImages: 1-14 when batch enabled
+- Source images: URLs, base64, or {{previousNode.imageUrl}}
+- Output: { images: Array<{url?, size?}>, size, model: "seedream-4-5-251128" }
 
 **OUTPUT**
 - Fields: { variables: string (REQUIRED), contentType: "image"|"video"|"audio" (REQUIRED, default: "image"), imageSource?: string, videoSource?: string, audioSource?: string, outputFilename?: string }
 - **Content Types - SELECT BASED ON PREVIOUS NODE:**
-  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE)
-  - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL)
+  - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE, SEEDREAM)
+  - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL, SEEDANCE)
   - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS)
 - **CRITICAL: Match contentType to Previous Node:**
   - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
   - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_MULTI_IMAGE2IMAGE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
+  - After SEEDREAM → contentType: "image", imageSource: "{{seedream.images[0].url}}" or variable name used (outputs array of images)
   - After VEO → contentType: "video", videoSource: "{{veo.videoUrl}}"
   - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
+  - After SEEDANCE → contentType: "video", videoSource: "{{seedance.videoUrl}}" or variable name used
   - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
   - After ELEVENLABS / KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
 - **Features:**
@@ -518,6 +388,21 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{veo.videoUrl}} - Direct downloadable URL; use this in extension mode as sourceVideo so backend can resolve to veoFileRef
   - {{veo.videoFilename}} - Filename of the saved video
   - {{veo.resolution}} - Video resolution ("720p", "1080p", "4k")
+
+**SEEDANCE** (if variables: "seedance")
+- Outputs: { videoUrl: string, lastFrameUrl?: string (if returnLastFrame: true), model: "seedance-1-5-pro-251215", size?: string, ... }
+- Template examples:
+  - {{seedance.videoUrl}} - Direct downloadable URL to the generated video
+  - {{seedance.lastFrameUrl}} - Last frame image URL (if returnLastFrame was enabled)
+  - {{seedance.model}} - Model used ("seedance-1-5-pro-251215")
+
+**SEEDREAM** (if variables: "seedream")
+- Outputs: { images: Array<{url?: string, size?: string}>, size: string, model: "seedream-4-5-251128" }
+- Template examples:
+  - {{seedream.images[0].url}} - First generated image URL (for single image)
+  - {{seedream.images}} - Array of all generated images (for batch generation)
+  - {{seedream.size}} - Image size used ("2K", "4K", or explicit dimensions)
+  - {{seedream.model}} - Model used ("seedream-4-5-251128")
 
 **KLING_TEXT2VIDEO** / **KLING_IMAGE2VIDEO** (if variables: e.g. "klingVideo")
 - Outputs: { videoUrl: string, videoId: string, duration: string, task_id: string }
@@ -731,6 +616,31 @@ Trigger -> Extract from Source -> Transform -> Load to Destination
 Example: AIRTABLE_TRIGGER -> CODE_BLOCK (transform) -> GOOGLE_SHEETS (sync)
 `;
 
+const COMMON_PATTERNS = `
+## Common Patterns
+
+### Credential Workflow (CRITICAL)
+For nodes requiring credentials (ANTHROPIC, OPENAI, GEMINI, TELEGRAM, TELEGRAM_TRIGGER, WHATSAPP_TRIGGER):
+1. **ALWAYS** call getCredentials("CREDENTIAL_TYPE") FIRST
+2. If credential exists: Use its credentialId in node config
+3. If missing: Call requestCredential("CREDENTIAL_TYPE") with clear setup instructions
+4. **NEVER** create nodes without required credentials - this causes workflow failures
+
+### Variable Naming (AI Nodes)
+- **REQUIRED**: Set variables field explicitly to camelCase of node name
+- Examples: "Viral Content" → variables: "viralContent", "viralcontent" → variables: "viralcontent"
+- Access outputs: {{viralContent.text}} (use .text for AI node outputs)
+
+### MANUAL_INPUT Output Pattern
+- Outputs value directly (NOT nested): { cityInput: "Lagos" }
+- Access: {{cityInput}} (direct value, not {{cityInput.prompt}})
+- In CODE_BLOCK: const city = inputs.cityInput; (direct access)
+
+### HTTP_REQUEST Output Pattern
+- Output nested under httpResponse: {{nodeName.httpResponse.data.field}}
+- NOT {{nodeName.data.field}} (incorrect)
+`;
+
 // ============================================
 // Main System Prompt
 // ============================================
@@ -742,23 +652,13 @@ export const getVerxioSystemPrompt = async (options?: {
   availableCredentials?: Array<{ type: string; name: string }>;
   userSkills?: Array<{ name: string; description?: string; content: string }>;
 }) => {
-  // Load all guide files in parallel
-  const [
-    imageGenerationGuide,
-    socialMediaDesignGuide,
-    designPromptGuide,
-    videoPromptGuide,
-    videoGenerationGuide,
-    klingImageGuide,
-    klingVideoGuide,
-  ] = await Promise.all([
-    loadImageGenerationGuide(),
-    loadSocialMediaDesignGuide(),
-    loadDesignPromptGuide(),
-    loadVideoPromptGuide(),
-    loadVideoGenerationGuide(),
-    loadKlingImageGuide(),
-    loadKlingVideoGuide(),
+  // Load built-in skill metadata and guide metadata in parallel (progressive disclosure)
+  const [builtInSkillsMetadata, guideMetadata] = await Promise.all([
+    discoverSkills().catch((err) => {
+      console.warn("Failed to discover built-in skills:", err);
+      return [];
+    }),
+    Promise.resolve(discoverGuides()),
   ]);
 
   return `
@@ -793,6 +693,8 @@ ${CODE_BLOCK_DOCS}
 
 ${WORKFLOW_PATTERNS}
 
+${COMMON_PATTERNS}
+
 ## User Context
 
 ${options?.userId ? `**User ID**: ${options.userId}` : ""}
@@ -812,6 +714,51 @@ ${
     ? `
 ### Connected Data Sources
 ${options.userConnections.map((c) => `- **${c.name}** (${c.type}): ${c.description || "No description"}`).join("\n")}
+`
+    : ""
+}
+
+${
+  builtInSkillsMetadata.length > 0
+    ? `
+### Built-in Agent Skills
+The following built-in skills are available to help you perform specific tasks. Each skill contains detailed instructions and procedures.
+
+**How to use skills:**
+- Review the skill descriptions below to identify relevant skills for the current task
+- When you need detailed instructions from a skill, read the full SKILL.md file using filesystem access
+- Skills are located in the \`backend/src/services/agent/skills/\` directory
+- Read the file: \`backend/src/services/agent/skills/{skill-name}/SKILL.md\`
+
+${generateSkillsXml(builtInSkillsMetadata)}
+
+**Available Skills:**
+${builtInSkillsMetadata.map((skill) => `- **${skill.name}**: ${skill.description}`).join("\n")}
+`
+    : ""
+}
+
+${
+  guideMetadata.length > 0
+    ? `
+### Available Guide References
+The following guides contain detailed instructions for creating high-quality prompts for specific node types. Each guide contains comprehensive templates, examples, and best practices.
+
+**How to use guides:**
+- Review the guide descriptions below to identify relevant guides for the current task
+- When you need detailed instructions from a guide, read the full guide file using filesystem access
+- Guides are located in the \`backend/src/services/agent/guides/\` directory
+- Read the file using the path provided in the <location> tag below
+
+${generateGuidesXml(guideMetadata)}
+
+**Available Guides:**
+${guideMetadata
+  .map(
+    (guide) =>
+      `- **${guide.name}**: ${guide.description} (Use for: ${guide.applicableNodes.join(", ")})`
+  )
+  .join("\n")}
 `
     : ""
 }
@@ -1139,68 +1086,20 @@ Remember: You have full autonomous capabilities. Use your tools to create comple
 
 ---
 
-## Design Prompt Guide (Complete Reference)
+## Guide References
 
-The following is the Ultimate Design Prompt Guide that you MUST follow when creating prompts for DESIGN and DESIGN_PRO nodes. This guide provides the core principles, universal framework, and prompt templates for all types of design work including content, business branding, flyers, ads, and visual assets.
+**IMPORTANT:** Detailed guides for creating high-quality prompts are available via filesystem access. When you need comprehensive instructions, examples, or templates for specific node types, read the appropriate guide file from \`backend/src/services/agent/guides/\`.
 
-**CRITICAL: Use this guide for ALL design node prompt generation.**
+**Guide Usage:**
+- **Design Nodes (DESIGN, DESIGN_PRO)**: Read \`design-prompt-guide.txt\` for core principles and \`image-generation-guide.txt\` for JSON structure. Read \`social-media-design-guide.txt\` for marketing templates.
+- **Video Nodes (VEO, REMOTION, SEEDANCE)**: Read \`video-prompt-guide.txt\` for cinematic framework and \`video-generation-guide.txt\` for JSON structure.
+- **Kling Nodes**: Read \`kling-image-guide.txt\` or \`kling-video-guide.txt\` based on node type.
 
-${designPromptGuide}
-
----
-
-## Image Generation Guide (Complete Reference)
-
-The following is the complete image generation guide that you MUST follow when creating prompts for DESIGN and DESIGN_PRO nodes. This guide contains comprehensive JSON structure templates, technical specifications, and detailed examples for generating high-quality image prompts.
-
-${imageGenerationGuide}
-
----
-
-## Social Media & Business Design Guide (Complete Reference)
-
-The following guide provides ready-made prompts for flyers, Instagram posts, ads, landing pages, and business branding. Use these templates to ensure brand consistency and create professional marketing visuals.
-
-**CRITICAL: Brand Consistency**
+**Brand Consistency (CRITICAL for Design):**
 - When creating multiple assets for the same brand, ALWAYS establish brand foundation first
 - Maintain consistent colors, typography, and visual style across all assets
 - Reference the brand foundation prompt when creating any branded content
-
-${socialMediaDesignGuide}
-
----
-
-## Video Prompt Guide (Complete Reference)
-
-The following is the Ultimate Video Prompt Guide that you MUST follow when creating prompts for VIDEO nodes (Veo and other video models). This guide provides the core principles, cinematic framework, and prompt templates for all types of video work including social media, ads, branding, and content creation.
-
-**CRITICAL: Use this guide for ALL video node prompt generation.**
-
-${videoPromptGuide}
-
----
-
-## Video Generation Guide (Complete Reference)
-
-The following is the complete video generation guide that you MUST follow when creating prompts for VIDEO nodes. This guide contains comprehensive JSON structure templates, technical specifications, and detailed examples for generating high-quality video prompts.
-
-${videoGenerationGuide}
-
----
-
-## Kling Image Guide (Quickstart Reference)
-
-Use this guide when creating prompts or configuring Kling image nodes (Kling Image, Omni Image, Multi-Image to Image, Virtual Try-On). It covers prompt structure, reference usage, and parameter selection.
-
-${klingImageGuide}
-
----
-
-## Kling Video Guide (Quickstart Reference)
-
-Use this guide when creating prompts or configuring Kling video nodes (Text-to-Video, Image-to-Video, Omni Video, Video Extend, Motion Control, Multi-Image to Video). It covers camera movement, start/end frames, extension prompts, and mode selection.
-
-${klingVideoGuide}
+- See \`social-media-design-guide.txt\` for brand consistency templates
 `;
 };
 

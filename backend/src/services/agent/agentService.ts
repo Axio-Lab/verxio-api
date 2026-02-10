@@ -1,5 +1,5 @@
 /**
- * Claude Agent Service
+ * Agent Service
  *
  * Main service for interacting with Claude Agent SDK.
  * Provides the query wrapper with Verxio MCP tools and dynamic user connections.
@@ -507,7 +507,7 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 - Google: Sheets, Docs, Slides, Drive, Calendar
 - Data: HTTP, Airtable, Firecrawl
 - Logic: Code blocks, Decider
-- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation)
+- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
 
 ## Autonomous Image Generation
 

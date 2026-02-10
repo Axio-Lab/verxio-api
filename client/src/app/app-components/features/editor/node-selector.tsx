@@ -358,6 +358,20 @@ const executionNodes: NodeTypeOption[] = [
       "Display a node's text output as markdown. Connect from Gemini, Claude, or any text node; download as .md file.",
     icon: FileText,
   },
+  {
+    type: NodeType.SEEDANCE,
+    label: "Seedance",
+    description:
+      "Generate videos using BytePlus Seedance models. Supports text-to-video, image-to-video, and multi-reference image generation.",
+    icon: Video,
+  },
+  {
+    type: NodeType.SEEDREAM,
+    label: "Seedream",
+    description:
+      "Generate images using BytePlus Seedream 4.5. Supports text-to-image, image editing, and multi-image blending.",
+    icon: Palette,
+  },
 ];
 
 // Map node types to subscription features
@@ -366,6 +380,8 @@ const NODE_TYPE_TO_FEATURE: Record<string, string> = {
   REMOTION: "remotion",
   DESIGN_PRO: "design-agent-pro",
   VEO: "veo",
+  SEEDANCE: "seedance",
+  SEEDREAM: "seedream",
   ELEVENLABS: "elevenlabs",
   FIRECRAWL: "firecrawl",
   APIFY: "apify",
@@ -1176,6 +1192,43 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             textSource: "",
           },
           type: NodeType.MARKDOWN,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.SEEDANCE) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Seedance",
+            variables: "seedance",
+            mode: "text",
+            model: "seedance-1-5-pro-251215",
+            prompt: "",
+            ratio: "adaptive",
+            duration: 5,
+            resolution: "720p",
+            generateAudio: false,
+            watermark: false,
+          },
+          type: NodeType.SEEDANCE,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.SEEDREAM) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Seedream",
+            variables: "seedream",
+            mode: "text",
+            prompt: "",
+            size: "2K",
+            sequentialImageGeneration: "disabled",
+            maxImages: 1,
+          },
+          type: NodeType.SEEDREAM,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

@@ -129,6 +129,16 @@ export const AVAILABLE_NODE_TYPES = {
     },
     { type: "KLING_MULTI_IMAGE2IMAGE", description: "Kling multi-image to image" },
     {
+      type: "SEEDANCE",
+      description:
+        "BytePlus Seedance video generation. Supports text-to-video, image-to-video (first frame), first-and-last frame interpolation, and multi-reference image-to-video (1-4 images). Uses Seedance 1.5 Pro model.",
+    },
+    {
+      type: "SEEDREAM",
+      description:
+        "BytePlus Seedream image generation. Supports text-to-image, single image editing, and multi-image blending (1-4 reference images). Uses Seedream 4.5 model. Supports batch generation.",
+    },
+    {
       type: "OUTPUT",
       description:
         "Display and download workflow outputs (images, videos, audio) with preview and download.",

@@ -383,7 +383,7 @@ workflowGenerationRouter.post(
       }
 
       // Use Claude Agent for code generation
-      const { generateCodeWithAgent } = await import("../services/claude-agent/claudeAgentService");
+      const { generateCodeWithAgent } = await import("../services/agent/agentService");
 
       const result = await generateCodeWithAgent({
         userId: user.id,

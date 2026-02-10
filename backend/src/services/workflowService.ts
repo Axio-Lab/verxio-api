@@ -358,6 +358,62 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       }
     }
 
+    // For SEEDANCE nodes, merge assets back into node.data
+    if (node.type === "SEEDANCE" && node.assets && node.assets.length > 0) {
+      // Reference images (for reference mode)
+      const referenceAssets = node.assets.filter(
+        (a: any) => a.fileType === "seedance-reference-image"
+      );
+      if (referenceAssets.length > 0) {
+        nodeData.referenceImages = referenceAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+      // First frame image (for image mode)
+      const firstFrameImageAsset = node.assets.find(
+        (a: any) => a.fileType === "seedance-first-frame-image"
+      );
+      if (firstFrameImageAsset) {
+        nodeData.firstFrameImage =
+          firstFrameImageAsset.fileData || `asset:${firstFrameImageAsset.filename}`;
+        nodeData.firstFrameImageFilename = firstFrameImageAsset.filename;
+      }
+      // First frame (for frames mode)
+      const firstFrameAsset = node.assets.find((a: any) => a.fileType === "seedance-first-frame");
+      if (firstFrameAsset) {
+        nodeData.firstFrame = firstFrameAsset.fileData || `asset:${firstFrameAsset.filename}`;
+        nodeData.firstFrameFilename = firstFrameAsset.filename;
+      }
+      // Last frame (for frames mode)
+      const lastFrameAsset = node.assets.find((a: any) => a.fileType === "seedance-last-frame");
+      if (lastFrameAsset) {
+        nodeData.lastFrame = lastFrameAsset.fileData || `asset:${lastFrameAsset.filename}`;
+        nodeData.lastFrameFilename = lastFrameAsset.filename;
+      }
+    }
+
+    // For SEEDREAM nodes, merge assets back into node.data
+    if (node.type === "SEEDREAM" && node.assets && node.assets.length > 0) {
+      // Source image (for image mode)
+      const sourceImageAsset = node.assets.find((a: any) => a.fileType === "seedream-source-image");
+      if (sourceImageAsset) {
+        nodeData.sourceImage = sourceImageAsset.fileData || `asset:${sourceImageAsset.filename}`;
+        nodeData.sourceImageFilename = sourceImageAsset.filename;
+      }
+
+      // Reference images (for multi mode)
+      const referenceAssets = node.assets.filter(
+        (a: any) => a.fileType === "seedream-reference-image"
+      );
+      if (referenceAssets.length > 0) {
+        nodeData.referenceImages = referenceAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+    }
+
     // Only update data if we modified it
     if (
       node.type === "REMOTION" ||
@@ -369,7 +425,9 @@ function transformWorkflow(workflow: any): WorkflowResponse {
       node.type === "KLING_MULTI_IMAGE2IMAGE" ||
       node.type === "KLING_OMNI_IMAGE" ||
       node.type === "KLING_OMNI_VIDEO" ||
-      node.type === "KLING_MOTION_CONTROL"
+      node.type === "KLING_MOTION_CONTROL" ||
+      node.type === "SEEDANCE" ||
+      node.type === "SEEDREAM"
     ) {
       return {
         ...node,
@@ -713,6 +771,8 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
       "KLING_OMNI_IMAGE",
       "KLING_OMNI_VIDEO",
       "KLING_MOTION_CONTROL",
+      "SEEDANCE",
+      "SEEDREAM",
     ].includes(nodeType);
 
     if (needsAssets) {
@@ -855,6 +915,8 @@ export const getWorkflowById = async (id: string): Promise<WorkflowResponse> => 
       "KLING_OMNI_IMAGE",
       "KLING_OMNI_VIDEO",
       "KLING_MOTION_CONTROL",
+      "SEEDANCE",
+      "SEEDREAM",
     ].includes(nodeType);
 
     if (needsAssets) {
@@ -1414,6 +1476,97 @@ export const updateWorkflowData = async (
           }
           delete nodeData.video_url;
           delete nodeData.videoFilename;
+        }
+      }
+
+      // Extract SEEDANCE assets (referenceImages, firstFrameImage, firstFrame, lastFrame)
+      if (node.type === "SEEDANCE" && nodeData) {
+        // Reference images (for reference mode)
+        if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+          const validRefs = nodeData.referenceImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validRefs.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `seedance-reference-${idx + 1}.png`,
+              fileType: "seedance-reference-image",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceImages;
+        }
+        // First frame image (for image mode)
+        if (nodeData.firstFrameImage && typeof nodeData.firstFrameImage === "string") {
+          if (nodeData.firstFrameImage.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.firstFrameImageFilename || "seedance-first-frame.png",
+              fileType: "seedance-first-frame-image",
+              fileData: nodeData.firstFrameImage,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.firstFrameImage;
+          delete nodeData.firstFrameImageFilename;
+        }
+        // First frame (for frames mode)
+        if (nodeData.firstFrame && typeof nodeData.firstFrame === "string") {
+          if (nodeData.firstFrame.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.firstFrameFilename || "seedance-first-frame.png",
+              fileType: "seedance-first-frame",
+              fileData: nodeData.firstFrame,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.firstFrame;
+          delete nodeData.firstFrameFilename;
+        }
+        // Last frame (for frames mode)
+        if (nodeData.lastFrame && typeof nodeData.lastFrame === "string") {
+          if (nodeData.lastFrame.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.lastFrameFilename || "seedance-last-frame.png",
+              fileType: "seedance-last-frame",
+              fileData: nodeData.lastFrame,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.lastFrame;
+          delete nodeData.lastFrameFilename;
+        }
+      }
+
+      // Extract SEEDREAM assets (sourceImage, referenceImages)
+      if (node.type === "SEEDREAM" && nodeData) {
+        // Source image (for image mode)
+        if (nodeData.sourceImage && typeof nodeData.sourceImage === "string") {
+          if (nodeData.sourceImage.startsWith("data:")) {
+            assetsToStore.push({
+              filename: nodeData.sourceImageFilename || "seedream-source-image.png",
+              fileType: "seedream-source-image",
+              fileData: nodeData.sourceImage,
+              isBackgroundAudio: false,
+            });
+          }
+          delete nodeData.sourceImage;
+          delete nodeData.sourceImageFilename;
+        }
+
+        // Reference images (for multi mode)
+        if (Array.isArray(nodeData.referenceImages) && nodeData.referenceImages.length > 0) {
+          const validRefs = nodeData.referenceImages.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validRefs.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `seedream-reference-${idx + 1}.png`,
+              fileType: "seedream-reference-image",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceImages;
         }
       }
 

@@ -46,6 +46,8 @@ import { klingMotionControlExecutor } from "./actions/kling-motion-control";
 import { klingMultiImage2ImageExecutor } from "./actions/kling-multi-image2image";
 import { outputExecutor } from "./actions/output";
 import { markdownExecutor } from "./actions/markdown";
+import { seedanceExecutor } from "./actions/seedance";
+import { seedreamExecutor } from "./actions/seedream";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -111,6 +113,10 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.OUTPUT]: outputExecutor as NodeExecutor,
   // MARKDOWN node for displaying text/markdown from previous nodes and downloading as .md
   [NodeType.MARKDOWN]: markdownExecutor as NodeExecutor,
+  // SEEDANCE node for BytePlus Seedance video generation
+  [NodeType.SEEDANCE]: seedanceExecutor as NodeExecutor,
+  // SEEDREAM node for BytePlus Seedream image generation
+  [NodeType.SEEDREAM]: seedreamExecutor as NodeExecutor,
 };
 
 /**

@@ -8,7 +8,7 @@ import {
   generateWorkflowWithAgent,
   runAgentQuery,
   type AgentStreamEvent,
-} from "./claude-agent/claudeAgentService";
+} from "./agent/agentService";
 import { getWorkflowPlan } from "./planningService";
 
 export interface WorkflowGenerationOptions {
