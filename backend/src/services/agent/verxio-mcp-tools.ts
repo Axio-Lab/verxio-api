@@ -11,6 +11,7 @@ import { NodeType } from "../../lib/node-types";
 import { inngest } from "../../inngest";
 import * as connectionService from "../connectionService";
 import * as skillService from "../skillService";
+import { runSingleNodeAndWait } from "../singleNodeExecutionService";
 
 const prisma = basePrismaClient as any;
 
@@ -152,6 +153,334 @@ export const AVAILABLE_NODE_TYPES = {
 };
 
 // ============================================
+// Node schemas (exact action names and fields) — derived from backend executors
+// Agent must use these exact strings when configuring nodes (e.g. "listEvents" not "list")
+// ============================================
+
+export type NodeSchemaEntry = {
+  description: string;
+  actions?: string[];
+  fieldsByAction?: Record<string, string[]>;
+  required?: string[];
+  credential?: string; // e.g. "Google OAuth", "AIRTABLE"
+};
+
+export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
+  GOOGLE_CALENDAR: {
+    description: "Manage calendar events.",
+    credential: "Google OAuth",
+    actions: [
+      "listEvents",
+      "createEvent",
+      "updateEvent",
+      "deleteEvent",
+      "getEvent",
+      "findFreeBusy",
+    ],
+    fieldsByAction: {
+      listEvents: [
+        "timeMin (ISO, optional, default: now)",
+        "timeMax (ISO, optional)",
+        "maxResults (number, default 10)",
+        "calendarId (default 'primary')",
+      ],
+      createEvent: [
+        "summary (REQ)",
+        "startDateTime (REQ)",
+        "endDateTime (REQ)",
+        "calendarId",
+        "description",
+        "timeZone",
+        "attendees",
+        "location",
+        "addMeetLink (optional: true to create Google Meet link for virtual meeting)",
+      ],
+      updateEvent: [
+        "eventId (REQ)",
+        "calendarId",
+        "summary",
+        "description",
+        "startDateTime",
+        "endDateTime",
+        "location",
+      ],
+      deleteEvent: ["eventId (REQ)", "calendarId"],
+      getEvent: ["eventId (REQ)", "calendarId"],
+      findFreeBusy: ["items (JSON array of calendar IDs)"],
+    },
+    required: ["action", "variables"],
+  },
+  GOOGLE_SHEETS: {
+    description: "Read/write Google Sheets.",
+    credential: "Google OAuth",
+    actions: [
+      "readRange",
+      "writeRange",
+      "appendRow",
+      "updateCells",
+      "clearRange",
+      "createSheet",
+      "createSpreadsheet",
+    ],
+    fieldsByAction: {
+      readRange: ["spreadsheetId (REQ)", "sheetName (REQ)", "range (REQ)"],
+      writeRange: [
+        "spreadsheetId (REQ)",
+        "sheetName (REQ)",
+        "range (REQ)",
+        "values (JSON array of arrays)",
+      ],
+      appendRow: ["spreadsheetId (REQ)", "sheetName (REQ)", "values (REQ)"],
+      updateCells: ["spreadsheetId (REQ)", "sheetName (REQ)", "range (REQ)", "values (REQ)"],
+      clearRange: ["spreadsheetId (REQ)", "sheetName (REQ)", "range (REQ)"],
+      createSpreadsheet: ["title (REQ)"],
+      createSheet: ["spreadsheetId (REQ)", "sheetTitle (REQ)"],
+    },
+    required: ["action", "variables"],
+  },
+  GOOGLE_DOCS: {
+    description: "Create, read, and edit Google Docs.",
+    credential: "Google OAuth",
+    actions: ["createDocument", "readDocument", "insertText", "updateText", "exportDocument"],
+    fieldsByAction: {
+      createDocument: ["title (REQ)"],
+      readDocument: ["documentId (REQ)"],
+      insertText: ["documentId (REQ)", "text (REQ)", "index (optional)"],
+      updateText: ["documentId (REQ)", "text (REQ)", "index (optional)"],
+      exportDocument: ["documentId (REQ)", "mimeType (e.g. application/pdf)"],
+    },
+    required: ["action", "variables"],
+  },
+  GOOGLE_DRIVE: {
+    description: "Upload, download, list, and manage files in Google Drive.",
+    credential: "Google OAuth",
+    actions: [
+      "upload",
+      "download",
+      "list",
+      "createFolder",
+      "move",
+      "copy",
+      "delete",
+      "share",
+      "getMetadata",
+    ],
+    fieldsByAction: {
+      list: ["folderId (optional)", "query (optional)"],
+      upload: ["fileName (REQ)", "fileContent or file URL", "parentFolderId", "mimeType"],
+      download: ["fileId (REQ)"],
+      createFolder: ["fileName (REQ)", "parentFolderId (optional)"],
+      move: ["fileId (REQ)", "destinationFolderId (REQ)"],
+      copy: ["fileId (REQ)", "destinationFolderId (REQ)"],
+      delete: ["fileId (REQ)"],
+      share: ["fileId (REQ)", "email (REQ)", "role (reader|writer|commenter|owner)"],
+      getMetadata: ["fileId (REQ)", "fields (optional)"],
+    },
+    required: ["action", "variables"],
+  },
+  GOOGLE_MEET: {
+    description: "Create Google Meet links via Calendar.",
+    credential: "Google OAuth",
+    actions: ["createMeeting", "getMeetingLink"],
+    fieldsByAction: {
+      createMeeting: [
+        "summary (REQ)",
+        "startDateTime (REQ)",
+        "endDateTime (REQ)",
+        "calendarId",
+        "description",
+        "timeZone",
+        "attendees",
+        "location",
+      ],
+      getMeetingLink: ["eventId (REQ)"],
+    },
+    required: ["action", "variables"],
+  },
+  GOOGLE_SLIDES: {
+    description: "Create and edit Google Slides presentations.",
+    credential: "Google OAuth",
+    actions: [
+      "createPresentation",
+      "listPresentations",
+      "createSlide",
+      "insertText",
+      "insertImage",
+      "insertShape",
+      "insertTable",
+      "replaceText",
+      "replaceImage",
+      "exportPresentation",
+      "getPresentation",
+    ],
+    fieldsByAction: {
+      createPresentation: ["title (REQ)"],
+      listPresentations: [],
+      createSlide: ["presentationId (REQ)"],
+      insertText: ["presentationId (REQ)", "text (REQ)", "slideIndex", "x", "y", "width", "height"],
+      insertImage: [
+        "presentationId (REQ)",
+        "imageUrl or imageDriveFileId",
+        "slideIndex",
+        "x",
+        "y",
+        "width",
+        "height",
+      ],
+      replaceText: ["presentationId (REQ)", "oldText (REQ)", "newText (REQ)"],
+      exportPresentation: ["presentationId (REQ)", "mimeType (optional)"],
+      getPresentation: ["presentationId (REQ)"],
+    },
+    required: ["action", "variables"],
+  },
+  AIRTABLE: {
+    description: "Read/write Airtable bases and records.",
+    credential: "AIRTABLE (API key)",
+    actions: [
+      "listBases",
+      "listTables",
+      "getRecords",
+      "getRecord",
+      "createRecord",
+      "updateRecord",
+      "deleteRecord",
+      "listFields",
+    ],
+    fieldsByAction: {
+      listBases: [],
+      listTables: ["baseId (REQ)"],
+      getRecords: [
+        "baseId (REQ)",
+        "tableId (REQ)",
+        "maxRecords",
+        "view",
+        "filterByFormula",
+        "sort",
+        "fields",
+      ],
+      getRecord: ["baseId (REQ)", "tableId (REQ)", "recordId (REQ)"],
+      createRecord: ["baseId (REQ)", "tableId (REQ)", "fieldsData (JSON, REQ)"],
+      updateRecord: ["baseId (REQ)", "tableId (REQ)", "recordId (REQ)", "fieldsData (JSON, REQ)"],
+      deleteRecord: ["baseId (REQ)", "tableId (REQ)", "recordId (REQ)"],
+      listFields: ["baseId (REQ)", "tableId (REQ)"],
+    },
+    required: ["action", "variables", "credentialId"],
+  },
+  FIRECRAWL: {
+    description: "Scrape, crawl, or use AI agent on web pages.",
+    credential: "FIRECRAWL API key",
+    actions: ["scrape", "crawl", "map", "search", "agent"],
+    fieldsByAction: {
+      scrape: ["url (REQ)", "formats", "onlyMainContent", "screenshot", "waitFor", "actions"],
+      crawl: ["url (REQ)", "limit", "maxDepth", "excludePaths", "includePaths"],
+      map: ["url (REQ)", "includeVisual"],
+      search: ["query (REQ)", "searchLimit"],
+      agent: ["prompt (REQ)", "urls (comma-separated)", "schema (JSON string)", "maxCredits"],
+    },
+    required: ["action", "variables"],
+  },
+  APIFY: {
+    description: "Run Apify actors and get dataset items.",
+    credential: "APIFY API token",
+    actions: ["listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems"],
+    fieldsByAction: {
+      listActors: ["my", "limit", "offset", "desc"],
+      getActorDetail: ["actorId (REQ, format: username~actor-name)"],
+      runActor: ["actorId (REQ)", "input (JSON string)", "waitForFinish"],
+      getRunStatus: ["runId (REQ)"],
+      getDatasetItems: ["datasetId (REQ)", "itemsLimit", "itemsOffset", "clean"],
+    },
+    required: ["action", "variables"],
+  },
+  GMAIL: {
+    description: "Send, list, and manage Gmail emails.",
+    credential: "Google OAuth",
+    actions: [
+      "sendEmail",
+      "sendEmailWithAttachment",
+      "listEmails",
+      "getEmail",
+      "createDraft",
+      "sendDraft",
+      "replyToEmail",
+      "forwardEmail",
+      "deleteEmail",
+      "addLabel",
+    ],
+    fieldsByAction: {
+      sendEmail: ["to (REQ)", "subject (REQ)", "body (REQ)", "cc", "bcc", "isHtml"],
+      sendEmailWithAttachment: [
+        "to (REQ)",
+        "subject (REQ)",
+        "body (REQ)",
+        "attachmentUrl or attachmentDriveFileId",
+        "attachmentName",
+      ],
+      listEmails: ["query (Gmail search)", "maxResults"],
+      getEmail: ["emailId (REQ)"],
+      createDraft: ["to (REQ)", "subject (REQ)", "body (REQ)", "cc", "bcc"],
+      sendDraft: ["draftId (REQ)"],
+      replyToEmail: ["emailId (REQ)", "body (REQ)", "replyAll"],
+      forwardEmail: ["emailId (REQ)", "forwardTo (REQ)", "body (optional)"],
+      deleteEmail: ["emailId (REQ)"],
+      addLabel: ["emailId (REQ)", "labelId or labelName (REQ)"],
+    },
+    required: ["action", "variables"],
+  },
+  ELEVENLABS: {
+    description: "Text-to-speech, speech-to-text, clone voice, list voices.",
+    credential: "ELEVENLABS API key",
+    actions: ["textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice"],
+    fieldsByAction: {
+      textToSpeech: [
+        "text (REQ)",
+        "voiceId (REQ)",
+        "model",
+        "language",
+        "stability",
+        "similarityBoost",
+        "style",
+        "speakerBoost",
+      ],
+      speechToText: ["audioUrl (REQ)", "language", "speakerDiarization", "entityDetection"],
+      cloneVoice: ["audioUrl (REQ)", "voiceName (REQ)", "description"],
+      listVoices: [],
+      getVoice: ["voiceId (REQ)"],
+    },
+    required: ["action", "variables"],
+  },
+  LOYALTY_PROGRAM: {
+    description:
+      "Loyalty program operations (get programs, create program, issue pass, gift/revoke points).",
+    actions: [
+      "get_programs",
+      "create_program",
+      "get_total_members",
+      "issue_pass",
+      "get_program_details",
+      "get_program_users",
+      "gift_points",
+      "revoke_points",
+    ],
+    required: ["action", "variables"],
+  },
+  LOYALTY_DEAL: {
+    description:
+      "Loyalty deal operations (stats, activity, create deal, lookup voucher, add quantity, extend expiry).",
+    actions: [
+      "get_stats",
+      "get_recent_activity",
+      "get_deals",
+      "create_deal",
+      "lookup_voucher",
+      "add_quantity",
+      "extend_expiry",
+    ],
+    required: ["action", "variables"],
+  },
+};
+
+// ============================================
 // Tool: List Available Node Types
 // ============================================
 
@@ -171,6 +500,44 @@ export const listNodeTypesTool: VerxioTool = {
       };
     }
     return AVAILABLE_NODE_TYPES;
+  },
+};
+
+// ============================================
+// Tool: Get Node Schema (exact actions and fields for a node type)
+// ============================================
+
+export const getNodeSchemaTool: VerxioTool = {
+  name: "getNodeSchema",
+  description:
+    "Get the exact schema for a node type: allowed action values and required/optional fields. Use before addNode or configureNode so you use correct action names (e.g. GOOGLE_CALENDAR uses 'listEvents' not 'list'; GMAIL uses 'listEmails' not 'list'). Pass nodeType 'all' to get every action-based node schema at once.",
+  inputSchema: z.object({
+    nodeType: z
+      .string()
+      .describe(
+        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, FIRECRAWL, APIFY, GMAIL, ELEVENLABS, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
+      ),
+  }),
+  execute: async ({ nodeType }) => {
+    const upper = nodeType.toUpperCase();
+    if (upper === "ALL") {
+      return {
+        success: true,
+        nodeType: "all",
+        schemas: NODE_SCHEMAS,
+        registeredTypes: Object.keys(NODE_SCHEMAS),
+      };
+    }
+    const schema = NODE_SCHEMAS[upper] ?? NODE_SCHEMAS[nodeType];
+    if (schema) {
+      return { success: true, nodeType: upper || nodeType, schema };
+    }
+    return {
+      success: false,
+      nodeType: nodeType,
+      message: `No schema registered for "${nodeType}". Use exact type from list below.`,
+      registeredTypes: Object.keys(NODE_SCHEMAS),
+    };
   },
 };
 
@@ -661,6 +1028,57 @@ export const executeWorkflowTool: VerxioTool = {
       workflowId,
       triggerNodeId: triggerNode.id,
       message: `Triggered workflow "${workflow.name}" execution`,
+    };
+  },
+};
+
+// ============================================
+// Tool: Execute Single Node and Wait for Result
+// ============================================
+
+export const executeSingleNodeAndWaitTool: VerxioTool = {
+  name: "executeSingleNodeAndWait",
+  description:
+    "Run a single workflow node and wait for its output. Use when the user asks for a one-off action (e.g. check calendar, book meeting, list events, generate image) that one node can do. You have access to ALL existing node types: prefer the standard node that fits (GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, DESIGN, VEO, GEMINI, etc.); use CODE_BLOCK or custom nodes only when no standard node matches. Before running: tell the user what you'll do (which node, how you'll configure it) and give them a chance to request changes. Add/configure the node with addNode and configureNode (changes are saved to the workflow); fill all required fields and tell the user if anything is missing. Then call this with nodeId. Summarize the output in human language in your reply.",
+  inputSchema: z.object({
+    workflowId: z.string().describe("ID of the workflow that contains the node"),
+    nodeId: z.string().describe("ID of the node to execute"),
+    nodeOverrides: z
+      .record(z.string(), z.any())
+      .optional()
+      .describe(
+        "Optional runtime overrides for node data (e.g. timeMin, timeMax for calendar list; prompt for AI nodes). Merged with node's configured data for this run only."
+      ),
+  }),
+  execute: async ({ workflowId, nodeId, nodeOverrides }, context) => {
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: context.userId },
+      include: { nodes: true },
+    });
+
+    if (!workflow) {
+      return { success: false, error: "Workflow not found or access denied" };
+    }
+
+    const node = workflow.nodes.find((n: any) => n.id === nodeId);
+    if (!node) {
+      return { success: false, error: `Node "${nodeId}" not found in workflow` };
+    }
+
+    const result = await runSingleNodeAndWait(workflowId, context.userId, nodeId, nodeOverrides);
+
+    if (result.success) {
+      return {
+        success: true,
+        output: result.output,
+        message:
+          "Node executed successfully. Summarize this output in human language for the user in your reply.",
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error,
     };
   },
 };
@@ -1709,12 +2127,14 @@ export const removeSkillTool: VerxioTool = {
 
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
+  getNodeSchemaTool,
   createWorkflowTool,
   getWorkflowTool,
   addNodeTool,
   configureNodeTool,
   connectNodesTool,
   executeWorkflowTool,
+  executeSingleNodeAndWaitTool,
   getCredentialsTool,
   checkCredentialTool,
   requestCredentialTool,

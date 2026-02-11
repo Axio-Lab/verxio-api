@@ -14,18 +14,21 @@ type CodeBlockData = {
   credentialIds?: string[]; // Array of credential IDs to use
 };
 
-// Helper to publish status updates
+// Helper to publish status updates (wrapped in step.run with unique ID to avoid Inngest duplicate step warning)
 const publishStatus = async (
+  step: any,
   publish: any,
   nodeId: string,
   status: "loading" | "error" | "success"
 ) => {
-  await publish(
-    codeBlockChannel().status({
-      nodeId,
-      status,
-    })
-  );
+  await step.run(`publish-code-block-status-${nodeId}-${status}`, async () => {
+    await publish(
+      codeBlockChannel().status({
+        nodeId,
+        status,
+      })
+    );
+  });
 };
 
 export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
@@ -37,7 +40,7 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
   userId,
 }) => {
   try {
-    await publishStatus(publish, nodeId, "loading");
+    await publishStatus(step, publish, nodeId, "loading");
     // Check subscription access
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "CODE_BLOCK");
@@ -51,38 +54,42 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
         return { consumed: true };
       });
     } catch (quotaError) {
-      await publishStatus(publish, nodeId, "error");
+      await publishStatus(step, publish, nodeId, "error");
       const error = new NonRetriableError(
         quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
       );
-      await publish(
-        codeBlockChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: { message: error.message },
-          },
-        })
-      );
+      await step.run(`publish-code-block-output-quota-err-${nodeId}`, async () => {
+        await publish(
+          codeBlockChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: { message: error.message },
+            },
+          })
+        );
+      });
       throw error;
     }
 
     const variablesName = data.variables || "result";
 
     if (!data.code) {
-      await publishStatus(publish, nodeId, "error");
+      await publishStatus(step, publish, nodeId, "error");
       const error = new NonRetriableError("CODE_BLOCK node: Code is required");
-      await publish(
-        codeBlockChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
+      await step.run(`publish-code-block-output-no-code-${nodeId}`, async () => {
+        await publish(
+          codeBlockChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: {
+                message: error.message,
+              },
             },
-          },
-        })
-      );
+          })
+        );
+      });
       throw error;
     }
 
@@ -151,8 +158,8 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
     // Get language from node data (default to "typescript")
     const language = data.language || "typescript";
 
-    // Execute code in Daytona sandbox with credentials
-    const executionResult = await step.run("execute-code", async () => {
+    // Execute code in Daytona sandbox with credentials (unique step ID per node to avoid Inngest duplicate step warning)
+    const executionResult = await step.run(`execute-code-${nodeId}`, async () => {
       return await executeCodeInSandbox({
         code: data.code || "",
         inputs: inputsForExecution,
@@ -163,21 +170,23 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
     });
 
     if (!executionResult.success) {
-      await publishStatus(publish, nodeId, "error");
+      await publishStatus(step, publish, nodeId, "error");
       const error = new NonRetriableError(
         `CODE_BLOCK execution failed: ${executionResult.error || "Unknown error"}`
       );
-      await publish(
-        codeBlockChannel().output({
-          nodeId,
-          output: {
-            ...context,
-            error: {
-              message: error.message,
+      await step.run(`publish-code-block-output-exec-err-${nodeId}`, async () => {
+        await publish(
+          codeBlockChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: {
+                message: error.message,
+              },
             },
-          },
-        })
-      );
+          })
+        );
+      });
       throw error;
     }
 
@@ -203,32 +212,36 @@ export const codeBlockExecutor: NodeExecutor<CodeBlockData> = async ({
         : {}),
     };
 
-    await publishStatus(publish, nodeId, "success");
+    await publishStatus(step, publish, nodeId, "success");
 
-    // Publish output to channel so it's available for subsequent nodes
-    await publish(
-      codeBlockChannel().output({
-        nodeId,
-        output: mergedOutput,
-      })
-    );
+    // Publish output to channel so it's available for subsequent nodes (unique step ID per node)
+    await step.run(`publish-code-block-output-${nodeId}`, async () => {
+      await publish(
+        codeBlockChannel().output({
+          nodeId,
+          output: mergedOutput,
+        })
+      );
+    });
 
     // Return merged output to be passed to next node in execution chain
     return mergedOutput;
   } catch (error) {
-    await publishStatus(publish, nodeId, "error");
+    await publishStatus(step, publish, nodeId, "error");
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await publish(
-      codeBlockChannel().output({
-        nodeId,
-        output: {
-          ...context,
-          error: {
-            message: errorMessage,
+    await step.run(`publish-code-block-output-catch-${nodeId}`, async () => {
+      await publish(
+        codeBlockChannel().output({
+          nodeId,
+          output: {
+            ...context,
+            error: {
+              message: errorMessage,
+            },
           },
-        },
-      })
-    );
+        })
+      );
+    });
     throw error;
   }
 };

@@ -970,20 +970,6 @@ chatIntegrationRouter.post(
         },
       };
 
-      // Send immediate ack (same as WhatsApp — user sees response right away)
-      const ACK_MESSAGE = "Result will be shared shortly when done.";
-      try {
-        const ackFormatted = chatIntegrationService.formatTelegramMessage(ACK_MESSAGE);
-        await fetch(
-          `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, text: ackFormatted, parse_mode: "HTML" }),
-          }
-        );
-      } catch (_) {}
-
       // Process in background and send formatted result when done
       void (async () => {
         try {

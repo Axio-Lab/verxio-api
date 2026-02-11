@@ -204,15 +204,21 @@ export const EditorSaveButton = ({ workflowId }: { workflowId: string }) => {
     // Initial check
     checkForChanges();
 
+    // When workflow data changes (e.g. after agent added nodes and we refetched), the editor
+    // syncs in a separate useEffect. Run checkForChanges again after a short delay so we
+    // compare against the synced editor state and clear the Save button when there are no changes.
+    const delayedCheck = setTimeout(() => checkForChanges(), 300);
+
     // Set up interval to check for changes (check more frequently for better responsiveness)
     checkIntervalRef.current = setInterval(checkForChanges, 250);
 
     return () => {
+      clearTimeout(delayedCheck);
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
       }
     };
-  }, [editor, workflow, checkForChanges]);
+  }, [editor, workflow, checkForChanges, workflow?.updatedAt, workflow?.nodes?.length]);
 
   // Sync hasChanges to atom for navigation guard
   useEffect(() => {

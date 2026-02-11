@@ -84,8 +84,7 @@ const NODE_TYPES_DOCUMENTATION = `
 - Fields: { variables: string, webhookUrl: string (REQUIRED), message: string (REQUIRED), channel?: string }
 
 **GMAIL**
-- Fields: { variables: string, to: string (REQUIRED), subject: string (REQUIRED), body: string (REQUIRED), cc?: string, bcc?: string }
-- Note: Requires Google OAuth
+- Fields: { variables, action (REQ), to?, subject?, body?, cc?, bcc?, query?, emailId?, draftId?, forwardTo?, labelId?, labelName?, attachmentUrl?, attachmentName?, isHtml?, maxResults?, replyAll? } | Actions (exact): "sendEmail", "sendEmailWithAttachment", "listEmails", "getEmail", "createDraft", "sendDraft", "replyToEmail", "forwardEmail", "deleteEmail", "addLabel". Do NOT use "list" — use "listEmails". Requires Google OAuth.
 
 ### Google Workspace (All require Google OAuth)
 
@@ -94,16 +93,26 @@ const NODE_TYPES_DOCUMENTATION = `
 - Actions: "readRange", "writeRange", "appendRow", "updateCells", "clearRange", "createSheet", "createSpreadsheet"
 - Range: "A1:D10", "Sheet1!A:D", "A2:E" (append). Values: JSON array "[[value1, value2]]" or templates "[[{{node.field1}}, {{node.field2}}]]"
 
-**GOOGLE_DOCS** - Fields: { variables, action (REQ), documentId?, content?, title? } | Actions: "create", "read", "append"
-**GOOGLE_SLIDES** - Fields: { variables, action (REQ), presentationId?, title?, content? } | Actions: "create", "addSlide", "read"
-**GOOGLE_DRIVE** - Fields: { variables, action (REQ), folderId?, fileName? } | Actions: "list", "upload", "download"
-**GOOGLE_CALENDAR** - Fields: { variables, action (REQ), summary?, startTime?, endTime? } | Actions: "create", "list"
+**GOOGLE_DOCS** - Fields: { variables, action (REQ), documentId?, title?, text?, index?, mimeType? } | Actions (exact): "createDocument", "readDocument", "insertText", "updateText", "exportDocument". Do NOT use "create" or "read".
+**GOOGLE_SLIDES** - Fields: { variables, action (REQ), presentationId?, title?, text?, slideIndex?, x?, y?, width?, height?, imageUrl?, oldText?, newText?, mimeType? } | Actions (exact): "createPresentation", "listPresentations", "createSlide", "insertText", "insertImage", "insertShape", "insertTable", "replaceText", "replaceImage", "exportPresentation", "getPresentation". Do NOT use "create" or "addSlide".
+**GOOGLE_DRIVE** - Fields: { variables, action (REQ), fileId?, folderId?, fileName?, parentFolderId?, destinationFolderId?, query?, email?, role?, mimeType? } | Actions (exact): "upload", "download", "list", "createFolder", "move", "copy", "delete", "share", "getMetadata".
+**GOOGLE_CALENDAR**
+- Actions (use exact strings): "listEvents", "createEvent", "updateEvent", "deleteEvent", "getEvent", "findFreeBusy"
+- For listEvents (check schedule / list events): action: "listEvents", timeMin? (ISO date, default: now), timeMax? (ISO date), maxResults? (number, default 10), calendarId? (default "primary"). Requires Google OAuth.
+- For createEvent: action: "createEvent", summary (REQ), startDateTime (REQ), endDateTime (REQ), calendarId?, description?, timeZone?, attendees?, location?, addMeetLink? (set true to create a Google Meet link; response includes hangoutLink). **Always ask the user where the meeting will be held** before creating: in-person (set location), online/virtual (set addMeetLink: true), or both (location + addMeetLink: true). Do not create the event until you have this so you know whether to add a Meet link.
+- For updateEvent/deleteEvent/getEvent: action, eventId (REQ), calendarId?
+- Do NOT use "list" or "create" — use "listEvents" and "createEvent".
+
+**GOOGLE_MEET** - Create or get Meet links via Calendar. Fields: { variables, action (REQ), summary?, startDateTime?, endDateTime?, eventId?, calendarId?, description?, attendees?, location? } | Actions (exact): "createMeeting", "getMeetingLink". Do NOT use "getMeeting".
+
+For exact action names and fields for any node type, use the getNodeSchema(nodeType) tool.
 
 ### Data & APIs
 
 **HTTP_REQUEST** - Fields: { variables, endpoint (REQ), method (REQ), body? } | body: JSON for POST/PUT
-**AIRTABLE** - Fields: { variables, credentialId, action (REQ), baseId?, tableId?, recordId?, fieldsData? } | Actions: "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord"
-**FIRECRAWL** - Fields: { variables, action, url?, prompt? } | Actions: "scrape", "crawl", "agent"
+**AIRTABLE** - Fields: { variables, credentialId (REQ), action (REQ), baseId?, tableId?, recordId?, fieldsData?, maxRecords?, view?, filterByFormula?, sort?, fields? } | Actions (exact): "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord", "listFields"
+**FIRECRAWL** - Fields: { variables, action, url?, prompt?, query?, formats?, limit?, maxDepth?, schema?, urls?, maxCredits? } | Actions (exact): "scrape", "crawl", "map", "search", "agent"
+**APIFY** - Fields: { variables, action, actorId?, runId?, datasetId?, input?, waitForFinish?, my?, limit?, offset? } | Actions (exact): "listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems". Use getNodeSchema("APIFY") for field details.
 
 ### Logic & Code
 
@@ -113,7 +122,7 @@ const NODE_TYPES_DOCUMENTATION = `
 ### Media
 
 **ELEVENLABS**
-- Fields: { variables: string, text: string (REQUIRED), voiceId: string, modelId?: string, credentialId: string }
+- Fields: { variables, action (REQ), text?, voiceId?, model?, language?, audioUrl?, voiceName?, description?, stability?, similarityBoost?, speakerBoost? } | Actions (exact): "textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice". For textToSpeech: text (REQ), voiceId (REQ). For speechToText: audioUrl (REQ).
 
 **DESIGN**
 - Fields: { variables, prompt (REQ, JSON format), model?, aspectRatio?, template? }
