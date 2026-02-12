@@ -84,8 +84,8 @@ workflowGenerationRouter.post(
           userId: user.id,
           workflowId: workflowId || undefined,
           existingNodes,
-            model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
-          });
+          model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
+        });
 
         // Update generation record with results
         await prismaClient.workflowGeneration.update({
