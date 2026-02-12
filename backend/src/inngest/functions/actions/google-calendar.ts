@@ -29,6 +29,8 @@ type GoogleCalendarData = {
   timeZone?: string;
   attendees?: string; // JSON array of email addresses
   location?: string;
+  /** When true, creates a Google Meet link for the event (virtual meeting). Only for createEvent. */
+  addMeetLink?: boolean;
   // List Events
   timeMin?: string;
   timeMax?: string;
@@ -165,8 +167,10 @@ export const googleCalendarExecutor: NodeExecutor<GoogleCalendarData> = async ({
           }
         }
 
+        const addMeetLink = Boolean(data.addMeetLink);
+
         result = await step.run("create-event", async () => {
-          const event = {
+          const event: Record<string, unknown> = {
             summary,
             description,
             location,
@@ -183,8 +187,18 @@ export const googleCalendarExecutor: NodeExecutor<GoogleCalendarData> = async ({
             }),
           };
 
+          if (addMeetLink) {
+            event.conferenceData = {
+              createRequest: {
+                requestId: `verxio-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+                conferenceSolutionKey: { type: "hangoutsMeet" },
+              },
+            };
+          }
+
           const response = await calendar.events.insert({
             calendarId,
+            conferenceDataVersion: addMeetLink ? 1 : 0,
             requestBody: event,
           });
 
@@ -194,6 +208,8 @@ export const googleCalendarExecutor: NodeExecutor<GoogleCalendarData> = async ({
             start: response.data.start,
             end: response.data.end,
             htmlLink: response.data.htmlLink,
+            hangoutLink: response.data.hangoutLink ?? undefined,
+            conferenceData: response.data.conferenceData ?? undefined,
             attendees: response.data.attendees,
           };
         });

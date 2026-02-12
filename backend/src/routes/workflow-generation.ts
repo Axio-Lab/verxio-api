@@ -84,7 +84,7 @@ workflowGenerationRouter.post(
           userId: user.id,
           workflowId: workflowId || undefined,
           existingNodes,
-          model: (model as string) || "claude-sonnet-4-5-20250929",
+          model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
         });
 
         // Update generation record with results
@@ -171,7 +171,7 @@ workflowGenerationRouter.post(
           prompt: prompt.trim(),
           userId: user.id,
           workflowId: workflowId || undefined,
-          model: (model as string) || "claude-sonnet-4-5-20250929",
+          model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
         })) {
           // Send event to client
           res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -383,7 +383,7 @@ workflowGenerationRouter.post(
       }
 
       // Use Claude Agent for code generation
-      const { generateCodeWithAgent } = await import("../services/claude-agent/claudeAgentService");
+      const { generateCodeWithAgent } = await import("../services/agent/agentService");
 
       const result = await generateCodeWithAgent({
         userId: user.id,

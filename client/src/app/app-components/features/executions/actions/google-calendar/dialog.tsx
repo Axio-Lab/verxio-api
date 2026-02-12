@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -60,6 +61,7 @@ const formSchema = z.object({
   timeZone: z.string().optional(),
   attendees: z.string().optional(),
   location: z.string().optional(),
+  addMeetLink: z.boolean().optional(),
   timeMin: z.string().optional(),
   timeMax: z.string().optional(),
   maxResults: z.number().optional(),
@@ -95,6 +97,7 @@ export const GoogleCalendarDialog = ({
       timeZone: defaultValues.timeZone || "UTC",
       attendees: defaultValues.attendees || "",
       location: defaultValues.location || "",
+      addMeetLink: defaultValues.addMeetLink ?? false,
       timeMin: defaultValues.timeMin || "",
       timeMax: defaultValues.timeMax || "",
       maxResults: defaultValues.maxResults || 10,
@@ -116,6 +119,7 @@ export const GoogleCalendarDialog = ({
         timeZone: defaultValues.timeZone || "UTC",
         attendees: defaultValues.attendees || "",
         location: defaultValues.location || "",
+        addMeetLink: defaultValues.addMeetLink ?? false,
         timeMin: defaultValues.timeMin || "",
         timeMax: defaultValues.timeMax || "",
         maxResults: defaultValues.maxResults || 10,
@@ -337,12 +341,36 @@ export const GoogleCalendarDialog = ({
                           />
                         </FormControl>
                         <FormDescription>
-                          Optional location. Use {"{{variables}}"} for dynamic values.
+                          Physical address or place. Leave empty for virtual-only meetings. Use{" "}
+                          {"{{variables}}"} for dynamic values.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {watchAction === "createEvent" && (
+                    <FormField
+                      control={form.control}
+                      name="addMeetLink"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value ?? false}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Add Google Meet link</FormLabel>
+                            <FormDescription>
+                              The event will include a meeting link so attendees can join.
+                            </FormDescription>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField
                     control={form.control}
                     name="attendees"

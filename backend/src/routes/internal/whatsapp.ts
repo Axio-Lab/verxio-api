@@ -8,8 +8,6 @@ import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
 
-const ACK_MESSAGE = "Result will be shared shortly when done.";
-
 const router = Router();
 
 const INCOMING_SECRET = process.env.WHATSAPP_INCOMING_SECRET || "";
@@ -114,17 +112,6 @@ router.post("/incoming", async (req: Request, res: Response) => {
       message: payload.body,
       metadata: { chatId: fromJid, whatsappPayload: payload },
     };
-
-    // Send immediate ack (same idea as Telegram: user sees a response right away)
-    try {
-      await sendWhatsAppMessage({
-        sessionRef: integrationId,
-        toJid: fromJid,
-        text: ACK_MESSAGE,
-      });
-    } catch (ackErr) {
-      console.error("[WhatsApp incoming] ack send failed:", ackErr);
-    }
 
     // Process in background and send formatted result when done
     void (async () => {

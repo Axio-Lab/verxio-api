@@ -39,6 +39,8 @@ import { veoChannel } from "./veo";
 import { klingChannel } from "./kling";
 import { outputChannel } from "./output";
 import { markdownChannel } from "./markdown";
+import { seedanceChannel } from "./seedance";
+import { seedreamChannel } from "./seedream";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -78,6 +80,8 @@ export const nodeStatusChannels = {
   kling: klingChannel,
   output: outputChannel,
   markdown: markdownChannel,
+  seedance: seedanceChannel,
+  seedream: seedreamChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -121,4 +125,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   kling: "kling-execution",
   output: "output-execution",
   markdown: "markdown-execution",
+  seedance: "seedance-execution",
+  seedream: "seedream-execution",
 };

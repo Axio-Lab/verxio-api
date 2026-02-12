@@ -5,7 +5,7 @@ import {
   sendPlanningMessageStreaming,
   clearPlanningConversation,
 } from "./planningService";
-import { simpleAgentQuery } from "./claude-agent/claudeAgentService";
+import { simpleAgentQuery } from "./agent/agentService";
 import * as workflowService from "./workflowService";
 import * as credentialService from "./credentialService";
 import * as skillService from "./skillService";

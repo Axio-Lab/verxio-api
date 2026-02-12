@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import * as workflowTemplateService from "../services/workflowTemplateService";
-import { generateTemplateMetadataForWorkflow } from "../services/claude-agent/claudeAgentService";
+import { generateTemplateMetadataForWorkflow } from "../services/agent/agentService";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { requireFeature } from "../middleware/subscriptionAuth";
 import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";

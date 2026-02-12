@@ -1,8 +1,8 @@
 import type { NodeExecutor } from "../types";
 import { REMOTION_CHANNEL, remotionChannel } from "@/inngest/channels/remotion";
 import { NonRetriableError } from "inngest";
-import { generateCodeWithAgent } from "@/services/claude-agent/claudeAgentService";
-import { loadRemotionSkills } from "@/services/claude-agent/remotion-skills";
+import { generateCodeWithAgent } from "@/services/agent/agentService";
+import { loadRemotionSkills } from "@/services/agent/remotion-skills";
 import { basePrismaClient } from "@/lib/prisma";
 import Handlebars from "handlebars";
 

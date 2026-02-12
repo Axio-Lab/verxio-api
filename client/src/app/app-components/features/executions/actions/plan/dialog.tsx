@@ -106,13 +106,14 @@ export const PlanDialog = ({
     return toolMessages[toolName] || `Processing: ${toolName}`;
   };
 
-  // Tools that indicate workflow creation is happening
+  // Tools that indicate workflow structure changed (agent added/configured/connected nodes)
   const WORKFLOW_TOOLS = [
     "createWorkflow",
     "addNode",
     "configureNode",
     "connectNodes",
     "deleteNode",
+    "executeSingleNodeAndWait", // agent may add/configure a node then run it; we still need to refetch and sync canvas
   ];
 
   const form = useForm<PlanFormValues>({
