@@ -574,9 +574,8 @@ model WorkflowPlan {
   id         String   @id @default(cuid())
   workflowId String   @unique
   workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-
-  conversationHistory Json      @default("[]") // Array of messages
-  status              String    @default("planning") // planning, ready, generating, completed
+  conversationHistory String   @default("[]")
+  status              String   @default("planning") // planning, ready, generating, completed
   generatedPrompt     String?
   workflowStructure   Json? // Proposed workflow structure
   approvedAt          DateTime?

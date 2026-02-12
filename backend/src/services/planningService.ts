@@ -12,6 +12,7 @@ import {
   recordWorkflowPattern,
   getWorkflowInsights,
 } from "./workflowLearningService";
+import { parseConversationHistory, serializeConversationHistory } from "@/lib/chatEncryption";
 
 export interface ConversationMessage {
   role: "user" | "assistant";
@@ -52,7 +53,7 @@ export const getOrCreateWorkflowPlan = async (
     plan = await prismaClient.workflowPlan.create({
       data: {
         workflowId,
-        conversationHistory: [],
+        conversationHistory: serializeConversationHistory([]),
         status: "planning",
       },
     });
@@ -60,10 +61,9 @@ export const getOrCreateWorkflowPlan = async (
 
   return {
     id: plan.id,
-    conversationHistory:
-      (Array.isArray(plan.conversationHistory)
-        ? (plan.conversationHistory as unknown as ConversationMessage[])
-        : []) || [],
+    conversationHistory: parseConversationHistory(
+      plan.conversationHistory
+    ) as ConversationMessage[],
     status: plan.status,
   };
 };
@@ -81,10 +81,9 @@ export const getWorkflowPlan = async (workflowId: string): Promise<WorkflowPlanD
   }
 
   return {
-    conversationHistory:
-      (Array.isArray(plan.conversationHistory)
-        ? (plan.conversationHistory as unknown as ConversationMessage[])
-        : []) || [],
+    conversationHistory: parseConversationHistory(
+      plan.conversationHistory
+    ) as ConversationMessage[],
     status: plan.status as WorkflowPlanData["status"],
     generatedPrompt: plan.generatedPrompt || undefined,
     workflowStructure:
@@ -198,7 +197,7 @@ export const sendPlanningMessage = async (options: {
   await prismaClient.workflowPlan.update({
     where: { workflowId: options.workflowId },
     data: {
-      conversationHistory: updatedHistory as any,
+      conversationHistory: serializeConversationHistory(updatedHistory),
       updatedAt: new Date(),
     },
   });
@@ -290,7 +289,7 @@ export async function* sendPlanningMessageStreaming(options: {
   await prismaClient.workflowPlan.update({
     where: { workflowId: options.workflowId },
     data: {
-      conversationHistory: updatedHistory as any,
+      conversationHistory: serializeConversationHistory(updatedHistory),
       updatedAt: new Date(),
     },
   });
@@ -409,7 +408,7 @@ export const clearPlanningConversation = async (workflowId: string): Promise<voi
   await prismaClient.workflowPlan.update({
     where: { workflowId },
     data: {
-      conversationHistory: [],
+      conversationHistory: serializeConversationHistory([]),
       status: "planning",
     },
   });
