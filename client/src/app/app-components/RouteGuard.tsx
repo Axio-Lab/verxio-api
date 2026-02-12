@@ -23,6 +23,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     "/verify-email",
     "/check-email",
     "/chat", // Shareable workflow chat (no auth)
+    "/privacy",
+    "/terms-of-service",
     "/",
   ];
   const isPublicRoute = publicRoutes.some((route) => {

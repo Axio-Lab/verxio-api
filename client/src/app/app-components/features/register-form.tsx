@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { signUp, signIn, signOut } from "@/lib/auth-client";
 import { useAuthWithVerxioUser } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
@@ -28,10 +29,15 @@ const formSchema = z
     email: z.string().email("Please enter a valid email address"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
+    acceptTerms: z.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Passwords do not match",
+  })
+  .refine((data) => data.acceptTerms === true, {
+    path: ["acceptTerms"],
+    message: "You must accept the Terms of Service to create an account",
   });
 
 type FormSchema = z.infer<typeof formSchema>;
@@ -47,6 +53,7 @@ export function RegisterForm() {
       email: "",
       password: "",
       confirmPassword: "",
+      acceptTerms: false,
     },
   });
 
@@ -209,6 +216,31 @@ export function RegisterForm() {
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="acceptTerms"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-sm font-normal cursor-pointer">
+                          I accept the{" "}
+                          <Link
+                            href="/terms-of-service"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline underline-offset-4 hover:text-primary/80"
+                          >
+                            Terms of Service
+                          </Link>
+                        </FormLabel>
+                        <FormMessage />
+                      </div>
                     </FormItem>
                   )}
                 />
