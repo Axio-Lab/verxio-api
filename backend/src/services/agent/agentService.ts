@@ -158,7 +158,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     workflowId,
     conversationHistory,
     includeUserConnections = true,
-    model = "claude-sonnet-4-5-20250929",
+    model = process.env.AGENT_CLAUDE_MODEL,
     maxTurns = 10,
     abortController,
     traceType = "agent_query",
