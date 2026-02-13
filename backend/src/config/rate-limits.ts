@@ -42,9 +42,11 @@ export const QUOTA_COST = {
   KLING_VIDEO_EXTEND: 10,
   KLING_MULTI_IMAGE2IMAGE: 10,
   KLING_MOTION_CONTROL: 10,
-  // Chat integrations (per message when user chats with Verxio from Telegram/WhatsApp)
+  // Chat integrations (per message when user chats with Verxio from Telegram/WhatsApp/Slack/Discord)
   TELEGRAM_CHAT_INTEGRATION: 10,
   WHATSAPP_CHAT_INTEGRATION: 10,
+  SLACK_CHAT_INTEGRATION: 10,
+  DISCORD_CHAT_INTEGRATION: 10,
 } as const;
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {

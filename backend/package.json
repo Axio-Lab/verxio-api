@@ -20,7 +20,9 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "start:whatsapp-connector": "tsx src/whatsapp-connector/run.ts",
-    "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js"
+    "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js",
+    "start:discord-connector": "tsx src/discord-connector/run.ts",
+    "start:discord-connector:prod": "node dist/discord-connector/run.js"
   },
   "keywords": [
     "verxio",
@@ -60,6 +62,7 @@
     "bcryptjs": "^2.4.3",
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",

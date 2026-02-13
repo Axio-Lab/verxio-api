@@ -74,6 +74,10 @@ chatIntegrationRouter.get(
           telegramBotTokenSet: !!integration.telegramBotToken,
           whatsappSessionId: integration.whatsappSessionId,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
         })),
       });
     } catch (error) {
@@ -374,6 +378,92 @@ chatIntegrationRouter.post(
           id: integration.id,
           telegramBotTokenSet: !!integration.telegramBotToken,
           webhookUrl: getEffectiveWebhookUrl(integration),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/slack/token
+ * Save Slack bot token and signing secret, verify via auth.test
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/slack/token",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { slackBotToken, slackSigningSecret } = req.body;
+
+      if (!slackBotToken || typeof slackBotToken !== "string") {
+        throw new AppError("Slack bot token (xoxb-...) is required", 400);
+      }
+      if (!slackSigningSecret || typeof slackSigningSecret !== "string") {
+        throw new AppError("Slack signing secret is required", 400);
+      }
+
+      const integration = await chatIntegrationService.saveSlackBotToken(
+        user.id,
+        id,
+        slackBotToken.trim(),
+        slackSigningSecret.trim()
+      );
+
+      res.json({
+        success: true,
+        message: "Slack bot token saved and verified.",
+        integration: {
+          id: integration.id,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          webhookUrl: chatIntegrationService.getHostedSlackWebhookUrl(integration.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/discord/token
+ * Save Discord bot token, verify via /users/@me, generate invite URL
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/discord/token",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { discordBotToken, discordClientId } = req.body;
+
+      if (!discordBotToken || typeof discordBotToken !== "string") {
+        throw new AppError("Discord bot token is required", 400);
+      }
+
+      const integration = await chatIntegrationService.saveDiscordBotToken(
+        user.id,
+        id,
+        discordBotToken.trim()
+      );
+
+      const inviteUrl = discordClientId
+        ? chatIntegrationService.getDiscordInviteUrl(discordClientId)
+        : undefined;
+
+      res.json({
+        success: true,
+        message: "Discord bot token saved and verified.",
+        integration: {
+          id: integration.id,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
+          inviteUrl,
         },
       });
     } catch (error) {
@@ -831,6 +921,199 @@ chatIntegrationRouter.delete(
 );
 
 // ============================================
+// Hosted Slack Events Webhook
+// ============================================
+
+/**
+ * Verify Slack request signature (v0 HMAC-SHA256).
+ */
+function verifySlackSignature(
+  signingSecret: string,
+  timestamp: string,
+  body: string,
+  signature: string
+): boolean {
+  const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 60 * 5;
+  if (parseInt(timestamp, 10) < fiveMinutesAgo) return false; // Replay attack protection
+  const sigBasestring = `v0:${timestamp}:${body}`;
+  const mySignature = "v0=" + crypto.createHmac("sha256", signingSecret).update(sigBasestring).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(signature));
+}
+
+/**
+ * POST /api/chat-integrations/slack/events/:integrationId
+ * Receive Slack Events API payloads (url_verification, event_callback with app_mention / message).
+ */
+chatIntegrationRouter.post(
+  "/slack/events/:integrationId",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { integrationId } = req.params;
+      if (!integrationId) {
+        throw new AppError("Integration ID is required", 400);
+      }
+
+      // Resolve integration
+      const resolvedIntegration = await chatIntegrationService.getIntegrationById(integrationId);
+      if (!resolvedIntegration || resolvedIntegration.platform !== "SLACK") {
+        throw new AppError("Slack integration not found", 404);
+      }
+      if (!resolvedIntegration.isActive) {
+        return res.status(200).json({ ok: true, message: "Integration is inactive." });
+      }
+
+      // Verify Slack signature
+      const slackTimestamp = req.headers["x-slack-request-timestamp"] as string;
+      const slackSignature = req.headers["x-slack-signature"] as string;
+      if (!slackTimestamp || !slackSignature || !resolvedIntegration.slackSigningSecret) {
+        throw new AppError("Missing Slack signature headers or signing secret", 401);
+      }
+      const rawBody = JSON.stringify(req.body);
+      if (!verifySlackSignature(resolvedIntegration.slackSigningSecret, slackTimestamp, rawBody, slackSignature)) {
+        throw new AppError("Invalid Slack signature", 401);
+      }
+
+      const slackPayload = req.body;
+
+      // Handle URL verification challenge
+      if (slackPayload.type === "url_verification") {
+        return res.status(200).json({ challenge: slackPayload.challenge });
+      }
+
+      // Handle event callbacks
+      if (slackPayload.type !== "event_callback") {
+        return res.status(200).json({ ok: true });
+      }
+
+      const event = slackPayload.event;
+      if (!event) {
+        return res.status(200).json({ ok: true });
+      }
+
+      // Handle: app_mention, direct messages, and thread replies (conversation continuity)
+      const isAppMention = event.type === "app_mention";
+      const isDirectMessage = event.type === "message" && event.channel_type === "im" && !event.subtype;
+      // Thread continuity: messages in a thread (thread_ts set) are follow-ups — no @mention needed
+      const isThreadReply = event.type === "message" && !event.subtype && event.thread_ts && event.ts !== event.thread_ts;
+      if (!isAppMention && !isDirectMessage && !isThreadReply) {
+        return res.status(200).json({ ok: true });
+      }
+
+      // Ignore bot's own messages
+      if (event.bot_id || event.user === resolvedIntegration.slackBotUserId) {
+        return res.status(200).json({ ok: true });
+      }
+
+      if (!resolvedIntegration.slackBotToken) {
+        throw new AppError("Slack bot token is not configured", 400);
+      }
+
+      const userId = resolvedIntegration.userId;
+      let messageText = event.text || "";
+      const channel = event.channel;
+      const threadTs = event.thread_ts || event.ts; // Reply in thread
+      const senderId = event.user || "unknown";
+
+      // Strip bot mention from text (e.g. "<@U12345> check my calendar" -> "check my calendar")
+      if (isAppMention && resolvedIntegration.slackBotUserId) {
+        messageText = messageText.replace(new RegExp(`<@${resolvedIntegration.slackBotUserId}>`, "g"), "").trim();
+      }
+
+      // Premium feature check
+      try {
+        await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION);
+      } catch {
+        try {
+          await chatIntegrationService.sendSlackMessage(
+            resolvedIntegration.slackBotToken,
+            channel,
+            "Slack chat with Verxio is a premium feature. Please upgrade your plan to use it.",
+            threadTs
+          );
+        } catch (_) {}
+        return res.status(200).json({ ok: true, premiumRequired: true });
+      }
+
+      // Consume credits
+      try {
+        await consumePremiumQuota(userId, QUOTA_COST.SLACK_CHAT_INTEGRATION);
+      } catch (quotaError) {
+        const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+        try {
+          await chatIntegrationService.sendSlackMessage(
+            resolvedIntegration.slackBotToken,
+            channel,
+            msg.includes("credits")
+              ? "You've used your daily chat credits. Limit resets at midnight."
+              : msg,
+            threadTs
+          );
+        } catch (_) {}
+        return res.status(200).json({ ok: true, quotaExceeded: true });
+      }
+
+      // Auto-link external identity
+      try {
+        await chatIntegrationService.linkExternalIdentity(
+          userId,
+          "slack",
+          senderId,
+          integrationId,
+          undefined,
+          { channel, teamId: slackPayload.team_id }
+        );
+      } catch (_) {}
+
+      const chatIntegrationMessage = {
+        platform: "SLACK" as const,
+        externalId: senderId,
+        message: messageText || "[non-text message]",
+        metadata: {
+          chatId: channel,
+          threadTs,
+          slackPayload,
+        },
+      };
+
+      // Process in background and send reply when done
+      void (async () => {
+        try {
+          const result = await chatIntegrationService.processMessage(
+            userId,
+            resolvedIntegration,
+            chatIntegrationMessage
+          );
+          const replyText = result.message?.trim() || "";
+          const textToSend = replyText
+            ? chatIntegrationService.formatSlackMessage(replyText)
+            : "Done.";
+          await chatIntegrationService.sendSlackMessage(
+            resolvedIntegration.slackBotToken!,
+            channel,
+            textToSend,
+            threadTs
+          );
+        } catch (err) {
+          console.error("[Slack webhook] processMessage error:", err);
+          try {
+            await chatIntegrationService.sendSlackMessage(
+              resolvedIntegration.slackBotToken!,
+              channel,
+              "Something went wrong. Please try again.",
+              threadTs
+            );
+          } catch (_) {}
+        }
+      })().catch((err) => console.error("[Slack webhook] background error:", err));
+
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ============================================
 // Hosted Telegram Webhook (no chat integration required)
 // ============================================
 
@@ -885,12 +1168,41 @@ chatIntegrationRouter.post(
         return res.status(200).json({ success: true, message: "No message to process." });
       }
 
-      const text = message.text || message.caption || "";
+      let text = message.text || message.caption || "";
       const chatId = message.chat?.id;
       const sender = message.from || telegramUpdate?.callback_query?.from;
+      const chatType = message.chat?.type as string | undefined; // "private" | "group" | "supergroup"
+      const isGroupChat = chatType === "group" || chatType === "supergroup";
+      const messageId = message.message_id; // for reply threading in groups
 
       if (!chatId) {
         throw new AppError("Missing chat ID in Telegram update", 400);
+      }
+
+      // In group chats, only respond when the bot is mentioned or the message is a reply to the bot
+      if (isGroupChat) {
+        const botUsername = resolvedIntegration.telegramBotUsername || "";
+        const botId = resolvedIntegration.telegramBotId || "";
+        const entities = message.entities || [];
+        const replyTo = message.reply_to_message;
+
+        const mentionedInEntities = entities.some(
+          (e: any) =>
+            e.type === "mention" &&
+            botUsername &&
+            text.substring(e.offset, e.offset + e.length).toLowerCase() === `@${botUsername.toLowerCase()}`
+        );
+        const isReplyToBot = replyTo?.from?.id?.toString() === botId && botId !== "";
+
+        if (!mentionedInEntities && !isReplyToBot) {
+          // Not addressed to the bot — silently ignore
+          return res.status(200).json({ success: true });
+        }
+
+        // Strip the @botusername mention from the text so the agent sees clean input
+        if (mentionedInEntities && botUsername) {
+          text = text.replace(new RegExp(`@${botUsername}`, "gi"), "").trim();
+        }
       }
 
       const userId = resolvedIntegration.userId;
@@ -908,7 +1220,7 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
             }
           );
         } catch (_) {}
@@ -937,7 +1249,7 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
             }
           );
         } catch (_) {}
@@ -987,7 +1299,7 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: textToSend, parse_mode: "HTML" }),
+              body: JSON.stringify({ chat_id: chatId, text: textToSend, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
             }
           );
         } catch (err) {
@@ -1002,6 +1314,7 @@ chatIntegrationRouter.post(
                   chat_id: chatId,
                   text: "Something went wrong. Please try again.",
                   parse_mode: "HTML",
+                  ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
                 }),
               }
             );

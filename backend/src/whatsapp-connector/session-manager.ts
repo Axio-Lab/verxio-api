@@ -222,9 +222,16 @@ export async function startSession(
     for (const msg of messages) {
       const fromMe = msg.key.fromMe === true;
       const remoteJid = msg.key.remoteJid;
-      const track = shouldTrackMessage(onlyOwnerMode, fromMe, remoteJid, ownerJid);
-      if (!track) continue;
-      const payload = normalizeMessage(msg as WAMessage);
+      const isGroupMsg = !!remoteJid && remoteJid.endsWith("@g.us");
+
+      // For group messages: always allow through (mention filtering happens in the backend).
+      // For 1:1 messages: apply the owner-mode filter as before.
+      if (!isGroupMsg) {
+        const track = shouldTrackMessage(onlyOwnerMode, fromMe, remoteJid, ownerJid);
+        if (!track) continue;
+      }
+      // Pass allowGroups=true for integration sessions so group messages are normalized
+      const payload = normalizeMessage(msg as WAMessage, /* allowGroups */ true);
       if (!payload) continue;
       try {
         await onIncoming({
@@ -232,6 +239,7 @@ export async function startSession(
           integrationId: row.integrationId,
           credentialId: row.credentialId ?? undefined,
           payload,
+          botJid: ownerJid || undefined, // pass the connected account's JID for group mention detection
         });
       } catch (err) {
         console.error("[WhatsApp Connector] onIncoming error:", err);
@@ -303,9 +311,12 @@ function resolveSession(sessionRef: string): SessionInfo | undefined {
 }
 
 function formatJid(input: string): string {
+  // If it already has @g.us (group JID), return as-is
+  if (input.endsWith("@g.us")) return input;
+  // If it already has another @ suffix, return as-is
+  if (input.includes("@")) return input;
   const cleaned = input.replace(/\D/g, "");
   if (cleaned.length === 0) return input;
-  if (input.includes("@")) return input;
   return `${cleaned}@s.whatsapp.net`;
 }
 

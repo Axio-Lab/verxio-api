@@ -32,6 +32,10 @@ export interface ChatIntegration {
   whatsappSessionId?: string | null;
   /** When true (default), only the connected number can chat with the agent. When false, anyone who messages the number can chat (customer support). */
   whatsappOnlyOwnerCanChat?: boolean;
+  slackBotTokenSet?: boolean;
+  slackTeamId?: string | null;
+  discordBotTokenSet?: boolean;
+  discordBotUserId?: string | null;
 }
 
 export interface ChatIntegrationSecret {
@@ -115,6 +119,28 @@ export interface RefreshTelegramWebhookResult {
     id: string;
     telegramBotTokenSet: boolean;
     webhookUrl?: string | null;
+  };
+}
+
+export interface SaveSlackTokenResult {
+  success: boolean;
+  message: string;
+  integration: {
+    id: string;
+    slackBotTokenSet: boolean;
+    slackTeamId?: string;
+    webhookUrl?: string | null;
+  };
+}
+
+export interface SaveDiscordTokenResult {
+  success: boolean;
+  message: string;
+  integration: {
+    id: string;
+    discordBotTokenSet: boolean;
+    discordBotUserId?: string;
+    inviteUrl?: string;
   };
 }
 
@@ -404,6 +430,70 @@ export function useTestChatIntegrationConnection(integrationId: string) {
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to test connection";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+// ============================================
+// Slack Hooks
+// ============================================
+
+/**
+ * Save Slack bot token and signing secret
+ */
+export function useSaveSlackBotToken(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<
+    SaveSlackTokenResult,
+    Error,
+    { slackBotToken: string; slackSigningSecret: string }
+  >({
+    mutationFn: (data) =>
+      authenticatedPost<SaveSlackTokenResult>(
+        `/api/chat-integrations/integrations/${integrationId}/slack/token`,
+        data
+      ),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      toast.success(result.message);
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to save Slack bot token";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+// ============================================
+// Discord Hooks
+// ============================================
+
+/**
+ * Save Discord bot token
+ */
+export function useSaveDiscordBotToken(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<
+    SaveDiscordTokenResult,
+    Error,
+    { discordBotToken: string; discordClientId?: string }
+  >({
+    mutationFn: (data) =>
+      authenticatedPost<SaveDiscordTokenResult>(
+        `/api/chat-integrations/integrations/${integrationId}/discord/token`,
+        data
+      ),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      toast.success(result.message);
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to save Discord bot token";
       toast.error(errorMessage);
     },
   });

@@ -20,6 +20,8 @@ export interface WhatsAppPayload {
   fromMe?: boolean;
   pushName?: string;
   participant?: string; // For group messages, the sender JID
+  mentionedJid?: string[]; // JIDs mentioned via @ in the message
+  groupJid?: string; // Raw group JID (e.g. "123456@g.us") when isGroup=true
 }
 
 export interface IncomingWhatsAppEvent {
@@ -27,6 +29,7 @@ export interface IncomingWhatsAppEvent {
   integrationId?: string;
   credentialId?: string;
   payload: WhatsAppPayload;
+  botJid?: string; // The connected account's own JID (for group mention detection)
 }
 
 export interface SendWhatsAppRequest {

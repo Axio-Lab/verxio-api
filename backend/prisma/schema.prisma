@@ -728,6 +728,8 @@ model ChatIntegration {
   sharedSecret    String   // Secret for authenticating incoming requests
   /// @encrypted
   telegramBotToken String? // Optional Telegram bot token for guided setup
+  telegramBotUsername String?  // Bot username (without @), fetched via getMe
+  telegramBotId      String?  // Bot's Telegram user ID (for reply detection in groups)
   isActive        Boolean  @default(true)
   webhookUrl      String?  // Generated webhook URL for external services to call
   defaultWorkflowId String? // Optional default workflow to use
@@ -743,6 +745,20 @@ model ChatIntegration {
   whatsappSession   WhatsAppSession? @relation(fields: [whatsappSessionId], references: [id], onDelete: SetNull)
   /// When true (default), only messages from the connected number (owner) trigger the agent. When false, anyone who messages the number can chat (customer support).
   whatsappOnlyOwnerCanChat Boolean @default(true)
+
+  // Slack fields
+  /// @encrypted
+  slackBotToken       String?  // xoxb-... Bot User OAuth Token
+  /// @encrypted
+  slackSigningSecret  String?  // Slack app signing secret for request verification
+  slackTeamId         String?  // Workspace/team ID
+  slackBotUserId      String?  // Bot's own user ID (to ignore self-messages)
+
+  // Discord fields
+  /// @encrypted
+  discordBotToken     String?  // Discord bot token
+  discordGuildId      String?  // Server/guild ID (optional, for scoping)
+  discordBotUserId    String?  // Bot's own user ID (to ignore self-messages)
 
   @@index([userId])
   @@index([platform])

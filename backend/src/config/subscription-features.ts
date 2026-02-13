@@ -26,6 +26,8 @@ export const SUBSCRIPTION_FEATURES = {
   // Chat integrations (agent replies when users message the connected number)
   TELEGRAM_CHAT_INTEGRATION: "telegram-chat-integration",
   WHATSAPP_CHAT_INTEGRATION: "whatsapp-chat-integration",
+  SLACK_CHAT_INTEGRATION: "slack-chat-integration",
+  DISCORD_CHAT_INTEGRATION: "discord-chat-integration",
 
   // Template feature (premium)
   EXPORT_WORKFLOW_AS_TEMPLATE: "export-workflow-as-template",
@@ -108,6 +110,8 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.KLING_NODES,
         SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION,
+        SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION,
+        SUBSCRIPTION_FEATURES.DISCORD_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
     default:

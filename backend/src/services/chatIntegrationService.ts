@@ -11,6 +11,7 @@ import * as credentialService from "./credentialService";
 import * as skillService from "./skillService";
 import { inngest } from "../inngest";
 import { sendWhatsAppMessage as sendWhatsAppViaConnector } from "./whatsappConnectorClient";
+import { sendDiscordMessage as sendDiscordViaConnector } from "./discordConnectorClient";
 
 /**
  * Chat Integration Integration Service
@@ -190,11 +191,27 @@ export async function saveTelegramBotToken(
     integration.sharedSecret
   );
 
+  // Fetch bot info via getMe to store username and ID (needed for group mention detection)
+  let telegramBotUsername: string | undefined;
+  let telegramBotId: string | undefined;
+  try {
+    const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+    const meJson = await meRes.json();
+    if (meJson.ok && meJson.result) {
+      telegramBotUsername = meJson.result.username || undefined;
+      telegramBotId = meJson.result.id?.toString() || undefined;
+    }
+  } catch (err) {
+    console.warn("[Telegram] Failed to fetch bot info via getMe:", err);
+  }
+
   return (prisma as any).chatIntegration.update({
     where: { id: integration.id },
     data: {
       telegramBotToken: botToken,
       webhookUrl,
+      ...(telegramBotUsername && { telegramBotUsername }),
+      ...(telegramBotId && { telegramBotId }),
     },
   });
 }
@@ -536,6 +553,200 @@ export function formatWhatsAppMessage(text: string): string {
   out = out.replace(/^(\d+)\.\s*/gm, "$1. ");
 
   return out.trim();
+}
+
+/**
+ * Format text for Slack mrkdwn.
+ * Slack uses *bold*, _italic_, `code`, ```code block```, and <@USER_ID> mentions.
+ */
+export function formatSlackMessage(text: string): string {
+  if (!text) return "";
+  let out = text;
+
+  // Bold: **text** or __text__ -> *text*
+  out = out.replace(/\*\*([^*]+)\*\*/g, "*$1*");
+  out = out.replace(/__([^_]+)__/g, "*$1*");
+
+  // Italic: single *word* (not **) -> _word_ (must not conflict with bold we just converted)
+  // Slack uses _italic_ already so markdown _word_ is fine
+  // Convert remaining single * that are NOT bold to _italic_
+  // Since we already converted ** to *, we skip this step to avoid double-conversion
+
+  // Bullet lists: "- item" -> "• item"
+  out = out.replace(/^\s*-\s+/gm, "• ");
+
+  return out.trim();
+}
+
+/**
+ * Format text for Discord markdown.
+ * Discord uses standard markdown: **bold**, *italic*, `code`, ```code block```.
+ * Mentions: <@USER_ID>, <@&ROLE_ID>, <#CHANNEL_ID>
+ */
+export function formatDiscordMessage(text: string): string {
+  if (!text) return "";
+  // Discord supports standard markdown natively, minimal conversion needed
+  let out = text;
+  // Bullet lists: "• item" -> "- item" (Discord renders - as bullet)
+  out = out.replace(/^\s*•\s+/gm, "- ");
+  return out.trim();
+}
+
+/**
+ * Split a message into chunks for Discord (2000 char limit).
+ */
+export function splitDiscordMessage(text: string, maxLen = 2000): string[] {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+    // Try to split at last newline within limit
+    let splitIdx = remaining.lastIndexOf("\n", maxLen);
+    if (splitIdx < maxLen * 0.3) {
+      // No good newline break, split at last space
+      splitIdx = remaining.lastIndexOf(" ", maxLen);
+    }
+    if (splitIdx < maxLen * 0.3) {
+      // Force split
+      splitIdx = maxLen;
+    }
+    chunks.push(remaining.slice(0, splitIdx));
+    remaining = remaining.slice(splitIdx).trimStart();
+  }
+  return chunks;
+}
+
+/**
+ * Send a message to a Slack channel via Slack Web API.
+ */
+export async function sendSlackMessage(
+  botToken: string,
+  channel: string,
+  text: string,
+  threadTs?: string
+) {
+  const formatted = formatSlackMessage(text);
+  const payload: Record<string, unknown> = {
+    channel,
+    text: formatted,
+    ...(threadTs ? { thread_ts: threadTs } : {}),
+  };
+  const res = await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    console.error("[Slack] chat.postMessage failed:", data.error);
+  }
+  return data;
+}
+
+/**
+ * Get the hosted Slack webhook URL for an integration.
+ */
+export function getHostedSlackWebhookUrl(integrationId: string) {
+  const base = process.env.API_URL?.trim();
+  if (!base) {
+    throw new Error("API_URL is required to build the Slack webhook URL.");
+  }
+  return `${base.replace(/\/$/, "")}/api/chat-integrations/slack/events/${integrationId}`;
+}
+
+/**
+ * Save Slack bot token and signing secret.
+ */
+export async function saveSlackBotToken(
+  userId: string,
+  integrationId: string,
+  botToken: string,
+  signingSecret: string
+) {
+  const integration = await getIntegration(userId, integrationId);
+  if (!integration) {
+    throw new Error("Chat Integration not found.");
+  }
+  if (integration.platform !== "SLACK") {
+    throw new Error("Slack token can only be set for SLACK integrations.");
+  }
+
+  // Verify token by calling auth.test
+  const authRes = await fetch("https://slack.com/api/auth.test", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      Authorization: `Bearer ${botToken}`,
+    },
+  });
+  const authData = await authRes.json();
+  if (!authData.ok) {
+    throw new Error(`Slack auth.test failed: ${authData.error || "unknown error"}`);
+  }
+
+  const webhookUrl = getHostedSlackWebhookUrl(integration.id);
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integration.id },
+    data: {
+      slackBotToken: botToken,
+      slackSigningSecret: signingSecret,
+      slackTeamId: authData.team_id || undefined,
+      slackBotUserId: authData.user_id || undefined,
+      webhookUrl,
+    },
+  });
+}
+
+/**
+ * Save Discord bot token.
+ */
+export async function saveDiscordBotToken(
+  userId: string,
+  integrationId: string,
+  botToken: string
+) {
+  const integration = await getIntegration(userId, integrationId);
+  if (!integration) {
+    throw new Error("Chat Integration not found.");
+  }
+  if (integration.platform !== "DISCORD") {
+    throw new Error("Discord token can only be set for DISCORD integrations.");
+  }
+
+  // Verify token by calling /users/@me
+  const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+    headers: { Authorization: `Bot ${botToken}` },
+  });
+  if (!meRes.ok) {
+    const text = await meRes.text();
+    throw new Error(`Discord token verification failed: ${text}`);
+  }
+  const meData = await meRes.json();
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integration.id },
+    data: {
+      discordBotToken: botToken,
+      discordBotUserId: meData.id || undefined,
+    },
+  });
+}
+
+/**
+ * Generate Discord bot invite URL with required permissions.
+ */
+export function getDiscordInviteUrl(clientId: string): string {
+  // Permissions: Send Messages (2048), Read Message History (65536), Mention Everyone (131072)
+  const permissions = 2048 + 65536 + 131072;
+  return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot`;
 }
 
 const POLL_INTERVAL_MS = 1500;
@@ -1736,6 +1947,76 @@ async function handleRunWorkflow(
           toJid: chatId,
           text: formatWhatsAppMessage(summary),
         });
+      })();
+      return {
+        success: true,
+        type: "workflow",
+        message: `Running **${workflow.name}**... I'll send results when it completes.`,
+        data: {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+        },
+      };
+    }
+
+    // If Slack, run workflow and send result via Slack Web API
+    if (chatId && integration?.platform === "SLACK" && integration.slackBotToken) {
+      const threadTs = (message.metadata as any)?.threadTs;
+      void (async () => {
+        const result = await runWorkflowAndWait({
+          workflowId: workflow.id,
+          userId,
+          message: message.message,
+        });
+        const summary = result.success
+          ? await buildResultSummaryWithAgent({
+              output: result.output as Record<string, unknown>,
+              userId,
+              workflowId: workflow.id,
+            })
+          : `Workflow failed: ${result.error}`;
+        await sendSlackMessage(
+          integration.slackBotToken!,
+          chatId,
+          formatSlackMessage(summary),
+          threadTs
+        );
+      })();
+      return {
+        success: true,
+        type: "workflow",
+        message: `Running **${workflow.name}**... I'll send results when it completes.`,
+        data: {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+        },
+      };
+    }
+
+    // If Discord, run workflow and send result via Discord connector
+    if (chatId && integration?.platform === "DISCORD" && integration.id) {
+      void (async () => {
+        const result = await runWorkflowAndWait({
+          workflowId: workflow.id,
+          userId,
+          message: message.message,
+        });
+        const summary = result.success
+          ? await buildResultSummaryWithAgent({
+              output: result.output as Record<string, unknown>,
+              userId,
+              workflowId: workflow.id,
+            })
+          : `Workflow failed: ${result.error}`;
+        const formatted = formatDiscordMessage(summary);
+        const chunks = splitDiscordMessage(formatted);
+        for (const chunk of chunks) {
+          await sendDiscordViaConnector({
+            integrationId: integration.id,
+            channelId: chatId,
+            text: chunk,
+          });
+        }
       })();
       return {
         success: true,
