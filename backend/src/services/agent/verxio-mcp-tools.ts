@@ -31,6 +31,8 @@ export interface ToolContext {
   workflowId?: string;
   integrationId?: string;
   evolvePersonality?: boolean;
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 // ============================================
@@ -1978,7 +1980,7 @@ export const getSkillsTool: VerxioTool = {
   description: "List user's skills that extend AI capabilities",
   inputSchema: z.object({}),
   execute: async (_, context) => {
-    const skills = await prisma.userSkill.findMany({
+    let skills = await prisma.userSkill.findMany({
       where: { userId: context.userId },
       select: {
         id: true,
@@ -1990,6 +1992,19 @@ export const getSkillsTool: VerxioTool = {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // When in integration context with restricted skill scope, filter
+    if (context.skillScope === "NO_SKILLS") {
+      skills = [];
+    } else if (
+      context.skillScope === "SELECTED_SKILLS" &&
+      context.allowedSkillIds &&
+      context.allowedSkillIds.length > 0
+    ) {
+      skills = skills.filter((s: { id: string }) =>
+        context.allowedSkillIds!.includes(s.id)
+      );
+    }
 
     return {
       success: true,

@@ -134,10 +134,10 @@ async function getUserContext(userId: string, workflowId?: string) {
     select: { name: true, type: true, description: true },
   });
 
-  // Get user's skills
+  // Get user's skills (include id for integration skill filtering)
   const skills = await prisma.userSkill.findMany({
     where: { userId },
-    select: { name: true, description: true, content: true },
+    select: { id: true, name: true, description: true, content: true },
   });
 
   return {
@@ -188,12 +188,14 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     traceInput
   );
 
-  // Create tool context (include soul evolution info when personality is set)
+  // Create tool context (include soul evolution info and skill scope when personality is set)
   const toolContext: ToolContext = {
     userId,
     workflowId,
     integrationId: agentPersonality?.integrationId,
     evolvePersonality: agentPersonality?.evolvePersonality,
+    skillScope: agentPersonality?.skillScope,
+    allowedSkillIds: agentPersonality?.allowedSkillIds,
   };
 
   // Create Verxio MCP server with custom tools
@@ -213,6 +215,20 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     ]);
   } else {
     userContext = await getUserContext(userId, workflowId);
+  }
+
+  // Filter skills based on integration config (when from chat integration)
+  if (agentPersonality?.skillScope !== undefined) {
+    const allSkills = userContext.userSkills as Array<{ id: string; name: string; description?: string | null; content: string }>;
+    let filteredSkills: typeof allSkills;
+    if (agentPersonality.skillScope === "NO_SKILLS") {
+      filteredSkills = [];
+    } else if (agentPersonality.skillScope === "SELECTED_SKILLS" && agentPersonality.allowedSkillIds?.length) {
+      filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
+    } else {
+      filteredSkills = allSkills; // ALL_SKILLS or no restriction
+    }
+    userContext = { ...userContext, userSkills: filteredSkills };
   }
 
   // Build system prompt (now async to load guide content)
@@ -679,6 +695,9 @@ export interface AgentPersonality {
   soulMd: string;
   evolvePersonality: boolean;
   integrationId?: string;
+  /** Skill access for chat integration: scope and allowed skill IDs when SELECTED_SKILLS */
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 export async function* chatWithAgent(options: {

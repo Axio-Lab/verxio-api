@@ -21,6 +21,7 @@ import {
   useSaveSoulMd,
 } from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
+import { useSkills } from "@/hooks/useSkills";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ import {
   Upload,
   FileText,
   Wand2,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -110,6 +112,7 @@ export function ChatIntegrationsSetup({
     IDENTITIES_PAGE_SIZE
   );
   const { data: workflowsData } = useWorkflows(1, 100);
+  const { data: skillsData } = useSkills(1, 100);
 
   const updateIntegration = useUpdateChatIntegration(selectedIntegrationId || "");
   const saveTelegramToken = useSaveTelegramBotToken(selectedIntegrationId || "");
@@ -162,6 +165,12 @@ export function ChatIntegrationsSetup({
   const [soulPreview, setSoulPreview] = useState<string | null>(null);
   const [evolvePersonality, setEvolvePersonality] = useState(false);
 
+  // Skill selection draft (saved on "Save" click — scope + selected skills batched)
+  const [skillScopeDraft, setSkillScopeDraft] = useState<
+    "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS"
+  >("ALL_SKILLS");
+  const [selectedSkillIdsDraft, setSelectedSkillIdsDraft] = useState<string[]>([]);
+
   useEffect(() => {
     if (initialIntegrationId) {
       setSelectedIntegrationId(initialIntegrationId);
@@ -193,6 +202,12 @@ export function ChatIntegrationsSetup({
     setEvolvePersonality(integration?.evolvePersonality ?? false);
     // Pre-fill generation name from label
     setSoulGenName(integration?.label || "");
+    // Sync skill scope + selection draft
+    setSkillScopeDraft(
+      (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") ||
+        "ALL_SKILLS"
+    );
+    setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
   }, [integrationsData?.integrations, selectedIntegrationId]);
 
   useEffect(() => {
@@ -570,14 +585,6 @@ export function ChatIntegrationsSetup({
     updateIntegration.mutate({ label: labelDraft.trim() });
   };
 
-  const handlePlatformChange = (platform: string) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    updateIntegration.mutate({ platform: platform as any });
-  };
-
   const handleScopeChange = (scope: string) => {
     if (!integration?.id) {
       toast.error("Select an integration first.");
@@ -616,6 +623,37 @@ export function ChatIntegrationsSetup({
       : current.filter((id) => id !== workflowId);
     updateIntegration.mutate({ allowedWorkflowIds: next });
   };
+
+  const handleSkillScopeDraftChange = (skillScope: string) => {
+    const scope = skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    setSkillScopeDraft(scope);
+    if (scope !== "SELECTED_SKILLS") {
+      setSelectedSkillIdsDraft([]);
+    } else {
+      setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
+    }
+  };
+
+  const handleSkillDraftToggle = (skillId: string, checked: boolean) => {
+    setSelectedSkillIdsDraft((prev) =>
+      checked ? [...prev, skillId] : prev.filter((id) => id !== skillId)
+    );
+  };
+
+  const handleSaveSkillAccess = () => {
+    if (!integration?.id) return;
+    updateIntegration.mutate({
+      skillScope: skillScopeDraft,
+      allowedSkillIds:
+        skillScopeDraft === "SELECTED_SKILLS" ? selectedSkillIdsDraft : [],
+    });
+  };
+
+  const skillAccessHasChanges =
+    skillScopeDraft !== (integration?.skillScope || "ALL_SKILLS") ||
+    (skillScopeDraft === "SELECTED_SKILLS" &&
+      JSON.stringify([...selectedSkillIdsDraft].sort()) !==
+        JSON.stringify([...(integration?.allowedSkillIds || [])].sort()));
 
   const handleUnlinkIdentity = (platform: string, externalId: string) => {
     unlinkIdentity.mutate({ platform, externalId });
@@ -1473,6 +1511,110 @@ export function ChatIntegrationsSetup({
         </CardContent>
       </Card>
 
+      {/* Skill Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Skill Access
+          </CardTitle>
+          <CardDescription>
+            Choose which custom skills this agent can use. Skills extend the agent&apos;s capabilities with your knowledge and instructions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Skill scope</Label>
+            <Select
+              value={skillScopeDraft}
+              onValueChange={handleSkillScopeDraftChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select skill scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL_SKILLS">All skills</SelectItem>
+                <SelectItem value="SELECTED_SKILLS">Select skills</SelectItem>
+                <SelectItem value="NO_SKILLS">No skills</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {skillScopeDraft === "ALL_SKILLS" &&
+                "Agent has access to all your custom skills."}
+              {skillScopeDraft === "SELECTED_SKILLS" &&
+                "Agent can only use the skills you select below."}
+              {skillScopeDraft === "NO_SKILLS" &&
+                "Agent has no custom skills — only built-in capabilities."}
+            </p>
+          </div>
+
+          {skillScopeDraft === "SELECTED_SKILLS" && (
+            <div className="space-y-3">
+              <Label>Choose skills for this agent</Label>
+              <p className="text-xs text-muted-foreground">
+                Select the skills you want this agent to use. Click Save skills when done.
+              </p>
+              <div className="max-h-[200px] overflow-y-auto rounded-md border p-2">
+                {(skillsData?.skills ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No skills yet.{" "}
+                    <NextLink href="/skills" className="text-primary underline">
+                      Create a skill
+                    </NextLink>{" "}
+                    to add knowledge for your agent.
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {(skillsData?.skills ?? []).map((skill) => {
+                      const checked = selectedSkillIdsDraft.includes(skill.id);
+                      return (
+                        <label
+                          key={skill.id}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              handleSkillDraftToggle(skill.id, e.target.checked)
+                            }
+                            className="rounded"
+                          />
+                          <span className="font-medium">{skill.name}</span>
+                          {skill.description && (
+                            <span className="text-muted-foreground text-xs truncate">
+                              — {skill.description}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {(skillsData?.skills ?? []).length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Select skills above, then click Save below.
+                </p>
+              )}
+            </div>
+          )}
+
+          {skillAccessHasChanges && (
+            <Button
+              size="sm"
+              onClick={handleSaveSkillAccess}
+              disabled={updateIntegration.isPending}
+            >
+              {updateIntegration.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Save
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Settings */}
       <Card>
         <CardHeader>
@@ -1498,8 +1640,8 @@ export function ChatIntegrationsSetup({
 
           <div className="space-y-2">
             <Label>Platform</Label>
-            <Select value={integration?.platform} onValueChange={handlePlatformChange}>
-              <SelectTrigger>
+            <Select value={integration?.platform} disabled>
+              <SelectTrigger className="bg-muted">
                 <SelectValue placeholder="Select platform" />
               </SelectTrigger>
               <SelectContent>
@@ -1509,6 +1651,9 @@ export function ChatIntegrationsSetup({
                 <SelectItem value="SLACK">Slack</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Platform cannot be changed after creation — each uses different configuration.
+            </p>
           </div>
 
           <div className="space-y-2">

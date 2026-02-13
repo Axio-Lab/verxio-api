@@ -764,6 +764,10 @@ model ChatIntegration {
   soulMd             String?  @db.Text  // Personality markdown (soul.md content)
   evolvePersonality  Boolean  @default(false) // Allow agent to refine its own soul over time
 
+  // Skill access
+  skillScope         SkillScope @default(ALL_SKILLS) // ALL_SKILLS | SELECTED_SKILLS | NO_SKILLS
+  allowedSkillIds    String[] @default([]) // Skill IDs when skillScope is SELECTED_SKILLS
+
   @@index([userId])
   @@index([platform])
   @@index([scope])
@@ -805,6 +809,12 @@ enum ChatScope {
   SINGLE_WORKFLOW
   ALL_WORKFLOWS
   ALLOW_LIST
+}
+
+enum SkillScope {
+  ALL_SKILLS     // Agent has access to all user custom skills
+  SELECTED_SKILLS // Agent has access only to selected skills
+  NO_SKILLS      // Agent has no custom skills
 }
 
 model UserSkill {

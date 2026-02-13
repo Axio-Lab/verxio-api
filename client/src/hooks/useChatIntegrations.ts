@@ -40,6 +40,9 @@ export interface ChatIntegration {
   hasSoulMd?: boolean;
   soulMd?: string | null;
   evolvePersonality?: boolean;
+  // Skill access
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 export interface ChatIntegrationSecret {
@@ -74,6 +77,8 @@ export interface UpdateIntegrationData {
   whatsappOnlyOwnerCanChat?: boolean;
   soulMd?: string | null;
   evolvePersonality?: boolean;
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 export interface CreateIntegrationData {
@@ -87,6 +92,8 @@ export interface CreateIntegrationData {
   allowWorkflowExecution?: boolean;
   soulMd?: string | null;
   evolvePersonality?: boolean;
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 export interface LinkIdentityData {

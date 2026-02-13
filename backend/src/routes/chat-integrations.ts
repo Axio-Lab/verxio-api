@@ -82,6 +82,9 @@ chatIntegrationRouter.get(
           hasSoulMd: !!integration.soulMd,
           soulMd: integration.soulMd || null,
           evolvePersonality: integration.evolvePersonality ?? false,
+          // Skill access
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         })),
       });
     } catch (error) {
@@ -109,6 +112,10 @@ chatIntegrationRouter.post(
         isActive,
         allowPlanMode,
         allowWorkflowExecution,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       } = req.body;
 
       if (!label || typeof label !== "string") {
@@ -145,6 +152,10 @@ chatIntegrationRouter.post(
         isActive,
         allowPlanMode,
         allowWorkflowExecution,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       });
 
       res.json({
@@ -163,6 +174,10 @@ chatIntegrationRouter.post(
           allowPlanMode: integration.allowPlanMode,
           allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          hasSoulMd: !!integration.soulMd,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -215,6 +230,8 @@ chatIntegrationRouter.get(
           hasSoulMd: !!integration.soulMd,
           soulMd: integration.soulMd || null,
           evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -273,6 +290,10 @@ chatIntegrationRouter.put(
         allowWorkflowExecution,
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       } = req.body;
 
       if (platform === "TELEGRAM") {
@@ -308,6 +329,10 @@ chatIntegrationRouter.put(
         allowWorkflowExecution,
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       });
 
       res.json({
@@ -325,6 +350,10 @@ chatIntegrationRouter.put(
           allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          hasSoulMd: !!integration.soulMd,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {

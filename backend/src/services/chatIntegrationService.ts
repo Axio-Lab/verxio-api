@@ -52,6 +52,8 @@ export async function createIntegration(
     allowWorkflowExecution?: boolean;
     soulMd?: string | null;
     evolvePersonality?: boolean;
+    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    allowedSkillIds?: string[];
   }
 ) {
   const secret = generateSharedSecret();
@@ -70,6 +72,8 @@ export async function createIntegration(
       allowWorkflowExecution: data.allowWorkflowExecution ?? true,
       soulMd: data.soulMd || null,
       evolvePersonality: data.evolvePersonality ?? false,
+      skillScope: data.skillScope || "ALL_SKILLS",
+      allowedSkillIds: data.allowedSkillIds || [],
     },
   });
 }
@@ -113,6 +117,8 @@ export async function updateIntegration(
     whatsappOnlyOwnerCanChat?: boolean;
     soulMd?: string | null;
     evolvePersonality?: boolean;
+    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    allowedSkillIds?: string[];
   }
 ) {
   const existing = await getIntegration(userId, integrationId);
@@ -1448,16 +1454,15 @@ async function handlePlanMessage(
       fileName: att.fileName,
     }));
 
-    // Build agent personality from integration
-    const agentPersonality =
-      integration.soulMd
-        ? {
-            name: integration.label || "Verxio",
-            soulMd: integration.soulMd,
-            evolvePersonality: integration.evolvePersonality ?? false,
-            integrationId: integration.id,
-          }
-        : undefined;
+    // Build agent personality and skill config from integration (always pass when in integration flow)
+    const agentPersonality = {
+      name: integration.label || "Verxio",
+      soulMd: integration.soulMd || "",
+      evolvePersonality: integration.evolvePersonality ?? false,
+      integrationId: integration.id,
+      skillScope: (integration.skillScope || "ALL_SKILLS") as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS",
+      allowedSkillIds: integration.allowedSkillIds || [],
+    };
 
     // Send message to planning service
     const result = await sendPlanningMessage({
@@ -2256,16 +2261,15 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
       await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
     }
 
-    // Build agent personality from integration
-    const agentPersonality =
-      integration.soulMd
-        ? {
-            name: integration.label || "Verxio",
-            soulMd: integration.soulMd,
-            evolvePersonality: integration.evolvePersonality ?? false,
-            integrationId: integration.id,
-          }
-        : undefined;
+    // Build agent personality and skill config from integration
+    const agentPersonality = {
+      name: integration.label || "Verxio",
+      soulMd: integration.soulMd || "",
+      evolvePersonality: integration.evolvePersonality ?? false,
+      integrationId: integration.id,
+      skillScope: (integration.skillScope || "ALL_SKILLS") as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS",
+      allowedSkillIds: integration.allowedSkillIds || [],
+    };
 
     // Stream from planning service
     for await (const event of sendPlanningMessageStreaming({
