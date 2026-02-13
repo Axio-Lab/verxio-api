@@ -29,6 +29,8 @@ export interface VerxioTool {
 export interface ToolContext {
   userId: string;
   workflowId?: string;
+  integrationId?: string;
+  evolvePersonality?: boolean;
 }
 
 // ============================================
@@ -2122,6 +2124,101 @@ export const removeSkillTool: VerxioTool = {
 };
 
 // ============================================
+// Agent Personality (Soul) Evolution Tool
+// ============================================
+
+const updateSoulMdTool: VerxioTool = {
+  name: "updateSoulMd",
+  description:
+    "Update your own personality (soul.md) based on user interaction patterns. " +
+    "Only available when personality evolution is enabled. " +
+    "Use sparingly — only when you have clear evidence that the user prefers a different communication style. " +
+    "You can update a specific section (coreTruths, boundaries, vibe) or the full document.",
+  inputSchema: z.object({
+    updatedSection: z
+      .enum(["coreTruths", "boundaries", "vibe", "full"])
+      .describe(
+        "Which section to update: 'coreTruths', 'boundaries', 'vibe', or 'full' for the entire soul.md"
+      ),
+    content: z.string().describe("The new content for the specified section or the full soul.md"),
+    reason: z
+      .string()
+      .describe("Brief explanation of why you are evolving your personality (based on user interaction patterns)"),
+  }),
+  execute: async (
+    args: { updatedSection: string; content: string; reason: string },
+    context: ToolContext
+  ) => {
+    try {
+      if (!context.evolvePersonality || !context.integrationId) {
+        return {
+          success: false,
+          error: "Personality evolution is not enabled for this integration.",
+        };
+      }
+
+      // Fetch current soul.md
+      const integration = await prisma.chatIntegration.findFirst({
+        where: { id: context.integrationId, userId: context.userId },
+      });
+
+      if (!integration) {
+        return { success: false, error: "Integration not found." };
+      }
+
+      let updatedSoulMd: string;
+
+      if (args.updatedSection === "full") {
+        updatedSoulMd = args.content;
+      } else {
+        // Parse existing soul.md and update the specific section
+        const currentSoul = integration.soulMd || "";
+        const sectionMap: Record<string, string> = {
+          coreTruths: "## Core Truths",
+          boundaries: "## Boundaries",
+          vibe: "## The Vibe",
+        };
+        const sectionHeader = sectionMap[args.updatedSection];
+        if (!sectionHeader) {
+          return { success: false, error: `Unknown section: ${args.updatedSection}` };
+        }
+
+        // Find and replace the section
+        const sectionRegex = new RegExp(
+          `(${sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})([\\s\\S]*?)(?=\\n## |$)`,
+          "i"
+        );
+
+        if (sectionRegex.test(currentSoul)) {
+          updatedSoulMd = currentSoul.replace(
+            sectionRegex,
+            `${sectionHeader}\n${args.content}\n`
+          );
+        } else {
+          // Section doesn't exist; append
+          updatedSoulMd = `${currentSoul}\n\n${sectionHeader}\n${args.content}\n`;
+        }
+      }
+
+      await prisma.chatIntegration.update({
+        where: { id: context.integrationId },
+        data: { soulMd: updatedSoulMd },
+      });
+
+      return {
+        success: true,
+        message: `Personality ${args.updatedSection === "full" ? "fully updated" : `section "${args.updatedSection}" updated`}. Reason: ${args.reason}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update soul.md",
+      };
+    }
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -2149,6 +2246,7 @@ export const verxioTools: VerxioTool[] = [
   addSkillTool,
   updateSkillTool,
   removeSkillTool,
+  updateSoulMdTool,
 ];
 
 export default verxioTools;

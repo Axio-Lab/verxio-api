@@ -50,6 +50,8 @@ export async function createIntegration(
     isActive?: boolean;
     allowPlanMode?: boolean;
     allowWorkflowExecution?: boolean;
+    soulMd?: string | null;
+    evolvePersonality?: boolean;
   }
 ) {
   const secret = generateSharedSecret();
@@ -66,6 +68,8 @@ export async function createIntegration(
       isActive: data.isActive ?? true,
       allowPlanMode: data.allowPlanMode ?? true,
       allowWorkflowExecution: data.allowWorkflowExecution ?? true,
+      soulMd: data.soulMd || null,
+      evolvePersonality: data.evolvePersonality ?? false,
     },
   });
 }
@@ -107,6 +111,8 @@ export async function updateIntegration(
     allowWorkflowExecution?: boolean;
     telegramBotToken?: string | null;
     whatsappOnlyOwnerCanChat?: boolean;
+    soulMd?: string | null;
+    evolvePersonality?: boolean;
   }
 ) {
   const existing = await getIntegration(userId, integrationId);
@@ -117,6 +123,120 @@ export async function updateIntegration(
   return (prisma as any).chatIntegration.update({
     where: { id: integrationId },
     data,
+  });
+}
+
+// ============================================
+// Agent Personality (soul.md) Management
+// ============================================
+
+/**
+ * Generate a soul.md personality document using Claude.
+ */
+export async function generateSoulMd(params: {
+  name: string;
+  description: string;
+  tone: string;
+  coreTruths?: string;
+  boundaries?: string;
+}): Promise<string> {
+  const { name, description, tone, coreTruths, boundaries } = params;
+
+  const prompt = `You are an expert at crafting agent personality documents (soul.md). Generate a rich, detailed soul.md personality document for an AI assistant with the following details:
+
+**Agent Name:** ${name}
+**What it does:** ${description}
+**Tone/Vibe:** ${tone}
+${coreTruths ? `**User-provided Core Truths:** ${coreTruths}` : ""}
+${boundaries ? `**User-provided Boundaries:** ${boundaries}` : ""}
+
+The soul.md MUST have exactly three sections:
+
+## Core Truths
+These are the fundamental beliefs and values that define this agent. They should reflect the agent's purpose, principles, and what it stands for. Include 5-8 core truths.
+
+## Boundaries
+These are hard limits — things the agent will never do, topics it avoids, and ethical guardrails. Include 4-6 boundaries.
+
+## The Vibe
+This defines the agent's voice, tone, and communication style. How does it greet people? What kind of language does it use? Does it use humor? How formal or casual is it? Be very specific and give examples of how the agent would phrase things.
+
+Output ONLY the soul.md content in markdown format. Do not wrap in code fences. Make it feel authentic and unique to this agent's personality — not generic.`;
+
+  const model = process.env.AGENT_CLAUDE_MODEL || "claude-sonnet-4-20250514";
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to generate soul.md: ${err}`);
+  }
+
+  const result = (await response.json()) as {
+    content: Array<{ type: string; text?: string }>;
+  };
+  const text = result.content
+    ?.filter((b: { type: string }) => b.type === "text")
+    .map((b: { text?: string }) => b.text || "")
+    .join("\n");
+
+  if (!text?.trim()) {
+    throw new Error("AI returned empty soul.md content.");
+  }
+
+  return text.trim();
+}
+
+/**
+ * Save soul.md content to an integration.
+ */
+export async function saveSoulMd(
+  userId: string,
+  integrationId: string,
+  soulMd: string
+) {
+  const existing = await getIntegration(userId, integrationId);
+  if (!existing) {
+    throw new Error("Integration not found.");
+  }
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integrationId },
+    data: { soulMd },
+  });
+}
+
+/**
+ * Update soul.md via agent self-evolution.
+ */
+export async function updateSoulEvolution(
+  userId: string,
+  integrationId: string,
+  updatedSoulMd: string
+) {
+  const existing = await getIntegration(userId, integrationId);
+  if (!existing) {
+    throw new Error("Integration not found.");
+  }
+  if (!existing.evolvePersonality) {
+    throw new Error("Personality evolution is not enabled for this integration.");
+  }
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integrationId },
+    data: { soulMd: updatedSoulMd },
   });
 }
 
@@ -1328,12 +1448,24 @@ async function handlePlanMessage(
       fileName: att.fileName,
     }));
 
+    // Build agent personality from integration
+    const agentPersonality =
+      integration.soulMd
+        ? {
+            name: integration.label || "Verxio",
+            soulMd: integration.soulMd,
+            evolvePersonality: integration.evolvePersonality ?? false,
+            integrationId: integration.id,
+          }
+        : undefined;
+
     // Send message to planning service
     const result = await sendPlanningMessage({
       workflowId,
       userId,
       message: message.message,
       attachments: attachments as any,
+      agentPersonality,
     });
 
     return {
@@ -2124,12 +2256,24 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
       await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
     }
 
+    // Build agent personality from integration
+    const agentPersonality =
+      integration.soulMd
+        ? {
+            name: integration.label || "Verxio",
+            soulMd: integration.soulMd,
+            evolvePersonality: integration.evolvePersonality ?? false,
+            integrationId: integration.id,
+          }
+        : undefined;
+
     // Stream from planning service
     for await (const event of sendPlanningMessageStreaming({
       workflowId,
       userId,
       message: message.message,
       attachments: message.attachments as any,
+      agentPersonality,
     })) {
       yield event;
     }

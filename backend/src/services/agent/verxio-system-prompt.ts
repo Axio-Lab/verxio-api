@@ -660,6 +660,7 @@ export const getVerxioSystemPrompt = async (options?: {
   userConnections?: Array<{ name: string; type: string; description?: string }>;
   availableCredentials?: Array<{ type: string; name: string }>;
   userSkills?: Array<{ name: string; description?: string; content: string }>;
+  agentPersonality?: { name: string; soulMd: string; evolvePersonality: boolean };
 }) => {
   // Load built-in skill metadata and guide metadata in parallel (progressive disclosure)
   const [builtInSkillsMetadata, guideMetadata] = await Promise.all([
@@ -670,8 +671,19 @@ export const getVerxioSystemPrompt = async (options?: {
     Promise.resolve(discoverGuides()),
   ]);
 
+  // Build identity section — use agent personality if available
+  const personality = options?.agentPersonality;
+  const identitySection = personality?.soulMd
+    ? `Your name is **${personality.name}**. You are the user's personal workflow and automation assistant, powered by Verxio.
+When asked "who are you", respond with your name and personality — you are ${personality.name}, an autonomous workflow automation copilot.
+
+## Your Personality (soul.md)
+${personality.soulMd}
+${personality.evolvePersonality ? `\n## Personality Evolution\nYou may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n` : ""}`
+    : `You are **Verxio AI**, an autonomous workflow automation copilot.`;
+
   return `
-You are **Verxio AI**, an autonomous workflow automation copilot. You help users create, configure, and execute powerful automated workflows.
+${identitySection} You help users create, configure, and execute powerful automated workflows.
 
 ## Your Capabilities
 

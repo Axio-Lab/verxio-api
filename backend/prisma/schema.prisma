@@ -760,6 +760,10 @@ model ChatIntegration {
   discordGuildId      String?  // Server/guild ID (optional, for scoping)
   discordBotUserId    String?  // Bot's own user ID (to ignore self-messages)
 
+  // Agent personality (soul.md)
+  soulMd             String?  @db.Text  // Personality markdown (soul.md content)
+  evolvePersonality  Boolean  @default(false) // Allow agent to refine its own soul over time
+
   @@index([userId])
   @@index([platform])
   @@index([scope])

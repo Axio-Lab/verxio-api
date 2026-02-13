@@ -36,6 +36,10 @@ export interface ChatIntegration {
   slackTeamId?: string | null;
   discordBotTokenSet?: boolean;
   discordBotUserId?: string | null;
+  // Agent personality (soul.md)
+  hasSoulMd?: boolean;
+  soulMd?: string | null;
+  evolvePersonality?: boolean;
 }
 
 export interface ChatIntegrationSecret {
@@ -68,6 +72,8 @@ export interface UpdateIntegrationData {
   allowWorkflowExecution?: boolean;
   telegramBotToken?: string | null;
   whatsappOnlyOwnerCanChat?: boolean;
+  soulMd?: string | null;
+  evolvePersonality?: boolean;
 }
 
 export interface CreateIntegrationData {
@@ -79,6 +85,8 @@ export interface CreateIntegrationData {
   isActive?: boolean;
   allowPlanMode?: boolean;
   allowWorkflowExecution?: boolean;
+  soulMd?: string | null;
+  evolvePersonality?: boolean;
 }
 
 export interface LinkIdentityData {
@@ -494,6 +502,77 @@ export function useSaveDiscordBotToken(integrationId: string) {
     onError: (error) => {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to save Discord bot token";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+// ============================================
+// Agent Personality (Soul) Hooks
+// ============================================
+
+export interface GenerateSoulMdData {
+  name: string;
+  description: string;
+  tone: string;
+  coreTruths?: string;
+  boundaries?: string;
+}
+
+export interface GenerateSoulMdResult {
+  success: boolean;
+  soulMd: string;
+}
+
+/**
+ * Generate a soul.md personality using AI (costs 20 credits)
+ */
+export function useGenerateSoulMd(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<GenerateSoulMdResult, Error, GenerateSoulMdData>({
+    mutationFn: (data) =>
+      authenticatedPost<GenerateSoulMdResult>(
+        `/api/chat-integrations/integrations/${integrationId}/generate-soul`,
+        data
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
+      toast.success("Agent personality generated successfully");
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to generate personality";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+/**
+ * Save manually uploaded/pasted soul.md content (free)
+ */
+export function useSaveSoulMd(integrationId: string) {
+  const queryClient = useQueryClient();
+
+  return useProtectedMutation<{ success: boolean }, Error, { soulMd: string }>({
+    mutationFn: (data) =>
+      authenticatedPost<{ success: boolean }>(
+        `/api/chat-integrations/integrations/${integrationId}/save-soul`,
+        data
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatIntegration", "integrations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["chatIntegration", "integration", integrationId],
+      });
+      toast.success("Agent personality saved");
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to save personality";
       toast.error(errorMessage);
     },
   });

@@ -78,6 +78,10 @@ chatIntegrationRouter.get(
           slackTeamId: integration.slackTeamId,
           discordBotTokenSet: !!integration.discordBotToken,
           discordBotUserId: integration.discordBotUserId,
+          // Agent personality
+          hasSoulMd: !!integration.soulMd,
+          soulMd: integration.soulMd || null,
+          evolvePersonality: integration.evolvePersonality ?? false,
         })),
       });
     } catch (error) {
@@ -202,6 +206,15 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          whatsappSessionId: integration.whatsappSessionId,
+          whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
+          hasSoulMd: !!integration.soulMd,
+          soulMd: integration.soulMd || null,
+          evolvePersonality: integration.evolvePersonality ?? false,
         },
       });
     } catch (error) {
@@ -466,6 +479,103 @@ chatIntegrationRouter.post(
           inviteUrl,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/generate-soul
+ * Generate a soul.md personality using Claude (costs 20 credits)
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/generate-soul",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { name, description, tone, coreTruths, boundaries } = req.body as {
+        name?: string;
+        description?: string;
+        tone?: string;
+        coreTruths?: string;
+        boundaries?: string;
+      };
+
+      if (!name || !description || !tone) {
+        return res.status(400).json({
+          success: false,
+          error: "name, description, and tone are required.",
+        });
+      }
+
+      // Verify integration ownership
+      const integration = await chatIntegrationService.getIntegration(
+        user.id,
+        id
+      );
+      if (!integration) {
+        throw new AppError("Integration not found", 404);
+      }
+
+      // Consume 20 credits
+      await consumePremiumQuota(user.id, QUOTA_COST.GENERATE_SOUL_MD);
+
+      // Generate soul.md via Claude
+      const soulMd = await chatIntegrationService.generateSoulMd({
+        name,
+        description,
+        tone,
+        coreTruths,
+        boundaries,
+      });
+
+      // Save to integration
+      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
+
+      res.json({
+        success: true,
+        soulMd,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/save-soul
+ * Save manually uploaded/pasted soul.md content (free)
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/save-soul",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { soulMd } = req.body as { soulMd?: string };
+
+      if (!soulMd || !soulMd.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "soulMd content is required.",
+        });
+      }
+
+      const integration = await chatIntegrationService.getIntegration(
+        user.id,
+        id
+      );
+      if (!integration) {
+        throw new AppError("Integration not found", 404);
+      }
+
+      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
+
+      res.json({ success: true });
     } catch (error) {
       next(error);
     }

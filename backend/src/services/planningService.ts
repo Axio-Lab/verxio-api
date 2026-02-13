@@ -5,7 +5,7 @@
  * with self-learning capabilities to improve suggestions over time.
  */
 
-import { chatWithAgent, generateSmartPrompt, type AgentStreamEvent } from "./agent/agentService";
+import { chatWithAgent, generateSmartPrompt, type AgentStreamEvent, type AgentPersonality } from "./agent/agentService";
 import { prisma as prismaClient } from "@/lib/prisma";
 import {
   getLearningContext,
@@ -120,6 +120,7 @@ export const sendPlanningMessage = async (options: {
     extractedText?: string;
   }>;
   model?: string;
+  agentPersonality?: AgentPersonality;
 }): Promise<{
   response: string;
   conversationHistory: ConversationMessage[];
@@ -159,6 +160,7 @@ export const sendPlanningMessage = async (options: {
     message: userMessage,
     conversationHistory,
     learningContext,
+    agentPersonality: options.agentPersonality,
   })) {
     if (event.type === "message" && event.data.text && !event.data.partial) {
       assistantResponse += event.data.text;
@@ -226,6 +228,7 @@ export async function* sendPlanningMessageStreaming(options: {
     extractedText?: string;
   }>;
   model?: string;
+  agentPersonality?: AgentPersonality;
 }): AsyncGenerator<AgentStreamEvent> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
@@ -258,6 +261,7 @@ export async function* sendPlanningMessageStreaming(options: {
     message: userMessage,
     conversationHistory,
     learningContext,
+    agentPersonality: options.agentPersonality,
   })) {
     // Collect response for history
     if (event.type === "message" && event.data.text && !event.data.partial) {

@@ -37,6 +37,8 @@ export interface AgentQueryOptions {
   abortController?: AbortController;
   /** Type of agent query for Opik tracing categorization */
   traceType?: TraceMetadata["traceType"];
+  /** Agent personality for soul.md injection */
+  agentPersonality?: AgentPersonality;
 }
 
 export interface AgentStreamEvent {
@@ -162,6 +164,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     maxTurns = 10,
     abortController,
     traceType = "agent_query",
+    agentPersonality,
   } = options;
 
   // Create Opik trace for observability (with input so Opik captures prompt + context)
@@ -185,8 +188,13 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     traceInput
   );
 
-  // Create tool context
-  const toolContext: ToolContext = { userId, workflowId };
+  // Create tool context (include soul evolution info when personality is set)
+  const toolContext: ToolContext = {
+    userId,
+    workflowId,
+    integrationId: agentPersonality?.integrationId,
+    evolvePersonality: agentPersonality?.evolvePersonality,
+  };
 
   // Create Verxio MCP server with custom tools
   const verxioMcpServer = createSdkMcpServer({
@@ -666,6 +674,13 @@ Example sequence for replacing/adding nodes:
 - Focus on understanding their needs before proposing solutions
 `;
 
+export interface AgentPersonality {
+  name: string;
+  soulMd: string;
+  evolvePersonality: boolean;
+  integrationId?: string;
+}
+
 export async function* chatWithAgent(options: {
   userId: string;
   workflowId: string;
@@ -675,9 +690,28 @@ export async function* chatWithAgent(options: {
     similarWorkflows?: Array<{ description: string; nodes: string[] }>;
     userPreferences?: Record<string, unknown>;
   };
+  agentPersonality?: AgentPersonality;
 }): AsyncGenerator<AgentStreamEvent> {
+  // Build soul/personality preamble if available
+  let soulPreamble = "";
+  if (options.agentPersonality?.soulMd) {
+    const { name, soulMd, evolvePersonality } = options.agentPersonality;
+    soulPreamble = `## Your Identity
+Your name is **${name}**. You are the user's personal workflow and automation assistant.
+When asked "who are you", respond with your name and personality — you are ${name}, powered by Verxio.
+
+## Your Personality (soul.md)
+${soulMd}
+
+${evolvePersonality ? `## Personality Evolution
+You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n` : ""}
+---
+
+`;
+  }
+
   // Build enhanced prompt with planning context and learning insights
-  let enhancedPrompt = `${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
+  let enhancedPrompt = `${soulPreamble}${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
 
   // Add learning context if available
   if (options.learningContext?.similarWorkflows?.length) {
@@ -697,6 +731,7 @@ export async function* chatWithAgent(options: {
     conversationHistory: options.conversationHistory,
     maxTurns: 15,
     traceType: "chat",
+    agentPersonality: options.agentPersonality,
   })) {
     yield event;
   }
