@@ -17,9 +17,7 @@ export interface SendDiscordResult {
   error?: string;
 }
 
-export async function sendDiscordMessage(
-  params: SendDiscordParams
-): Promise<SendDiscordResult> {
+export async function sendDiscordMessage(params: SendDiscordParams): Promise<SendDiscordResult> {
   const res = await fetch(`${CONNECTOR_URL.replace(/\/$/, "")}/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

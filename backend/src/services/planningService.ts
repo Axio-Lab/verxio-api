@@ -5,7 +5,12 @@
  * with self-learning capabilities to improve suggestions over time.
  */
 
-import { chatWithAgent, generateSmartPrompt, type AgentStreamEvent, type AgentPersonality } from "./agent/agentService";
+import {
+  chatWithAgent,
+  generateSmartPrompt,
+  type AgentStreamEvent,
+  type AgentPersonality,
+} from "./agent/agentService";
 import { prisma as prismaClient } from "@/lib/prisma";
 import {
   getLearningContext,

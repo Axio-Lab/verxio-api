@@ -61,10 +61,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
 
   // Premium feature check
   try {
-    await checkFeatureAccess(
-      integration.userId,
-      SUBSCRIPTION_FEATURES.DISCORD_CHAT_INTEGRATION
-    );
+    await checkFeatureAccess(integration.userId, SUBSCRIPTION_FEATURES.DISCORD_CHAT_INTEGRATION);
   } catch {
     try {
       await sendDiscordMessage({
@@ -78,13 +75,9 @@ router.post("/incoming", async (req: Request, res: Response) => {
 
   // Consume credits
   try {
-    await consumePremiumQuota(
-      integration.userId,
-      QUOTA_COST.DISCORD_CHAT_INTEGRATION
-    );
+    await consumePremiumQuota(integration.userId, QUOTA_COST.DISCORD_CHAT_INTEGRATION);
   } catch (quotaError) {
-    const msg =
-      quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+    const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
     try {
       await sendDiscordMessage({
         integrationId,

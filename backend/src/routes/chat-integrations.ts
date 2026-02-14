@@ -541,10 +541,7 @@ chatIntegrationRouter.post(
       }
 
       // Verify integration ownership
-      const integration = await chatIntegrationService.getIntegration(
-        user.id,
-        id
-      );
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
       if (!integration) {
         throw new AppError("Integration not found", 404);
       }
@@ -594,10 +591,7 @@ chatIntegrationRouter.post(
         });
       }
 
-      const integration = await chatIntegrationService.getIntegration(
-        user.id,
-        id
-      );
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
       if (!integration) {
         throw new AppError("Integration not found", 404);
       }
@@ -1075,7 +1069,8 @@ function verifySlackSignature(
   const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 60 * 5;
   if (parseInt(timestamp, 10) < fiveMinutesAgo) return false; // Replay attack protection
   const sigBasestring = `v0:${timestamp}:${body}`;
-  const mySignature = "v0=" + crypto.createHmac("sha256", signingSecret).update(sigBasestring).digest("hex");
+  const mySignature =
+    "v0=" + crypto.createHmac("sha256", signingSecret).update(sigBasestring).digest("hex");
   return crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(signature));
 }
 
@@ -1108,7 +1103,14 @@ chatIntegrationRouter.post(
         throw new AppError("Missing Slack signature headers or signing secret", 401);
       }
       const rawBody = JSON.stringify(req.body);
-      if (!verifySlackSignature(resolvedIntegration.slackSigningSecret, slackTimestamp, rawBody, slackSignature)) {
+      if (
+        !verifySlackSignature(
+          resolvedIntegration.slackSigningSecret,
+          slackTimestamp,
+          rawBody,
+          slackSignature
+        )
+      ) {
         throw new AppError("Invalid Slack signature", 401);
       }
 
@@ -1131,9 +1133,14 @@ chatIntegrationRouter.post(
 
       // Handle: app_mention, direct messages, and thread replies (conversation continuity)
       const isAppMention = event.type === "app_mention";
-      const isDirectMessage = event.type === "message" && event.channel_type === "im" && !event.subtype;
+      const isDirectMessage =
+        event.type === "message" && event.channel_type === "im" && !event.subtype;
       // Thread continuity: messages in a thread (thread_ts set) are follow-ups — no @mention needed
-      const isThreadReply = event.type === "message" && !event.subtype && event.thread_ts && event.ts !== event.thread_ts;
+      const isThreadReply =
+        event.type === "message" &&
+        !event.subtype &&
+        event.thread_ts &&
+        event.ts !== event.thread_ts;
       if (!isAppMention && !isDirectMessage && !isThreadReply) {
         return res.status(200).json({ ok: true });
       }
@@ -1155,7 +1162,9 @@ chatIntegrationRouter.post(
 
       // Strip bot mention from text (e.g. "<@U12345> check my calendar" -> "check my calendar")
       if (isAppMention && resolvedIntegration.slackBotUserId) {
-        messageText = messageText.replace(new RegExp(`<@${resolvedIntegration.slackBotUserId}>`, "g"), "").trim();
+        messageText = messageText
+          .replace(new RegExp(`<@${resolvedIntegration.slackBotUserId}>`, "g"), "")
+          .trim();
       }
 
       // Premium feature check
@@ -1329,7 +1338,8 @@ chatIntegrationRouter.post(
           (e: any) =>
             e.type === "mention" &&
             botUsername &&
-            text.substring(e.offset, e.offset + e.length).toLowerCase() === `@${botUsername.toLowerCase()}`
+            text.substring(e.offset, e.offset + e.length).toLowerCase() ===
+              `@${botUsername.toLowerCase()}`
         );
         const isReplyToBot = replyTo?.from?.id?.toString() === botId && botId !== "";
 
@@ -1359,7 +1369,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: formatted,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (_) {}
@@ -1388,7 +1403,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: formatted,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (_) {}
@@ -1438,7 +1458,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: textToSend, parse_mode: "HTML", ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}) }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: textToSend,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (err) {

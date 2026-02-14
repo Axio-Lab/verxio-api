@@ -208,11 +208,7 @@ Output ONLY the soul.md content in markdown format. Do not wrap in code fences. 
 /**
  * Save soul.md content to an integration.
  */
-export async function saveSoulMd(
-  userId: string,
-  integrationId: string,
-  soulMd: string
-) {
+export async function saveSoulMd(userId: string, integrationId: string, soulMd: string) {
   const existing = await getIntegration(userId, integrationId);
   if (!existing) {
     throw new Error("Integration not found.");
@@ -834,11 +830,7 @@ export async function saveSlackBotToken(
 /**
  * Save Discord bot token.
  */
-export async function saveDiscordBotToken(
-  userId: string,
-  integrationId: string,
-  botToken: string
-) {
+export async function saveDiscordBotToken(userId: string, integrationId: string, botToken: string) {
   const integration = await getIntegration(userId, integrationId);
   if (!integration) {
     throw new Error("Chat Integration not found.");
@@ -1460,7 +1452,10 @@ async function handlePlanMessage(
       soulMd: integration.soulMd || "",
       evolvePersonality: integration.evolvePersonality ?? false,
       integrationId: integration.id,
-      skillScope: (integration.skillScope || "ALL_SKILLS") as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS",
+      skillScope: (integration.skillScope || "ALL_SKILLS") as
+        | "ALL_SKILLS"
+        | "SELECTED_SKILLS"
+        | "NO_SKILLS",
       allowedSkillIds: integration.allowedSkillIds || [],
     };
 
@@ -2267,7 +2262,10 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
       soulMd: integration.soulMd || "",
       evolvePersonality: integration.evolvePersonality ?? false,
       integrationId: integration.id,
-      skillScope: (integration.skillScope || "ALL_SKILLS") as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS",
+      skillScope: (integration.skillScope || "ALL_SKILLS") as
+        | "ALL_SKILLS"
+        | "SELECTED_SKILLS"
+        | "NO_SKILLS",
       allowedSkillIds: integration.allowedSkillIds || [],
     };
 

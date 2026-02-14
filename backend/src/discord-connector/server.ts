@@ -3,7 +3,12 @@
  * Receives commands from the backend to send messages, connect, disconnect bots.
  */
 import express from "express";
-import type { SendDiscordRequest, SendDiscordResponse, ConnectRequest, DisconnectRequest } from "./types";
+import type {
+  SendDiscordRequest,
+  SendDiscordResponse,
+  ConnectRequest,
+  DisconnectRequest,
+} from "./types";
 import {
   sendMessage,
   startSession,
@@ -45,7 +50,9 @@ export function createConnectorServer(onIncoming: OnIncomingCallback) {
   app.post("/connect", async (req, res) => {
     const body = req.body as ConnectRequest;
     if (!body?.integrationId || !body?.botToken) {
-      return res.status(400).json({ success: false, error: "integrationId and botToken are required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "integrationId and botToken are required" });
     }
     try {
       const result = await startSession(body.integrationId, body.botToken, onIncoming);

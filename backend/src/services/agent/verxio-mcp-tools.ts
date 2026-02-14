@@ -2001,9 +2001,7 @@ export const getSkillsTool: VerxioTool = {
       context.allowedSkillIds &&
       context.allowedSkillIds.length > 0
     ) {
-      skills = skills.filter((s: { id: string }) =>
-        context.allowedSkillIds!.includes(s.id)
-      );
+      skills = skills.filter((s: { id: string }) => context.allowedSkillIds!.includes(s.id));
     }
 
     return {
@@ -2158,7 +2156,9 @@ const updateSoulMdTool: VerxioTool = {
     content: z.string().describe("The new content for the specified section or the full soul.md"),
     reason: z
       .string()
-      .describe("Brief explanation of why you are evolving your personality (based on user interaction patterns)"),
+      .describe(
+        "Brief explanation of why you are evolving your personality (based on user interaction patterns)"
+      ),
   }),
   execute: async (
     args: { updatedSection: string; content: string; reason: string },
@@ -2205,10 +2205,7 @@ const updateSoulMdTool: VerxioTool = {
         );
 
         if (sectionRegex.test(currentSoul)) {
-          updatedSoulMd = currentSoul.replace(
-            sectionRegex,
-            `${sectionHeader}\n${args.content}\n`
-          );
+          updatedSoulMd = currentSoul.replace(sectionRegex, `${sectionHeader}\n${args.content}\n`);
         } else {
           // Section doesn't exist; append
           updatedSoulMd = `${currentSoul}\n\n${sectionHeader}\n${args.content}\n`;

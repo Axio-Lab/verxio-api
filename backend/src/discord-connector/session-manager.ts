@@ -46,7 +46,9 @@ export async function startSession(
       if (info) {
         info.botUserId = client.user?.id;
       }
-      console.log(`[Discord Connector] Bot ready: ${client.user?.tag} for integration ${integrationId}`);
+      console.log(
+        `[Discord Connector] Bot ready: ${client.user?.tag} for integration ${integrationId}`
+      );
       resolve();
     });
 
@@ -83,7 +85,9 @@ export async function startSession(
       message: content,
       authorId: message.author.id,
       authorName: message.author.username,
-      channelId: message.channel.isThread() ? (message.channel as ThreadChannel).parentId || message.channelId : message.channelId,
+      channelId: message.channel.isThread()
+        ? (message.channel as ThreadChannel).parentId || message.channelId
+        : message.channelId,
       guildId: message.guildId || "",
       threadId: isThread ? message.channelId : undefined,
       messageId: message.id,

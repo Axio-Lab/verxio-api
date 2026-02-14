@@ -219,11 +219,19 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
 
   // Filter skills based on integration config (when from chat integration)
   if (agentPersonality?.skillScope !== undefined) {
-    const allSkills = userContext.userSkills as Array<{ id: string; name: string; description?: string | null; content: string }>;
+    const allSkills = userContext.userSkills as Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      content: string;
+    }>;
     let filteredSkills: typeof allSkills;
     if (agentPersonality.skillScope === "NO_SKILLS") {
       filteredSkills = [];
-    } else if (agentPersonality.skillScope === "SELECTED_SKILLS" && agentPersonality.allowedSkillIds?.length) {
+    } else if (
+      agentPersonality.skillScope === "SELECTED_SKILLS" &&
+      agentPersonality.allowedSkillIds?.length
+    ) {
       filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
     } else {
       filteredSkills = allSkills; // ALL_SKILLS or no restriction
@@ -722,8 +730,12 @@ When asked "who are you", respond with your name and personality — you are ${n
 ## Your Personality (soul.md)
 ${soulMd}
 
-${evolvePersonality ? `## Personality Evolution
-You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n` : ""}
+${
+  evolvePersonality
+    ? `## Personality Evolution
+You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
+    : ""
+}
 ---
 
 `;
