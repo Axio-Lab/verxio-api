@@ -578,8 +578,7 @@ export function useSaveSoulMd(integrationId: string) {
       toast.success("Agent personality saved");
     },
     onError: (error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to save personality";
+      const errorMessage = error instanceof Error ? error.message : "Failed to save personality";
       toast.error(errorMessage);
     },
   });

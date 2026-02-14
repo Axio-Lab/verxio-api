@@ -204,8 +204,7 @@ export function ChatIntegrationsSetup({
     setSoulGenName(integration?.label || "");
     // Sync skill scope + selection draft
     setSkillScopeDraft(
-      (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") ||
-        "ALL_SKILLS"
+      (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
     );
     setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
   }, [integrationsData?.integrations, selectedIntegrationId]);
@@ -644,8 +643,7 @@ export function ChatIntegrationsSetup({
     if (!integration?.id) return;
     updateIntegration.mutate({
       skillScope: skillScopeDraft,
-      allowedSkillIds:
-        skillScopeDraft === "SELECTED_SKILLS" ? selectedSkillIdsDraft : [],
+      allowedSkillIds: skillScopeDraft === "SELECTED_SKILLS" ? selectedSkillIdsDraft : [],
     });
   };
 
@@ -1087,7 +1085,9 @@ export function ChatIntegrationsSetup({
                   <li>
                     Under <strong>Basic Information</strong>, copy the Signing Secret
                   </li>
-                  <li>Save both tokens below, then paste the webhook URL into Event Subscriptions</li>
+                  <li>
+                    Save both tokens below, then paste the webhook URL into Event Subscriptions
+                  </li>
                 </ol>
               </div>
               <div className="space-y-2">
@@ -1120,9 +1120,7 @@ export function ChatIntegrationsSetup({
                     saveSlackToken.isPending || !slackBotToken.trim() || !slackSigningSecret.trim()
                   }
                 >
-                  {saveSlackToken.isPending && (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  )}
+                  {saveSlackToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Save Slack Credentials
                 </Button>
                 {integration?.slackBotTokenSet && (
@@ -1197,7 +1195,9 @@ export function ChatIntegrationsSetup({
                 <p className="font-medium">Quick setup steps:</p>
                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
                   <li>Create a new Application at discord.com/developers/applications</li>
-                  <li>Go to the <strong>Bot</strong> section and create a bot</li>
+                  <li>
+                    Go to the <strong>Bot</strong> section and create a bot
+                  </li>
                   <li>
                     Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway Intents
                   </li>
@@ -1233,9 +1233,7 @@ export function ChatIntegrationsSetup({
                   }
                   disabled={saveDiscordToken.isPending || !discordBotToken.trim()}
                 >
-                  {saveDiscordToken.isPending && (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  )}
+                  {saveDiscordToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Save Discord Token
                 </Button>
                 {integration?.discordBotTokenSet && (
@@ -1309,7 +1307,8 @@ export function ChatIntegrationsSetup({
             Agent Personality
           </CardTitle>
           <CardDescription>
-            Give your agent a unique personality. Upload a soul.md file, paste markdown, or generate one with AI.
+            Give your agent a unique personality. Upload a soul.md file, paste markdown, or generate
+            one with AI.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1352,9 +1351,7 @@ export function ChatIntegrationsSetup({
                   );
                 }}
               >
-                {saveSoulMd.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
+                {saveSoulMd.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Save Personality
               </Button>
             </TabsContent>
@@ -1452,7 +1449,9 @@ export function ChatIntegrationsSetup({
                 </div>
                 <Button
                   size="sm"
-                  disabled={!soulGenName.trim() || !soulGenDescription.trim() || generateSoulMd.isPending}
+                  disabled={
+                    !soulGenName.trim() || !soulGenDescription.trim() || generateSoulMd.isPending
+                  }
                   onClick={() => {
                     generateSoulMd.mutate(
                       {
@@ -1485,7 +1484,9 @@ export function ChatIntegrationsSetup({
           {/* Preview */}
           {soulPreview && (
             <div className="mt-4 border rounded-lg p-4 bg-muted/30">
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Current Personality Preview</h4>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                Current Personality Preview
+              </h4>
               <pre className="text-xs whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
                 {soulPreview}
               </pre>
@@ -1519,16 +1520,14 @@ export function ChatIntegrationsSetup({
             Skill Access
           </CardTitle>
           <CardDescription>
-            Choose which custom skills this agent can use. Skills extend the agent&apos;s capabilities with your knowledge and instructions.
+            Choose which custom skills this agent can use. Skills extend the agent&apos;s
+            capabilities with your knowledge and instructions.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Skill scope</Label>
-            <Select
-              value={skillScopeDraft}
-              onValueChange={handleSkillScopeDraftChange}
-            >
+            <Select value={skillScopeDraft} onValueChange={handleSkillScopeDraftChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select skill scope" />
               </SelectTrigger>
@@ -1539,8 +1538,7 @@ export function ChatIntegrationsSetup({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {skillScopeDraft === "ALL_SKILLS" &&
-                "Agent has access to all your custom skills."}
+              {skillScopeDraft === "ALL_SKILLS" && "Agent has access to all your custom skills."}
               {skillScopeDraft === "SELECTED_SKILLS" &&
                 "Agent can only use the skills you select below."}
               {skillScopeDraft === "NO_SKILLS" &&
@@ -1575,9 +1573,7 @@ export function ChatIntegrationsSetup({
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={(e) =>
-                              handleSkillDraftToggle(skill.id, e.target.checked)
-                            }
+                            onChange={(e) => handleSkillDraftToggle(skill.id, e.target.checked)}
                             className="rounded"
                           />
                           <span className="font-medium">{skill.name}</span>

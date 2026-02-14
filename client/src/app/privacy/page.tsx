@@ -98,8 +98,8 @@ export default function PrivacyPage() {
           encrypted. Your chat conversations with the AI (workflow planning and assistant messages)
           are encrypted at rest using strong encryption (AES-256-GCM) where enabled, so that stored
           conversation content is protected against unauthorized access and privacy leaks.
-          Communication with our servers uses TLS in transit. We retain data as long as your
-          account is active or as needed for legal and operational purposes.
+          Communication with our servers uses TLS in transit. We retain data as long as your account
+          is active or as needed for legal and operational purposes.
         </p>
       </section>
 
