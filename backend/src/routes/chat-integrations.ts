@@ -1334,22 +1334,27 @@ chatIntegrationRouter.post(
 
       // In group chats, only respond when the bot is mentioned or the message is a reply to the bot
       if (isGroupChat) {
-        const botUsername = resolvedIntegration.telegramBotUsername || "";
-        const botId = resolvedIntegration.telegramBotId || "";
+        const botInfo = await chatIntegrationService.ensureTelegramBotInfo(resolvedIntegration);
+        const botUsername = botInfo?.telegramBotUsername ?? resolvedIntegration.telegramBotUsername ?? "";
+        const botId = botInfo?.telegramBotId ?? resolvedIntegration.telegramBotId ?? "";
         const entities = message.entities || [];
         const replyTo = message.reply_to_message;
 
-        const mentionedInEntities = entities.some(
-          (e: any) =>
-            e.type === "mention" &&
-            botUsername &&
-            text.substring(e.offset, e.offset + e.length).toLowerCase() ===
-              `@${botUsername.toLowerCase()}`
-        );
+        // Telegram can send @mentions as "mention" or "text_link" (url: https://t.me/BotUsername)
+        const mentionedInEntities = entities.some((e: any) => {
+          const substring = text.substring(e.offset || 0, (e.offset || 0) + (e.length || 0)).toLowerCase();
+          if (e.type === "mention" && botUsername) {
+            return substring === `@${botUsername.toLowerCase()}`;
+          }
+          if (e.type === "text_link" && botUsername && e.url) {
+            const tmeMatch = e.url.match(/^https?:\/\/t\.me\/([^/?]+)/i);
+            return tmeMatch && tmeMatch[1].toLowerCase() === botUsername.toLowerCase();
+          }
+          return false;
+        });
         const isReplyToBot = replyTo?.from?.id?.toString() === botId && botId !== "";
 
         if (!mentionedInEntities && !isReplyToBot) {
-          // Not addressed to the bot — silently ignore
           return res.status(200).json({ success: true });
         }
 
@@ -1446,11 +1451,8 @@ chatIntegrationRouter.post(
         },
       };
 
-      // Prefix for group replies so it's clear who the reply is for (formatTelegramMessage converts ** to <b>)
-      const groupPrefix =
-        isGroupChat && senderName ? `**${senderName}:** ` : "";
-
       // Process in background and send formatted result when done
+      // No username prefix needed — reply_to_message_id already links the reply to the original message
       void (async () => {
         try {
           const result = await chatIntegrationService.processMessage(
@@ -1459,9 +1461,8 @@ chatIntegrationRouter.post(
             chatIntegrationMessage
           );
           const replyText = result.message?.trim() || "";
-          const withPrefix = replyText ? groupPrefix + replyText : "";
-          const textToSend = withPrefix
-            ? chatIntegrationService.formatTelegramMessage(withPrefix)
+          const textToSend = replyText
+            ? chatIntegrationService.formatTelegramMessage(replyText)
             : "Done.";
           await fetch(
             `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,

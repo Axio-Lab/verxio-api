@@ -339,6 +339,41 @@ export async function saveTelegramBotToken(
 }
 
 /**
+ * Ensure telegramBotUsername and telegramBotId are set. If missing, fetch via getMe and update.
+ * Returns { telegramBotUsername, telegramBotId } or null if token is missing.
+ */
+export async function ensureTelegramBotInfo(integration: {
+  id: string;
+  telegramBotToken: string | null;
+  telegramBotUsername?: string | null;
+  telegramBotId?: string | null;
+}): Promise<{ telegramBotUsername: string; telegramBotId: string } | null> {
+  if (!integration.telegramBotToken) return null;
+  if (integration.telegramBotUsername && integration.telegramBotId) {
+    return {
+      telegramBotUsername: integration.telegramBotUsername,
+      telegramBotId: integration.telegramBotId,
+    };
+  }
+  try {
+    const meRes = await fetch(`https://api.telegram.org/bot${integration.telegramBotToken}/getMe`);
+    const meJson = await meRes.json();
+    if (!meJson.ok || !meJson.result) return null;
+    const username = meJson.result.username;
+    const id = meJson.result.id?.toString();
+    if (!username || !id) return null;
+    await (prisma as any).chatIntegration.update({
+      where: { id: integration.id },
+      data: { telegramBotUsername: username, telegramBotId: id },
+    });
+    return { telegramBotUsername: username, telegramBotId: id };
+  } catch (err) {
+    console.warn("[Telegram] ensureTelegramBotInfo getMe failed:", err);
+    return null;
+  }
+}
+
+/**
  * Refresh Telegram webhook using stored bot token.
  */
 export async function refreshTelegramWebhook(userId: string, integrationId: string) {
