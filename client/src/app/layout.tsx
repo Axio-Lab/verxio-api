@@ -20,9 +20,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Verxio: AI workflow automation copilot for businesses",
+  title: "Verxio — AI coworker platform for every team",
   description:
-    "Verxio is an AI-powered assistant that helps you design, run, and manage automated workflows alongside you",
+    "Verxio is an AI platform that turns any chat channel into an automation hub. It helps you design, run, and manage workflows.",
 };
 
 export default function RootLayout({
