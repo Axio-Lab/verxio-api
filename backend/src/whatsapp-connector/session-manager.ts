@@ -274,26 +274,50 @@ export function stopSession(sessionId: string): void {
   }
 }
 
+function buildQuotedMessage(
+  quotedKey: { remoteJid: string; id: string; fromMe?: boolean; participant?: string }
+): WAMessage {
+  const jid = formatJid(quotedKey.remoteJid);
+  const key: WAMessage["key"] = {
+    remoteJid: jid,
+    id: quotedKey.id,
+    fromMe: quotedKey.fromMe ?? false,
+    participant: quotedKey.participant ? formatJid(quotedKey.participant) : undefined,
+  };
+  return {
+    key,
+    message: { conversation: "" },
+  } as WAMessage;
+}
+
 export async function sendMessage(
   sessionRef: string,
   toJid: string,
   text: string,
-  options?: { media?: { url: string; mimetype?: string; caption?: string } }
+  options?: {
+    media?: { url: string; mimetype?: string; caption?: string };
+    quotedKey?: { remoteJid: string; id: string; fromMe?: boolean; participant?: string };
+  }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const info = resolveSession(sessionRef);
   if (!info) {
     return { success: false, error: `Session not found: ${sessionRef}` };
   }
   const jid = formatJid(toJid);
+  const quoted = options?.quotedKey ? buildQuotedMessage(options.quotedKey) : undefined;
   try {
     if (options?.media?.url) {
-      const sent = await info.socket.sendMessage(jid, {
-        image: { url: options.media.url },
-        caption: options.media.caption || text,
-      });
+      const sent = await info.socket.sendMessage(
+        jid,
+        {
+          image: { url: options.media.url },
+          caption: options.media.caption || text,
+        },
+        quoted ? { quoted } : undefined
+      );
       return { success: true, messageId: sent?.key?.id ?? undefined };
     }
-    const sent = await info.socket.sendMessage(jid, { text });
+    const sent = await info.socket.sendMessage(jid, { text }, quoted ? { quoted } : undefined);
     return { success: true, messageId: sent?.key?.id ?? undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

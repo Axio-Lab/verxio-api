@@ -9,6 +9,8 @@ export interface SendDiscordParams {
   channelId: string;
   text: string;
   threadId?: string;
+  /** When set, the reply is attached to this message (Discord reply). */
+  replyToMessageId?: string;
 }
 
 export interface SendDiscordResult {

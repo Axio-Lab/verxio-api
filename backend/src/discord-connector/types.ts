@@ -18,6 +18,8 @@ export interface SendDiscordRequest {
   channelId: string;
   text: string;
   threadId?: string;
+  /** When set, the reply is attached to this message (Discord reply). */
+  replyToMessageId?: string;
 }
 
 export interface SendDiscordResponse {

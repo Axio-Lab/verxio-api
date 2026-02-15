@@ -39,7 +39,8 @@ export function createConnectorServer(onIncoming: OnIncomingCallback) {
     const result = await sendMessage(
       body.integrationId,
       body.threadId || body.channelId,
-      body.text
+      body.text,
+      body.replyToMessageId
     );
     return res.json(result);
   });

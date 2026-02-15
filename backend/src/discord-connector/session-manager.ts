@@ -126,7 +126,8 @@ export async function stopSession(integrationId: string): Promise<void> {
 export async function sendMessage(
   integrationId: string,
   channelId: string,
-  text: string
+  text: string,
+  replyToMessageId?: string
 ): Promise<SendDiscordResponse> {
   const info = sessions.get(integrationId);
   if (!info) {
@@ -141,7 +142,13 @@ export async function sendMessage(
     if (!("send" in channel)) {
       return { success: false, error: `Channel ${channelId} is not a text channel` };
     }
-    const sent = await (channel as TextChannel | ThreadChannel).send(text);
+    const options: { content: string; reply?: { messageReference: string } } = {
+      content: text,
+    };
+    if (replyToMessageId) {
+      options.reply = { messageReference: replyToMessageId };
+    }
+    const sent = await (channel as TextChannel | ThreadChannel).send(options);
     return { success: true, messageId: sent.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

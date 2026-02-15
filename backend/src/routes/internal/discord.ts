@@ -114,8 +114,16 @@ router.post("/incoming", async (req: Request, res: Response) => {
       channelId,
       guildId,
       threadId,
+      messageId: body.messageId,
     },
   };
+
+  // Reply-to: attach reply to original message (Discord message reference)
+  const replyToMessageId = body.messageId;
+
+  // Prefix for server channels so it's clear who the reply is for (Discord @mention)
+  const isServerChannel = !!guildId;
+  const groupPrefix = isServerChannel && authorId ? `<@${authorId}> ` : "";
 
   // Process in background and send reply via Discord connector
   const replyChannelId = threadId || channelId;
@@ -128,13 +136,15 @@ router.post("/incoming", async (req: Request, res: Response) => {
       );
       const replyText = result.message?.trim() || "";
       if (replyText) {
-        const formatted = chatIntegrationService.formatDiscordMessage(replyText);
+        const withPrefix = groupPrefix + replyText;
+        const formatted = chatIntegrationService.formatDiscordMessage(withPrefix);
         const chunks = chatIntegrationService.splitDiscordMessage(formatted);
-        for (const chunk of chunks) {
+        for (let i = 0; i < chunks.length; i++) {
           await sendDiscordMessage({
             integrationId,
             channelId: replyChannelId,
-            text: chunk,
+            text: chunks[i],
+            replyToMessageId: i === 0 ? replyToMessageId : undefined,
           });
         }
       }

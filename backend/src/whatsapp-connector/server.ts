@@ -37,7 +37,10 @@ export function createConnectorServer(onIncoming: OnIncomingCallback) {
       body.sessionRef,
       body.toJid,
       body.text,
-      body.media ? { media: body.media } : undefined
+      {
+        ...(body.media ? { media: body.media } : {}),
+        ...(body.quotedKey ? { quotedKey: body.quotedKey } : {}),
+      }
     );
     return res.json(result);
   });

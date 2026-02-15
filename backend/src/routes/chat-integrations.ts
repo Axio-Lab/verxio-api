@@ -1212,6 +1212,7 @@ chatIntegrationRouter.post(
         );
       } catch (_) {}
 
+      const isChannel = event.channel_type !== "im";
       const chatIntegrationMessage = {
         platform: "SLACK" as const,
         externalId: senderId,
@@ -1223,6 +1224,9 @@ chatIntegrationRouter.post(
         },
       };
 
+      // Prefix for channel replies so it's clear who the reply is for (Slack @mention)
+      const groupPrefix = isChannel && senderId ? `<@${senderId}> ` : "";
+
       // Process in background and send reply when done
       void (async () => {
         try {
@@ -1232,8 +1236,9 @@ chatIntegrationRouter.post(
             chatIntegrationMessage
           );
           const replyText = result.message?.trim() || "";
-          const textToSend = replyText
-            ? chatIntegrationService.formatSlackMessage(replyText)
+          const withPrefix = replyText ? groupPrefix + replyText : "";
+          const textToSend = withPrefix
+            ? chatIntegrationService.formatSlackMessage(withPrefix)
             : "Done.";
           await chatIntegrationService.sendSlackMessage(
             resolvedIntegration.slackBotToken!,
@@ -1441,6 +1446,10 @@ chatIntegrationRouter.post(
         },
       };
 
+      // Prefix for group replies so it's clear who the reply is for (formatTelegramMessage converts ** to <b>)
+      const groupPrefix =
+        isGroupChat && senderName ? `**${senderName}:** ` : "";
+
       // Process in background and send formatted result when done
       void (async () => {
         try {
@@ -1450,8 +1459,9 @@ chatIntegrationRouter.post(
             chatIntegrationMessage
           );
           const replyText = result.message?.trim() || "";
-          const textToSend = replyText
-            ? chatIntegrationService.formatTelegramMessage(replyText)
+          const withPrefix = replyText ? groupPrefix + replyText : "";
+          const textToSend = withPrefix
+            ? chatIntegrationService.formatTelegramMessage(withPrefix)
             : "Done.";
           await fetch(
             `https://api.telegram.org/bot${resolvedIntegration.telegramBotToken}/sendMessage`,

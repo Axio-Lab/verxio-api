@@ -143,6 +143,21 @@ router.post("/incoming", async (req: Request, res: Response) => {
       metadata: { chatId: replyToJid, whatsappPayload: payload, isGroup, groupJid },
     };
 
+    // Build quoted key for reply-to (Baileys quoted)
+    const quotedKey =
+      payload.messageId && replyToJid
+        ? {
+            remoteJid: replyToJid,
+            id: payload.messageId,
+            fromMe: false as const,
+            participant: isGroup && payload.participant ? payload.participant : undefined,
+          }
+        : undefined;
+
+    // Prefix for group replies so it's clear who the reply is for
+    const groupPrefix =
+      isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
+
     // Process in background and send formatted result when done
     void (async () => {
       try {
@@ -153,11 +168,13 @@ router.post("/incoming", async (req: Request, res: Response) => {
         );
         const replyText = result.message || "";
         if (replyText) {
-          const formatted = chatIntegrationService.formatWhatsAppMessage(replyText);
+          const withPrefix = groupPrefix + replyText;
+          const formatted = chatIntegrationService.formatWhatsAppMessage(withPrefix);
           const sendResult = await sendWhatsAppMessage({
             sessionRef: integrationId,
             toJid: replyToJid,
             text: formatted,
+            quotedKey,
           });
           if (!sendResult.success) {
             console.error("[WhatsApp incoming] send reply failed:", sendResult.error);

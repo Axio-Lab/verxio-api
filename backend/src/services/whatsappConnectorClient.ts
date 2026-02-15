@@ -4,11 +4,19 @@
 
 const CONNECTOR_URL = process.env.WHATSAPP_CONNECTOR_URL || "http://localhost:3099";
 
+export interface QuotedMessageKey {
+  remoteJid: string;
+  id: string;
+  fromMe?: boolean;
+  participant?: string;
+}
+
 export interface SendWhatsAppParams {
   sessionRef: string;
   toJid: string;
   text: string;
   media?: { url: string; mimetype?: string; caption?: string };
+  quotedKey?: QuotedMessageKey;
 }
 
 export interface SendWhatsAppResult {
@@ -26,6 +34,7 @@ export async function sendWhatsAppMessage(params: SendWhatsAppParams): Promise<S
       toJid: params.toJid,
       text: params.text,
       media: params.media,
+      quotedKey: params.quotedKey,
     }),
   });
   const data = await res.json().catch(() => ({}));

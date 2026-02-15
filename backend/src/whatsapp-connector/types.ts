@@ -32,11 +32,21 @@ export interface IncomingWhatsAppEvent {
   botJid?: string; // The connected account's own JID (for group mention detection)
 }
 
+/** Key of the message to quote (for Baileys reply-to). */
+export interface QuotedMessageKey {
+  remoteJid: string;
+  id: string;
+  fromMe?: boolean;
+  participant?: string; // For group messages, the sender JID
+}
+
 export interface SendWhatsAppRequest {
   sessionRef: string; // sessionId | integrationId | credentialId
   toJid: string;
   text: string;
   media?: { url: string; mimetype?: string; caption?: string };
+  /** When set, the reply is attached to this message (Baileys quoted). */
+  quotedKey?: QuotedMessageKey;
 }
 
 export interface SendWhatsAppResponse {
