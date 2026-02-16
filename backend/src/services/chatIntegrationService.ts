@@ -900,7 +900,8 @@ export async function saveDiscordBotToken(
   }
 
   const updateData: Record<string, unknown> = {
-    discordClientId: clientId !== undefined ? (clientId?.trim() || null) : integration.discordClientId,
+    discordClientId:
+      clientId !== undefined ? clientId?.trim() || null : integration.discordClientId,
   };
   if (botToken?.trim()) {
     updateData.discordBotToken = botToken.trim();
@@ -917,7 +918,10 @@ export async function saveDiscordBotToken(
       const { connectDiscordBot } = await import("./discordConnectorClient");
       await connectDiscordBot(integrationId, botToken.trim());
     } catch (err) {
-      console.warn("[ChatIntegration] Discord connector connect failed (connector may not be running):", err);
+      console.warn(
+        "[ChatIntegration] Discord connector connect failed (connector may not be running):",
+        err
+      );
     }
   }
 

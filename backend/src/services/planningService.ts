@@ -148,10 +148,7 @@ export const sendPlanningMessage = async (options: {
   }
 
   // Get or create plan (scoped by chatIntegrationId when from chat integration)
-  const plan = await getOrCreateWorkflowPlan(
-    options.workflowId,
-    options.chatIntegrationId
-  );
+  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
   const conversationHistory = plan.conversationHistory;
 
   // Get learning context for personalized suggestions
@@ -263,10 +260,7 @@ export async function* sendPlanningMessageStreaming(options: {
   }
 
   // Get or create plan (scoped by chatIntegrationId when from chat integration)
-  const plan = await getOrCreateWorkflowPlan(
-    options.workflowId,
-    options.chatIntegrationId
-  );
+  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
   const conversationHistory = plan.conversationHistory;
 
   // Get learning context for personalized suggestions

@@ -28,9 +28,7 @@ const sessions = new Map<string, SessionInfo>();
 /**
  * Query active Discord integrations that have a bot token, for auto-reconnect on startup.
  */
-export async function getBotsToReconnect(): Promise<
-  { id: string; discordBotToken: string }[]
-> {
+export async function getBotsToReconnect(): Promise<{ id: string; discordBotToken: string }[]> {
   const list = await (prisma as any).chatIntegration.findMany({
     where: {
       platform: "DISCORD",

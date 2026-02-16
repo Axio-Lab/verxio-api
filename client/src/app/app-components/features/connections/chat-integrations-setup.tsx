@@ -865,7 +865,10 @@ export function ChatIntegrationsSetup({
                 <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
                   <p className="font-medium">Verified</p>
                   <p className="text-muted-foreground">
-                    Bot: <code className="text-xs bg-muted px-1 rounded">@{integration.telegramBotUsername}</code>
+                    Bot:{" "}
+                    <code className="text-xs bg-muted px-1 rounded">
+                      @{integration.telegramBotUsername}
+                    </code>
                   </p>
                 </div>
               )}
@@ -878,7 +881,10 @@ export function ChatIntegrationsSetup({
                   onChange={(e) => setBotToken(e.target.value)}
                 />
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button onClick={handleSaveBotToken} disabled={saveTelegramToken.isPending || !botToken.trim()}>
+                  <Button
+                    onClick={handleSaveBotToken}
+                    disabled={saveTelegramToken.isPending || !botToken.trim()}
+                  >
                     {saveTelegramToken.isPending && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
@@ -1098,7 +1104,10 @@ export function ChatIntegrationsSetup({
                   <p className="font-medium">Verified</p>
                   {integration?.slackTeamId && (
                     <p className="text-muted-foreground">
-                      Team ID: <code className="text-xs bg-muted px-1 rounded">{integration.slackTeamId}</code>
+                      Team ID:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">
+                        {integration.slackTeamId}
+                      </code>
                     </p>
                   )}
                 </div>
@@ -1126,16 +1135,22 @@ export function ChatIntegrationsSetup({
                 </div>
               )}
               <div className="space-y-2">
-                <Label>Bot User OAuth Token {integration?.slackBotTokenSet && "(enter new to update)"}</Label>
+                <Label>
+                  Bot User OAuth Token {integration?.slackBotTokenSet && "(enter new to update)"}
+                </Label>
                 <Input
                   type="password"
-                  placeholder={integration?.slackBotTokenSet ? "Enter new token to update" : "xoxb-..."}
+                  placeholder={
+                    integration?.slackBotTokenSet ? "Enter new token to update" : "xoxb-..."
+                  }
                   value={slackBotToken}
                   onChange={(e) => setSlackBotToken(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Signing Secret {integration?.slackBotTokenSet && "(enter new to update)"}</Label>
+                <Label>
+                  Signing Secret {integration?.slackBotTokenSet && "(enter new to update)"}
+                </Label>
                 <Input
                   type="password"
                   placeholder="Signing secret from Basic Information"
@@ -1156,7 +1171,9 @@ export function ChatIntegrationsSetup({
                   }
                 >
                   {saveSlackToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {integration?.slackBotTokenSet ? "Update Slack Credentials" : "Save Slack Credentials"}
+                  {integration?.slackBotTokenSet
+                    ? "Update Slack Credentials"
+                    : "Save Slack Credentials"}
                 </Button>
                 {integration?.slackBotTokenSet && (
                   <Badge variant="outline" className="flex items-center gap-1">
@@ -1241,7 +1258,8 @@ export function ChatIntegrationsSetup({
                       Go to the <strong>Bot</strong> section and create a bot
                     </li>
                     <li>
-                      Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway Intents
+                      Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway
+                      Intents
                     </li>
                     <li>Copy the bot token and paste it below</li>
                     <li>Copy the Application ID (Client ID) for the invite link</li>
@@ -1259,16 +1277,23 @@ export function ChatIntegrationsSetup({
                   )} */}
                   {integration?.discordClientId && (
                     <p className="text-muted-foreground">
-                      Application ID: <code className="text-xs bg-muted px-1 rounded">{integration.discordClientId}</code>
+                      Application ID:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">
+                        {integration.discordClientId}
+                      </code>
                     </p>
                   )}
                 </div>
               )}
               <div className="space-y-2">
-                <Label>Bot Token {integration?.discordBotTokenSet && "(leave blank to keep current)"}</Label>
+                <Label>
+                  Bot Token {integration?.discordBotTokenSet && "(leave blank to keep current)"}
+                </Label>
                 <Input
                   type="password"
-                  placeholder={integration?.discordBotTokenSet ? "••••••••••••••••" : "Discord bot token"}
+                  placeholder={
+                    integration?.discordBotTokenSet ? "••••••••••••••••" : "Discord bot token"
+                  }
                   value={discordBotToken}
                   onChange={(e) => setDiscordBotToken(e.target.value)}
                 />
