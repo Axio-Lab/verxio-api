@@ -1341,190 +1341,190 @@ export function ChatIntegrationsSetup({
               ) : (
                 <>
                   <FileText className="h-3.5 w-3.5" />
-                  {integration?.hasSoulMd || soulPreview
-                    ? "Update personality"
-                    : "Set personality"}
+                  {integration?.hasSoulMd || soulPreview ? "Update personality" : "Set personality"}
                 </>
               )}
             </Button>
             {soulUpdateExpanded && (
-            <Tabs value={soulTab} onValueChange={setSoulTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="paste" className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" />
-                  Paste
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="flex items-center gap-1.5">
-                  <Upload className="h-3.5 w-3.5" />
-                  Upload
-                </TabsTrigger>
-                <TabsTrigger value="generate" className="flex items-center gap-1.5">
-                  <Wand2 className="h-3.5 w-3.5" />
-                  Generate
-                </TabsTrigger>
-              </TabsList>
+              <Tabs value={soulTab} onValueChange={setSoulTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="paste" className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    Paste
+                  </TabsTrigger>
+                  <TabsTrigger value="upload" className="flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload
+                  </TabsTrigger>
+                  <TabsTrigger value="generate" className="flex items-center gap-1.5">
+                    <Wand2 className="h-3.5 w-3.5" />
+                    Generate
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Paste Tab — pre-filled with existing personality, editable, Save */}
-              <TabsContent value="paste" className="space-y-3 mt-3">
-                <Textarea
-                  placeholder={`## Core Truths\n- I believe in being helpful and direct\n- ...\n\n## Boundaries\n- I never share private data\n- ...\n\n## The Vibe\nI'm friendly, concise, and a little witty...`}
-                  value={soulPasteContent}
-                  onChange={(e) => setSoulPasteContent(e.target.value)}
-                  rows={10}
-                  className="font-mono text-xs"
-                />
-                <Button
-                  size="sm"
-                  disabled={!soulPasteContent.trim() || saveSoulMd.isPending}
-                  onClick={() => {
-                    saveSoulMd.mutate(
-                      { soulMd: soulPasteContent },
-                      {
-                        onSuccess: () => {
-                          setSoulPreview(soulPasteContent);
-                        },
-                      }
-                    );
-                  }}
-                >
-                  {saveSoulMd.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Save Personality
-                </Button>
-              </TabsContent>
-
-              {/* Upload Tab */}
-              <TabsContent value="upload" className="space-y-3 mt-3">
-                <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Upload a <code>.md</code> file with your agent&apos;s personality
-                  </p>
-                  <Input
-                    type="file"
-                    accept=".md,.txt,.markdown"
-                    className="max-w-xs mx-auto"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const text = await file.text();
-                      setSoulPasteContent(text);
-                      saveSoulMd.mutate(
-                        { soulMd: text },
-                        {
-                          onSuccess: () => {
-                            setSoulPreview(text);
-                            toast.success("Personality file uploaded and saved");
-                          },
-                        }
-                      );
-                    }}
+                {/* Paste Tab — pre-filled with existing personality, editable, Save */}
+                <TabsContent value="paste" className="space-y-3 mt-3">
+                  <Textarea
+                    placeholder={`## Core Truths\n- I believe in being helpful and direct\n- ...\n\n## Boundaries\n- I never share private data\n- ...\n\n## The Vibe\nI'm friendly, concise, and a little witty...`}
+                    value={soulPasteContent}
+                    onChange={(e) => setSoulPasteContent(e.target.value)}
+                    rows={10}
+                    className="font-mono text-xs"
                   />
-                </div>
-              </TabsContent>
-
-              {/* Generate Tab */}
-              <TabsContent value="generate" className="space-y-3 mt-3">
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs font-medium">Agent Name</Label>
-                    <Input
-                      placeholder="e.g., Distro"
-                      value={soulGenName}
-                      onChange={(e) => setSoulGenName(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Description</Label>
-                    <Textarea
-                      placeholder="What does this agent do? e.g., Helps users manage their workflow automations and schedules..."
-                      value={soulGenDescription}
-                      onChange={(e) => setSoulGenDescription(e.target.value)}
-                      rows={3}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Tone</Label>
-                    <Select value={soulGenTone} onValueChange={setSoulGenTone}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="professional">Professional</SelectItem>
-                        <SelectItem value="friendly">Friendly</SelectItem>
-                        <SelectItem value="witty">Witty</SelectItem>
-                        <SelectItem value="sarcastic">Sarcastic</SelectItem>
-                        <SelectItem value="formal">Formal</SelectItem>
-                        <SelectItem value="creative">Creative</SelectItem>
-                        <SelectItem value="empathetic">Empathetic</SelectItem>
-                        <SelectItem value="concise">Concise</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Core Truths (optional)</Label>
-                    <Textarea
-                      placeholder="What does your agent believe in? Its values and principles..."
-                      value={soulGenCoreTruths}
-                      onChange={(e) => setSoulGenCoreTruths(e.target.value)}
-                      rows={2}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium">Boundaries (optional)</Label>
-                    <Textarea
-                      placeholder="Hard limits — things the agent should never do..."
-                      value={soulGenBoundaries}
-                      onChange={(e) => setSoulGenBoundaries(e.target.value)}
-                      rows={2}
-                      className="mt-1"
-                    />
-                  </div>
                   <Button
                     size="sm"
-                    disabled={
-                      !soulGenName.trim() ||
-                      !soulGenDescription.trim() ||
-                      generateSoulMd.isPending
-                    }
+                    disabled={!soulPasteContent.trim() || saveSoulMd.isPending}
                     onClick={() => {
-                      generateSoulMd.mutate(
+                      saveSoulMd.mutate(
+                        { soulMd: soulPasteContent },
                         {
-                          name: soulGenName,
-                          description: soulGenDescription,
-                          tone: soulGenTone,
-                          coreTruths: soulGenCoreTruths || undefined,
-                          boundaries: soulGenBoundaries || undefined,
-                        },
-                        {
-                          onSuccess: (result) => {
-                            setSoulPreview(result.soulMd);
-                            setSoulPasteContent(result.soulMd);
-                            saveSoulMd.mutate({ soulMd: result.soulMd });
-                            // Clear generation fields after AI generates
-                            setSoulGenName("");
-                            setSoulGenDescription("");
-                            setSoulGenTone("friendly");
-                            setSoulGenCoreTruths("");
-                            setSoulGenBoundaries("");
-                            setSoulTab("paste");
+                          onSuccess: () => {
+                            setSoulPreview(soulPasteContent);
                           },
                         }
                       );
                     }}
                   >
-                    {generateSoulMd.isPending ? (
+                    {saveSoulMd.isPending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Wand2 className="h-4 w-4 mr-2" />
-                    )}
-                    Generate Personality (20 credits)
+                    ) : null}
+                    Save Personality
                   </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+
+                {/* Upload Tab */}
+                <TabsContent value="upload" className="space-y-3 mt-3">
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Upload a <code>.md</code> file with your agent&apos;s personality
+                    </p>
+                    <Input
+                      type="file"
+                      accept=".md,.txt,.markdown"
+                      className="max-w-xs mx-auto"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const text = await file.text();
+                        setSoulPasteContent(text);
+                        saveSoulMd.mutate(
+                          { soulMd: text },
+                          {
+                            onSuccess: () => {
+                              setSoulPreview(text);
+                              toast.success("Personality file uploaded and saved");
+                            },
+                          }
+                        );
+                      }}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Generate Tab */}
+                <TabsContent value="generate" className="space-y-3 mt-3">
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs font-medium">Agent Name</Label>
+                      <Input
+                        placeholder="e.g., Distro"
+                        value={soulGenName}
+                        onChange={(e) => setSoulGenName(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Description</Label>
+                      <Textarea
+                        placeholder="What does this agent do? e.g., Helps users manage their workflow automations and schedules..."
+                        value={soulGenDescription}
+                        onChange={(e) => setSoulGenDescription(e.target.value)}
+                        rows={3}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Tone</Label>
+                      <Select value={soulGenTone} onValueChange={setSoulGenTone}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="friendly">Friendly</SelectItem>
+                          <SelectItem value="witty">Witty</SelectItem>
+                          <SelectItem value="sarcastic">Sarcastic</SelectItem>
+                          <SelectItem value="formal">Formal</SelectItem>
+                          <SelectItem value="creative">Creative</SelectItem>
+                          <SelectItem value="empathetic">Empathetic</SelectItem>
+                          <SelectItem value="concise">Concise</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Core Truths (optional)</Label>
+                      <Textarea
+                        placeholder="What does your agent believe in? Its values and principles..."
+                        value={soulGenCoreTruths}
+                        onChange={(e) => setSoulGenCoreTruths(e.target.value)}
+                        rows={2}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Boundaries (optional)</Label>
+                      <Textarea
+                        placeholder="Hard limits — things the agent should never do..."
+                        value={soulGenBoundaries}
+                        onChange={(e) => setSoulGenBoundaries(e.target.value)}
+                        rows={2}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={
+                        !soulGenName.trim() ||
+                        !soulGenDescription.trim() ||
+                        generateSoulMd.isPending
+                      }
+                      onClick={() => {
+                        generateSoulMd.mutate(
+                          {
+                            name: soulGenName,
+                            description: soulGenDescription,
+                            tone: soulGenTone,
+                            coreTruths: soulGenCoreTruths || undefined,
+                            boundaries: soulGenBoundaries || undefined,
+                          },
+                          {
+                            onSuccess: (result) => {
+                              setSoulPreview(result.soulMd);
+                              setSoulPasteContent(result.soulMd);
+                              saveSoulMd.mutate({ soulMd: result.soulMd });
+                              // Clear generation fields after AI generates
+                              setSoulGenName("");
+                              setSoulGenDescription("");
+                              setSoulGenTone("friendly");
+                              setSoulGenCoreTruths("");
+                              setSoulGenBoundaries("");
+                              setSoulTab("paste");
+                            },
+                          }
+                        );
+                      }}
+                    >
+                      {generateSoulMd.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4 mr-2" />
+                      )}
+                      Generate Personality (20 credits)
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             )}
           </div>
 

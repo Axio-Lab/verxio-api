@@ -16,7 +16,13 @@ const STEPS = [
             {name[0]}
           </div>
         ))}
-        <svg className="w-5 h-5 text-primary mx-2" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <svg
+          className="w-5 h-5 text-primary mx-2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
         </svg>
         <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -35,7 +41,13 @@ const STEPS = [
         {["Personality configured", "3 workflows assigned", "5 custom skills added"].map((text) => (
           <div key={text} className="flex items-center gap-2 text-sm text-gray-600">
             <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg
+                className="w-3 h-3 text-primary"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>

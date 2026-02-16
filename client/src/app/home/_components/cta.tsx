@@ -10,7 +10,8 @@ export function CTA() {
           Ready to put AI to work?
         </h2>
         <p className="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
-          Create your first agent in minutes. Deploy to the channels your team already uses. Autonomously execute tasks and workflows.
+          Create your first agent in minutes. Deploy to the channels your team already uses.
+          Autonomously execute tasks and workflows.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link
@@ -18,7 +19,13 @@ export function CTA() {
             className="inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-primary rounded-lg hover:brightness-110 transition-all shadow-md shadow-primary/20"
           >
             Start building free
-            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg
+              className="ml-2 w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </Link>

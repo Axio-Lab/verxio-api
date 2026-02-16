@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 
 const SIMULATION_STEPS = [
-  { prompt: '> "Build me a marketing bot that handles social scheduling, email sequences, and analytics reporting"', delay: 0 },
+  {
+    prompt:
+      '> "Build me a marketing bot that handles social scheduling, email sequences, and analytics reporting"',
+    delay: 0,
+  },
   { label: "Creating agent", detail: "Marketing Bot", delay: 2200 },
   { label: "Adding skill", detail: "Social Media Scheduling", delay: 3400 },
   { label: "Adding skill", detail: "Email Sequence Builder", delay: 4400 },
@@ -14,7 +18,13 @@ const SIMULATION_STEPS = [
   { label: "Status", detail: "Agent live and ready", delay: 9000 },
 ];
 
-function TerminalLine({ step, visible }: { step: (typeof SIMULATION_STEPS)[number]; visible: boolean }) {
+function TerminalLine({
+  step,
+  visible,
+}: {
+  step: (typeof SIMULATION_STEPS)[number];
+  visible: boolean;
+}) {
   if (!visible) return null;
 
   if ("prompt" in step && step.prompt) {
@@ -81,7 +91,8 @@ export function Hero() {
             </h1>
 
             <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
-              Verxio lets you spin up AI agents in minutes. Connect them to Slack, Discord, Telegram, or WhatsApp. Add custom skills. Automate anything.
+              Verxio lets you spin up AI agents in minutes. Connect them to Slack, Discord,
+              Telegram, or WhatsApp. Add custom skills. Automate anything.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -90,7 +101,13 @@ export function Hero() {
                 className="inline-flex items-center px-7 py-3.5 text-sm font-semibold text-white bg-primary rounded-lg hover:brightness-110 transition-all shadow-md shadow-primary/20"
               >
                 Start building free
-                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg
+                  className="ml-2 w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </Link>
@@ -128,7 +145,10 @@ export function Hero() {
               </div>
 
               {/* Terminal body */}
-              <div ref={terminalRef} className="p-5 space-y-3 min-h-[320px] max-h-[380px] overflow-y-auto bg-gray-50/50">
+              <div
+                ref={terminalRef}
+                className="p-5 space-y-3 min-h-[320px] max-h-[380px] overflow-y-auto bg-gray-50/50"
+              >
                 {SIMULATION_STEPS.map((step, i) => (
                   <TerminalLine key={i} step={step} visible={i < visibleCount} />
                 ))}
@@ -145,7 +165,13 @@ export function Hero() {
                   <div className="mt-4 pt-4 border-t border-gray-200 animate-fadeSlideIn">
                     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/10">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <svg
+                          className="w-5 h-5 text-primary"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                        >
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
