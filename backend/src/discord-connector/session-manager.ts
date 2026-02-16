@@ -2,8 +2,18 @@
  * Discord Connector session manager.
  * Manages discord.js Client instances per integration.
  */
-import { Client, GatewayIntentBits, Events, Message, TextChannel, ThreadChannel } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Events,
+  Message,
+  TextChannel,
+  ThreadChannel,
+  DMChannel,
+} from "discord.js";
 import type { IncomingDiscordEvent, SendDiscordResponse } from "./types";
+import { prisma } from "../lib/prisma";
 
 export type OnIncomingCallback = (event: IncomingDiscordEvent) => Promise<void>;
 
@@ -14,6 +24,23 @@ interface SessionInfo {
 }
 
 const sessions = new Map<string, SessionInfo>();
+
+/**
+ * Query active Discord integrations that have a bot token, for auto-reconnect on startup.
+ */
+export async function getBotsToReconnect(): Promise<
+  { id: string; discordBotToken: string }[]
+> {
+  const list = await (prisma as any).chatIntegration.findMany({
+    where: {
+      platform: "DISCORD",
+      isActive: true,
+      discordBotToken: { not: null },
+    },
+    select: { id: true, discordBotToken: true },
+  });
+  return list.filter((r: any) => r.discordBotToken);
+}
 
 /**
  * Start a Discord bot session for an integration.
@@ -35,6 +62,7 @@ export async function startSession(
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.DirectMessages,
     ],
+    partials: [Partials.Channel, Partials.Message],
   });
 
   const readyPromise = new Promise<void>((resolve, reject) => {
@@ -68,9 +96,14 @@ export async function startSession(
 
     const isMentioned = message.mentions.has(client.user!);
     const isThread = message.channel.isThread();
+    const isDM = !message.guildId;
 
-    // Process if: bot is mentioned, OR message is inside a thread (conversation continuity)
-    if (!isMentioned && !isThread) return;
+    console.log(
+      `[Discord Connector] Message from ${message.author.username} | isDM=${isDM} isMentioned=${isMentioned} isThread=${isThread} channelType=${message.channel.type}`
+    );
+
+    // Process if: bot is mentioned, OR message is in a thread, OR it's a direct message
+    if (!isMentioned && !isThread && !isDM) return;
 
     // Strip bot mention from message content
     let content = message.content;
@@ -148,7 +181,7 @@ export async function sendMessage(
     if (replyToMessageId) {
       options.reply = { messageReference: replyToMessageId };
     }
-    const sent = await (channel as TextChannel | ThreadChannel).send(options);
+    const sent = await (channel as TextChannel | ThreadChannel | DMChannel).send(options);
     return { success: true, messageId: sent.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

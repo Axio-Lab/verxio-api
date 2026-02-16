@@ -864,8 +864,14 @@ export async function saveSlackBotToken(
 
 /**
  * Save Discord bot token.
+ * @param botToken - New token to save. If omitted and integration already has a token, only clientId is updated.
  */
-export async function saveDiscordBotToken(userId: string, integrationId: string, botToken: string) {
+export async function saveDiscordBotToken(
+  userId: string,
+  integrationId: string,
+  botToken?: string,
+  clientId?: string
+) {
   const integration = await getIntegration(userId, integrationId);
   if (!integration) {
     throw new Error("Chat Integration not found.");
@@ -874,23 +880,48 @@ export async function saveDiscordBotToken(userId: string, integrationId: string,
     throw new Error("Discord token can only be set for DISCORD integrations.");
   }
 
-  // Verify token by calling /users/@me
-  const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-    headers: { Authorization: `Bot ${botToken}` },
-  });
-  if (!meRes.ok) {
-    const text = await meRes.text();
-    throw new Error(`Discord token verification failed: ${text}`);
+  const effectiveToken = botToken?.trim() || integration.discordBotToken;
+  if (!effectiveToken) {
+    throw new Error("Discord bot token is required.");
   }
-  const meData = await meRes.json();
 
-  return (prisma as any).chatIntegration.update({
+  let meData: { id?: string } = {};
+  if (botToken?.trim()) {
+    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bot ${botToken.trim()}` },
+    });
+    if (!meRes.ok) {
+      const text = await meRes.text();
+      throw new Error(`Discord token verification failed: ${text}`);
+    }
+    meData = await meRes.json();
+  } else {
+    meData = { id: integration.discordBotUserId ?? undefined };
+  }
+
+  const updateData: Record<string, unknown> = {
+    discordClientId: clientId !== undefined ? (clientId?.trim() || null) : integration.discordClientId,
+  };
+  if (botToken?.trim()) {
+    updateData.discordBotToken = botToken.trim();
+    updateData.discordBotUserId = meData.id;
+  }
+
+  const updated = await (prisma as any).chatIntegration.update({
     where: { id: integration.id },
-    data: {
-      discordBotToken: botToken,
-      discordBotUserId: meData.id || undefined,
-    },
+    data: updateData,
   });
+
+  if (botToken?.trim()) {
+    try {
+      const { connectDiscordBot } = await import("./discordConnectorClient");
+      await connectDiscordBot(integrationId, botToken.trim());
+    } catch (err) {
+      console.warn("[ChatIntegration] Discord connector connect failed (connector may not be running):", err);
+    }
+  }
+
+  return updated;
 }
 
 /**
@@ -1419,7 +1450,7 @@ async function handleClearConversation(
       };
     }
 
-    await clearPlanningConversation(workflowId);
+    await clearPlanningConversation(workflowId, integration.id);
 
     return {
       success: true,
@@ -1494,11 +1525,12 @@ async function handlePlanMessage(
       allowedSkillIds: integration.allowedSkillIds || [],
     };
 
-    // Send message to planning service
+    // Send message to planning service (chatIntegrationId scopes conversation per integration)
     const result = await sendPlanningMessage({
       workflowId,
       userId,
       message: message.message,
+      chatIntegrationId: integration.id,
       attachments: attachments as any,
       agentPersonality,
     });
@@ -2304,11 +2336,12 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
       allowedSkillIds: integration.allowedSkillIds || [],
     };
 
-    // Stream from planning service
+    // Stream from planning service (chatIntegrationId scopes conversation per integration)
     for await (const event of sendPlanningMessageStreaming({
       workflowId,
       userId,
       message: message.message,
+      chatIntegrationId: integration.id,
       attachments: message.attachments as any,
       agentPersonality,
     })) {
@@ -2409,10 +2442,124 @@ export async function testConnection(
       };
     }
 
+    if (integration.platform === "SLACK") {
+      if (!integration.isActive) {
+        return {
+          success: false,
+          message: "Chat integration is disabled.",
+          integration,
+        };
+      }
+      if (!integration.slackBotToken) {
+        return {
+          success: false,
+          message: "Slack bot token is missing. Please save a bot token first.",
+          integration,
+        };
+      }
+      // Verify token via auth.test
+      const authRes = await fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${integration.slackBotToken}`,
+        },
+      });
+      const authData = await authRes.json();
+      if (!authData.ok) {
+        return {
+          success: false,
+          message: `Slack connection failed: ${authData.error || "Invalid token"}`,
+          integration,
+        };
+      }
+      let testMessageSent = false;
+      try {
+        const { identities } = await getExternalIdentities(userId, integrationId);
+        const slackIdentity = identities.find((i: any) => i.platform === "slack");
+        const channel = slackIdentity?.metadata?.channel as string | undefined;
+        if (channel && integration.slackBotToken) {
+          const result = await sendSlackMessage(
+            integration.slackBotToken,
+            channel,
+            "Connection test successful. Your Verxio integration is working."
+          );
+          testMessageSent = !!result?.ok;
+        }
+      } catch (sendErr) {
+        console.warn("[Chat Integration] Slack test message send failed:", sendErr);
+      }
+      return {
+        success: true,
+        message: testMessageSent
+          ? "A test message was sent to your Slack channel."
+          : "Slack connection verified. Add the bot to a channel and @mention it to receive a test message.",
+        integration: {
+          slackTeamId: integration.slackTeamId,
+          isActive: integration.isActive,
+        },
+      };
+    }
+
+    if (integration.platform === "DISCORD") {
+      if (!integration.isActive) {
+        return {
+          success: false,
+          message: "Chat integration is disabled.",
+          integration,
+        };
+      }
+      if (!integration.discordBotToken) {
+        return {
+          success: false,
+          message: "Discord bot token is missing. Please save a bot token first.",
+          integration,
+        };
+      }
+      const { getDiscordBotStatus } = await import("./discordConnectorClient");
+      const status = await getDiscordBotStatus(integrationId);
+      if (!status || status.status !== "connected") {
+        return {
+          success: true,
+          message:
+            "Discord connector is not connected. Ensure the Discord connector service is running and the bot token is saved.",
+          integration: {
+            isActive: integration.isActive,
+          },
+        };
+      }
+      let testMessageSent = false;
+      try {
+        const { identities } = await getExternalIdentities(userId, integrationId);
+        const discordIdentity = identities.find((i: any) => i.platform === "discord");
+        const channelId = discordIdentity?.metadata?.channelId as string | undefined;
+        if (channelId) {
+          const result = await sendDiscordViaConnector({
+            integrationId,
+            channelId,
+            text: "Connection test successful. Your Verxio integration is working.",
+          });
+          testMessageSent = result?.success ?? false;
+        }
+      } catch (sendErr) {
+        console.warn("[Chat Integration] Discord test message send failed:", sendErr);
+      }
+      return {
+        success: true,
+        message: testMessageSent
+          ? "A test message was sent to your Discord channel."
+          : "Discord bot is connected. Add the bot to a server and @mention it to receive a test message.",
+        integration: {
+          isActive: integration.isActive,
+          guildCount: status?.guildCount,
+        },
+      };
+    }
+
     if (integration.platform !== "TELEGRAM") {
       return {
         success: false,
-        message: "This integration is not Telegram-based.",
+        message: `Test connection is not supported for ${integration.platform}.`,
         integration,
       };
     }

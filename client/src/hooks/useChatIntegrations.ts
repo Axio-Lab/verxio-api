@@ -29,6 +29,7 @@ export interface ChatIntegration {
   lastUsedAt: Date | null;
   createdAt: Date;
   telegramBotTokenSet?: boolean;
+  telegramBotUsername?: string | null;
   whatsappSessionId?: string | null;
   /** When true (default), only the connected number can chat with the agent. When false, anyone who messages the number can chat (customer support). */
   whatsappOnlyOwnerCanChat?: boolean;
@@ -36,6 +37,7 @@ export interface ChatIntegration {
   slackTeamId?: string | null;
   discordBotTokenSet?: boolean;
   discordBotUserId?: string | null;
+  discordClientId?: string | null;
   // Agent personality (soul.md)
   hasSoulMd?: boolean;
   soulMd?: string | null;
@@ -155,6 +157,7 @@ export interface SaveDiscordTokenResult {
     id: string;
     discordBotTokenSet: boolean;
     discordBotUserId?: string;
+    discordClientId?: string;
     inviteUrl?: string;
   };
 }
@@ -495,7 +498,7 @@ export function useSaveDiscordBotToken(integrationId: string) {
   return useProtectedMutation<
     SaveDiscordTokenResult,
     Error,
-    { discordBotToken: string; discordClientId?: string }
+    { discordBotToken?: string; discordClientId?: string }
   >({
     mutationFn: (data) =>
       authenticatedPost<SaveDiscordTokenResult>(

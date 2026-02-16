@@ -72,12 +72,14 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          telegramBotUsername: integration.telegramBotUsername,
           whatsappSessionId: integration.whatsappSessionId,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
           slackBotTokenSet: !!integration.slackBotToken,
           slackTeamId: integration.slackTeamId,
           discordBotTokenSet: !!integration.discordBotToken,
           discordBotUserId: integration.discordBotUserId,
+          discordClientId: integration.discordClientId,
           // Agent personality
           hasSoulMd: !!integration.soulMd,
           soulMd: integration.soulMd || null,
@@ -484,18 +486,18 @@ chatIntegrationRouter.post(
       const { id } = req.params;
       const { discordBotToken, discordClientId } = req.body;
 
-      if (!discordBotToken || typeof discordBotToken !== "string") {
-        throw new AppError("Discord bot token is required", 400);
-      }
-
       const integration = await chatIntegrationService.saveDiscordBotToken(
         user.id,
         id,
-        discordBotToken.trim()
+        typeof discordBotToken === "string" && discordBotToken.trim()
+          ? discordBotToken.trim()
+          : undefined,
+        discordClientId?.trim() || undefined
       );
 
-      const inviteUrl = discordClientId
-        ? chatIntegrationService.getDiscordInviteUrl(discordClientId)
+      const effectiveClientId = integration.discordClientId || discordClientId?.trim();
+      const inviteUrl = effectiveClientId
+        ? chatIntegrationService.getDiscordInviteUrl(effectiveClientId)
         : undefined;
 
       res.json({
@@ -505,6 +507,7 @@ chatIntegrationRouter.post(
           id: integration.id,
           discordBotTokenSet: !!integration.discordBotToken,
           discordBotUserId: integration.discordBotUserId,
+          discordClientId: integration.discordClientId,
           inviteUrl,
         },
       });

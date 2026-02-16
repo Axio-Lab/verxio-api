@@ -5,6 +5,7 @@
  */
 import "dotenv/config";
 import { createConnectorServer } from "./server";
+import { getBotsToReconnect, startSession } from "./session-manager";
 import type { IncomingDiscordEvent } from "./types";
 
 process.on("uncaughtException", (err) => {
@@ -41,6 +42,22 @@ async function onIncoming(event: IncomingDiscordEvent): Promise<void> {
 
 async function main() {
   const app = createConnectorServer(onIncoming);
+
+  // Auto-reconnect active Discord bots from DB on startup
+  try {
+    const bots = await getBotsToReconnect();
+    console.log(`[Discord Connector] Found ${bots.length} active bot(s) to reconnect`);
+    for (const bot of bots) {
+      try {
+        await startSession(bot.id, bot.discordBotToken, onIncoming);
+        console.log(`[Discord Connector] Reconnected bot for integration ${bot.id}`);
+      } catch (err) {
+        console.error(`[Discord Connector] Failed to reconnect bot ${bot.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[Discord Connector] Failed to load bots for reconnect:", err);
+  }
 
   app.listen(PORT, () => {
     console.log(`[Discord Connector] HTTP server listening on port ${PORT}`);

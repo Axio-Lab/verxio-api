@@ -372,7 +372,7 @@ model Workflow {
 
   nodes            Node[]
   connections      Connection[]
-  plan             WorkflowPlan?
+  plans            WorkflowPlan[]  // One per workflow; scoped by chatIntegrationId for chat channels
   executionHistory ExecutionHistory[]
   templates        WorkflowTemplate[]
 
@@ -571,18 +571,20 @@ model WorkflowGeneration {
 }
 
 model WorkflowPlan {
-  id         String   @id @default(cuid())
-  workflowId String   @unique
-  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  conversationHistory String   @default("[]")
-  status              String   @default("planning") // planning, ready, generating, completed
-  generatedPrompt     String?
-  workflowStructure   Json? // Proposed workflow structure
-  approvedAt          DateTime?
+  id                   String   @id @default(cuid())
+  workflowId           String
+  chatIntegrationId    String?  // null = canvas/standalone; set = per-integration plan (prevents personality leak)
+  workflow             Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  conversationHistory  String   @default("[]")
+  status               String   @default("planning") // planning, ready, generating, completed
+  generatedPrompt      String?
+  workflowStructure    Json? // Proposed workflow structure
+  approvedAt           DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([workflowId, chatIntegrationId])
   @@index([workflowId])
   @@map("workflow_plans")
 }
@@ -757,6 +759,7 @@ model ChatIntegration {
   // Discord fields
   /// @encrypted
   discordBotToken     String?  // Discord bot token
+  discordClientId     String?  // Application ID (for invite URL)
   discordGuildId      String?  // Server/guild ID (optional, for scoping)
   discordBotUserId    String?  // Bot's own user ID (to ignore self-messages)
 

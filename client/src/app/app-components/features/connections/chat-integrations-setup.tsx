@@ -208,6 +208,10 @@ export function ChatIntegrationsSetup({
       (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
     );
     setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
+    // Pre-fill Discord fields when token is set (for Edit mode)
+    if (integration?.platform === "DISCORD" && integration?.discordClientId) {
+      setDiscordClientId(integration.discordClientId);
+    }
   }, [integrationsData?.integrations, selectedIntegrationId]);
 
   useEffect(() => {
@@ -848,25 +852,37 @@ export function ChatIntegrationsSetup({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <KeyRound className="h-4 w-4" />
-                Step 2 — Save Bot Token
+                {tokenSaved ? "Edit Telegram Token" : "Step 2 — Save Bot Token"}
               </CardTitle>
-              <CardDescription>Paste your Telegram bot token and save it here.</CardDescription>
+              <CardDescription>
+                {tokenSaved
+                  ? "Update your Telegram bot token below."
+                  : "Paste your Telegram bot token and save it here."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {tokenSaved && integration?.telegramBotUsername && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified</p>
+                  <p className="text-muted-foreground">
+                    Bot: <code className="text-xs bg-muted px-1 rounded">@{integration.telegramBotUsername}</code>
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
-                <Label>Telegram Bot Token</Label>
+                <Label>Telegram Bot Token {tokenSaved && "(enter new token to update)"}</Label>
                 <Input
                   type="password"
-                  placeholder="123:ABC..."
+                  placeholder={tokenSaved ? "••••••••••••••••" : "123:ABC..."}
                   value={botToken}
                   onChange={(e) => setBotToken(e.target.value)}
                 />
-                <div className="flex items-center gap-2">
-                  <Button onClick={handleSaveBotToken} disabled={saveTelegramToken.isPending}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button onClick={handleSaveBotToken} disabled={saveTelegramToken.isPending || !botToken.trim()}>
                     {saveTelegramToken.isPending && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
-                    Save Token
+                    {tokenSaved ? "Update Token" : "Save Token"}
                   </Button>
                   {tokenSaved && (
                     <Badge variant="outline" className="flex items-center gap-1">
@@ -1055,53 +1071,71 @@ export function ChatIntegrationsSetup({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Bot className="h-4 w-4" />
-                Slack Bot Setup
+                {integration?.slackBotTokenSet ? "Edit Slack Credentials" : "Slack Bot Setup"}
               </CardTitle>
               <CardDescription>
-                Connect your Slack app to Verxio. Create a Slack App at{" "}
-                <a
-                  href="https://api.slack.com/apps"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  api.slack.com/apps
-                </a>
-                , then provide the credentials below.
+                {integration?.slackBotTokenSet
+                  ? "Update your Slack bot token and signing secret below."
+                  : "Connect your Slack app to Verxio. Create a Slack App at "}
+                {!integration?.slackBotTokenSet && (
+                  <>
+                    <a
+                      href="https://api.slack.com/apps"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      api.slack.com/apps
+                    </a>
+                    , then provide the credentials below.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
-                <p className="font-medium">Quick setup steps:</p>
-                <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                  <li>Create a new Slack App (from scratch) at api.slack.com/apps</li>
-                  <li>
-                    Under <strong>OAuth &amp; Permissions</strong>, add scopes:{" "}
-                    <code className="text-xs bg-muted px-1 rounded">app_mentions:read</code>,{" "}
-                    <code className="text-xs bg-muted px-1 rounded">chat:write</code>,{" "}
-                    <code className="text-xs bg-muted px-1 rounded">channels:history</code>,{" "}
-                    <code className="text-xs bg-muted px-1 rounded">im:history</code>
-                  </li>
-                  <li>Install the app to your workspace and copy the Bot User OAuth Token</li>
-                  <li>
-                    Under <strong>Basic Information</strong>, copy the Signing Secret
-                  </li>
-                  <li>
-                    Save both tokens below, then paste the webhook URL into Event Subscriptions
-                  </li>
-                </ol>
-              </div>
+              {integration?.slackBotTokenSet && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified</p>
+                  {integration?.slackTeamId && (
+                    <p className="text-muted-foreground">
+                      Team ID: <code className="text-xs bg-muted px-1 rounded">{integration.slackTeamId}</code>
+                    </p>
+                  )}
+                </div>
+              )}
+              {!integration?.slackBotTokenSet && (
+                <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
+                  <p className="font-medium">Quick setup steps:</p>
+                  <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+                    <li>Create a new Slack App (from scratch) at api.slack.com/apps</li>
+                    <li>
+                      Under <strong>OAuth &amp; Permissions</strong>, add scopes:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">app_mentions:read</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">chat:write</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">channels:history</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">im:history</code>
+                    </li>
+                    <li>Install the app to your workspace and copy the Bot User OAuth Token</li>
+                    <li>
+                      Under <strong>Basic Information</strong>, copy the Signing Secret
+                    </li>
+                    <li>
+                      Save both tokens below, then paste the webhook URL into Event Subscriptions
+                    </li>
+                  </ol>
+                </div>
+              )}
               <div className="space-y-2">
-                <Label>Bot User OAuth Token</Label>
+                <Label>Bot User OAuth Token {integration?.slackBotTokenSet && "(enter new to update)"}</Label>
                 <Input
                   type="password"
-                  placeholder="xoxb-..."
+                  placeholder={integration?.slackBotTokenSet ? "Enter new token to update" : "xoxb-..."}
                   value={slackBotToken}
                   onChange={(e) => setSlackBotToken(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Signing Secret</Label>
+                <Label>Signing Secret {integration?.slackBotTokenSet && "(enter new to update)"}</Label>
                 <Input
                   type="password"
                   placeholder="Signing secret from Basic Information"
@@ -1109,7 +1143,7 @@ export function ChatIntegrationsSetup({
                   onChange={(e) => setSlackSigningSecret(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   onClick={() =>
                     saveSlackToken.mutate({
@@ -1122,7 +1156,7 @@ export function ChatIntegrationsSetup({
                   }
                 >
                   {saveSlackToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Save Slack Credentials
+                  {integration?.slackBotTokenSet ? "Update Slack Credentials" : "Save Slack Credentials"}
                 </Button>
                 {integration?.slackBotTokenSet && (
                   <Badge variant="outline" className="flex items-center gap-1">
@@ -1176,42 +1210,65 @@ export function ChatIntegrationsSetup({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Bot className="h-4 w-4" />
-                Discord Bot Setup
+                {integration?.discordBotTokenSet ? "Edit Discord Token" : "Discord Bot Setup"}
               </CardTitle>
               <CardDescription>
-                Connect your Discord bot to Verxio. Create a bot at{" "}
-                <a
-                  href="https://discord.com/developers/applications"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  Discord Developer Portal
-                </a>
-                , then provide the credentials below.
+                {integration?.discordBotTokenSet
+                  ? "Update your Discord bot token or Application ID below."
+                  : "Connect your Discord bot to Verxio. Create a bot at the "}
+                {!integration?.discordBotTokenSet && (
+                  <>
+                    <a
+                      href="https://discord.com/developers/applications"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      Discord Developer Portal
+                    </a>
+                    , then provide the credentials below.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
-                <p className="font-medium">Quick setup steps:</p>
-                <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                  <li>Create a new Application at discord.com/developers/applications</li>
-                  <li>
-                    Go to the <strong>Bot</strong> section and create a bot
-                  </li>
-                  <li>
-                    Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway Intents
-                  </li>
-                  <li>Copy the bot token and paste it below</li>
-                  <li>Copy the Application ID (Client ID) for the invite link</li>
-                  <li>Use the invite URL to add the bot to your server</li>
-                </ol>
-              </div>
+              {!integration?.discordBotTokenSet && (
+                <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
+                  <p className="font-medium">Quick setup steps:</p>
+                  <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+                    <li>Create a new Application at discord.com/developers/applications</li>
+                    <li>
+                      Go to the <strong>Bot</strong> section and create a bot
+                    </li>
+                    <li>
+                      Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway Intents
+                    </li>
+                    <li>Copy the bot token and paste it below</li>
+                    <li>Copy the Application ID (Client ID) for the invite link</li>
+                    <li>Use the invite URL to add the bot to your server</li>
+                  </ol>
+                </div>
+              )}
+              {integration?.discordBotTokenSet && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified credentials</p>
+                  {/* {integration?.discordBotUserId && (
+                    <p className="text-muted-foreground">
+                      Bot ID: <code className="text-xs bg-muted px-1 rounded">{integration.discordBotUserId}</code>
+                    </p>
+                  )} */}
+                  {integration?.discordClientId && (
+                    <p className="text-muted-foreground">
+                      Application ID: <code className="text-xs bg-muted px-1 rounded">{integration.discordClientId}</code>
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
-                <Label>Bot Token</Label>
+                <Label>Bot Token {integration?.discordBotTokenSet && "(leave blank to keep current)"}</Label>
                 <Input
                   type="password"
-                  placeholder="Discord bot token"
+                  placeholder={integration?.discordBotTokenSet ? "••••••••••••••••" : "Discord bot token"}
                   value={discordBotToken}
                   onChange={(e) => setDiscordBotToken(e.target.value)}
                 />
@@ -1224,18 +1281,21 @@ export function ChatIntegrationsSetup({
                   onChange={(e) => setDiscordClientId(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   onClick={() =>
                     saveDiscordToken.mutate({
-                      discordBotToken: discordBotToken.trim(),
+                      discordBotToken: discordBotToken.trim() || undefined,
                       discordClientId: discordClientId.trim() || undefined,
                     })
                   }
-                  disabled={saveDiscordToken.isPending || !discordBotToken.trim()}
+                  disabled={
+                    saveDiscordToken.isPending ||
+                    (!discordBotToken.trim() && !integration?.discordBotTokenSet)
+                  }
                 >
                   {saveDiscordToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Save Discord Token
+                  {integration?.discordBotTokenSet ? "Update Discord Token" : "Save Discord Token"}
                 </Button>
                 {integration?.discordBotTokenSet && (
                   <Badge variant="outline" className="flex items-center gap-1">
@@ -1247,7 +1307,9 @@ export function ChatIntegrationsSetup({
             </CardContent>
           </Card>
 
-          {saveDiscordToken.data?.integration?.inviteUrl && (
+          {(saveDiscordToken.data?.integration?.inviteUrl ||
+            (integration?.discordClientId &&
+              `https://discord.com/api/oauth2/authorize?client_id=${integration.discordClientId}&permissions=204800&scope=bot`)) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -1259,14 +1321,37 @@ export function ChatIntegrationsSetup({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <a
-                  href={saveDiscordToken.data.integration.inviteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm underline text-primary"
-                >
-                  {saveDiscordToken.data.integration.inviteUrl}
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={
+                      saveDiscordToken.data?.integration?.inviteUrl ||
+                      `https://discord.com/api/oauth2/authorize?client_id=${integration?.discordClientId}&permissions=204800&scope=bot`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline text-primary truncate flex-1 min-w-0"
+                  >
+                    {saveDiscordToken.data?.integration?.inviteUrl ||
+                      `https://discord.com/api/oauth2/authorize?client_id=${integration?.discordClientId}&permissions=204800&scope=bot`}
+                  </a>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-8 w-8"
+                    onClick={() => {
+                      const url =
+                        saveDiscordToken.data?.integration?.inviteUrl ||
+                        (integration?.discordClientId &&
+                          `https://discord.com/api/oauth2/authorize?client_id=${integration.discordClientId}&permissions=204800&scope=bot`);
+                      if (url) {
+                        navigator.clipboard.writeText(url);
+                        toast.success("Invite link copied to clipboard");
+                      }
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1817,8 +1902,8 @@ export function ChatIntegrationsSetup({
         </CardContent>
       </Card>
 
-      {/* Configuration — Telegram only (WhatsApp uses the connector, no webhook/secret) */}
-      {integration?.platform !== "WHATSAPP" && (
+      {/* Configuration — Telegram & Slack only (Discord/WhatsApp use connectors, no webhook) */}
+      {integration?.platform !== "WHATSAPP" && integration?.platform !== "DISCORD" && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Configuration</CardTitle>
