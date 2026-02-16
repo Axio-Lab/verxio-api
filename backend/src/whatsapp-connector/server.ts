@@ -33,15 +33,10 @@ export function createConnectorServer(onIncoming: OnIncomingCallback) {
         error: "sessionRef, toJid, and text are required",
       } as SendWhatsAppResponse);
     }
-    const result = await sendMessageHandler(
-      body.sessionRef,
-      body.toJid,
-      body.text,
-      {
-        ...(body.media ? { media: body.media } : {}),
-        ...(body.quotedKey ? { quotedKey: body.quotedKey } : {}),
-      }
-    );
+    const result = await sendMessageHandler(body.sessionRef, body.toJid, body.text, {
+      ...(body.media ? { media: body.media } : {}),
+      ...(body.quotedKey ? { quotedKey: body.quotedKey } : {}),
+    });
     return res.json(result);
   });
 

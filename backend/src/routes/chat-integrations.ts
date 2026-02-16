@@ -1335,14 +1335,17 @@ chatIntegrationRouter.post(
       // In group chats, only respond when the bot is mentioned or the message is a reply to the bot
       if (isGroupChat) {
         const botInfo = await chatIntegrationService.ensureTelegramBotInfo(resolvedIntegration);
-        const botUsername = botInfo?.telegramBotUsername ?? resolvedIntegration.telegramBotUsername ?? "";
+        const botUsername =
+          botInfo?.telegramBotUsername ?? resolvedIntegration.telegramBotUsername ?? "";
         const botId = botInfo?.telegramBotId ?? resolvedIntegration.telegramBotId ?? "";
         const entities = message.entities || [];
         const replyTo = message.reply_to_message;
 
         // Telegram can send @mentions as "mention" or "text_link" (url: https://t.me/BotUsername)
         const mentionedInEntities = entities.some((e: any) => {
-          const substring = text.substring(e.offset || 0, (e.offset || 0) + (e.length || 0)).toLowerCase();
+          const substring = text
+            .substring(e.offset || 0, (e.offset || 0) + (e.length || 0))
+            .toLowerCase();
           if (e.type === "mention" && botUsername) {
             return substring === `@${botUsername.toLowerCase()}`;
           }

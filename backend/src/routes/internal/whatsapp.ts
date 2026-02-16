@@ -155,8 +155,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
         : undefined;
 
     // Prefix for group replies so it's clear who the reply is for
-    const groupPrefix =
-      isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
+    const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
 
     // Process in background and send formatted result when done
     void (async () => {

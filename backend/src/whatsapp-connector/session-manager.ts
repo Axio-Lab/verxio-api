@@ -274,9 +274,12 @@ export function stopSession(sessionId: string): void {
   }
 }
 
-function buildQuotedMessage(
-  quotedKey: { remoteJid: string; id: string; fromMe?: boolean; participant?: string }
-): WAMessage {
+function buildQuotedMessage(quotedKey: {
+  remoteJid: string;
+  id: string;
+  fromMe?: boolean;
+  participant?: string;
+}): WAMessage {
   const jid = formatJid(quotedKey.remoteJid);
   const key: WAMessage["key"] = {
     remoteJid: jid,
