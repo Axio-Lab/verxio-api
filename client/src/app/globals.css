@@ -291,3 +291,32 @@ select option {
 .tour-spotlight-ring {
   animation: tourPulse 1.5s ease-in-out infinite;
 }
+
+/* Landing page animations */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-fadeSlideIn {
+  animation: fadeSlideIn 0.4s ease-out both;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
