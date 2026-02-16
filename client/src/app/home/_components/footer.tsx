@@ -97,7 +97,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/terms"
+                  href="/terms-of-service"
                   className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
                 >
                   Terms of Service
