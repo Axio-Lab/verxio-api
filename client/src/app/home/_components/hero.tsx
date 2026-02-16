@@ -1,36 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { SCENARIOS } from "./scenarios";
 
-const SIMULATION_STEPS = [
-  {
-    prompt:
-      '> "Build me a marketing bot that handles social scheduling, email sequences, and analytics reporting"',
-    delay: 0,
-  },
-  { label: "Creating agent", detail: "Marketing Bot", delay: 2200 },
-  { label: "Adding skill", detail: "Social Media Scheduling", delay: 3400 },
-  { label: "Adding skill", detail: "Email Sequence Builder", delay: 4400 },
-  { label: "Adding skill", detail: "Analytics & Reporting", delay: 5400 },
-  { label: "Connecting", detail: "Slack, Telegram, Discord", delay: 6400 },
-  { label: "Building workflow", detail: "12 nodes connected", delay: 7600 },
-  { label: "Status", detail: "Agent live and ready", delay: 9000 },
-];
+const STEP_INTERVAL = 1000;
+const PROMPT_PAUSE = 1800;
+const COMPLETION_PAUSE = 3000;
 
-function TerminalLine({
-  step,
-  visible,
-}: {
-  step: (typeof SIMULATION_STEPS)[number];
-  visible: boolean;
-}) {
-  if (!visible) return null;
+interface TerminalStep {
+  type: "prompt" | "step" | "completion";
+  text?: string;
+  label?: string;
+  detail?: string;
+  name?: string;
+  summary?: string;
+}
 
-  if ("prompt" in step && step.prompt) {
+function TerminalLine({ step }: { step: TerminalStep }) {
+  if (step.type === "prompt") {
     return (
       <div className="font-mono text-sm animate-fadeSlideIn">
-        <span className="text-primary/70">{step.prompt}</span>
+        <span className="text-primary/70">&gt; {step.text}</span>
+      </div>
+    );
+  }
+
+  if (step.type === "completion") {
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-200 animate-fadeSlideIn">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/10">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <svg
+              className="w-5 h-5 text-primary"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">{step.name}</p>
+            <p className="text-xs text-gray-500">{step.summary}</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -38,36 +53,68 @@ function TerminalLine({
   return (
     <div className="font-mono text-sm flex gap-2 animate-fadeSlideIn">
       <span className="text-primary font-semibold shrink-0">{step.label}</span>
-      <span className="text-gray-500">{">"}</span>
+      <span className="text-gray-500">&gt;</span>
       <span className="text-gray-800">{step.detail}</span>
     </div>
   );
 }
 
 export function Hero() {
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const [lines, setLines] = useState<TerminalStep[]>([]);
+  const [showCursor, setShowCursor] = useState(true);
+  const [showCompletion, setShowCompletion] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const scenarioIndex = useRef(0);
+  const running = useRef(false);
+
+  const scrollToBottom = useCallback(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, []);
+
+  const runScenario = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+
+    const scenario = SCENARIOS[scenarioIndex.current % SCENARIOS.length];
+
+    setLines([]);
+    setShowCursor(true);
+    setShowCompletion(false);
+
+    await new Promise((r) => setTimeout(r, 600));
+
+    setLines([{ type: "prompt", text: scenario.prompt }]);
+    scrollToBottom();
+
+    await new Promise((r) => setTimeout(r, PROMPT_PAUSE));
+
+    for (const step of scenario.steps) {
+      setLines((prev) => [...prev, { type: "step", label: step.label, detail: step.detail }]);
+      scrollToBottom();
+      await new Promise((r) => setTimeout(r, STEP_INTERVAL));
+    }
+
+    setShowCursor(false);
+    setShowCompletion(true);
+    setLines((prev) => [
+      ...prev,
+      { type: "completion", name: scenario.completion.name, summary: scenario.completion.summary },
+    ]);
+    scrollToBottom();
+
+    await new Promise((r) => setTimeout(r, COMPLETION_PAUSE));
+
+    scenarioIndex.current += 1;
+    running.current = false;
+
+    runScenario();
+  }, [scrollToBottom]);
 
   useEffect(() => {
-    if (hasAnimated) return;
-
-    const timers = SIMULATION_STEPS.map((step, i) =>
-      setTimeout(() => {
-        setVisibleCount((c) => Math.max(c, i + 1));
-        if (terminalRef.current) {
-          terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-        }
-      }, step.delay)
-    );
-
-    const finalTimer = setTimeout(() => setHasAnimated(true), 10000);
-
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(finalTimer);
-    };
-  }, [hasAnimated]);
+    runScenario();
+  }, [runScenario]);
 
   return (
     <section className="relative pt-32 pb-20 overflow-hidden">
@@ -118,17 +165,6 @@ export function Hero() {
                 See how it works
               </a>
             </div>
-
-            {/* <div className="flex items-center gap-6 pt-2 text-sm text-gray-500">
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                No credit card required
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                Deploy in 3 steps
-              </span>
-            </div> */}
           </div>
 
           {/* Right: Animated terminal simulation */}
@@ -149,37 +185,14 @@ export function Hero() {
                 ref={terminalRef}
                 className="p-5 space-y-3 min-h-[320px] max-h-[380px] overflow-y-auto bg-gray-50/50"
               >
-                {SIMULATION_STEPS.map((step, i) => (
-                  <TerminalLine key={i} step={step} visible={i < visibleCount} />
+                {lines.map((step, i) => (
+                  <TerminalLine key={`${scenarioIndex.current}-${i}`} step={step} />
                 ))}
 
                 {/* Blinking cursor */}
-                {visibleCount < SIMULATION_STEPS.length && (
+                {showCursor && !showCompletion && (
                   <div className="flex items-center gap-1 mt-2">
                     <div className="w-2 h-4 bg-primary animate-pulse rounded-sm" />
-                  </div>
-                )}
-
-                {/* Completion */}
-                {visibleCount >= SIMULATION_STEPS.length && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 animate-fadeSlideIn">
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/10">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <svg
-                          className="w-5 h-5 text-primary"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Marketing Bot is live</p>
-                        <p className="text-xs text-gray-500">3 skills, 3 channels, 12 nodes</p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -187,7 +200,7 @@ export function Hero() {
 
             {/* Floating badge */}
             <div className="absolute -bottom-4 -left-4 px-4 py-2 rounded-xl bg-white border border-gray-200 shadow-lg text-xs font-medium text-gray-700 animate-float">
-              Deploys to Slack, Discord, Telegram
+              Deploys to your preferred chat channel
             </div>
           </div>
         </div>
