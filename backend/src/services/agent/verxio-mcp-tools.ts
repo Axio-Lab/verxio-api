@@ -811,6 +811,12 @@ export const addNodeTool: VerxioTool = {
       },
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       nodeId: node.id,
@@ -900,6 +906,12 @@ export const configureNodeTool: VerxioTool = {
       data: updateData,
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: node.workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       nodeId: updatedNode.id,
@@ -969,6 +981,12 @@ export const connectNodesTool: VerxioTool = {
       },
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: sourceNode.workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       connectionId: connection.id,
@@ -983,7 +1001,8 @@ export const connectNodesTool: VerxioTool = {
 
 export const executeWorkflowTool: VerxioTool = {
   name: "executeWorkflow",
-  description: "Trigger execution of a workflow",
+  description:
+    "Execute a workflow and wait for the result. Returns the actual output so you can summarize it for the user. Always present the output in your reply.",
   inputSchema: z.object({
     workflowId: z.string().describe("ID of the workflow to execute"),
     inputData: z
@@ -1014,8 +1033,17 @@ export const executeWorkflowTool: VerxioTool = {
       return { success: false, error: "No suitable trigger node found in workflow" };
     }
 
+    // Create a publicChatRun to track execution and poll for results
+    const run = await prisma.publicChatRun.create({
+      data: {
+        workflowId,
+        status: "PENDING",
+        input: { ...(inputData || {}), triggeredBy: "agent" } as object,
+      },
+    });
+
     // Send Inngest event to trigger workflow
-    const eventResult = await inngest.send({
+    await inngest.send({
       name: "workflow/trigger",
       data: {
         workflowId,
@@ -1023,15 +1051,46 @@ export const executeWorkflowTool: VerxioTool = {
         triggerNodeId: triggerNode.id,
         initialData: inputData || {},
         triggeredBy: "agent",
+        publicChatRunId: run.id,
       },
     });
 
+    // Poll for completion (up to 90s)
+    const POLL_INTERVAL = 1500;
+    const MAX_WAIT = 90_000;
+    const deadline = Date.now() + MAX_WAIT;
+
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      const updated = await prisma.publicChatRun.findUnique({
+        where: { id: run.id },
+      });
+      if (!updated) break;
+      if (updated.status === "COMPLETED") {
+        return {
+          success: true,
+          output: updated.output || {},
+          workflowId,
+          workflowName: workflow.name,
+          message:
+            "Workflow executed successfully. Summarize the output in human language for the user in your reply.",
+        };
+      }
+      if (updated.status === "FAILED") {
+        return {
+          success: false,
+          error: updated.error || "Workflow execution failed",
+          workflowId,
+          workflowName: workflow.name,
+        };
+      }
+    }
+
     return {
-      success: true,
-      executionId: eventResult.ids?.[0] || null,
+      success: false,
+      error: "Workflow did not complete within the time limit (90s). It may still be running.",
       workflowId,
-      triggerNodeId: triggerNode.id,
-      message: `Triggered workflow "${workflow.name}" execution`,
+      workflowName: workflow.name,
     };
   },
 };
@@ -1407,6 +1466,12 @@ export const deleteNodeTool: VerxioTool = {
     });
 
     await prisma.node.delete({ where: { id: nodeId } });
+
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: node.workflowId },
+      data: { updatedAt: new Date() },
+    });
 
     return {
       success: true,
