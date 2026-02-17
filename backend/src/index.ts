@@ -138,7 +138,15 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: "50mb" }));
+app.use(
+  express.json({
+    limit: "50mb",
+    verify: (req, _res, buf) => {
+      // Preserve raw body for webhook signature verification (e.g. Slack).
+      (req as any).rawBody = buf.toString("utf8");
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve generated images as static files

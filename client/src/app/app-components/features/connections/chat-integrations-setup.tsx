@@ -1141,7 +1141,7 @@ export function ChatIntegrationsSetup({
                 <Input
                   type="password"
                   placeholder={
-                    integration?.slackBotTokenSet ? "Enter new token to update" : "xoxb-..."
+                    integration?.slackBotTokenSet ? "••••••••••••••••" : "xoxb-..."
                   }
                   value={slackBotToken}
                   onChange={(e) => setSlackBotToken(e.target.value)}
@@ -1153,7 +1153,7 @@ export function ChatIntegrationsSetup({
                 </Label>
                 <Input
                   type="password"
-                  placeholder="Signing secret from Basic Information"
+                  placeholder={integration?.slackBotTokenSet ? "••••••••••••••••" : "Signing secret from Basic Information"}
                   value={slackSigningSecret}
                   onChange={(e) => setSlackSigningSecret(e.target.value)}
                 />

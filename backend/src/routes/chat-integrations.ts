@@ -1074,6 +1074,7 @@ function verifySlackSignature(
   const sigBasestring = `v0:${timestamp}:${body}`;
   const mySignature =
     "v0=" + crypto.createHmac("sha256", signingSecret).update(sigBasestring).digest("hex");
+  if (mySignature.length !== signature.length) return false;
   return crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(signature));
 }
 
@@ -1088,6 +1089,12 @@ chatIntegrationRouter.post(
       const { integrationId } = req.params;
       if (!integrationId) {
         throw new AppError("Integration ID is required", 400);
+      }
+
+      // Immediately reject Slack retries to prevent duplicate processing
+      const retryNum = req.headers["x-slack-retry-num"];
+      if (retryNum) {
+        return res.status(200).json({ ok: true, skipped: "retry" });
       }
 
       // Resolve integration
@@ -1105,7 +1112,7 @@ chatIntegrationRouter.post(
       if (!slackTimestamp || !slackSignature || !resolvedIntegration.slackSigningSecret) {
         throw new AppError("Missing Slack signature headers or signing secret", 401);
       }
-      const rawBody = JSON.stringify(req.body);
+      const rawBody = ((req as any).rawBody as string | undefined) || JSON.stringify(req.body);
       if (
         !verifySlackSignature(
           resolvedIntegration.slackSigningSecret,
@@ -1157,6 +1164,10 @@ chatIntegrationRouter.post(
         throw new AppError("Slack bot token is not configured", 400);
       }
 
+      // Respond to Slack immediately to prevent retries (Slack times out after 3s)
+      res.status(200).json({ ok: true });
+
+      // Everything below runs in background after 200 is sent
       const userId = resolvedIntegration.userId;
       let messageText = event.text || "";
       const channel = event.channel;
@@ -1170,69 +1181,68 @@ chatIntegrationRouter.post(
           .trim();
       }
 
-      // Premium feature check
-      try {
-        await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION);
-      } catch {
-        try {
-          await chatIntegrationService.sendSlackMessage(
-            resolvedIntegration.slackBotToken,
-            channel,
-            "Slack chat with Verxio is a premium feature. Please upgrade your plan to use it.",
-            threadTs
-          );
-        } catch (_) {}
-        return res.status(200).json({ ok: true, premiumRequired: true });
-      }
-
-      // Consume credits
-      try {
-        await consumePremiumQuota(userId, QUOTA_COST.SLACK_CHAT_INTEGRATION);
-      } catch (quotaError) {
-        const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
-        try {
-          await chatIntegrationService.sendSlackMessage(
-            resolvedIntegration.slackBotToken,
-            channel,
-            msg.includes("credits")
-              ? "You've used your daily chat credits. Limit resets at midnight."
-              : msg,
-            threadTs
-          );
-        } catch (_) {}
-        return res.status(200).json({ ok: true, quotaExceeded: true });
-      }
-
-      // Auto-link external identity
-      try {
-        await chatIntegrationService.linkExternalIdentity(
-          userId,
-          "slack",
-          senderId,
-          integrationId,
-          undefined,
-          { channel, teamId: slackPayload.team_id }
-        );
-      } catch (_) {}
-
-      const isChannel = event.channel_type !== "im";
-      const chatIntegrationMessage = {
-        platform: "SLACK" as const,
-        externalId: senderId,
-        message: messageText || "[non-text message]",
-        metadata: {
-          chatId: channel,
-          threadTs,
-          slackPayload,
-        },
-      };
-
-      // Prefix for channel replies so it's clear who the reply is for (Slack @mention)
-      const groupPrefix = isChannel && senderId ? `<@${senderId}> ` : "";
-
-      // Process in background and send reply when done
       void (async () => {
         try {
+          // Premium feature check
+          try {
+            await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION);
+          } catch {
+            try {
+              await chatIntegrationService.sendSlackMessage(
+                resolvedIntegration.slackBotToken!,
+                channel,
+                "Slack chat with Verxio is a premium feature. Please upgrade your plan to use it.",
+                threadTs
+              );
+            } catch (_) {}
+            return;
+          }
+
+          // Consume credits
+          try {
+            await consumePremiumQuota(userId, QUOTA_COST.SLACK_CHAT_INTEGRATION);
+          } catch (quotaError) {
+            const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+            try {
+              await chatIntegrationService.sendSlackMessage(
+                resolvedIntegration.slackBotToken!,
+                channel,
+                msg.includes("credits")
+                  ? "You've used your daily chat credits. Limit resets at midnight."
+                  : msg,
+                threadTs
+              );
+            } catch (_) {}
+            return;
+          }
+
+          // Auto-link external identity
+          try {
+            await chatIntegrationService.linkExternalIdentity(
+              userId,
+              "slack",
+              senderId,
+              integrationId,
+              undefined,
+              { channel, teamId: slackPayload.team_id }
+            );
+          } catch (_) {}
+
+          const isChannel = event.channel_type !== "im";
+          const chatIntegrationMessage = {
+            platform: "SLACK" as const,
+            externalId: senderId,
+            message: messageText || "[non-text message]",
+            metadata: {
+              chatId: channel,
+              threadTs,
+              slackPayload,
+            },
+          };
+
+          // Prefix for channel replies so it's clear who the reply is for (Slack @mention)
+          const groupPrefix = isChannel && senderId ? `<@${senderId}> ` : "";
+
           const result = await chatIntegrationService.processMessage(
             userId,
             resolvedIntegration,
@@ -1261,8 +1271,6 @@ chatIntegrationRouter.post(
           } catch (_) {}
         }
       })().catch((err) => console.error("[Slack webhook] background error:", err));
-
-      return res.status(200).json({ ok: true });
     } catch (error) {
       next(error);
     }
