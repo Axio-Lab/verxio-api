@@ -5,7 +5,12 @@
  * with self-learning capabilities to improve suggestions over time.
  */
 
-import { chatWithAgent, generateSmartPrompt, type AgentStreamEvent } from "./agent/agentService";
+import {
+  chatWithAgent,
+  generateSmartPrompt,
+  type AgentStreamEvent,
+  type AgentPersonality,
+} from "./agent/agentService";
 import { prisma as prismaClient } from "@/lib/prisma";
 import {
   getLearningContext,
@@ -40,19 +45,24 @@ export interface WorkflowPlanData {
 }
 
 /**
- * Get or create a WorkflowPlan for a workflow
+ * Get or create a WorkflowPlan for a workflow.
+ * @param workflowId - The workflow ID
+ * @param chatIntegrationId - When set, scopes the plan to this chat integration (each channel has its own conversation). Null/undefined = canvas/standalone.
  */
 export const getOrCreateWorkflowPlan = async (
-  workflowId: string
+  workflowId: string,
+  chatIntegrationId?: string | null
 ): Promise<{ id: string; conversationHistory: ConversationMessage[]; status: string }> => {
-  let plan = await prismaClient.workflowPlan.findUnique({
-    where: { workflowId },
+  const integrationId = chatIntegrationId ?? null;
+  let plan = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: integrationId },
   });
 
   if (!plan) {
     plan = await prismaClient.workflowPlan.create({
       data: {
         workflowId,
+        chatIntegrationId: integrationId,
         conversationHistory: serializeConversationHistory([]),
         status: "planning",
       },
@@ -69,11 +79,16 @@ export const getOrCreateWorkflowPlan = async (
 };
 
 /**
- * Get WorkflowPlan for a workflow
+ * Get WorkflowPlan for a workflow.
+ * @param workflowId - The workflow ID
+ * @param chatIntegrationId - When set, fetches the plan scoped to this integration. Null/undefined = canvas/standalone.
  */
-export const getWorkflowPlan = async (workflowId: string): Promise<WorkflowPlanData | null> => {
-  const plan = await prismaClient.workflowPlan.findUnique({
-    where: { workflowId },
+export const getWorkflowPlan = async (
+  workflowId: string,
+  chatIntegrationId?: string | null
+): Promise<WorkflowPlanData | null> => {
+  const plan = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: chatIntegrationId ?? null },
   });
 
   if (!plan) {
@@ -112,6 +127,7 @@ export const sendPlanningMessage = async (options: {
   workflowId: string;
   userId: string;
   message: string;
+  chatIntegrationId?: string | null;
   attachments?: Array<{
     fileId: string;
     fileName: string;
@@ -120,6 +136,7 @@ export const sendPlanningMessage = async (options: {
     extractedText?: string;
   }>;
   model?: string;
+  agentPersonality?: AgentPersonality;
 }): Promise<{
   response: string;
   conversationHistory: ConversationMessage[];
@@ -130,8 +147,8 @@ export const sendPlanningMessage = async (options: {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  // Get or create plan
-  const plan = await getOrCreateWorkflowPlan(options.workflowId);
+  // Get or create plan (scoped by chatIntegrationId when from chat integration)
+  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
   const conversationHistory = plan.conversationHistory;
 
   // Get learning context for personalized suggestions
@@ -159,6 +176,7 @@ export const sendPlanningMessage = async (options: {
     message: userMessage,
     conversationHistory,
     learningContext,
+    agentPersonality: options.agentPersonality,
   })) {
     if (event.type === "message" && event.data.text && !event.data.partial) {
       assistantResponse += event.data.text;
@@ -194,13 +212,21 @@ export const sendPlanningMessage = async (options: {
   ];
 
   // Save updated conversation history
-  await prismaClient.workflowPlan.update({
-    where: { workflowId: options.workflowId },
-    data: {
-      conversationHistory: serializeConversationHistory(updatedHistory),
-      updatedAt: new Date(),
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: {
+      workflowId: options.workflowId,
+      chatIntegrationId: options.chatIntegrationId ?? null,
     },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: {
+        conversationHistory: serializeConversationHistory(updatedHistory),
+        updatedAt: new Date(),
+      },
+    });
+  }
 
   return {
     response: assistantResponse,
@@ -218,6 +244,7 @@ export async function* sendPlanningMessageStreaming(options: {
   workflowId: string;
   userId: string;
   message: string;
+  chatIntegrationId?: string | null;
   attachments?: Array<{
     fileId: string;
     fileName: string;
@@ -226,13 +253,14 @@ export async function* sendPlanningMessageStreaming(options: {
     extractedText?: string;
   }>;
   model?: string;
+  agentPersonality?: AgentPersonality;
 }): AsyncGenerator<AgentStreamEvent> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  // Get or create plan
-  const plan = await getOrCreateWorkflowPlan(options.workflowId);
+  // Get or create plan (scoped by chatIntegrationId when from chat integration)
+  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
   const conversationHistory = plan.conversationHistory;
 
   // Get learning context for personalized suggestions
@@ -258,6 +286,7 @@ export async function* sendPlanningMessageStreaming(options: {
     message: userMessage,
     conversationHistory,
     learningContext,
+    agentPersonality: options.agentPersonality,
   })) {
     // Collect response for history
     if (event.type === "message" && event.data.text && !event.data.partial) {
@@ -286,13 +315,21 @@ export async function* sendPlanningMessageStreaming(options: {
     },
   ];
 
-  await prismaClient.workflowPlan.update({
-    where: { workflowId: options.workflowId },
-    data: {
-      conversationHistory: serializeConversationHistory(updatedHistory),
-      updatedAt: new Date(),
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: {
+      workflowId: options.workflowId,
+      chatIntegrationId: options.chatIntegrationId ?? null,
     },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: {
+        conversationHistory: serializeConversationHistory(updatedHistory),
+        updatedAt: new Date(),
+      },
+    });
+  }
 }
 
 /**
@@ -319,19 +356,24 @@ export const generateWorkflowPrompt = async (
     conversationHistory: plan.conversationHistory,
   });
 
-  // Save generated prompt with workflow structure
-  await prismaClient.workflowPlan.update({
-    where: { workflowId },
-    data: {
-      generatedPrompt: prompt,
-      workflowStructure: {
-        description: summary,
-        nodes: suggestedNodes.map((type) => ({ type, purpose: "" })),
-        credentials: [],
-      } as any,
-      status: "ready",
-    },
+  // Save generated prompt with workflow structure (canvas plan: chatIntegrationId null)
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: null },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: {
+        generatedPrompt: prompt,
+        workflowStructure: {
+          description: summary,
+          nodes: suggestedNodes.map((type) => ({ type, purpose: "" })),
+          credentials: [],
+        } as any,
+        status: "ready",
+      },
+    });
+  }
 
   return {
     generatedPrompt: prompt,
@@ -361,11 +403,16 @@ export const recordSuccessfulGeneration = async (
     conversationSummary,
   });
 
-  // Update plan status
-  await prismaClient.workflowPlan.update({
-    where: { workflowId },
-    data: { status: "completed" },
+  // Update plan status (canvas plan: chatIntegrationId null)
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: null },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: { status: "completed" },
+    });
+  }
 };
 
 /**
@@ -379,13 +426,18 @@ export const getUserInsights = async (userId: string) => {
  * Mark workflow plan as approved and ready for generation
  */
 export const approveWorkflowPlan = async (workflowId: string): Promise<void> => {
-  await prismaClient.workflowPlan.update({
-    where: { workflowId },
-    data: {
-      status: "ready",
-      approvedAt: new Date(),
-    },
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: null },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: {
+        status: "ready",
+        approvedAt: new Date(),
+      },
+    });
+  }
 };
 
 /**
@@ -393,20 +445,34 @@ export const approveWorkflowPlan = async (workflowId: string): Promise<void> => 
  */
 export const updateWorkflowPlanStatus = async (
   workflowId: string,
-  status: "planning" | "ready" | "generating" | "completed"
+  status: "planning" | "ready" | "generating" | "completed",
+  chatIntegrationId?: string | null
 ): Promise<void> => {
-  await prismaClient.workflowPlan.update({
-    where: { workflowId },
-    data: { status },
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: chatIntegrationId ?? null },
   });
+  if (planRecord) {
+    await prismaClient.workflowPlan.update({
+      where: { id: planRecord.id },
+      data: { status },
+    });
+  }
 };
 
 /**
- * Clear workflow plan conversation history
+ * Clear workflow plan conversation history.
+ * @param chatIntegrationId - When set, clears the plan for this chat integration. Null = canvas/standalone.
  */
-export const clearPlanningConversation = async (workflowId: string): Promise<void> => {
+export const clearPlanningConversation = async (
+  workflowId: string,
+  chatIntegrationId?: string | null
+): Promise<void> => {
+  const planRecord = await prismaClient.workflowPlan.findFirst({
+    where: { workflowId, chatIntegrationId: chatIntegrationId ?? null },
+  });
+  if (!planRecord) return;
   await prismaClient.workflowPlan.update({
-    where: { workflowId },
+    where: { id: planRecord.id },
     data: {
       conversationHistory: serializeConversationHistory([]),
       status: "planning",

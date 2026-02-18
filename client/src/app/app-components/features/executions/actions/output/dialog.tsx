@@ -130,11 +130,11 @@ export function OutputDialog({ open, onOpenChange, onSubmit, defaultValues }: Ou
               <Label htmlFor="audioSource">Audio Source</Label>
               <Input
                 id="audioSource"
-                placeholder="{{elevenlabs.audioUrl}}"
+                placeholder="{{klingTts.audioUrl}}"
                 {...form.register("audioSource")}
               />
               <p className="text-xs text-muted-foreground">
-                Reference an audio URL from a previous node (e.g., ELEVENLABS)
+                Reference an audio URL from a previous node (e.g., KLING_TTS)
               </p>
             </div>
           )}

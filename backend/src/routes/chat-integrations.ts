@@ -72,8 +72,21 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          telegramBotUsername: integration.telegramBotUsername,
           whatsappSessionId: integration.whatsappSessionId,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
+          discordClientId: integration.discordClientId,
+          // Agent personality
+          hasSoulMd: !!integration.soulMd,
+          soulMd: integration.soulMd || null,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          // Skill access
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         })),
       });
     } catch (error) {
@@ -101,6 +114,10 @@ chatIntegrationRouter.post(
         isActive,
         allowPlanMode,
         allowWorkflowExecution,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       } = req.body;
 
       if (!label || typeof label !== "string") {
@@ -137,6 +154,10 @@ chatIntegrationRouter.post(
         isActive,
         allowPlanMode,
         allowWorkflowExecution,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       });
 
       res.json({
@@ -155,6 +176,10 @@ chatIntegrationRouter.post(
           allowPlanMode: integration.allowPlanMode,
           allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          hasSoulMd: !!integration.soulMd,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -198,6 +223,17 @@ chatIntegrationRouter.get(
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
           telegramBotTokenSet: !!integration.telegramBotToken,
+          whatsappSessionId: integration.whatsappSessionId,
+          whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
+          hasSoulMd: !!integration.soulMd,
+          soulMd: integration.soulMd || null,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -256,6 +292,10 @@ chatIntegrationRouter.put(
         allowWorkflowExecution,
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       } = req.body;
 
       if (platform === "TELEGRAM") {
@@ -291,6 +331,10 @@ chatIntegrationRouter.put(
         allowWorkflowExecution,
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
+        soulMd,
+        evolvePersonality,
+        skillScope,
+        allowedSkillIds,
       });
 
       res.json({
@@ -308,6 +352,10 @@ chatIntegrationRouter.put(
           allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
+          hasSoulMd: !!integration.soulMd,
+          evolvePersonality: integration.evolvePersonality ?? false,
+          skillScope: integration.skillScope ?? "ALL_SKILLS",
+          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -376,6 +424,184 @@ chatIntegrationRouter.post(
           webhookUrl: getEffectiveWebhookUrl(integration),
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/slack/token
+ * Save Slack bot token and signing secret, verify via auth.test
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/slack/token",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { slackBotToken, slackSigningSecret } = req.body;
+
+      if (!slackBotToken || typeof slackBotToken !== "string") {
+        throw new AppError("Slack bot token (xoxb-...) is required", 400);
+      }
+      if (!slackSigningSecret || typeof slackSigningSecret !== "string") {
+        throw new AppError("Slack signing secret is required", 400);
+      }
+
+      const integration = await chatIntegrationService.saveSlackBotToken(
+        user.id,
+        id,
+        slackBotToken.trim(),
+        slackSigningSecret.trim()
+      );
+
+      res.json({
+        success: true,
+        message: "Slack bot token saved and verified.",
+        integration: {
+          id: integration.id,
+          slackBotTokenSet: !!integration.slackBotToken,
+          slackTeamId: integration.slackTeamId,
+          webhookUrl: chatIntegrationService.getHostedSlackWebhookUrl(integration.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/discord/token
+ * Save Discord bot token, verify via /users/@me, generate invite URL
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/discord/token",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { discordBotToken, discordClientId } = req.body;
+
+      const integration = await chatIntegrationService.saveDiscordBotToken(
+        user.id,
+        id,
+        typeof discordBotToken === "string" && discordBotToken.trim()
+          ? discordBotToken.trim()
+          : undefined,
+        discordClientId?.trim() || undefined
+      );
+
+      const effectiveClientId = integration.discordClientId || discordClientId?.trim();
+      const inviteUrl = effectiveClientId
+        ? chatIntegrationService.getDiscordInviteUrl(effectiveClientId)
+        : undefined;
+
+      res.json({
+        success: true,
+        message: "Discord bot token saved and verified.",
+        integration: {
+          id: integration.id,
+          discordBotTokenSet: !!integration.discordBotToken,
+          discordBotUserId: integration.discordBotUserId,
+          discordClientId: integration.discordClientId,
+          inviteUrl,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/generate-soul
+ * Generate a soul.md personality using Claude (costs 20 credits)
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/generate-soul",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { name, description, tone, coreTruths, boundaries } = req.body as {
+        name?: string;
+        description?: string;
+        tone?: string;
+        coreTruths?: string;
+        boundaries?: string;
+      };
+
+      if (!name || !description || !tone) {
+        return res.status(400).json({
+          success: false,
+          error: "name, description, and tone are required.",
+        });
+      }
+
+      // Verify integration ownership
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
+      if (!integration) {
+        throw new AppError("Integration not found", 404);
+      }
+
+      // Consume 20 credits
+      await consumePremiumQuota(user.id, QUOTA_COST.GENERATE_SOUL_MD);
+
+      // Generate soul.md via Claude
+      const soulMd = await chatIntegrationService.generateSoulMd({
+        name,
+        description,
+        tone,
+        coreTruths,
+        boundaries,
+      });
+
+      // Save to integration
+      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
+
+      res.json({
+        success: true,
+        soulMd,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/chat-integrations/integrations/:id/save-soul
+ * Save manually uploaded/pasted soul.md content (free)
+ */
+chatIntegrationRouter.post(
+  "/integrations/:id/save-soul",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { soulMd } = req.body as { soulMd?: string };
+
+      if (!soulMd || !soulMd.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "soulMd content is required.",
+        });
+      }
+
+      const integration = await chatIntegrationService.getIntegration(user.id, id);
+      if (!integration) {
+        throw new AppError("Integration not found", 404);
+      }
+
+      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
+
+      res.json({ success: true });
     } catch (error) {
       next(error);
     }
@@ -831,6 +1057,227 @@ chatIntegrationRouter.delete(
 );
 
 // ============================================
+// Hosted Slack Events Webhook
+// ============================================
+
+/**
+ * Verify Slack request signature (v0 HMAC-SHA256).
+ */
+function verifySlackSignature(
+  signingSecret: string,
+  timestamp: string,
+  body: string,
+  signature: string
+): boolean {
+  const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 60 * 5;
+  if (parseInt(timestamp, 10) < fiveMinutesAgo) return false; // Replay attack protection
+  const sigBasestring = `v0:${timestamp}:${body}`;
+  const mySignature =
+    "v0=" + crypto.createHmac("sha256", signingSecret).update(sigBasestring).digest("hex");
+  if (mySignature.length !== signature.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(mySignature), Buffer.from(signature));
+}
+
+/**
+ * POST /api/chat-integrations/slack/events/:integrationId
+ * Receive Slack Events API payloads (url_verification, event_callback with app_mention / message).
+ */
+chatIntegrationRouter.post(
+  "/slack/events/:integrationId",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { integrationId } = req.params;
+      if (!integrationId) {
+        throw new AppError("Integration ID is required", 400);
+      }
+
+      // Immediately reject Slack retries to prevent duplicate processing
+      const retryNum = req.headers["x-slack-retry-num"];
+      if (retryNum) {
+        return res.status(200).json({ ok: true, skipped: "retry" });
+      }
+
+      // Resolve integration
+      const resolvedIntegration = await chatIntegrationService.getIntegrationById(integrationId);
+      if (!resolvedIntegration || resolvedIntegration.platform !== "SLACK") {
+        throw new AppError("Slack integration not found", 404);
+      }
+      if (!resolvedIntegration.isActive) {
+        return res.status(200).json({ ok: true, message: "Integration is inactive." });
+      }
+
+      // Verify Slack signature
+      const slackTimestamp = req.headers["x-slack-request-timestamp"] as string;
+      const slackSignature = req.headers["x-slack-signature"] as string;
+      if (!slackTimestamp || !slackSignature || !resolvedIntegration.slackSigningSecret) {
+        throw new AppError("Missing Slack signature headers or signing secret", 401);
+      }
+      const rawBody = ((req as any).rawBody as string | undefined) || JSON.stringify(req.body);
+      if (
+        !verifySlackSignature(
+          resolvedIntegration.slackSigningSecret,
+          slackTimestamp,
+          rawBody,
+          slackSignature
+        )
+      ) {
+        throw new AppError("Invalid Slack signature", 401);
+      }
+
+      const slackPayload = req.body;
+
+      // Handle URL verification challenge
+      if (slackPayload.type === "url_verification") {
+        return res.status(200).json({ challenge: slackPayload.challenge });
+      }
+
+      // Handle event callbacks
+      if (slackPayload.type !== "event_callback") {
+        return res.status(200).json({ ok: true });
+      }
+
+      const event = slackPayload.event;
+      if (!event) {
+        return res.status(200).json({ ok: true });
+      }
+
+      // Handle: app_mention, direct messages, and thread replies (conversation continuity)
+      const isAppMention = event.type === "app_mention";
+      const isDirectMessage =
+        event.type === "message" && event.channel_type === "im" && !event.subtype;
+      // Thread continuity: messages in a thread (thread_ts set) are follow-ups — no @mention needed
+      const isThreadReply =
+        event.type === "message" &&
+        !event.subtype &&
+        event.thread_ts &&
+        event.ts !== event.thread_ts;
+      if (!isAppMention && !isDirectMessage && !isThreadReply) {
+        return res.status(200).json({ ok: true });
+      }
+
+      // Ignore bot's own messages
+      if (event.bot_id || event.user === resolvedIntegration.slackBotUserId) {
+        return res.status(200).json({ ok: true });
+      }
+
+      if (!resolvedIntegration.slackBotToken) {
+        throw new AppError("Slack bot token is not configured", 400);
+      }
+
+      // Respond to Slack immediately to prevent retries (Slack times out after 3s)
+      res.status(200).json({ ok: true });
+
+      // Everything below runs in background after 200 is sent
+      const userId = resolvedIntegration.userId;
+      let messageText = event.text || "";
+      const channel = event.channel;
+      const threadTs = event.thread_ts || event.ts; // Reply in thread
+      const senderId = event.user || "unknown";
+
+      // Strip bot mention from text (e.g. "<@U12345> check my calendar" -> "check my calendar")
+      if (isAppMention && resolvedIntegration.slackBotUserId) {
+        messageText = messageText
+          .replace(new RegExp(`<@${resolvedIntegration.slackBotUserId}>`, "g"), "")
+          .trim();
+      }
+
+      void (async () => {
+        try {
+          // Premium feature check
+          try {
+            await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION);
+          } catch {
+            try {
+              await chatIntegrationService.sendSlackMessage(
+                resolvedIntegration.slackBotToken!,
+                channel,
+                "Slack chat with Verxio is a premium feature. Please upgrade your plan to use it.",
+                threadTs
+              );
+            } catch (_) {}
+            return;
+          }
+
+          // Consume credits
+          try {
+            await consumePremiumQuota(userId, QUOTA_COST.SLACK_CHAT_INTEGRATION);
+          } catch (quotaError) {
+            const msg = quotaError instanceof Error ? quotaError.message : "Rate limit exceeded.";
+            try {
+              await chatIntegrationService.sendSlackMessage(
+                resolvedIntegration.slackBotToken!,
+                channel,
+                msg.includes("credits")
+                  ? "You've used your daily chat credits. Limit resets at midnight."
+                  : msg,
+                threadTs
+              );
+            } catch (_) {}
+            return;
+          }
+
+          // Auto-link external identity
+          try {
+            await chatIntegrationService.linkExternalIdentity(
+              userId,
+              "slack",
+              senderId,
+              integrationId,
+              undefined,
+              { channel, teamId: slackPayload.team_id }
+            );
+          } catch (_) {}
+
+          const isChannel = event.channel_type !== "im";
+          const chatIntegrationMessage = {
+            platform: "SLACK" as const,
+            externalId: senderId,
+            message: messageText || "[non-text message]",
+            metadata: {
+              chatId: channel,
+              threadTs,
+              slackPayload,
+            },
+          };
+
+          // Prefix for channel replies so it's clear who the reply is for (Slack @mention)
+          const groupPrefix = isChannel && senderId ? `<@${senderId}> ` : "";
+
+          const result = await chatIntegrationService.processMessage(
+            userId,
+            resolvedIntegration,
+            chatIntegrationMessage
+          );
+          const replyText = result.message?.trim() || "";
+          const withPrefix = replyText ? groupPrefix + replyText : "";
+          const textToSend = withPrefix
+            ? chatIntegrationService.formatSlackMessage(withPrefix)
+            : "Done.";
+          await chatIntegrationService.sendSlackMessage(
+            resolvedIntegration.slackBotToken!,
+            channel,
+            textToSend,
+            threadTs
+          );
+        } catch (err) {
+          console.error("[Slack webhook] processMessage error:", err);
+          try {
+            await chatIntegrationService.sendSlackMessage(
+              resolvedIntegration.slackBotToken!,
+              channel,
+              "Something went wrong. Please try again.",
+              threadTs
+            );
+          } catch (_) {}
+        }
+      })().catch((err) => console.error("[Slack webhook] background error:", err));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ============================================
 // Hosted Telegram Webhook (no chat integration required)
 // ============================================
 
@@ -885,12 +1332,50 @@ chatIntegrationRouter.post(
         return res.status(200).json({ success: true, message: "No message to process." });
       }
 
-      const text = message.text || message.caption || "";
+      let text = message.text || message.caption || "";
       const chatId = message.chat?.id;
       const sender = message.from || telegramUpdate?.callback_query?.from;
+      const chatType = message.chat?.type as string | undefined; // "private" | "group" | "supergroup"
+      const isGroupChat = chatType === "group" || chatType === "supergroup";
+      const messageId = message.message_id; // for reply threading in groups
 
       if (!chatId) {
         throw new AppError("Missing chat ID in Telegram update", 400);
+      }
+
+      // In group chats, only respond when the bot is mentioned or the message is a reply to the bot
+      if (isGroupChat) {
+        const botInfo = await chatIntegrationService.ensureTelegramBotInfo(resolvedIntegration);
+        const botUsername =
+          botInfo?.telegramBotUsername ?? resolvedIntegration.telegramBotUsername ?? "";
+        const botId = botInfo?.telegramBotId ?? resolvedIntegration.telegramBotId ?? "";
+        const entities = message.entities || [];
+        const replyTo = message.reply_to_message;
+
+        // Telegram can send @mentions as "mention" or "text_link" (url: https://t.me/BotUsername)
+        const mentionedInEntities = entities.some((e: any) => {
+          const substring = text
+            .substring(e.offset || 0, (e.offset || 0) + (e.length || 0))
+            .toLowerCase();
+          if (e.type === "mention" && botUsername) {
+            return substring === `@${botUsername.toLowerCase()}`;
+          }
+          if (e.type === "text_link" && botUsername && e.url) {
+            const tmeMatch = e.url.match(/^https?:\/\/t\.me\/([^/?]+)/i);
+            return tmeMatch && tmeMatch[1].toLowerCase() === botUsername.toLowerCase();
+          }
+          return false;
+        });
+        const isReplyToBot = replyTo?.from?.id?.toString() === botId && botId !== "";
+
+        if (!mentionedInEntities && !isReplyToBot) {
+          return res.status(200).json({ success: true });
+        }
+
+        // Strip the @botusername mention from the text so the agent sees clean input
+        if (mentionedInEntities && botUsername) {
+          text = text.replace(new RegExp(`@${botUsername}`, "gi"), "").trim();
+        }
       }
 
       const userId = resolvedIntegration.userId;
@@ -908,7 +1393,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: formatted,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (_) {}
@@ -937,7 +1427,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: formatted, parse_mode: "HTML" }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: formatted,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (_) {}
@@ -971,6 +1466,7 @@ chatIntegrationRouter.post(
       };
 
       // Process in background and send formatted result when done
+      // No username prefix needed — reply_to_message_id already links the reply to the original message
       void (async () => {
         try {
           const result = await chatIntegrationService.processMessage(
@@ -987,7 +1483,12 @@ chatIntegrationRouter.post(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: textToSend, parse_mode: "HTML" }),
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: textToSend,
+                parse_mode: "HTML",
+                ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
+              }),
             }
           );
         } catch (err) {
@@ -1002,6 +1503,7 @@ chatIntegrationRouter.post(
                   chat_id: chatId,
                   text: "Something went wrong. Please try again.",
                   parse_mode: "HTML",
+                  ...(isGroupChat && messageId ? { reply_to_message_id: messageId } : {}),
                 }),
               }
             );

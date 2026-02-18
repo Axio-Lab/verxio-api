@@ -30,9 +30,6 @@ export const NodeType = {
   GMAIL: "GMAIL",
   AIRTABLE: "AIRTABLE",
   AIRTABLE_TRIGGER: "AIRTABLE_TRIGGER",
-  ELEVENLABS: "ELEVENLABS",
-  FIRECRAWL: "FIRECRAWL",
-  APIFY: "APIFY",
   CODE_BLOCK: "CODE_BLOCK",
   PLAN: "PLAN",
   DESIGN: "DESIGN",
@@ -55,6 +52,8 @@ export const NodeType = {
   MARKDOWN: "MARKDOWN",
   SEEDANCE: "SEEDANCE",
   SEEDREAM: "SEEDREAM",
+  COMPOSIO_ACTION: "COMPOSIO_ACTION",
+  COMPOSIO_TRIGGER: "COMPOSIO_TRIGGER",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

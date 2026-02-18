@@ -26,9 +26,6 @@ function getPlanFeatures(planType: string | null | undefined): string[] {
         "remotion",
         "design-agent-pro",
         "veo",
-        "elevenlabs",
-        "firecrawl",
-        "apify",
         "experimental-features",
         "early-access-updates",
       ];
@@ -40,9 +37,6 @@ function getPlanFeatures(planType: string | null | undefined): string[] {
         "remotion",
         "design-agent-pro",
         "veo",
-        "elevenlabs",
-        "firecrawl",
-        "apify",
       ];
     default:
       return [];

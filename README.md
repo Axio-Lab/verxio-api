@@ -94,9 +94,10 @@ flowchart TB
 - **Multi-Platform Integrations**
   - **Messaging**: Telegram, WhatsApp, Discord, Slack
   - **Google Workspace**: Sheets, Docs, Slides, Drive, Calendar, Gmail
-  - **Data Sources**: Airtable, HTTP APIs, Firecrawl
+  - **Data Sources**: Airtable, HTTP APIs
   - **Payment**: Stripe webhooks
-  - **Media**: ElevenLabs (TTS), Kling AI (video/image), Veo (video), Remotion (motion graphics)
+  - **Media**: Kling AI (video/image), Veo (video), Remotion (motion graphics)
+  - **Composio**: 10,000+ actions across 800+ apps (GitHub, Notion, Jira, HubSpot, ElevenLabs, Firecrawl, and more)
 
 - **Chat Integrations**
   - AI agents via Telegram and WhatsApp
@@ -107,7 +108,7 @@ flowchart TB
 - **Media Generation**
   - **Images**: Design nodes (Gemini), Kling AI, Design Pro with advanced editing
   - **Videos**: Veo, Kling AI, Remotion for motion graphics
-  - **Audio**: ElevenLabs, Kling TTS
+  - **Audio**: Kling TTS (+ ElevenLabs via Composio)
 
 - **Workflow Triggers**
   - Manual triggers

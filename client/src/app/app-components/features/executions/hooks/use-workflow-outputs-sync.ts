@@ -90,11 +90,6 @@ export function useWorkflowOutputsSync() {
     enabled: true,
   });
 
-  const elevenlabsSub = useInngestSubscription({
-    refreshToken: createRefreshToken("elevenlabs"),
-    enabled: true,
-  });
-
   const veoSub = useInngestSubscription({
     refreshToken: createRefreshToken("veo"),
     enabled: true,
@@ -131,6 +126,14 @@ export function useWorkflowOutputsSync() {
     refreshToken: createRefreshToken("seedream"),
     enabled: true,
   });
+  const composioActionSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioAction"),
+    enabled: true,
+  });
+  const composioTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioTrigger"),
+    enabled: true,
+  });
 
   // Merge all output messages
   const allMessages = useMemo(() => {
@@ -140,7 +143,6 @@ export function useWorkflowOutputsSync() {
       ...(anthropicSub.data || []),
       ...(openaiSub.data || []),
       ...(geminiSub.data || []),
-      ...(elevenlabsSub.data || []),
       ...(veoSub.data || []),
       ...(remotionSub.data || []),
       ...(httpRequestSub.data || []),
@@ -149,6 +151,8 @@ export function useWorkflowOutputsSync() {
       ...(markdownSub.data || []),
       ...(seedanceSub.data || []),
       ...(seedreamSub.data || []),
+      ...(composioActionSub.data || []),
+      ...(composioTriggerSub.data || []),
     ];
   }, [
     designProSub.data,
@@ -156,7 +160,6 @@ export function useWorkflowOutputsSync() {
     anthropicSub.data,
     openaiSub.data,
     geminiSub.data,
-    elevenlabsSub.data,
     veoSub.data,
     remotionSub.data,
     httpRequestSub.data,
@@ -165,6 +168,8 @@ export function useWorkflowOutputsSync() {
     markdownSub.data,
     seedanceSub.data,
     seedreamSub.data,
+    composioActionSub.data,
+    composioTriggerSub.data,
   ]);
 
   // Extract outputs from all messages and merge into global store

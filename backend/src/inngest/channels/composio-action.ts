@@ -1,7 +1,7 @@
 import { channel, topic } from "@inngest/realtime";
 
-export const FIRECRAWL_CHANNEL = "firecrawl-execution";
-export const firecrawlChannel = channel(FIRECRAWL_CHANNEL)
+export const COMPOSIO_ACTION_CHANNEL = "composio-action-execution";
+export const composioActionChannel = channel(COMPOSIO_ACTION_CHANNEL)
   .addTopic(
     topic("status").type<{
       nodeId: string;

@@ -11,6 +11,7 @@ import * as credentialService from "./credentialService";
 import * as skillService from "./skillService";
 import { inngest } from "../inngest";
 import { sendWhatsAppMessage as sendWhatsAppViaConnector } from "./whatsappConnectorClient";
+import { sendDiscordMessage as sendDiscordViaConnector } from "./discordConnectorClient";
 
 /**
  * Chat Integration Integration Service
@@ -49,6 +50,10 @@ export async function createIntegration(
     isActive?: boolean;
     allowPlanMode?: boolean;
     allowWorkflowExecution?: boolean;
+    soulMd?: string | null;
+    evolvePersonality?: boolean;
+    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    allowedSkillIds?: string[];
   }
 ) {
   const secret = generateSharedSecret();
@@ -65,6 +70,10 @@ export async function createIntegration(
       isActive: data.isActive ?? true,
       allowPlanMode: data.allowPlanMode ?? true,
       allowWorkflowExecution: data.allowWorkflowExecution ?? true,
+      soulMd: data.soulMd || null,
+      evolvePersonality: data.evolvePersonality ?? false,
+      skillScope: data.skillScope || "ALL_SKILLS",
+      allowedSkillIds: data.allowedSkillIds || [],
     },
   });
 }
@@ -106,6 +115,10 @@ export async function updateIntegration(
     allowWorkflowExecution?: boolean;
     telegramBotToken?: string | null;
     whatsappOnlyOwnerCanChat?: boolean;
+    soulMd?: string | null;
+    evolvePersonality?: boolean;
+    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    allowedSkillIds?: string[];
   }
 ) {
   const existing = await getIntegration(userId, integrationId);
@@ -116,6 +129,116 @@ export async function updateIntegration(
   return (prisma as any).chatIntegration.update({
     where: { id: integrationId },
     data,
+  });
+}
+
+// ============================================
+// Agent Personality (soul.md) Management
+// ============================================
+
+/**
+ * Generate a soul.md personality document using Claude.
+ */
+export async function generateSoulMd(params: {
+  name: string;
+  description: string;
+  tone: string;
+  coreTruths?: string;
+  boundaries?: string;
+}): Promise<string> {
+  const { name, description, tone, coreTruths, boundaries } = params;
+
+  const prompt = `You are an expert at crafting agent personality documents (soul.md). Generate a rich, detailed soul.md personality document for an AI assistant with the following details:
+
+**Agent Name:** ${name}
+**What it does:** ${description}
+**Tone/Vibe:** ${tone}
+${coreTruths ? `**User-provided Core Truths:** ${coreTruths}` : ""}
+${boundaries ? `**User-provided Boundaries:** ${boundaries}` : ""}
+
+The soul.md MUST have exactly three sections:
+
+## Core Truths
+These are the fundamental beliefs and values that define this agent. They should reflect the agent's purpose, principles, and what it stands for. Include 5-8 core truths.
+
+## Boundaries
+These are hard limits — things the agent will never do, topics it avoids, and ethical guardrails. Include 4-6 boundaries.
+
+## The Vibe
+This defines the agent's voice, tone, and communication style. How does it greet people? What kind of language does it use? Does it use humor? How formal or casual is it? Be very specific and give examples of how the agent would phrase things.
+
+Output ONLY the soul.md content in markdown format. Do not wrap in code fences. Make it feel authentic and unique to this agent's personality — not generic.`;
+
+  const model = process.env.AGENT_CLAUDE_MODEL || "claude-sonnet-4-20250514";
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to generate soul.md: ${err}`);
+  }
+
+  const result = (await response.json()) as {
+    content: Array<{ type: string; text?: string }>;
+  };
+  const text = result.content
+    ?.filter((b: { type: string }) => b.type === "text")
+    .map((b: { text?: string }) => b.text || "")
+    .join("\n");
+
+  if (!text?.trim()) {
+    throw new Error("AI returned empty soul.md content.");
+  }
+
+  return text.trim();
+}
+
+/**
+ * Save soul.md content to an integration.
+ */
+export async function saveSoulMd(userId: string, integrationId: string, soulMd: string) {
+  const existing = await getIntegration(userId, integrationId);
+  if (!existing) {
+    throw new Error("Integration not found.");
+  }
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integrationId },
+    data: { soulMd },
+  });
+}
+
+/**
+ * Update soul.md via agent self-evolution.
+ */
+export async function updateSoulEvolution(
+  userId: string,
+  integrationId: string,
+  updatedSoulMd: string
+) {
+  const existing = await getIntegration(userId, integrationId);
+  if (!existing) {
+    throw new Error("Integration not found.");
+  }
+  if (!existing.evolvePersonality) {
+    throw new Error("Personality evolution is not enabled for this integration.");
+  }
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integrationId },
+    data: { soulMd: updatedSoulMd },
   });
 }
 
@@ -190,13 +313,64 @@ export async function saveTelegramBotToken(
     integration.sharedSecret
   );
 
+  // Fetch bot info via getMe to store username and ID (needed for group mention detection)
+  let telegramBotUsername: string | undefined;
+  let telegramBotId: string | undefined;
+  try {
+    const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+    const meJson = await meRes.json();
+    if (meJson.ok && meJson.result) {
+      telegramBotUsername = meJson.result.username || undefined;
+      telegramBotId = meJson.result.id?.toString() || undefined;
+    }
+  } catch (err) {
+    console.warn("[Telegram] Failed to fetch bot info via getMe:", err);
+  }
+
   return (prisma as any).chatIntegration.update({
     where: { id: integration.id },
     data: {
       telegramBotToken: botToken,
       webhookUrl,
+      ...(telegramBotUsername && { telegramBotUsername }),
+      ...(telegramBotId && { telegramBotId }),
     },
   });
+}
+
+/**
+ * Ensure telegramBotUsername and telegramBotId are set. If missing, fetch via getMe and update.
+ * Returns { telegramBotUsername, telegramBotId } or null if token is missing.
+ */
+export async function ensureTelegramBotInfo(integration: {
+  id: string;
+  telegramBotToken: string | null;
+  telegramBotUsername?: string | null;
+  telegramBotId?: string | null;
+}): Promise<{ telegramBotUsername: string; telegramBotId: string } | null> {
+  if (!integration.telegramBotToken) return null;
+  if (integration.telegramBotUsername && integration.telegramBotId) {
+    return {
+      telegramBotUsername: integration.telegramBotUsername,
+      telegramBotId: integration.telegramBotId,
+    };
+  }
+  try {
+    const meRes = await fetch(`https://api.telegram.org/bot${integration.telegramBotToken}/getMe`);
+    const meJson = await meRes.json();
+    if (!meJson.ok || !meJson.result) return null;
+    const username = meJson.result.username;
+    const id = meJson.result.id?.toString();
+    if (!username || !id) return null;
+    await (prisma as any).chatIntegration.update({
+      where: { id: integration.id },
+      data: { telegramBotUsername: username, telegramBotId: id },
+    });
+    return { telegramBotUsername: username, telegramBotId: id };
+  } catch (err) {
+    console.warn("[Telegram] ensureTelegramBotInfo getMe failed:", err);
+    return null;
+  }
 }
 
 /**
@@ -536,6 +710,231 @@ export function formatWhatsAppMessage(text: string): string {
   out = out.replace(/^(\d+)\.\s*/gm, "$1. ");
 
   return out.trim();
+}
+
+/**
+ * Format text for Slack mrkdwn.
+ * Slack uses *bold*, _italic_, `code`, ```code block```, and <@USER_ID> mentions.
+ */
+export function formatSlackMessage(text: string): string {
+  if (!text) return "";
+  let out = text;
+
+  // Bold: **text** or __text__ -> *text*
+  out = out.replace(/\*\*([^*]+)\*\*/g, "*$1*");
+  out = out.replace(/__([^_]+)__/g, "*$1*");
+
+  // Italic: single *word* (not **) -> _word_ (must not conflict with bold we just converted)
+  // Slack uses _italic_ already so markdown _word_ is fine
+  // Convert remaining single * that are NOT bold to _italic_
+  // Since we already converted ** to *, we skip this step to avoid double-conversion
+
+  // Bullet lists: "- item" -> "• item"
+  out = out.replace(/^\s*-\s+/gm, "• ");
+
+  return out.trim();
+}
+
+/**
+ * Format text for Discord markdown.
+ * Discord uses standard markdown: **bold**, *italic*, `code`, ```code block```.
+ * Mentions: <@USER_ID>, <@&ROLE_ID>, <#CHANNEL_ID>
+ */
+export function formatDiscordMessage(text: string): string {
+  if (!text) return "";
+  // Discord supports standard markdown natively, minimal conversion needed
+  let out = text;
+  // Bullet lists: "• item" -> "- item" (Discord renders - as bullet)
+  out = out.replace(/^\s*•\s+/gm, "- ");
+  return out.trim();
+}
+
+/**
+ * Split a message into chunks for Discord (2000 char limit).
+ */
+export function splitDiscordMessage(text: string, maxLen = 2000): string[] {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+    // Try to split at last newline within limit
+    let splitIdx = remaining.lastIndexOf("\n", maxLen);
+    if (splitIdx < maxLen * 0.3) {
+      // No good newline break, split at last space
+      splitIdx = remaining.lastIndexOf(" ", maxLen);
+    }
+    if (splitIdx < maxLen * 0.3) {
+      // Force split
+      splitIdx = maxLen;
+    }
+    chunks.push(remaining.slice(0, splitIdx));
+    remaining = remaining.slice(splitIdx).trimStart();
+  }
+  return chunks;
+}
+
+/**
+ * Send a message to a Slack channel via Slack Web API.
+ */
+export async function sendSlackMessage(
+  botToken: string,
+  channel: string,
+  text: string,
+  threadTs?: string
+) {
+  const formatted = formatSlackMessage(text);
+  const payload: Record<string, unknown> = {
+    channel,
+    text: formatted,
+    ...(threadTs ? { thread_ts: threadTs } : {}),
+  };
+  const res = await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    console.error("[Slack] chat.postMessage failed:", data.error);
+  }
+  return data;
+}
+
+/**
+ * Get the hosted Slack webhook URL for an integration.
+ */
+export function getHostedSlackWebhookUrl(integrationId: string) {
+  const base = process.env.API_URL?.trim();
+  if (!base) {
+    throw new Error("API_URL is required to build the Slack webhook URL.");
+  }
+  return `${base.replace(/\/$/, "")}/api/chat-integrations/slack/events/${integrationId}`;
+}
+
+/**
+ * Save Slack bot token and signing secret.
+ */
+export async function saveSlackBotToken(
+  userId: string,
+  integrationId: string,
+  botToken: string,
+  signingSecret: string
+) {
+  const integration = await getIntegration(userId, integrationId);
+  if (!integration) {
+    throw new Error("Chat Integration not found.");
+  }
+  if (integration.platform !== "SLACK") {
+    throw new Error("Slack token can only be set for SLACK integrations.");
+  }
+
+  // Verify token by calling auth.test
+  const authRes = await fetch("https://slack.com/api/auth.test", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      Authorization: `Bearer ${botToken}`,
+    },
+  });
+  const authData = await authRes.json();
+  if (!authData.ok) {
+    throw new Error(`Slack auth.test failed: ${authData.error || "unknown error"}`);
+  }
+
+  const webhookUrl = getHostedSlackWebhookUrl(integration.id);
+
+  return (prisma as any).chatIntegration.update({
+    where: { id: integration.id },
+    data: {
+      slackBotToken: botToken,
+      slackSigningSecret: signingSecret,
+      slackTeamId: authData.team_id || undefined,
+      slackBotUserId: authData.user_id || undefined,
+      webhookUrl,
+    },
+  });
+}
+
+/**
+ * Save Discord bot token.
+ * @param botToken - New token to save. If omitted and integration already has a token, only clientId is updated.
+ */
+export async function saveDiscordBotToken(
+  userId: string,
+  integrationId: string,
+  botToken?: string,
+  clientId?: string
+) {
+  const integration = await getIntegration(userId, integrationId);
+  if (!integration) {
+    throw new Error("Chat Integration not found.");
+  }
+  if (integration.platform !== "DISCORD") {
+    throw new Error("Discord token can only be set for DISCORD integrations.");
+  }
+
+  const effectiveToken = botToken?.trim() || integration.discordBotToken;
+  if (!effectiveToken) {
+    throw new Error("Discord bot token is required.");
+  }
+
+  let meData: { id?: string } = {};
+  if (botToken?.trim()) {
+    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bot ${botToken.trim()}` },
+    });
+    if (!meRes.ok) {
+      const text = await meRes.text();
+      throw new Error(`Discord token verification failed: ${text}`);
+    }
+    meData = await meRes.json();
+  } else {
+    meData = { id: integration.discordBotUserId ?? undefined };
+  }
+
+  const updateData: Record<string, unknown> = {
+    discordClientId:
+      clientId !== undefined ? clientId?.trim() || null : integration.discordClientId,
+  };
+  if (botToken?.trim()) {
+    updateData.discordBotToken = botToken.trim();
+    updateData.discordBotUserId = meData.id;
+  }
+
+  const updated = await (prisma as any).chatIntegration.update({
+    where: { id: integration.id },
+    data: updateData,
+  });
+
+  if (botToken?.trim()) {
+    try {
+      const { connectDiscordBot } = await import("./discordConnectorClient");
+      await connectDiscordBot(integrationId, botToken.trim());
+    } catch (err) {
+      console.warn(
+        "[ChatIntegration] Discord connector connect failed (connector may not be running):",
+        err
+      );
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Generate Discord bot invite URL with required permissions.
+ */
+export function getDiscordInviteUrl(clientId: string): string {
+  // Permissions: Send Messages (2048), Read Message History (65536), Mention Everyone (131072)
+  const permissions = 2048 + 65536 + 131072;
+  return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot`;
 }
 
 const POLL_INTERVAL_MS = 1500;
@@ -1055,7 +1454,7 @@ async function handleClearConversation(
       };
     }
 
-    await clearPlanningConversation(workflowId);
+    await clearPlanningConversation(workflowId, integration.id);
 
     return {
       success: true,
@@ -1117,12 +1516,27 @@ async function handlePlanMessage(
       fileName: att.fileName,
     }));
 
-    // Send message to planning service
+    // Build agent personality and skill config from integration (always pass when in integration flow)
+    const agentPersonality = {
+      name: integration.label || "Verxio",
+      soulMd: integration.soulMd || "",
+      evolvePersonality: integration.evolvePersonality ?? false,
+      integrationId: integration.id,
+      skillScope: (integration.skillScope || "ALL_SKILLS") as
+        | "ALL_SKILLS"
+        | "SELECTED_SKILLS"
+        | "NO_SKILLS",
+      allowedSkillIds: integration.allowedSkillIds || [],
+    };
+
+    // Send message to planning service (chatIntegrationId scopes conversation per integration)
     const result = await sendPlanningMessage({
       workflowId,
       userId,
       message: message.message,
+      chatIntegrationId: integration.id,
       attachments: attachments as any,
+      agentPersonality,
     });
 
     return {
@@ -1748,6 +2162,76 @@ async function handleRunWorkflow(
       };
     }
 
+    // If Slack, run workflow and send result via Slack Web API
+    if (chatId && integration?.platform === "SLACK" && integration.slackBotToken) {
+      const threadTs = (message.metadata as any)?.threadTs;
+      void (async () => {
+        const result = await runWorkflowAndWait({
+          workflowId: workflow.id,
+          userId,
+          message: message.message,
+        });
+        const summary = result.success
+          ? await buildResultSummaryWithAgent({
+              output: result.output as Record<string, unknown>,
+              userId,
+              workflowId: workflow.id,
+            })
+          : `Workflow failed: ${result.error}`;
+        await sendSlackMessage(
+          integration.slackBotToken!,
+          chatId,
+          formatSlackMessage(summary),
+          threadTs
+        );
+      })();
+      return {
+        success: true,
+        type: "workflow",
+        message: `Running **${workflow.name}**... I'll send results when it completes.`,
+        data: {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+        },
+      };
+    }
+
+    // If Discord, run workflow and send result via Discord connector
+    if (chatId && integration?.platform === "DISCORD" && integration.id) {
+      void (async () => {
+        const result = await runWorkflowAndWait({
+          workflowId: workflow.id,
+          userId,
+          message: message.message,
+        });
+        const summary = result.success
+          ? await buildResultSummaryWithAgent({
+              output: result.output as Record<string, unknown>,
+              userId,
+              workflowId: workflow.id,
+            })
+          : `Workflow failed: ${result.error}`;
+        const formatted = formatDiscordMessage(summary);
+        const chunks = splitDiscordMessage(formatted);
+        for (const chunk of chunks) {
+          await sendDiscordViaConnector({
+            integrationId: integration.id,
+            channelId: chatId,
+            text: chunk,
+          });
+        }
+      })();
+      return {
+        success: true,
+        type: "workflow",
+        message: `Running **${workflow.name}**... I'll send results when it completes.`,
+        data: {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+        },
+      };
+    }
+
     // Fallback: trigger without async response
     await inngest.send({
       name: "workflow/trigger",
@@ -1843,12 +2327,27 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
       await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
     }
 
-    // Stream from planning service
+    // Build agent personality and skill config from integration
+    const agentPersonality = {
+      name: integration.label || "Verxio",
+      soulMd: integration.soulMd || "",
+      evolvePersonality: integration.evolvePersonality ?? false,
+      integrationId: integration.id,
+      skillScope: (integration.skillScope || "ALL_SKILLS") as
+        | "ALL_SKILLS"
+        | "SELECTED_SKILLS"
+        | "NO_SKILLS",
+      allowedSkillIds: integration.allowedSkillIds || [],
+    };
+
+    // Stream from planning service (chatIntegrationId scopes conversation per integration)
     for await (const event of sendPlanningMessageStreaming({
       workflowId,
       userId,
       message: message.message,
+      chatIntegrationId: integration.id,
       attachments: message.attachments as any,
+      agentPersonality,
     })) {
       yield event;
     }
@@ -1947,10 +2446,124 @@ export async function testConnection(
       };
     }
 
+    if (integration.platform === "SLACK") {
+      if (!integration.isActive) {
+        return {
+          success: false,
+          message: "Chat integration is disabled.",
+          integration,
+        };
+      }
+      if (!integration.slackBotToken) {
+        return {
+          success: false,
+          message: "Slack bot token is missing. Please save a bot token first.",
+          integration,
+        };
+      }
+      // Verify token via auth.test
+      const authRes = await fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${integration.slackBotToken}`,
+        },
+      });
+      const authData = await authRes.json();
+      if (!authData.ok) {
+        return {
+          success: false,
+          message: `Slack connection failed: ${authData.error || "Invalid token"}`,
+          integration,
+        };
+      }
+      let testMessageSent = false;
+      try {
+        const { identities } = await getExternalIdentities(userId, integrationId);
+        const slackIdentity = identities.find((i: any) => i.platform === "slack");
+        const channel = slackIdentity?.metadata?.channel as string | undefined;
+        if (channel && integration.slackBotToken) {
+          const result = await sendSlackMessage(
+            integration.slackBotToken,
+            channel,
+            "Connection test successful. Your Verxio integration is working."
+          );
+          testMessageSent = !!result?.ok;
+        }
+      } catch (sendErr) {
+        console.warn("[Chat Integration] Slack test message send failed:", sendErr);
+      }
+      return {
+        success: true,
+        message: testMessageSent
+          ? "A test message was sent to your Slack channel."
+          : "Slack connection verified. Add the bot to a channel and @mention it to receive a test message.",
+        integration: {
+          slackTeamId: integration.slackTeamId,
+          isActive: integration.isActive,
+        },
+      };
+    }
+
+    if (integration.platform === "DISCORD") {
+      if (!integration.isActive) {
+        return {
+          success: false,
+          message: "Chat integration is disabled.",
+          integration,
+        };
+      }
+      if (!integration.discordBotToken) {
+        return {
+          success: false,
+          message: "Discord bot token is missing. Please save a bot token first.",
+          integration,
+        };
+      }
+      const { getDiscordBotStatus } = await import("./discordConnectorClient");
+      const status = await getDiscordBotStatus(integrationId);
+      if (!status || status.status !== "connected") {
+        return {
+          success: true,
+          message:
+            "Discord connector is not connected. Ensure the Discord connector service is running and the bot token is saved.",
+          integration: {
+            isActive: integration.isActive,
+          },
+        };
+      }
+      let testMessageSent = false;
+      try {
+        const { identities } = await getExternalIdentities(userId, integrationId);
+        const discordIdentity = identities.find((i: any) => i.platform === "discord");
+        const channelId = discordIdentity?.metadata?.channelId as string | undefined;
+        if (channelId) {
+          const result = await sendDiscordViaConnector({
+            integrationId,
+            channelId,
+            text: "Connection test successful. Your Verxio integration is working.",
+          });
+          testMessageSent = result?.success ?? false;
+        }
+      } catch (sendErr) {
+        console.warn("[Chat Integration] Discord test message send failed:", sendErr);
+      }
+      return {
+        success: true,
+        message: testMessageSent
+          ? "A test message was sent to your Discord channel."
+          : "Discord bot is connected. Add the bot to a server and @mention it to receive a test message.",
+        integration: {
+          isActive: integration.isActive,
+          guildCount: status?.guildCount,
+        },
+      };
+    }
+
     if (integration.platform !== "TELEGRAM") {
       return {
         success: false,
-        message: "This integration is not Telegram-based.",
+        message: `Test connection is not supported for ${integration.platform}.`,
         integration,
       };
     }

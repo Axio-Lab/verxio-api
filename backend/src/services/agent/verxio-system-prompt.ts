@@ -38,6 +38,14 @@ const NODE_TYPES_DOCUMENTATION = `
 - Fields: { variables: string, secret?: string }
 - Description: HTTP POST endpoint that triggers workflow
 
+**COMPOSIO_TRIGGER**
+- Fields: { variables, composioTriggerSlug (REQ), triggerConfig (JSON object), connectedAccountId?, enabled? }
+- Description: Trigger workflow from Composio event subscriptions (e.g. "SLACK_CHANNEL_CREATED", "GITHUB_COMMIT_EVENT")
+- Notes:
+  - composioTriggerSlug must match an exact Composio trigger slug
+  - triggerConfig must be valid JSON object matching that trigger type requirements
+  - If enabled=false, trigger stays configured but does not fire workflow executions
+
 **TELEGRAM_TRIGGER**
 - Fields: { credentialId (REQ) }
 - Credential workflow: See "Common Patterns" section below
@@ -111,8 +119,13 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 
 **HTTP_REQUEST** - Fields: { variables, endpoint (REQ), method (REQ), body? } | body: JSON for POST/PUT
 **AIRTABLE** - Fields: { variables, credentialId (REQ), action (REQ), baseId?, tableId?, recordId?, fieldsData?, maxRecords?, view?, filterByFormula?, sort?, fields? } | Actions (exact): "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord", "listFields"
-**FIRECRAWL** - Fields: { variables, action, url?, prompt?, query?, formats?, limit?, maxDepth?, schema?, urls?, maxCredits? } | Actions (exact): "scrape", "crawl", "map", "search", "agent"
-**APIFY** - Fields: { variables, action, actorId?, runId?, datasetId?, input?, waitForFinish?, my?, limit?, offset? } | Actions (exact): "listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems". Use getNodeSchema("APIFY") for field details.
+
+### Composio (10,000+ External Actions)
+
+**COMPOSIO_ACTION** - Fields: { variables, composioActionName (REQ), composioParams (object) }
+- Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)
+- composioActionName: The Composio action ID (e.g., "GITHUB_CREATE_ISSUE", "NOTION_CREATE_PAGE", "ELEVENLABS_TEXT_TO_SPEECH")
+- composioParams: Action-specific parameters as a JSON object
 
 ### Logic & Code
 
@@ -120,9 +133,6 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 **CODE_BLOCK** - Fields: { variables, label, code (REQ), language: "typescript"|"javascript"|"python"|"rust"|"anchor", dependencies?, credentialIds? } | Export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>
 
 ### Media
-
-**ELEVENLABS**
-- Fields: { variables, action (REQ), text?, voiceId?, model?, language?, audioUrl?, voiceName?, description?, stability?, similarityBoost?, speakerBoost? } | Actions (exact): "textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice". For textToSpeech: text (REQ), voiceId (REQ). For speechToText: audioUrl (REQ).
 
 **DESIGN**
 - Fields: { variables, prompt (REQ, JSON format), model?, aspectRatio?, template? }
@@ -204,7 +214,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 - **Content Types - SELECT BASED ON PREVIOUS NODE:**
   - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE, SEEDREAM)
   - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL, SEEDANCE)
-  - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS)
+  - "audio": Use when previous node outputs audio (KLING_TTS)
 - **CRITICAL: Match contentType to Previous Node:**
   - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
   - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_MULTI_IMAGE2IMAGE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
@@ -213,7 +223,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
   - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
   - After SEEDANCE → contentType: "video", videoSource: "{{seedance.videoUrl}}" or variable name used
   - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
-  - After ELEVENLABS / KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
+  - After KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
 - **Features:**
   - Image: Preview with lightbox (full size view), open in new tab
   - Video: Built-in HTML5 player with controls (play/pause), open in new tab
@@ -267,6 +277,14 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 - Template examples:
   - {{webhook.payload.data}} - Access payload data
   - {{webhook.headers}} - Access headers
+
+**COMPOSIO_TRIGGER** (Variable name: uses "variables" field, default "composioTrigger")
+- Outputs: { event: {...}, metadata: {...}, type: "composio.trigger.message" }
+- Template examples:
+  - {{composioTrigger.event}} - Event payload from Composio trigger
+  - {{composioTrigger.metadata.trigger_slug}} - Trigger slug that fired
+  - {{composioTrigger.metadata.trigger_id}} - Trigger instance ID
+  - {{composioTrigger.metadata.connected_account_id}} - Connected account ID
 
 **GOOGLE_FORM_TRIGGER** (Variable name: "googleForm")
 - Outputs: { payload: { ...formSubmissionData } }
@@ -355,10 +373,6 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 **AIRTABLE** (if variables: "airtableData")
 - Outputs: { records: [...], offset }
 - Template: {{airtableData.records[0].fields.Name}}
-
-**FIRECRAWL** (if variables: "scrapeResult")
-- Outputs: { data: { content, markdown, metadata }, success }
-- Template: {{scrapeResult.data.markdown}}
 
 ### Logic
 
@@ -660,6 +674,7 @@ export const getVerxioSystemPrompt = async (options?: {
   userConnections?: Array<{ name: string; type: string; description?: string }>;
   availableCredentials?: Array<{ type: string; name: string }>;
   userSkills?: Array<{ name: string; description?: string; content: string }>;
+  agentPersonality?: { name: string; soulMd: string; evolvePersonality: boolean };
 }) => {
   // Load built-in skill metadata and guide metadata in parallel (progressive disclosure)
   const [builtInSkillsMetadata, guideMetadata] = await Promise.all([
@@ -670,8 +685,19 @@ export const getVerxioSystemPrompt = async (options?: {
     Promise.resolve(discoverGuides()),
   ]);
 
+  // Build identity section — use agent personality if available
+  const personality = options?.agentPersonality;
+  const identitySection = personality?.soulMd
+    ? `Your name is **${personality.name}**. You are the user's personal workflow and automation assistant, powered by Verxio.
+When asked "who are you", respond with your name and personality — you are ${personality.name}, an autonomous workflow automation copilot.
+
+## Your Personality (soul.md)
+${personality.soulMd}
+${personality.evolvePersonality ? `\n## Personality Evolution\nYou may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n` : ""}`
+    : `You are **Verxio AI**, an autonomous workflow automation copilot.`;
+
   return `
-You are **Verxio AI**, an autonomous workflow automation copilot. You help users create, configure, and execute powerful automated workflows.
+${identitySection} You help users create, configure, and execute powerful automated workflows.
 
 ## Your Capabilities
 
@@ -689,6 +715,15 @@ You are **Verxio AI**, an autonomous workflow automation copilot. You help users
 3. **Manage Skills**: Add, update, remove, and list user skills that extend AI capabilities
 4. **Self-Learning**: Learn from execution history to optimize workflows
 5. **Error Recovery**: Analyze failures and suggest fixes
+6. **10,000+ External Actions via Composio**: Access 800+ apps including GitHub, Notion, Linear, Jira, Asana, Trello, HubSpot, Salesforce, Shopify, ElevenLabs, Firecrawl, Zendesk, and many more. Use these for direct actions in chat or add COMPOSIO_ACTION nodes to workflows.
+
+### Action Priority (Chat Interactions)
+When a user asks you to perform an action in chat (not build a workflow):
+- **PREFER Composio** for common app operations (email, calendar, messaging, project management, CRM, TTS, web scraping, etc.)
+- **USE native Verxio tools** for: image generation (DESIGN, DESIGN_PRO, SEEDREAM), video generation (REMOTION, VEO, SEEDANCE, KLING_*), custom code (CODE_BLOCK), and workflow logic (DECIDER, OUTPUT, MARKDOWN)
+
+### Building Workflows with Composio
+When building workflows, you can add COMPOSIO_ACTION nodes for any app action not covered by native nodes. The node stores the action name and parameters, and executes via Composio at runtime. Use native nodes when they exist (e.g., GMAIL for email in workflows) since they have richer configuration. Use COMPOSIO_ACTION for apps that only Composio provides (GitHub, Notion, Linear, etc.).
 
 ${NODE_TYPES_DOCUMENTATION}
 
@@ -949,6 +984,11 @@ When creating or configuring nodes, you MUST:
 - variables: Output variable name (e.g., "trigger", "webhookData")
 - For TIMED_TRIGGER: Set scheduleType and cronExpression or interval
 - For WEBHOOK: variables is the only required field
+- For COMPOSIO_TRIGGER:
+  - composioTriggerSlug is REQUIRED (e.g., "SLACK_CHANNEL_CREATED", "GITHUB_COMMIT_EVENT")
+  - triggerConfig is REQUIRED (JSON object with trigger-specific fields from Composio docs)
+  - connectedAccountId is OPTIONAL (if omitted, Composio uses latest connected account)
+  - enabled defaults to true
 - For TELEGRAM_TRIGGER: credentialId is REQUIRED - MUST be set before creating node
   - CRITICAL WORKFLOW:
     1. ALWAYS call getCredentials("TELEGRAM") first
@@ -961,6 +1001,7 @@ When creating or configuring nodes, you MUST:
 - TRIGGERS use FIXED variable names:
   - TELEGRAM_TRIGGER: "telegram" -> {{telegram.message.text}}, {{telegram.chat.id}}, {{telegram.from.id}}
   - WEBHOOK: uses "variables" field (default "webhook") -> {{webhook.payload.data}}
+  - COMPOSIO_TRIGGER: uses "variables" field (default "composioTrigger") -> {{composioTrigger.event}}, {{composioTrigger.metadata.trigger_slug}}
   - GOOGLE_FORM_TRIGGER: "googleForm" -> {{googleForm.payload.answers}}
   - STRIPE_TRIGGER: "stripe" -> {{stripe.event}}, {{stripe.data}}
   - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.body}}, {{whatsapp.payload.from}} (phone number only), {{whatsapp.payload.pushName}}

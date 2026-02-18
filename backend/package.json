@@ -20,7 +20,10 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "start:whatsapp-connector": "tsx src/whatsapp-connector/run.ts",
-    "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js"
+    "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js",
+    "start:discord-connector": "tsx src/discord-connector/run.ts",
+    "start:discord-connector:prod": "node dist/discord-connector/run.js",
+    "inngest:dev": "inngest dev"
   },
   "keywords": [
     "verxio",
@@ -37,8 +40,8 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.7",
     "@anthropic-ai/claude-code": "^2.1.7",
     "@anthropic-ai/sdk": "^0.71.2",
+    "@composio/core": "^0.6.3",
     "@daytonaio/sdk": "^0.129.0",
-    "@elevenlabs/elevenlabs-js": "^2.30.0",
     "@google/genai": "^1.37.0",
     "@inngest/realtime": "^0.4.5",
     "@metaplex-foundation/umi": "^1.2.0",
@@ -60,6 +63,7 @@
     "bcryptjs": "^2.4.3",
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
@@ -98,6 +102,7 @@
     "copyfiles": "^2.4.1",
     "eslint": "^9",
     "husky": "^9.1.7",
+    "inngest-cli": "^1.17.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.7.4",
     "prisma": "^6.14.0",

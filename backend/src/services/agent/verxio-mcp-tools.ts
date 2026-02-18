@@ -29,6 +29,10 @@ export interface VerxioTool {
 export interface ToolContext {
   userId: string;
   workflowId?: string;
+  integrationId?: string;
+  evolvePersonality?: boolean;
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
 }
 
 // ============================================
@@ -47,6 +51,11 @@ export const AVAILABLE_NODE_TYPES = {
     { type: "AIRTABLE_TRIGGER", description: "Triggered by Airtable record changes" },
     { type: "TELEGRAM_TRIGGER", description: "Triggered by incoming Telegram messages" },
     { type: "WHATSAPP_TRIGGER", description: "Triggered by incoming WhatsApp messages" },
+    {
+      type: "COMPOSIO_TRIGGER",
+      description:
+        "Triggered by Composio app events (e.g. SLACK_CHANNEL_CREATED, GITHUB_COMMIT_EVENT) with custom trigger config",
+    },
   ],
 
   // AI Models (generate content, analyze data)
@@ -91,8 +100,15 @@ export const AVAILABLE_NODE_TYPES = {
       description: "Read/write Airtable records",
       requiredCredential: "AIRTABLE",
     },
-    { type: "FIRECRAWL", description: "Web scraping and crawling" },
-    { type: "APIFY", description: "Run Apify actors for web automation" },
+  ],
+
+  // Composio (10,000+ external actions)
+  composio: [
+    {
+      type: "COMPOSIO_ACTION",
+      description:
+        "Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)",
+    },
   ],
 
   // Logic & Code
@@ -104,7 +120,6 @@ export const AVAILABLE_NODE_TYPES = {
 
   // Media
   media: [
-    { type: "ELEVENLABS", description: "Text-to-speech with ElevenLabs" },
     {
       type: "REMOTION",
       description:
@@ -366,31 +381,15 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
     },
     required: ["action", "variables", "credentialId"],
   },
-  FIRECRAWL: {
-    description: "Scrape, crawl, or use AI agent on web pages.",
-    credential: "FIRECRAWL API key",
-    actions: ["scrape", "crawl", "map", "search", "agent"],
-    fieldsByAction: {
-      scrape: ["url (REQ)", "formats", "onlyMainContent", "screenshot", "waitFor", "actions"],
-      crawl: ["url (REQ)", "limit", "maxDepth", "excludePaths", "includePaths"],
-      map: ["url (REQ)", "includeVisual"],
-      search: ["query (REQ)", "searchLimit"],
-      agent: ["prompt (REQ)", "urls (comma-separated)", "schema (JSON string)", "maxCredits"],
-    },
-    required: ["action", "variables"],
+  COMPOSIO_ACTION: {
+    description:
+      "Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.). Fields: composioActionName (REQ, e.g. GITHUB_CREATE_ISSUE, NOTION_CREATE_PAGE), composioParams (object with action-specific params), variables (output variable name, default: composioAction).",
+    required: ["composioActionName", "variables"],
   },
-  APIFY: {
-    description: "Run Apify actors and get dataset items.",
-    credential: "APIFY API token",
-    actions: ["listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems"],
-    fieldsByAction: {
-      listActors: ["my", "limit", "offset", "desc"],
-      getActorDetail: ["actorId (REQ, format: username~actor-name)"],
-      runActor: ["actorId (REQ)", "input (JSON string)", "waitForFinish"],
-      getRunStatus: ["runId (REQ)"],
-      getDatasetItems: ["datasetId (REQ)", "itemsLimit", "itemsOffset", "clean"],
-    },
-    required: ["action", "variables"],
+  COMPOSIO_TRIGGER: {
+    description:
+      "Subscribe workflow start to a Composio trigger slug. Fields: composioTriggerSlug (REQ, e.g. SLACK_CHANNEL_CREATED), triggerConfig (JSON object), variables (default: composioTrigger), connectedAccountId (optional), enabled (default true).",
+    required: ["composioTriggerSlug", "variables"],
   },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
@@ -424,28 +423,6 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
       forwardEmail: ["emailId (REQ)", "forwardTo (REQ)", "body (optional)"],
       deleteEmail: ["emailId (REQ)"],
       addLabel: ["emailId (REQ)", "labelId or labelName (REQ)"],
-    },
-    required: ["action", "variables"],
-  },
-  ELEVENLABS: {
-    description: "Text-to-speech, speech-to-text, clone voice, list voices.",
-    credential: "ELEVENLABS API key",
-    actions: ["textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice"],
-    fieldsByAction: {
-      textToSpeech: [
-        "text (REQ)",
-        "voiceId (REQ)",
-        "model",
-        "language",
-        "stability",
-        "similarityBoost",
-        "style",
-        "speakerBoost",
-      ],
-      speechToText: ["audioUrl (REQ)", "language", "speakerDiarization", "entityDetection"],
-      cloneVoice: ["audioUrl (REQ)", "voiceName (REQ)", "description"],
-      listVoices: [],
-      getVoice: ["voiceId (REQ)"],
     },
     required: ["action", "variables"],
   },
@@ -515,7 +492,7 @@ export const getNodeSchemaTool: VerxioTool = {
     nodeType: z
       .string()
       .describe(
-        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, FIRECRAWL, APIFY, GMAIL, ELEVENLABS, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
+        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, GMAIL, COMPOSIO_ACTION, COMPOSIO_TRIGGER, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
       ),
   }),
   execute: async ({ nodeType }) => {
@@ -807,6 +784,12 @@ export const addNodeTool: VerxioTool = {
       },
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       nodeId: node.id,
@@ -896,6 +879,12 @@ export const configureNodeTool: VerxioTool = {
       data: updateData,
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: node.workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       nodeId: updatedNode.id,
@@ -965,6 +954,12 @@ export const connectNodesTool: VerxioTool = {
       },
     });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: sourceNode.workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       connectionId: connection.id,
@@ -979,7 +974,8 @@ export const connectNodesTool: VerxioTool = {
 
 export const executeWorkflowTool: VerxioTool = {
   name: "executeWorkflow",
-  description: "Trigger execution of a workflow",
+  description:
+    "Execute a workflow and wait for the result. Returns the actual output so you can summarize it for the user. Always present the output in your reply.",
   inputSchema: z.object({
     workflowId: z.string().describe("ID of the workflow to execute"),
     inputData: z
@@ -1010,8 +1006,17 @@ export const executeWorkflowTool: VerxioTool = {
       return { success: false, error: "No suitable trigger node found in workflow" };
     }
 
+    // Create a publicChatRun to track execution and poll for results
+    const run = await prisma.publicChatRun.create({
+      data: {
+        workflowId,
+        status: "PENDING",
+        input: { ...(inputData || {}), triggeredBy: "agent" } as object,
+      },
+    });
+
     // Send Inngest event to trigger workflow
-    const eventResult = await inngest.send({
+    await inngest.send({
       name: "workflow/trigger",
       data: {
         workflowId,
@@ -1019,15 +1024,46 @@ export const executeWorkflowTool: VerxioTool = {
         triggerNodeId: triggerNode.id,
         initialData: inputData || {},
         triggeredBy: "agent",
+        publicChatRunId: run.id,
       },
     });
 
+    // Poll for completion (up to 90s)
+    const POLL_INTERVAL = 1500;
+    const MAX_WAIT = 90_000;
+    const deadline = Date.now() + MAX_WAIT;
+
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      const updated = await prisma.publicChatRun.findUnique({
+        where: { id: run.id },
+      });
+      if (!updated) break;
+      if (updated.status === "COMPLETED") {
+        return {
+          success: true,
+          output: updated.output || {},
+          workflowId,
+          workflowName: workflow.name,
+          message:
+            "Workflow executed successfully. Summarize the output in human language for the user in your reply.",
+        };
+      }
+      if (updated.status === "FAILED") {
+        return {
+          success: false,
+          error: updated.error || "Workflow execution failed",
+          workflowId,
+          workflowName: workflow.name,
+        };
+      }
+    }
+
     return {
-      success: true,
-      executionId: eventResult.ids?.[0] || null,
+      success: false,
+      error: "Workflow did not complete within the time limit (90s). It may still be running.",
       workflowId,
-      triggerNodeId: triggerNode.id,
-      message: `Triggered workflow "${workflow.name}" execution`,
+      workflowName: workflow.name,
     };
   },
 };
@@ -1404,6 +1440,12 @@ export const deleteNodeTool: VerxioTool = {
 
     await prisma.node.delete({ where: { id: nodeId } });
 
+    // Bump workflow.updatedAt so the client cache knows the workflow changed
+    await prisma.workflow.update({
+      where: { id: node.workflowId },
+      data: { updatedAt: new Date() },
+    });
+
     return {
       success: true,
       message: `Deleted node ${node.name} (${nodeId})`,
@@ -1474,7 +1516,6 @@ function getCredentialSetupInstructions(type: string): string {
     AIRTABLE:
       "Go to https://airtable.com/create/tokens to create a personal access token with the required scopes.",
     GOOGLE: "Use the 'Connect Google Account' button to authorize access to Google services.",
-    ELEVENLABS: "Get your API key from https://elevenlabs.io/app/settings/api-keys",
   };
 
   return (
@@ -1976,7 +2017,7 @@ export const getSkillsTool: VerxioTool = {
   description: "List user's skills that extend AI capabilities",
   inputSchema: z.object({}),
   execute: async (_, context) => {
-    const skills = await prisma.userSkill.findMany({
+    let skills = await prisma.userSkill.findMany({
       where: { userId: context.userId },
       select: {
         id: true,
@@ -1988,6 +2029,17 @@ export const getSkillsTool: VerxioTool = {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // When in integration context with restricted skill scope, filter
+    if (context.skillScope === "NO_SKILLS") {
+      skills = [];
+    } else if (
+      context.skillScope === "SELECTED_SKILLS" &&
+      context.allowedSkillIds &&
+      context.allowedSkillIds.length > 0
+    ) {
+      skills = skills.filter((s: { id: string }) => context.allowedSkillIds!.includes(s.id));
+    }
 
     return {
       success: true,
@@ -2122,6 +2174,100 @@ export const removeSkillTool: VerxioTool = {
 };
 
 // ============================================
+// Agent Personality (Soul) Evolution Tool
+// ============================================
+
+const updateSoulMdTool: VerxioTool = {
+  name: "updateSoulMd",
+  description:
+    "Update your own personality (soul.md) based on user interaction patterns. " +
+    "Only available when personality evolution is enabled. " +
+    "Use sparingly — only when you have clear evidence that the user prefers a different communication style. " +
+    "You can update a specific section (coreTruths, boundaries, vibe) or the full document.",
+  inputSchema: z.object({
+    updatedSection: z
+      .enum(["coreTruths", "boundaries", "vibe", "full"])
+      .describe(
+        "Which section to update: 'coreTruths', 'boundaries', 'vibe', or 'full' for the entire soul.md"
+      ),
+    content: z.string().describe("The new content for the specified section or the full soul.md"),
+    reason: z
+      .string()
+      .describe(
+        "Brief explanation of why you are evolving your personality (based on user interaction patterns)"
+      ),
+  }),
+  execute: async (
+    args: { updatedSection: string; content: string; reason: string },
+    context: ToolContext
+  ) => {
+    try {
+      if (!context.evolvePersonality || !context.integrationId) {
+        return {
+          success: false,
+          error: "Personality evolution is not enabled for this integration.",
+        };
+      }
+
+      // Fetch current soul.md
+      const integration = await prisma.chatIntegration.findFirst({
+        where: { id: context.integrationId, userId: context.userId },
+      });
+
+      if (!integration) {
+        return { success: false, error: "Integration not found." };
+      }
+
+      let updatedSoulMd: string;
+
+      if (args.updatedSection === "full") {
+        updatedSoulMd = args.content;
+      } else {
+        // Parse existing soul.md and update the specific section
+        const currentSoul = integration.soulMd || "";
+        const sectionMap: Record<string, string> = {
+          coreTruths: "## Core Truths",
+          boundaries: "## Boundaries",
+          vibe: "## The Vibe",
+        };
+        const sectionHeader = sectionMap[args.updatedSection];
+        if (!sectionHeader) {
+          return { success: false, error: `Unknown section: ${args.updatedSection}` };
+        }
+
+        // Find and replace the section
+        const sectionRegex = new RegExp(
+          `(${sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})([\\s\\S]*?)(?=\\n## |$)`,
+          "i"
+        );
+
+        if (sectionRegex.test(currentSoul)) {
+          updatedSoulMd = currentSoul.replace(sectionRegex, `${sectionHeader}\n${args.content}\n`);
+        } else {
+          // Section doesn't exist; append
+          updatedSoulMd = `${currentSoul}\n\n${sectionHeader}\n${args.content}\n`;
+        }
+      }
+
+      await prisma.chatIntegration.update({
+        where: { id: context.integrationId },
+        data: { soulMd: updatedSoulMd },
+      });
+
+      return {
+        success: true,
+        message: `Personality ${args.updatedSection === "full" ? "fully updated" : `section "${args.updatedSection}" updated`}. Reason: ${args.reason}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update soul.md",
+      };
+    }
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -2149,6 +2295,7 @@ export const verxioTools: VerxioTool[] = [
   addSkillTool,
   updateSkillTool,
   removeSkillTool,
+  updateSoulMdTool,
 ];
 
 export default verxioTools;

@@ -27,9 +27,6 @@ import { googleMeetChannel } from "./google-meet";
 import { googleSlidesChannel } from "./google-slides";
 import { gmailChannel } from "./gmail";
 import { airtableChannel } from "./airtable";
-import { elevenlabsChannel } from "./elevenlabs";
-import { firecrawlChannel } from "./firecrawl";
-import { apifyChannel } from "./apify";
 import { codeBlockChannel } from "./code-block";
 import { manualInputChannel } from "./manual-input";
 import { designChannel } from "./design";
@@ -41,6 +38,8 @@ import { outputChannel } from "./output";
 import { markdownChannel } from "./markdown";
 import { seedanceChannel } from "./seedance";
 import { seedreamChannel } from "./seedream";
+import { composioActionChannel } from "./composio-action";
+import { composioTriggerChannel } from "./composio-trigger";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -69,9 +68,6 @@ export const nodeStatusChannels = {
   googleSlides: googleSlidesChannel,
   gmail: gmailChannel,
   airtable: airtableChannel,
-  elevenlabs: elevenlabsChannel,
-  firecrawl: firecrawlChannel,
-  apify: apifyChannel,
   codeBlock: codeBlockChannel,
   design: designChannel,
   designPro: designProChannel,
@@ -82,6 +78,8 @@ export const nodeStatusChannels = {
   markdown: markdownChannel,
   seedance: seedanceChannel,
   seedream: seedreamChannel,
+  composioAction: composioActionChannel,
+  composioTrigger: composioTriggerChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -114,9 +112,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   googleSlides: "google-slides-execution",
   gmail: "gmail-execution",
   airtable: "airtable-execution",
-  elevenlabs: "elevenlabs-execution",
-  firecrawl: "firecrawl-execution",
-  apify: "apify-execution",
   codeBlock: "code-block-execution",
   design: "design-execution",
   designPro: "design-pro-execution",
@@ -127,4 +122,6 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   markdown: "markdown-execution",
   seedance: "seedance-execution",
   seedream: "seedream-execution",
+  composioAction: "composio-action-execution",
+  composioTrigger: "composio-trigger-execution",
 };

@@ -15,11 +15,18 @@ import {
   useRefreshTelegramWebhook,
   useConnectWhatsApp,
   useWhatsAppStatus,
+  useSaveSlackBotToken,
+  useSaveDiscordBotToken,
+  useGenerateSoulMd,
+  useSaveSoulMd,
 } from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
+import { useSkills } from "@/hooks/useSkills";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +67,11 @@ import {
   Bot,
   KeyRound,
   MessageSquare,
+  Sparkles,
+  Upload,
+  FileText,
+  Wand2,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -100,6 +112,7 @@ export function ChatIntegrationsSetup({
     IDENTITIES_PAGE_SIZE
   );
   const { data: workflowsData } = useWorkflows(1, 100);
+  const { data: skillsData } = useSkills(1, 100);
 
   const updateIntegration = useUpdateChatIntegration(selectedIntegrationId || "");
   const saveTelegramToken = useSaveTelegramBotToken(selectedIntegrationId || "");
@@ -109,6 +122,10 @@ export function ChatIntegrationsSetup({
   const createIntegration = useCreateChatIntegration();
   const refreshWebhook = useRefreshTelegramWebhook(selectedIntegrationId || "");
   const connectWhatsApp = useConnectWhatsApp(selectedIntegrationId || "");
+  const saveSlackToken = useSaveSlackBotToken(selectedIntegrationId || "");
+  const saveDiscordToken = useSaveDiscordBotToken(selectedIntegrationId || "");
+  const generateSoulMd = useGenerateSoulMd(selectedIntegrationId || "");
+  const saveSoulMd = useSaveSoulMd(selectedIntegrationId || "");
   const selectedPlatform = integrationsData?.integrations?.find(
     (i) => i.id === selectedIntegrationId
   )?.platform;
@@ -122,6 +139,10 @@ export function ChatIntegrationsSetup({
   const [showSecret, setShowSecret] = useState(false);
   const [secretJustRegenerated, setSecretJustRegenerated] = useState(false);
   const [botToken, setBotToken] = useState("");
+  const [slackBotToken, setSlackBotToken] = useState("");
+  const [slackSigningSecret, setSlackSigningSecret] = useState("");
+  const [discordBotToken, setDiscordBotToken] = useState("");
+  const [discordClientId, setDiscordClientId] = useState("");
   const [labelDraft, setLabelDraft] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newPlatform, setNewPlatform] = useState<"TELEGRAM" | "WHATSAPP" | "DISCORD" | "SLACK">(
@@ -132,6 +153,24 @@ export function ChatIntegrationsSetup({
   );
   const [newScopeWorkflowId, setNewScopeWorkflowId] = useState("none");
   const [newAllowedWorkflowIds, setNewAllowedWorkflowIds] = useState<string[]>([]);
+
+  // Soul/personality state
+  const [soulUpdateExpanded, setSoulUpdateExpanded] = useState(false);
+  const [soulTab, setSoulTab] = useState<string>("paste");
+  const [soulPasteContent, setSoulPasteContent] = useState("");
+  const [soulGenName, setSoulGenName] = useState("");
+  const [soulGenDescription, setSoulGenDescription] = useState("");
+  const [soulGenTone, setSoulGenTone] = useState("friendly");
+  const [soulGenCoreTruths, setSoulGenCoreTruths] = useState("");
+  const [soulGenBoundaries, setSoulGenBoundaries] = useState("");
+  const [soulPreview, setSoulPreview] = useState<string | null>(null);
+  const [evolvePersonality, setEvolvePersonality] = useState(false);
+
+  // Skill selection draft (saved on "Save" click — scope + selected skills batched)
+  const [skillScopeDraft, setSkillScopeDraft] = useState<
+    "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS"
+  >("ALL_SKILLS");
+  const [selectedSkillIdsDraft, setSelectedSkillIdsDraft] = useState<string[]>([]);
 
   useEffect(() => {
     if (initialIntegrationId) {
@@ -152,6 +191,26 @@ export function ChatIntegrationsSetup({
     }
     if (integration?.label) {
       setLabelDraft(integration.label);
+    }
+    // Load soul state
+    if (integration?.soulMd) {
+      setSoulPasteContent(integration.soulMd);
+      setSoulPreview(integration.soulMd);
+    } else {
+      setSoulPasteContent("");
+      setSoulPreview(null);
+    }
+    setEvolvePersonality(integration?.evolvePersonality ?? false);
+    // Pre-fill generation name from label
+    setSoulGenName(integration?.label || "");
+    // Sync skill scope + selection draft
+    setSkillScopeDraft(
+      (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
+    );
+    setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
+    // Pre-fill Discord fields when token is set (for Edit mode)
+    if (integration?.platform === "DISCORD" && integration?.discordClientId) {
+      setDiscordClientId(integration.discordClientId);
     }
   }, [integrationsData?.integrations, selectedIntegrationId]);
 
@@ -228,7 +287,7 @@ export function ChatIntegrationsSetup({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Create New Integration</CardTitle>
-          <CardDescription>Set up a new chat integration.</CardDescription>
+          <CardDescription>Set up a new agent chat integration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
@@ -249,8 +308,8 @@ export function ChatIntegrationsSetup({
                 <SelectContent>
                   <SelectItem value="TELEGRAM">Telegram</SelectItem>
                   <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                  <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
-                  <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                  <SelectItem value="DISCORD">Discord</SelectItem>
+                  <SelectItem value="SLACK">Slack</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -359,8 +418,8 @@ export function ChatIntegrationsSetup({
               <SelectContent>
                 <SelectItem value="TELEGRAM">Telegram</SelectItem>
                 <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
-                <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                <SelectItem value="DISCORD">Discord</SelectItem>
+                <SelectItem value="SLACK">Slack</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -530,14 +589,6 @@ export function ChatIntegrationsSetup({
     updateIntegration.mutate({ label: labelDraft.trim() });
   };
 
-  const handlePlatformChange = (platform: string) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    updateIntegration.mutate({ platform: platform as any });
-  };
-
   const handleScopeChange = (scope: string) => {
     if (!integration?.id) {
       toast.error("Select an integration first.");
@@ -576,6 +627,36 @@ export function ChatIntegrationsSetup({
       : current.filter((id) => id !== workflowId);
     updateIntegration.mutate({ allowedWorkflowIds: next });
   };
+
+  const handleSkillScopeDraftChange = (skillScope: string) => {
+    const scope = skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+    setSkillScopeDraft(scope);
+    if (scope !== "SELECTED_SKILLS") {
+      setSelectedSkillIdsDraft([]);
+    } else {
+      setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
+    }
+  };
+
+  const handleSkillDraftToggle = (skillId: string, checked: boolean) => {
+    setSelectedSkillIdsDraft((prev) =>
+      checked ? [...prev, skillId] : prev.filter((id) => id !== skillId)
+    );
+  };
+
+  const handleSaveSkillAccess = () => {
+    if (!integration?.id) return;
+    updateIntegration.mutate({
+      skillScope: skillScopeDraft,
+      allowedSkillIds: skillScopeDraft === "SELECTED_SKILLS" ? selectedSkillIdsDraft : [],
+    });
+  };
+
+  const skillAccessHasChanges =
+    skillScopeDraft !== (integration?.skillScope || "ALL_SKILLS") ||
+    (skillScopeDraft === "SELECTED_SKILLS" &&
+      JSON.stringify([...selectedSkillIdsDraft].sort()) !==
+        JSON.stringify([...(integration?.allowedSkillIds || [])].sort()));
 
   const handleUnlinkIdentity = (platform: string, externalId: string) => {
     unlinkIdentity.mutate({ platform, externalId });
@@ -628,8 +709,8 @@ export function ChatIntegrationsSetup({
                   <SelectContent>
                     <SelectItem value="TELEGRAM">Telegram</SelectItem>
                     <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                    <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
-                    <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                    <SelectItem value="DISCORD">Discord</SelectItem>
+                    <SelectItem value="SLACK">Slack</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -771,25 +852,43 @@ export function ChatIntegrationsSetup({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <KeyRound className="h-4 w-4" />
-                Step 2 — Save Bot Token
+                {tokenSaved ? "Edit Telegram Token" : "Step 2 — Save Bot Token"}
               </CardTitle>
-              <CardDescription>Paste your Telegram bot token and save it here.</CardDescription>
+              <CardDescription>
+                {tokenSaved
+                  ? "Update your Telegram bot token below."
+                  : "Paste your Telegram bot token and save it here."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {tokenSaved && integration?.telegramBotUsername && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified</p>
+                  <p className="text-muted-foreground">
+                    Bot:{" "}
+                    <code className="text-xs bg-muted px-1 rounded">
+                      @{integration.telegramBotUsername}
+                    </code>
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
-                <Label>Telegram Bot Token</Label>
+                <Label>Telegram Bot Token {tokenSaved && "(enter new token to update)"}</Label>
                 <Input
                   type="password"
-                  placeholder="123:ABC..."
+                  placeholder={tokenSaved ? "••••••••••••••••" : "123:ABC..."}
                   value={botToken}
                   onChange={(e) => setBotToken(e.target.value)}
                 />
-                <div className="flex items-center gap-2">
-                  <Button onClick={handleSaveBotToken} disabled={saveTelegramToken.isPending}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    onClick={handleSaveBotToken}
+                    disabled={saveTelegramToken.isPending || !botToken.trim()}
+                  >
                     {saveTelegramToken.isPending && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
-                    Save Token
+                    {tokenSaved ? "Update Token" : "Save Token"}
                   </Button>
                   {tokenSaved && (
                     <Badge variant="outline" className="flex items-center gap-1">
@@ -971,21 +1070,693 @@ export function ChatIntegrationsSetup({
         </Card>
       )}
 
-      {/* ——— Discord / Slack: coming soon ——— */}
-      {(integration?.platform === "DISCORD" || integration?.platform === "SLACK") && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              {integration?.platform === "DISCORD" ? "Discord" : "Slack"} — Coming soon
-            </CardTitle>
-            <CardDescription>
-              Setup for this platform is not available yet. Use Settings below to configure scope
-              and workflows.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      {/* ——— Slack: Setup Panel ——— */}
+      {integration?.platform === "SLACK" && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                {integration?.slackBotTokenSet ? "Edit Slack Credentials" : "Slack Bot Setup"}
+              </CardTitle>
+              <CardDescription>
+                {integration?.slackBotTokenSet
+                  ? "Update your Slack bot token and signing secret below."
+                  : "Connect your Slack app to Verxio. Create a Slack App at "}
+                {!integration?.slackBotTokenSet && (
+                  <>
+                    <a
+                      href="https://api.slack.com/apps"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      api.slack.com/apps
+                    </a>
+                    , then provide the credentials below.
+                  </>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {integration?.slackBotTokenSet && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified</p>
+                  {integration?.slackTeamId && (
+                    <p className="text-muted-foreground">
+                      Team ID:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">
+                        {integration.slackTeamId}
+                      </code>
+                    </p>
+                  )}
+                </div>
+              )}
+              {!integration?.slackBotTokenSet && (
+                <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
+                  <p className="font-medium">Quick setup steps:</p>
+                  <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+                    <li>Create a new Slack App (from scratch) at api.slack.com/apps</li>
+                    <li>
+                      Under <strong>OAuth &amp; Permissions</strong>, add scopes:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">app_mentions:read</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">chat:write</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">channels:history</code>,{" "}
+                      <code className="text-xs bg-muted px-1 rounded">im:history</code>
+                    </li>
+                    <li>Install the app to your workspace and copy the Bot User OAuth Token</li>
+                    <li>
+                      Under <strong>Basic Information</strong>, copy the Signing Secret
+                    </li>
+                    <li>
+                      Save both tokens below, then paste the webhook URL into Event Subscriptions
+                    </li>
+                  </ol>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>
+                  Bot User OAuth Token {integration?.slackBotTokenSet && "(enter new to update)"}
+                </Label>
+                <Input
+                  type="password"
+                  placeholder={integration?.slackBotTokenSet ? "••••••••••••••••" : "xoxb-..."}
+                  value={slackBotToken}
+                  onChange={(e) => setSlackBotToken(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Signing Secret {integration?.slackBotTokenSet && "(enter new to update)"}
+                </Label>
+                <Input
+                  type="password"
+                  placeholder={
+                    integration?.slackBotTokenSet
+                      ? "••••••••••••••••"
+                      : "Signing secret from Basic Information"
+                  }
+                  value={slackSigningSecret}
+                  onChange={(e) => setSlackSigningSecret(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  onClick={() =>
+                    saveSlackToken.mutate({
+                      slackBotToken: slackBotToken.trim(),
+                      slackSigningSecret: slackSigningSecret.trim(),
+                    })
+                  }
+                  disabled={
+                    saveSlackToken.isPending || !slackBotToken.trim() || !slackSigningSecret.trim()
+                  }
+                >
+                  {saveSlackToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {integration?.slackBotTokenSet
+                    ? "Update Slack Credentials"
+                    : "Save Slack Credentials"}
+                </Button>
+                {integration?.slackBotTokenSet && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Connected
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {integration?.slackBotTokenSet && integration?.webhookUrl && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link className="h-4 w-4" />
+                  Event Subscriptions Webhook URL
+                </CardTitle>
+                <CardDescription>
+                  Paste this URL into your Slack App &rarr; Event Subscriptions &rarr; Request URL.
+                  Subscribe to <code className="text-xs bg-muted px-1 rounded">app_mention</code>{" "}
+                  and <code className="text-xs bg-muted px-1 rounded">message.im</code> events.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-muted px-2 py-1 rounded break-all flex-1">
+                    {integration.webhookUrl}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(integration.webhookUrl || "");
+                      toast.success("Webhook URL copied");
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
+
+      {/* ——— Discord: Setup Panel ——— */}
+      {integration?.platform === "DISCORD" && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                {integration?.discordBotTokenSet ? "Edit Discord Token" : "Discord Bot Setup"}
+              </CardTitle>
+              <CardDescription>
+                {integration?.discordBotTokenSet
+                  ? "Update your Discord bot token or Application ID below."
+                  : "Connect your Discord bot to Verxio. Create a bot at the "}
+                {!integration?.discordBotTokenSet && (
+                  <>
+                    <a
+                      href="https://discord.com/developers/applications"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      Discord Developer Portal
+                    </a>
+                    , then provide the credentials below.
+                  </>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!integration?.discordBotTokenSet && (
+                <div className="text-sm space-y-2 rounded-md bg-muted/50 p-3">
+                  <p className="font-medium">Quick setup steps:</p>
+                  <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+                    <li>Create a new Application at discord.com/developers/applications</li>
+                    <li>
+                      Go to the <strong>Bot</strong> section and create a bot
+                    </li>
+                    <li>
+                      Enable <strong>MESSAGE CONTENT INTENT</strong> under Privileged Gateway
+                      Intents
+                    </li>
+                    <li>Copy the bot token and paste it below</li>
+                    <li>Copy the Application ID (Client ID) for the invite link</li>
+                    <li>Use the invite URL to add the bot to your server</li>
+                  </ol>
+                </div>
+              )}
+              {integration?.discordBotTokenSet && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
+                  <p className="font-medium">Verified credentials</p>
+                  {/* {integration?.discordBotUserId && (
+                    <p className="text-muted-foreground">
+                      Bot ID: <code className="text-xs bg-muted px-1 rounded">{integration.discordBotUserId}</code>
+                    </p>
+                  )} */}
+                  {integration?.discordClientId && (
+                    <p className="text-muted-foreground">
+                      Application ID:{" "}
+                      <code className="text-xs bg-muted px-1 rounded">
+                        {integration.discordClientId}
+                      </code>
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>
+                  Bot Token {integration?.discordBotTokenSet && "(leave blank to keep current)"}
+                </Label>
+                <Input
+                  type="password"
+                  placeholder={
+                    integration?.discordBotTokenSet ? "••••••••••••••••" : "Discord bot token"
+                  }
+                  value={discordBotToken}
+                  onChange={(e) => setDiscordBotToken(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Application ID (Client ID)</Label>
+                <Input
+                  placeholder="For generating the invite URL"
+                  value={discordClientId}
+                  onChange={(e) => setDiscordClientId(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  onClick={() =>
+                    saveDiscordToken.mutate({
+                      discordBotToken: discordBotToken.trim() || undefined,
+                      discordClientId: discordClientId.trim() || undefined,
+                    })
+                  }
+                  disabled={
+                    saveDiscordToken.isPending ||
+                    (!discordBotToken.trim() && !integration?.discordBotTokenSet)
+                  }
+                >
+                  {saveDiscordToken.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {integration?.discordBotTokenSet ? "Update Discord Token" : "Save Discord Token"}
+                </Button>
+                {integration?.discordBotTokenSet && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Token Verified
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {(saveDiscordToken.data?.integration?.inviteUrl ||
+            (integration?.discordClientId &&
+              `https://discord.com/api/oauth2/authorize?client_id=${integration.discordClientId}&permissions=204800&scope=bot`)) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Add Bot to Server
+                </CardTitle>
+                <CardDescription>
+                  Click the link below to add your bot to a Discord server.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={
+                      saveDiscordToken.data?.integration?.inviteUrl ||
+                      `https://discord.com/api/oauth2/authorize?client_id=${integration?.discordClientId}&permissions=204800&scope=bot`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline text-primary truncate flex-1 min-w-0"
+                  >
+                    {saveDiscordToken.data?.integration?.inviteUrl ||
+                      `https://discord.com/api/oauth2/authorize?client_id=${integration?.discordClientId}&permissions=204800&scope=bot`}
+                  </a>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-8 w-8"
+                    onClick={() => {
+                      const url =
+                        saveDiscordToken.data?.integration?.inviteUrl ||
+                        (integration?.discordClientId &&
+                          `https://discord.com/api/oauth2/authorize?client_id=${integration.discordClientId}&permissions=204800&scope=bot`);
+                      if (url) {
+                        navigator.clipboard.writeText(url);
+                        toast.success("Invite link copied to clipboard");
+                      }
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ——— Test Connection (all platforms) ——— */}
+      {(integration?.platform === "SLACK" || integration?.platform === "DISCORD") &&
+        (integration?.slackBotTokenSet || integration?.discordBotTokenSet) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TestTube2 className="h-4 w-4" />
+                Test Connection
+              </CardTitle>
+              <CardDescription>Verify Verxio can communicate with your bot.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                onClick={() => testConnection.mutate()}
+                disabled={testConnection.isPending || !integration?.id}
+              >
+                {testConnection.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Send test message
+              </Button>
+              {testConnection.data && (
+                <p className="text-sm text-muted-foreground">{testConnection.data.message}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+      {/* Agent Personality (soul.md) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            Agent Personality
+          </CardTitle>
+          <CardDescription>
+            Give your agent a unique personality. Display your current personality below, or update
+            it by pasting, uploading, or generating.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Display existing personality (like skills) */}
+          {(integration?.hasSoulMd || integration?.soulMd || soulPreview) && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                Current Personality
+              </h4>
+              <pre className="text-xs whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
+                {soulPreview || integration?.soulMd || ""}
+              </pre>
+            </div>
+          )}
+
+          {/* Update personality: button toggles options */}
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSoulUpdateExpanded(!soulUpdateExpanded)}
+              className="gap-2"
+            >
+              {soulUpdateExpanded ? (
+                <>
+                  <XCircle className="h-3.5 w-3.5" />
+                  Hide options
+                </>
+              ) : (
+                <>
+                  <FileText className="h-3.5 w-3.5" />
+                  {integration?.hasSoulMd || soulPreview ? "Update personality" : "Set personality"}
+                </>
+              )}
+            </Button>
+            {soulUpdateExpanded && (
+              <Tabs value={soulTab} onValueChange={setSoulTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="paste" className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    Paste
+                  </TabsTrigger>
+                  <TabsTrigger value="upload" className="flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload
+                  </TabsTrigger>
+                  <TabsTrigger value="generate" className="flex items-center gap-1.5">
+                    <Wand2 className="h-3.5 w-3.5" />
+                    Generate
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Paste Tab — pre-filled with existing personality, editable, Save */}
+                <TabsContent value="paste" className="space-y-3 mt-3">
+                  <Textarea
+                    placeholder={`## Core Truths\n- I believe in being helpful and direct\n- ...\n\n## Boundaries\n- I never share private data\n- ...\n\n## The Vibe\nI'm friendly, concise, and a little witty...`}
+                    value={soulPasteContent}
+                    onChange={(e) => setSoulPasteContent(e.target.value)}
+                    rows={10}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!soulPasteContent.trim() || saveSoulMd.isPending}
+                    onClick={() => {
+                      saveSoulMd.mutate(
+                        { soulMd: soulPasteContent },
+                        {
+                          onSuccess: () => {
+                            setSoulPreview(soulPasteContent);
+                          },
+                        }
+                      );
+                    }}
+                  >
+                    {saveSoulMd.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    Save Personality
+                  </Button>
+                </TabsContent>
+
+                {/* Upload Tab */}
+                <TabsContent value="upload" className="space-y-3 mt-3">
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Upload a <code>.md</code> file with your agent&apos;s personality
+                    </p>
+                    <Input
+                      type="file"
+                      accept=".md,.txt,.markdown"
+                      className="max-w-xs mx-auto"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const text = await file.text();
+                        setSoulPasteContent(text);
+                        saveSoulMd.mutate(
+                          { soulMd: text },
+                          {
+                            onSuccess: () => {
+                              setSoulPreview(text);
+                              toast.success("Personality file uploaded and saved");
+                            },
+                          }
+                        );
+                      }}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Generate Tab */}
+                <TabsContent value="generate" className="space-y-3 mt-3">
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs font-medium">Agent Name</Label>
+                      <Input
+                        placeholder="e.g., Distro"
+                        value={soulGenName}
+                        onChange={(e) => setSoulGenName(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Description</Label>
+                      <Textarea
+                        placeholder="What does this agent do? e.g., Helps users manage their workflow automations and schedules..."
+                        value={soulGenDescription}
+                        onChange={(e) => setSoulGenDescription(e.target.value)}
+                        rows={3}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Tone</Label>
+                      <Select value={soulGenTone} onValueChange={setSoulGenTone}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="friendly">Friendly</SelectItem>
+                          <SelectItem value="witty">Witty</SelectItem>
+                          <SelectItem value="sarcastic">Sarcastic</SelectItem>
+                          <SelectItem value="formal">Formal</SelectItem>
+                          <SelectItem value="creative">Creative</SelectItem>
+                          <SelectItem value="empathetic">Empathetic</SelectItem>
+                          <SelectItem value="concise">Concise</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Core Truths (optional)</Label>
+                      <Textarea
+                        placeholder="What does your agent believe in? Its values and principles..."
+                        value={soulGenCoreTruths}
+                        onChange={(e) => setSoulGenCoreTruths(e.target.value)}
+                        rows={2}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Boundaries (optional)</Label>
+                      <Textarea
+                        placeholder="Hard limits — things the agent should never do..."
+                        value={soulGenBoundaries}
+                        onChange={(e) => setSoulGenBoundaries(e.target.value)}
+                        rows={2}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={
+                        !soulGenName.trim() ||
+                        !soulGenDescription.trim() ||
+                        generateSoulMd.isPending
+                      }
+                      onClick={() => {
+                        generateSoulMd.mutate(
+                          {
+                            name: soulGenName,
+                            description: soulGenDescription,
+                            tone: soulGenTone,
+                            coreTruths: soulGenCoreTruths || undefined,
+                            boundaries: soulGenBoundaries || undefined,
+                          },
+                          {
+                            onSuccess: (result) => {
+                              setSoulPreview(result.soulMd);
+                              setSoulPasteContent(result.soulMd);
+                              saveSoulMd.mutate({ soulMd: result.soulMd });
+                              // Clear generation fields after AI generates
+                              setSoulGenName("");
+                              setSoulGenDescription("");
+                              setSoulGenTone("friendly");
+                              setSoulGenCoreTruths("");
+                              setSoulGenBoundaries("");
+                              setSoulTab("paste");
+                            },
+                          }
+                        );
+                      }}
+                    >
+                      {generateSoulMd.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4 mr-2" />
+                      )}
+                      Generate Personality (20 credits)
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+
+          {/* Evolve toggle */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Allow personality to evolve</Label>
+              <p className="text-xs text-muted-foreground">
+                The agent can refine its personality over time based on your interactions.
+              </p>
+            </div>
+            <Switch
+              checked={evolvePersonality}
+              onCheckedChange={(checked) => {
+                setEvolvePersonality(checked);
+                updateIntegration.mutate({ evolvePersonality: checked });
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Skill Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Skill Access
+          </CardTitle>
+          <CardDescription>
+            Choose which custom skills this agent can use. Skills extend the agent&apos;s
+            capabilities with your knowledge and instructions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Skill scope</Label>
+            <Select value={skillScopeDraft} onValueChange={handleSkillScopeDraftChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select skill scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL_SKILLS">All skills</SelectItem>
+                <SelectItem value="SELECTED_SKILLS">Select skills</SelectItem>
+                <SelectItem value="NO_SKILLS">No skills</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {skillScopeDraft === "ALL_SKILLS" && "Agent has access to all your custom skills."}
+              {skillScopeDraft === "SELECTED_SKILLS" &&
+                "Agent can only use the skills you select below."}
+              {skillScopeDraft === "NO_SKILLS" &&
+                "Agent has no custom skills — only built-in capabilities."}
+            </p>
+          </div>
+
+          {skillScopeDraft === "SELECTED_SKILLS" && (
+            <div className="space-y-3">
+              <Label>Choose skills for this agent</Label>
+              <p className="text-xs text-muted-foreground">
+                Select the skills you want this agent to use. Click Save skills when done.
+              </p>
+              <div className="max-h-[200px] overflow-y-auto rounded-md border p-2">
+                {(skillsData?.skills ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No skills yet.{" "}
+                    <NextLink href="/skills" className="text-primary underline">
+                      Create a skill
+                    </NextLink>{" "}
+                    to add knowledge for your agent.
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {(skillsData?.skills ?? []).map((skill) => {
+                      const checked = selectedSkillIdsDraft.includes(skill.id);
+                      return (
+                        <label
+                          key={skill.id}
+                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => handleSkillDraftToggle(skill.id, e.target.checked)}
+                            className="rounded"
+                          />
+                          <span className="font-medium">{skill.name}</span>
+                          {skill.description && (
+                            <span className="text-muted-foreground text-xs truncate">
+                              — {skill.description}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {(skillsData?.skills ?? []).length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Select skills above, then click Save below.
+                </p>
+              )}
+            </div>
+          )}
+
+          {skillAccessHasChanges && (
+            <Button
+              size="sm"
+              onClick={handleSaveSkillAccess}
+              disabled={updateIntegration.isPending}
+            >
+              {updateIntegration.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Save
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Settings */}
       <Card>
@@ -1012,17 +1783,20 @@ export function ChatIntegrationsSetup({
 
           <div className="space-y-2">
             <Label>Platform</Label>
-            <Select value={integration?.platform} onValueChange={handlePlatformChange}>
-              <SelectTrigger>
+            <Select value={integration?.platform} disabled>
+              <SelectTrigger className="bg-muted">
                 <SelectValue placeholder="Select platform" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TELEGRAM">Telegram</SelectItem>
                 <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                <SelectItem value="DISCORD">Discord (coming soon)</SelectItem>
-                <SelectItem value="SLACK">Slack (coming soon)</SelectItem>
+                <SelectItem value="DISCORD">Discord</SelectItem>
+                <SelectItem value="SLACK">Slack</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Platform cannot be changed after creation — each uses different configuration.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -1155,8 +1929,8 @@ export function ChatIntegrationsSetup({
         </CardContent>
       </Card>
 
-      {/* Configuration — Telegram only (WhatsApp uses the connector, no webhook/secret) */}
-      {integration?.platform !== "WHATSAPP" && (
+      {/* Configuration — Telegram & Slack only (Discord/WhatsApp use connectors, no webhook) */}
+      {integration?.platform !== "WHATSAPP" && integration?.platform !== "DISCORD" && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Configuration</CardTitle>

@@ -32,6 +32,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
     sessionId?: string;
     integrationId?: string;
     credentialId?: string;
+    botJid?: string;
     payload?: {
       from: string;
       to: string;
@@ -42,6 +43,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
       isGroup?: boolean;
       pushName?: string;
       participant?: string;
+      mentionedJid?: string[];
+      groupJid?: string;
     };
   };
 
@@ -51,6 +54,33 @@ router.post("/incoming", async (req: Request, res: Response) => {
 
   const payload = body.payload;
   const fromJid = payload.from;
+  const isGroup = payload.isGroup === true;
+  const groupJid = payload.groupJid;
+  const botJid = body.botJid;
+
+  // For group messages: only process if the bot was mentioned
+  if (isGroup) {
+    if (!botJid || !payload.mentionedJid?.length) {
+      // No bot JID or no mentions — skip silently
+      return res.json({ ok: true, skipped: "not_mentioned" });
+    }
+    // Normalize comparison: Baileys JIDs can have :0 suffix (e.g. "1234567890:0@s.whatsapp.net")
+    const normalizedBotJid = botJid.replace(/:.*@/, "@");
+    const isMentioned = payload.mentionedJid.some(
+      (jid) => jid === botJid || jid.replace(/:.*@/, "@") === normalizedBotJid
+    );
+    if (!isMentioned) {
+      return res.json({ ok: true, skipped: "not_mentioned" });
+    }
+    // Strip the bot's phone number from the message text (users see @phone_number)
+    const botPhone = botJid.split("@")[0].replace(/\D/g, "");
+    if (botPhone) {
+      payload.body = payload.body.replace(new RegExp(`@${botPhone}`, "g"), "").trim();
+    }
+  }
+
+  // For replies: use groupJid for group messages, fromJid for 1:1 messages
+  const replyToJid = isGroup && groupJid ? groupJid : fromJid;
 
   const integrationId = body.integrationId;
   if (integrationId) {
@@ -68,7 +98,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
       try {
         await sendWhatsAppMessage({
           sessionRef: integration.whatsappSessionId || integrationId,
-          toJid: fromJid,
+          toJid: replyToJid,
           text: "WhatsApp chat with Verxio is a premium feature. Please upgrade your plan to use it.",
         });
       } catch (_) {}
@@ -83,7 +113,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
       try {
         await sendWhatsAppMessage({
           sessionRef: integration.whatsappSessionId || integrationId,
-          toJid: fromJid,
+          toJid: replyToJid,
           text: msg.includes("credits")
             ? "You've used your daily chat credits. Limit resets at midnight."
             : msg,
@@ -110,8 +140,22 @@ router.post("/incoming", async (req: Request, res: Response) => {
       externalId: fromJid,
       externalName: payload.pushName,
       message: payload.body,
-      metadata: { chatId: fromJid, whatsappPayload: payload },
+      metadata: { chatId: replyToJid, whatsappPayload: payload, isGroup, groupJid },
     };
+
+    // Build quoted key for reply-to (Baileys quoted)
+    const quotedKey =
+      payload.messageId && replyToJid
+        ? {
+            remoteJid: replyToJid,
+            id: payload.messageId,
+            fromMe: false as const,
+            participant: isGroup && payload.participant ? payload.participant : undefined,
+          }
+        : undefined;
+
+    // Prefix for group replies so it's clear who the reply is for
+    const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
 
     // Process in background and send formatted result when done
     void (async () => {
@@ -123,11 +167,13 @@ router.post("/incoming", async (req: Request, res: Response) => {
         );
         const replyText = result.message || "";
         if (replyText) {
-          const formatted = chatIntegrationService.formatWhatsAppMessage(replyText);
+          const withPrefix = groupPrefix + replyText;
+          const formatted = chatIntegrationService.formatWhatsAppMessage(withPrefix);
           const sendResult = await sendWhatsAppMessage({
             sessionRef: integrationId,
-            toJid: fromJid,
+            toJid: replyToJid,
             text: formatted,
+            quotedKey,
           });
           if (!sendResult.success) {
             console.error("[WhatsApp incoming] send reply failed:", sendResult.error);
@@ -138,7 +184,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
         try {
           await sendWhatsAppMessage({
             sessionRef: integrationId,
-            toJid: fromJid,
+            toJid: replyToJid,
             text: "Something went wrong. Please try again.",
           });
         } catch (_) {}

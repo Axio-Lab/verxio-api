@@ -30,7 +30,7 @@ export const QUOTA_COST = {
   REMOTION: 15,
   DESIGN_AGENT_PRO: 10,
   // TIMED_TRIGGER: 5,
-  DEFAULT_PREMIUM_NODE: 10, // Code Block, ElevenLabs, Firecrawl, Apify
+  DEFAULT_PREMIUM_NODE: 10, // Code Block, Composio Action
   // Kling node costs
   KLING_IMAGE: 10,
   KLING_TEXT2VIDEO: 15,
@@ -42,9 +42,13 @@ export const QUOTA_COST = {
   KLING_VIDEO_EXTEND: 10,
   KLING_MULTI_IMAGE2IMAGE: 10,
   KLING_MOTION_CONTROL: 10,
-  // Chat integrations (per message when user chats with Verxio from Telegram/WhatsApp)
+  // Chat integrations (per message when user chats with Verxio from Telegram/WhatsApp/Slack/Discord)
   TELEGRAM_CHAT_INTEGRATION: 10,
   WHATSAPP_CHAT_INTEGRATION: 10,
+  SLACK_CHAT_INTEGRATION: 10,
+  // Soul.md generation
+  GENERATE_SOUL_MD: 20,
+  DISCORD_CHAT_INTEGRATION: 10,
 } as const;
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {

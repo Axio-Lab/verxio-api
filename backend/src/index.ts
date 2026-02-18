@@ -21,10 +21,10 @@ import { airtableRouter } from "./routes/triggers/airtable";
 import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
 import { webhookTriggerRouter } from "./routes/triggers/webhook";
+import { composioTriggerRouter } from "./routes/triggers/composio";
 import { publicChatRouter } from "./routes/public-chat";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
-import { elevenlabsRouter } from "./routes/elevenlabs";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
 import { workflowTemplateRouter } from "./routes/workflow-template";
 import { planningRouter } from "./routes/planning";
@@ -36,6 +36,7 @@ import { manualPaymentRouter } from "./routes/manual-payment";
 import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
 import { chatIntegrationRouter } from "./routes/chat-integrations";
 import { internalWhatsAppRouter } from "./routes/internal/whatsapp";
+import { internalDiscordRouter } from "./routes/internal/discord";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -137,7 +138,15 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: "50mb" }));
+app.use(
+  express.json({
+    limit: "50mb",
+    verify: (req, _res, buf) => {
+      // Preserve raw body for webhook signature verification (e.g. Slack).
+      (req as any).rawBody = buf.toString("utf8");
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve generated images as static files
@@ -182,6 +191,7 @@ app.use("/api/webhooks", airtableRouter);
 app.use("/api/webhooks", stripeRouter);
 app.use("/api/webhooks/telegram", telegramRouter);
 app.use("/api/webhooks/webhook", webhookTriggerRouter);
+app.use("/api/webhooks/composio", composioTriggerRouter);
 app.use("/api/public/chat", publicChatRouter);
 
 // API routes
@@ -199,7 +209,7 @@ app.use("/credential", credentialRouter);
 app.use("/skill", skillRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);
-app.use("/api/elevenlabs", elevenlabsRouter);
+
 app.use("/api/billing", billingStatusRouter);
 // TODO: Re-enable when billing portal is properly designed
 // app.use("/api/billing", billingPortalRouter);
@@ -208,6 +218,7 @@ app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
 app.use("/api/chat-integrations", chatIntegrationRouter);
 app.use("/api/internal/whatsapp", internalWhatsAppRouter);
+app.use("/api/internal/discord", internalDiscordRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,

@@ -19,6 +19,7 @@ import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
 import { createTrace, endTrace, type TraceMetadata } from "../opikService";
+import { getComposioMcpUrl } from "../composio/composioService";
 
 const prisma = basePrismaClient as any;
 
@@ -37,6 +38,8 @@ export interface AgentQueryOptions {
   abortController?: AbortController;
   /** Type of agent query for Opik tracing categorization */
   traceType?: TraceMetadata["traceType"];
+  /** Agent personality for soul.md injection */
+  agentPersonality?: AgentPersonality;
 }
 
 export interface AgentStreamEvent {
@@ -132,10 +135,10 @@ async function getUserContext(userId: string, workflowId?: string) {
     select: { name: true, type: true, description: true },
   });
 
-  // Get user's skills
+  // Get user's skills (include id for integration skill filtering)
   const skills = await prisma.userSkill.findMany({
     where: { userId },
-    select: { name: true, description: true, content: true },
+    select: { id: true, name: true, description: true, content: true },
   });
 
   return {
@@ -162,6 +165,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     maxTurns = 10,
     abortController,
     traceType = "agent_query",
+    agentPersonality,
   } = options;
 
   // Create Opik trace for observability (with input so Opik captures prompt + context)
@@ -185,8 +189,15 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     traceInput
   );
 
-  // Create tool context
-  const toolContext: ToolContext = { userId, workflowId };
+  // Create tool context (include soul evolution info and skill scope when personality is set)
+  const toolContext: ToolContext = {
+    userId,
+    workflowId,
+    integrationId: agentPersonality?.integrationId,
+    evolvePersonality: agentPersonality?.evolvePersonality,
+    skillScope: agentPersonality?.skillScope,
+    allowedSkillIds: agentPersonality?.allowedSkillIds,
+  };
 
   // Create Verxio MCP server with custom tools
   const verxioMcpServer = createSdkMcpServer({
@@ -195,16 +206,58 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     tools: createVerxioMcpTools(toolContext),
   });
 
-  // Load user's MCP connections and user context in parallel when both are needed
+  // Load user's MCP connections, Composio, and user context in parallel
   let userMcpServers: Record<string, McpServerConfig> = {};
+  let composioMcpConfig: McpServerConfig | undefined;
   let userContext: Awaited<ReturnType<typeof getUserContext>>;
   if (includeUserConnections) {
-    [userMcpServers, userContext] = await Promise.all([
+    const [mcpServers, context, composioUrl] = await Promise.all([
       loadUserMcpServers(userId),
       getUserContext(userId, workflowId),
+      getComposioMcpUrl(userId).catch((err) => {
+        console.error("[Composio] Failed to load MCP URL:", err);
+        return null;
+      }),
     ]);
+    userMcpServers = mcpServers;
+    userContext = context;
+    if (composioUrl) {
+      composioMcpConfig = { type: "http", url: composioUrl };
+    }
   } else {
-    userContext = await getUserContext(userId, workflowId);
+    const [context, composioUrl] = await Promise.all([
+      getUserContext(userId, workflowId),
+      getComposioMcpUrl(userId).catch((err) => {
+        console.error("[Composio] Failed to load MCP URL:", err);
+        return null;
+      }),
+    ]);
+    userContext = context;
+    if (composioUrl) {
+      composioMcpConfig = { type: "http", url: composioUrl };
+    }
+  }
+
+  // Filter skills based on integration config (when from chat integration)
+  if (agentPersonality?.skillScope !== undefined) {
+    const allSkills = userContext.userSkills as Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      content: string;
+    }>;
+    let filteredSkills: typeof allSkills;
+    if (agentPersonality.skillScope === "NO_SKILLS") {
+      filteredSkills = [];
+    } else if (
+      agentPersonality.skillScope === "SELECTED_SKILLS" &&
+      agentPersonality.allowedSkillIds?.length
+    ) {
+      filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
+    } else {
+      filteredSkills = allSkills; // ALL_SKILLS or no restriction
+    }
+    userContext = { ...userContext, userSkills: filteredSkills };
   }
 
   // Build system prompt (now async to load guide content)
@@ -234,6 +287,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         allowDangerouslySkipPermissions: true,
         mcpServers: {
           "verxio-workflow": verxioMcpServer,
+          ...(composioMcpConfig ? { composio: composioMcpConfig } : {}),
           ...userMcpServers,
         },
         tools: { type: "preset", preset: "claude_code" },
@@ -505,9 +559,10 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 - AI: Claude, GPT, Gemini
 - Communication: Email, Slack, Discord, Telegram, WhatsApp
 - Google: Sheets, Docs, Slides, Drive, Calendar
-- Data: HTTP, Airtable, Firecrawl
+- Data: HTTP, Airtable
 - Logic: Code blocks, Decider
-- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
+- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
+- Composio: 10,000+ actions across 800+ apps (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, and more)
 
 ## Autonomous Image Generation
 
@@ -588,7 +643,7 @@ Read the conversation to decide whether the user needs a **workflow** (multi-ste
 - User says "do it", "help me do X", "can you book/check/list/create X" and expects confirmation or data back
 
 **Single-node path: use the right standard node first.**
-- You have access to **all existing node types** (same as for workflows). For a single task, **prefer the standard node that fits**: GOOGLE_CALENDAR (list/create events), GOOGLE_SHEETS (read/write), GOOGLE_MEET (create link), DESIGN/DESIGN_PRO (image), VEO/REMOTION/SEEDANCE (video), GEMINI/ANTHROPIC/OPENAI (AI), FIRECRAWL (scrape), GMAIL (email), etc. Use listNodeTypes or the Available Nodes list above to pick the right one.
+- You have access to **all existing node types** (same as for workflows) plus **Composio** for 10,000+ actions across 800+ apps. For a single task, **prefer Composio for common app operations** (email, calendar, project management, CRM, TTS, web scraping, etc.) and **native nodes for media generation** (DESIGN/DESIGN_PRO for images, VEO/REMOTION/SEEDANCE for video, KLING for video/image/TTS, SEEDREAM for images). Use listNodeTypes or the Available Nodes list above to pick the right one.
 - **Use CODE_BLOCK or other custom/special nodes only when needed** (e.g. custom logic, one-off script, or no standard node matches the task). Do not default to a custom node when a standard node exists for the task.
 
 **Single-node steps (executeSingleNodeAndWait):**
@@ -666,6 +721,16 @@ Example sequence for replacing/adding nodes:
 - Focus on understanding their needs before proposing solutions
 `;
 
+export interface AgentPersonality {
+  name: string;
+  soulMd: string;
+  evolvePersonality: boolean;
+  integrationId?: string;
+  /** Skill access for chat integration: scope and allowed skill IDs when SELECTED_SKILLS */
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
+}
+
 export async function* chatWithAgent(options: {
   userId: string;
   workflowId: string;
@@ -675,9 +740,32 @@ export async function* chatWithAgent(options: {
     similarWorkflows?: Array<{ description: string; nodes: string[] }>;
     userPreferences?: Record<string, unknown>;
   };
+  agentPersonality?: AgentPersonality;
 }): AsyncGenerator<AgentStreamEvent> {
+  // Build soul/personality preamble if available
+  let soulPreamble = "";
+  if (options.agentPersonality?.soulMd) {
+    const { name, soulMd, evolvePersonality } = options.agentPersonality;
+    soulPreamble = `## Your Identity
+Your name is **${name}**. You are the user's personal workflow and automation assistant.
+When asked "who are you", respond with your name and personality — you are ${name}, powered by Verxio.
+
+## Your Personality (soul.md)
+${soulMd}
+
+${
+  evolvePersonality
+    ? `## Personality Evolution
+You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
+    : ""
+}
+---
+
+`;
+  }
+
   // Build enhanced prompt with planning context and learning insights
-  let enhancedPrompt = `${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
+  let enhancedPrompt = `${soulPreamble}${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
 
   // Add learning context if available
   if (options.learningContext?.similarWorkflows?.length) {
@@ -697,6 +785,7 @@ export async function* chatWithAgent(options: {
     conversationHistory: options.conversationHistory,
     maxTurns: 15,
     traceType: "chat",
+    agentPersonality: options.agentPersonality,
   })) {
     yield event;
   }

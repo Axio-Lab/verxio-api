@@ -23,8 +23,8 @@ export default function TermsOfServicePage() {
         <p>
           Verxio provides an AI-powered workflow automation platform that allows you to design, run,
           and manage automated workflows, including integrations with third-party services (e.g.,
-          Google Calendar, Gmail, Sheets) via OAuth. Your chat conversations with the AI are
-          stored to provide continuity and are encrypted at rest where enabled to protect against
+          Google Calendar, Gmail, Sheets) via OAuth. Your chat conversations with the AI are stored
+          to provide continuity and are encrypted at rest where enabled to protect against
           unauthorized access and privacy leaks. We grant you a limited, non-exclusive, revocable
           license to use the Service in accordance with these Terms and our policies.
         </p>

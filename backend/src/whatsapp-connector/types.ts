@@ -20,6 +20,8 @@ export interface WhatsAppPayload {
   fromMe?: boolean;
   pushName?: string;
   participant?: string; // For group messages, the sender JID
+  mentionedJid?: string[]; // JIDs mentioned via @ in the message
+  groupJid?: string; // Raw group JID (e.g. "123456@g.us") when isGroup=true
 }
 
 export interface IncomingWhatsAppEvent {
@@ -27,6 +29,15 @@ export interface IncomingWhatsAppEvent {
   integrationId?: string;
   credentialId?: string;
   payload: WhatsAppPayload;
+  botJid?: string; // The connected account's own JID (for group mention detection)
+}
+
+/** Key of the message to quote (for Baileys reply-to). */
+export interface QuotedMessageKey {
+  remoteJid: string;
+  id: string;
+  fromMe?: boolean;
+  participant?: string; // For group messages, the sender JID
 }
 
 export interface SendWhatsAppRequest {
@@ -34,6 +45,8 @@ export interface SendWhatsAppRequest {
   toJid: string;
   text: string;
   media?: { url: string; mimetype?: string; caption?: string };
+  /** When set, the reply is attached to this message (Baileys quoted). */
+  quotedKey?: QuotedMessageKey;
 }
 
 export interface SendWhatsAppResponse {

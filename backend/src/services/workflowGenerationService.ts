@@ -181,7 +181,6 @@ const NODE_CREDENTIAL_MAP: Record<string, { type: string; setupUrl: string }> = 
   SLACK: { type: "SLACK", setupUrl: "/credentials/new?type=SLACK" },
   DISCORD: { type: "DISCORD", setupUrl: "/credentials/new?type=DISCORD" },
   WHATSAPP: { type: "WHATSAPP", setupUrl: "/credentials/new?type=WHATSAPP" },
-  ELEVENLABS: { type: "ELEVENLABS", setupUrl: "/credentials/new?type=ELEVENLABS" },
 };
 
 // Fields that require user input
@@ -364,12 +363,6 @@ const NODE_ACTION_DESCRIPTIONS: Record<string, (data: Record<string, unknown>) =
     if (action === "updateRecord") return "updates an Airtable record";
     return "interacts with Airtable";
   },
-  FIRECRAWL: (data) => {
-    const action = data.action as string;
-    if (action === "scrape") return "scrapes content from the webpage";
-    if (action === "crawl") return "crawls the website";
-    return "extracts web content";
-  },
 
   // Logic & Code
   CODE_BLOCK: (data) => {
@@ -382,9 +375,6 @@ const NODE_ACTION_DESCRIPTIONS: Record<string, (data: Record<string, unknown>) =
   },
   DECIDER: () => "makes a conditional decision",
   PLAN: () => "creates an AI-powered plan",
-
-  // Media
-  ELEVENLABS: () => "converts text to speech",
 };
 
 /**

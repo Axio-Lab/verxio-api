@@ -1067,11 +1067,26 @@ export const updateWorkflowData = async (
   // Verify workflow exists and belongs to user
   const existingWorkflow = await prismaClient.workflow.findFirst({
     where: { id, userId },
+    include: {
+      nodes: {
+        where: {
+          type: NodeType.COMPOSIO_TRIGGER,
+        },
+        select: {
+          id: true,
+          data: true,
+        },
+      },
+    },
   });
 
   if (!existingWorkflow) {
     throw new AppError("Workflow not found", 404);
   }
+
+  const previousComposioTriggerIds = (existingWorkflow.nodes || [])
+    .map((node: any) => (node.data as any)?.composioTriggerId)
+    .filter((id: string | undefined): id is string => Boolean(id));
 
   // Validate nodes
   if (!Array.isArray(data.nodes)) {
@@ -1768,6 +1783,32 @@ export const updateWorkflowData = async (
     });
   }
 
+  // Provision/reconcile Composio triggers for COMPOSIO_TRIGGER nodes
+  // Async to avoid blocking save response path.
+  const composioTriggerNodes = workflow.nodes.filter(
+    (node: any) => node.type === NodeType.COMPOSIO_TRIGGER
+  );
+  if (composioTriggerNodes.length > 0 || previousComposioTriggerIds.length > 0) {
+    process.nextTick(async () => {
+      try {
+        const { reconcileWorkflowComposioTriggers } =
+          await import("./composio/composioTriggerService");
+        await reconcileWorkflowComposioTriggers({
+          workflowId: id,
+          userId,
+          nodes: composioTriggerNodes.map((node: any) => ({
+            id: node.id,
+            type: node.type,
+            data: node.data || {},
+          })),
+          staleTriggerIds: previousComposioTriggerIds,
+        });
+      } catch (error) {
+        console.error(`[Composio Trigger] Failed to reconcile workflow ${id}:`, error);
+      }
+    });
+  }
+
   return transformedWorkflow;
 };
 
@@ -1789,13 +1830,40 @@ export const deleteWorkflow = async (id: string, userId: string): Promise<void> 
       id,
       userId,
     },
+    include: {
+      nodes: {
+        where: {
+          type: NodeType.COMPOSIO_TRIGGER,
+        },
+        select: {
+          id: true,
+          data: true,
+        },
+      },
+    },
   });
 
   if (!existingWorkflow) {
     throw new AppError("Workflow not found", 404);
   }
 
+  const composioTriggerIds = (existingWorkflow.nodes || [])
+    .map((node: any) => (node.data as any)?.composioTriggerId)
+    .filter((triggerId: string | undefined): triggerId is string => Boolean(triggerId));
+
   await prismaClient.workflow.delete({
     where: { id },
   });
+
+  if (composioTriggerIds.length > 0) {
+    process.nextTick(async () => {
+      try {
+        const { cleanupWorkflowComposioTriggers } =
+          await import("./composio/composioTriggerService");
+        await cleanupWorkflowComposioTriggers(composioTriggerIds);
+      } catch (error) {
+        console.error(`[Composio Trigger] Failed to cleanup workflow ${id}:`, error);
+      }
+    });
+  }
 };

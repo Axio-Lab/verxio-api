@@ -176,10 +176,6 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("airtable"),
     enabled: true,
   });
-  const elevenlabsSub = useInngestSubscription({
-    refreshToken: createRefreshToken("elevenlabs"),
-    enabled: true,
-  });
   const designSub = useInngestSubscription({
     refreshToken: createRefreshToken("design"),
     enabled: true,
@@ -216,6 +212,14 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("seedream"),
     enabled: true,
   });
+  const composioActionSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioAction"),
+    enabled: true,
+  });
+  const composioTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioTrigger"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -246,7 +250,6 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(googleSlidesSub.data || []),
       ...(gmailSub.data || []),
       ...(airtableSub.data || []),
-      ...(elevenlabsSub.data || []),
       ...(designSub.data || []),
       ...(designProSub.data || []),
       ...(remotionSub.data || []),
@@ -256,6 +259,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(markdownSub.data || []),
       ...(seedanceSub.data || []),
       ...(seedreamSub.data || []),
+      ...(composioActionSub.data || []),
+      ...(composioTriggerSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -285,7 +290,6 @@ export function useCentralizedNodeStatusSubscriptions() {
       googleSlidesSub.data,
       gmailSub.data,
       airtableSub.data,
-      elevenlabsSub.data,
       designSub.data,
       designProSub.data,
       remotionSub.data,
@@ -295,6 +299,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       markdownSub.data,
       seedanceSub.data,
       seedreamSub.data,
+      composioActionSub.data,
+      composioTriggerSub.data,
     ]
   );
 

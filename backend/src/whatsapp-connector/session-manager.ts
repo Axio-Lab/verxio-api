@@ -222,9 +222,16 @@ export async function startSession(
     for (const msg of messages) {
       const fromMe = msg.key.fromMe === true;
       const remoteJid = msg.key.remoteJid;
-      const track = shouldTrackMessage(onlyOwnerMode, fromMe, remoteJid, ownerJid);
-      if (!track) continue;
-      const payload = normalizeMessage(msg as WAMessage);
+      const isGroupMsg = !!remoteJid && remoteJid.endsWith("@g.us");
+
+      // For group messages: always allow through (mention filtering happens in the backend).
+      // For 1:1 messages: apply the owner-mode filter as before.
+      if (!isGroupMsg) {
+        const track = shouldTrackMessage(onlyOwnerMode, fromMe, remoteJid, ownerJid);
+        if (!track) continue;
+      }
+      // Pass allowGroups=true for integration sessions so group messages are normalized
+      const payload = normalizeMessage(msg as WAMessage, /* allowGroups */ true);
       if (!payload) continue;
       try {
         await onIncoming({
@@ -232,6 +239,7 @@ export async function startSession(
           integrationId: row.integrationId,
           credentialId: row.credentialId ?? undefined,
           payload,
+          botJid: ownerJid || undefined, // pass the connected account's JID for group mention detection
         });
       } catch (err) {
         console.error("[WhatsApp Connector] onIncoming error:", err);
@@ -266,26 +274,53 @@ export function stopSession(sessionId: string): void {
   }
 }
 
+function buildQuotedMessage(quotedKey: {
+  remoteJid: string;
+  id: string;
+  fromMe?: boolean;
+  participant?: string;
+}): WAMessage {
+  const jid = formatJid(quotedKey.remoteJid);
+  const key: WAMessage["key"] = {
+    remoteJid: jid,
+    id: quotedKey.id,
+    fromMe: quotedKey.fromMe ?? false,
+    participant: quotedKey.participant ? formatJid(quotedKey.participant) : undefined,
+  };
+  return {
+    key,
+    message: { conversation: "" },
+  } as WAMessage;
+}
+
 export async function sendMessage(
   sessionRef: string,
   toJid: string,
   text: string,
-  options?: { media?: { url: string; mimetype?: string; caption?: string } }
+  options?: {
+    media?: { url: string; mimetype?: string; caption?: string };
+    quotedKey?: { remoteJid: string; id: string; fromMe?: boolean; participant?: string };
+  }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const info = resolveSession(sessionRef);
   if (!info) {
     return { success: false, error: `Session not found: ${sessionRef}` };
   }
   const jid = formatJid(toJid);
+  const quoted = options?.quotedKey ? buildQuotedMessage(options.quotedKey) : undefined;
   try {
     if (options?.media?.url) {
-      const sent = await info.socket.sendMessage(jid, {
-        image: { url: options.media.url },
-        caption: options.media.caption || text,
-      });
+      const sent = await info.socket.sendMessage(
+        jid,
+        {
+          image: { url: options.media.url },
+          caption: options.media.caption || text,
+        },
+        quoted ? { quoted } : undefined
+      );
       return { success: true, messageId: sent?.key?.id ?? undefined };
     }
-    const sent = await info.socket.sendMessage(jid, { text });
+    const sent = await info.socket.sendMessage(jid, { text }, quoted ? { quoted } : undefined);
     return { success: true, messageId: sent?.key?.id ?? undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -303,9 +338,12 @@ function resolveSession(sessionRef: string): SessionInfo | undefined {
 }
 
 function formatJid(input: string): string {
+  // If it already has @g.us (group JID), return as-is
+  if (input.endsWith("@g.us")) return input;
+  // If it already has another @ suffix, return as-is
+  if (input.includes("@")) return input;
   const cleaned = input.replace(/\D/g, "");
   if (cleaned.length === 0) return input;
-  if (input.includes("@")) return input;
   return `${cleaned}@s.whatsapp.net`;
 }
 

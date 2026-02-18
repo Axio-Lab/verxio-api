@@ -6,8 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { VerxioLoader } from "./VerxioLoader";
 
 /**
- * RouteGuard - Protects all routes except auth routes
- * Redirects unauthenticated users to login page
+ * RouteGuard - Protects all routes except public routes
+ * - Redirects authenticated users from landing page to /workflows
+ * - Redirects unauthenticated users from protected routes to landing page (/)
  */
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,8 +38,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    // Don't redirect if we're on a public route or still loading
-    if (isLoading || isPublicRoute) {
+    // Don't redirect while loading
+    if (isLoading) {
       return;
     }
 
@@ -49,9 +50,21 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Redirect to login if not authenticated
-    if (!isAuthenticated) {
-      router.replace("/login");
+    // If authenticated and on landing page, redirect to workflows
+    if (isAuthenticated && pathname === "/") {
+      router.replace("/workflows");
+      return;
+    }
+
+    // If authenticated and on other public auth routes (login, signup), redirect to workflows
+    if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
+      router.replace("/workflows");
+      return;
+    }
+
+    // Redirect to landing page if not authenticated and trying to access protected route
+    if (!isAuthenticated && !isPublicRoute) {
+      router.replace("/");
     }
   }, [isAuthenticated, isLoading, isPublicRoute, pathname, router, user, isEmailVerified]);
 
