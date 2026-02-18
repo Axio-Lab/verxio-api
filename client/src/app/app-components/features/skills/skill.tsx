@@ -30,6 +30,7 @@ export const SkillsHeader = ({ disabled }: { disabled?: boolean }) => {
       newButtonLabel="New Skill"
       onNew={handleNew}
       disabled={disabled}
+      newButtonDataTourTarget="new-skill-button"
     />
   );
 };
@@ -53,7 +54,11 @@ export const SkillsContainer = ({
 }) => {
   return (
     <EntityContainer
-      header={<SkillsHeader disabled={disabled} />}
+      header={
+        <div data-tour-target="skills-page">
+          <SkillsHeader disabled={disabled} />
+        </div>
+      }
       search={
         searchValue !== undefined && onSearchChange ? (
           <SkillsSearch value={searchValue} onChange={onSearchChange} />
@@ -81,7 +86,14 @@ export const SkillsSearch = ({
   value: string;
   onChange: (value: string) => void;
 }) => {
-  return <EntitySearch value={value} onChange={onChange} placeholder="Search skills" />;
+  return (
+    <EntitySearch
+      value={value}
+      onChange={onChange}
+      placeholder="Search skills"
+      dataTourTarget="skills-search"
+    />
+  );
 };
 
 export const SkillsPagination = ({
@@ -112,21 +124,26 @@ export const SkillsErrorView = () => {
 
 export const SkillsEmptyView = ({ onCreateSkill }: { onCreateSkill?: () => void }) => {
   return (
-    <EmptyView
-      message="No skills found. Add your first skill to extend your AI capabilities."
-      onNew={onCreateSkill}
-    />
+    <div data-tour-target="skills-list">
+      <EmptyView
+        message="No skills found. Add your first skill to extend your AI capabilities."
+        onNew={onCreateSkill}
+        newButtonDataTourTarget="new-skill-button"
+      />
+    </div>
   );
 };
 
 export const SkillsList = ({ skills }: { skills: Skill[] }) => {
   return (
-    <EntityList
-      items={skills}
-      renderItem={(skill) => <SkillsItem skill={skill} />}
-      getKey={(skill) => skill.id}
-      emptyView={<SkillsEmptyView />}
-    />
+    <div data-tour-target="skills-list">
+      <EntityList
+        items={skills}
+        renderItem={(skill) => <SkillsItem skill={skill} />}
+        getKey={(skill) => skill.id}
+        emptyView={<SkillsEmptyView />}
+      />
+    </div>
   );
 };
 

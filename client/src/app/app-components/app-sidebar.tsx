@@ -254,7 +254,11 @@ export const AppSidebar = () => {
                             ? "menu-templates"
                             : subItem.url === "/credentials"
                               ? "menu-credentials"
-                              : undefined
+                              : subItem.url === "/integrations"
+                                ? "menu-integrations"
+                                : subItem.url === "/skills"
+                                  ? "menu-skills"
+                                  : undefined
                       }
                       tooltip={item.title}
                       isActive={isActive(subItem.url)}

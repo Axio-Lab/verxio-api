@@ -29,6 +29,7 @@ export const IntegrationsHeader = ({ disabled }: { disabled?: boolean }) => {
       newButtonLabel="New Integration"
       onNew={handleNew}
       disabled={disabled}
+      newButtonDataTourTarget="new-integration-button"
     />
   );
 };
@@ -46,13 +47,18 @@ export const IntegrationsContainer = ({
 }) => {
   return (
     <EntityContainer
-      header={<IntegrationsHeader disabled={disabled} />}
+      header={
+        <div data-tour-target="integrations-page">
+          <IntegrationsHeader disabled={disabled} />
+        </div>
+      }
       search={
         searchValue !== undefined && onSearchChange ? (
           <EntitySearch
             value={searchValue}
             onChange={onSearchChange}
             placeholder="Search integrations"
+            dataTourTarget="integrations-search"
           />
         ) : undefined
       }
@@ -78,22 +84,27 @@ export const IntegrationsEmptyView = ({
   onCreateIntegration?: () => void;
 }) => {
   return (
-    <EmptyView
-      message="No integrations found. Create your first integration to get started."
-      onNew={onCreateIntegration}
-      isCreating={isCreating}
-    />
+    <div data-tour-target="integrations-list">
+      <EmptyView
+        message="No integrations found. Create your first integration to get started."
+        onNew={onCreateIntegration}
+        isCreating={isCreating}
+        newButtonDataTourTarget="new-integration-button"
+      />
+    </div>
   );
 };
 
 export const IntegrationsList = ({ integrations }: { integrations: ChatIntegration[] }) => {
   return (
-    <EntityList
-      items={integrations}
-      renderItem={(integration) => <IntegrationItem integration={integration} />}
-      getKey={(integration) => integration.id}
-      emptyView={<IntegrationsEmptyView />}
-    />
+    <div data-tour-target="integrations-list">
+      <EntityList
+        items={integrations}
+        renderItem={(integration) => <IntegrationItem integration={integration} />}
+        getKey={(integration) => integration.id}
+        emptyView={<IntegrationsEmptyView />}
+      />
+    </div>
   );
 };
 

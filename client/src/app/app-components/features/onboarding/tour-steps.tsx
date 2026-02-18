@@ -5,13 +5,19 @@ export type TourStepDef = {
   targetSelector: string | null;
 };
 
-export type TourId = "sidebar" | "workflow" | "templates" | "credentials";
+export type TourId =
+  | "sidebar"
+  | "workflow"
+  | "templates"
+  | "credentials"
+  | "integrations"
+  | "skills";
 
 const SIDEBAR_STEP_WELCOME: TourStepDef = {
   id: "welcome",
   title: "Welcome to Verxio",
   description:
-    "Let's take a quick tour of the app. We'll show you where to create workflows, use templates, manage credentials, and upgrade your plan.",
+    "Let's take a quick tour of the app. We'll show you workflows, templates, credentials, integrations, skills, and upgrade.",
   targetSelector: null,
 };
 
@@ -35,6 +41,19 @@ const SIDEBAR_STEPS_BASE: TourStepDef[] = [
     description:
       "Store API keys and secrets securely. Go to Credentials to add and manage them for your nodes.",
     targetSelector: "[data-tour-target='menu-credentials']",
+  },
+  {
+    id: "integrations",
+    title: "Integrations",
+    description:
+      "Connect chat channels like Slack and Discord so Verxio can send and receive messages.",
+    targetSelector: "[data-tour-target='menu-integrations']",
+  },
+  {
+    id: "skills",
+    title: "Skills",
+    description: "Add reusable skills to extend what your agent can do in workflows and chat.",
+    targetSelector: "[data-tour-target='menu-skills']",
   },
   {
     id: "workflows",
@@ -100,11 +119,67 @@ export const CREDENTIALS_TOUR_STEPS: TourStepDef[] = [
   },
 ];
 
+export const INTEGRATIONS_TOUR_STEPS: TourStepDef[] = [
+  {
+    id: "integrations-overview",
+    title: "Integrations overview",
+    description: "This page is where you manage Slack and Discord chat integrations.",
+    targetSelector: "[data-tour-target='integrations-page']",
+  },
+  {
+    id: "new-integration",
+    title: "Create integration",
+    description: "Click New Integration to connect a new platform.",
+    targetSelector: "[data-tour-target='new-integration-button']",
+  },
+  {
+    id: "integrations-search",
+    title: "Search integrations",
+    description: "Use search to quickly find an integration by name, platform, or scope.",
+    targetSelector: "[data-tour-target='integrations-search']",
+  },
+  {
+    id: "integrations-list",
+    title: "Manage integrations",
+    description: "Open an integration card to configure settings, tokens, and behavior.",
+    targetSelector: "[data-tour-target='integrations-list']",
+  },
+];
+
+export const SKILLS_TOUR_STEPS: TourStepDef[] = [
+  {
+    id: "skills-overview",
+    title: "Skills overview",
+    description: "This page lets you add and maintain reusable AI skills.",
+    targetSelector: "[data-tour-target='skills-page']",
+  },
+  {
+    id: "new-skill",
+    title: "Create skill",
+    description: "Click New Skill to add a custom skill for your assistant.",
+    targetSelector: "[data-tour-target='new-skill-button']",
+  },
+  {
+    id: "skills-search",
+    title: "Search skills",
+    description: "Filter your skills by name, description, or URL.",
+    targetSelector: "[data-tour-target='skills-search']",
+  },
+  {
+    id: "skills-list",
+    title: "Manage skills",
+    description: "Open any skill card to edit, review, or remove it.",
+    targetSelector: "[data-tour-target='skills-list']",
+  },
+];
+
 const STORAGE_KEYS: Record<TourId, string> = {
   sidebar: "verxio-tour-sidebar-completed",
   workflow: "verxio-tour-workflow-completed",
   templates: "verxio-tour-templates-completed",
   credentials: "verxio-tour-credentials-completed",
+  integrations: "verxio-tour-integrations-completed",
+  skills: "verxio-tour-skills-completed",
 };
 
 export function getStorageKey(tourId: TourId): string {
@@ -127,6 +202,10 @@ export function getStepsForTour(
       return TEMPLATES_TOUR_STEPS;
     case "credentials":
       return CREDENTIALS_TOUR_STEPS;
+    case "integrations":
+      return INTEGRATIONS_TOUR_STEPS;
+    case "skills":
+      return SKILLS_TOUR_STEPS;
     default:
       return [];
   }

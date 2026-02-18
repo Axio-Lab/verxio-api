@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { TourId } from "./tour-steps";
 import { getStepsForTour, getStorageKey } from "./tour-steps";
@@ -52,16 +52,27 @@ function getTourIdForPathname(pathname: string | null): TourId | null {
   if (pathname.startsWith("/workflows/")) return "workflow";
   if (pathname === "/templates") return "templates";
   if (pathname === "/credentials") return "credentials";
+  if (pathname === "/integrations") return "integrations";
+  if (pathname === "/skills") return "skills";
+  return null;
+}
+
+function getPathForTourId(tourId: TourId): string | null {
+  if (tourId === "credentials") return "/credentials";
+  if (tourId === "integrations") return "/integrations";
+  if (tourId === "skills") return "/skills";
   return null;
 }
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTourId, setActiveTourId] = useState<TourId | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
+  const [tourQueue, setTourQueue] = useState<TourId[]>([]);
 
   const steps = useMemo(() => {
     if (!activeTourId) return [];
@@ -79,6 +90,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasCheckedStorage) return;
+    if (tourQueue.length > 0) return;
     const tourId = getTourIdForPathname(pathname);
     if (!tourId) return;
     const key = getStorageKey(tourId);
@@ -124,17 +136,63 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     if (activeTourId) {
       setStoredCompletion(getStorageKey(activeTourId), true);
     }
+    setTourQueue([]);
     setIsOpen(false);
     setActiveTourId(null);
   }, [activeTourId]);
 
   const completeTour = useCallback(() => {
-    if (activeTourId) {
-      setStoredCompletion(getStorageKey(activeTourId), true);
+    if (!activeTourId) {
+      setIsOpen(false);
+      setActiveTourId(null);
+      return;
     }
+
+    setStoredCompletion(getStorageKey(activeTourId), true);
     setIsOpen(false);
     setActiveTourId(null);
-  }, [activeTourId]);
+
+    // Chain onboarding flow: credentials -> integrations -> skills.
+    if (activeTourId === "credentials") {
+      const queue: TourId[] = ["integrations", "skills"];
+      const [nextTour, ...rest] = queue.filter(
+        (tourId) => !getStoredCompletion(getStorageKey(tourId))
+      );
+      if (nextTour) {
+        setTourQueue(rest);
+        const nextPath = getPathForTourId(nextTour);
+        if (nextPath && pathname !== nextPath) {
+          router.push(nextPath);
+        } else {
+          setActiveTourId(nextTour);
+          setCurrentStep(0);
+          setIsOpen(true);
+        }
+      } else {
+        setTourQueue([]);
+      }
+      return;
+    }
+
+    if (tourQueue.length > 0) {
+      const [nextTour, ...rest] = tourQueue.filter(
+        (tourId) => !getStoredCompletion(getStorageKey(tourId))
+      );
+      if (nextTour) {
+        setTourQueue(rest);
+        const nextPath = getPathForTourId(nextTour);
+        if (nextPath && pathname !== nextPath) {
+          router.push(nextPath);
+        } else {
+          setActiveTourId(nextTour);
+          setCurrentStep(0);
+          setIsOpen(true);
+        }
+      } else {
+        setTourQueue([]);
+      }
+    }
+  }, [activeTourId, pathname, router, tourQueue]);
 
   const value: TourContextValue = {
     isOpen,

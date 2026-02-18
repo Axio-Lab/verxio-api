@@ -55,6 +55,7 @@ type EntitySearchProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  dataTourTarget?: string;
 };
 
 type EntityPaginationProps = {
@@ -77,6 +78,7 @@ interface LoadingViewProps extends StatesViewProps {
 interface EmptyViewProps extends StatesViewProps {
   onNew?: () => void;
   isCreating?: boolean;
+  newButtonDataTourTarget?: string;
 }
 
 interface EntityListProps<T> {
@@ -181,9 +183,17 @@ export const EntityContainer = ({ header, search, pagination, children }: Entity
   );
 };
 
-export const EntitySearch = ({ value, onChange, placeholder = "Search" }: EntitySearchProps) => {
+export const EntitySearch = ({
+  value,
+  onChange,
+  placeholder = "Search",
+  dataTourTarget,
+}: EntitySearchProps) => {
   return (
-    <div className="relative w-full sm:w-auto">
+    <div
+      className="relative w-full sm:w-auto"
+      {...(dataTourTarget && { "data-tour-target": dataTourTarget })}
+    >
       <SearchIcon className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
       <Input
         className="pl-8 w-full sm:w-auto sm:min-w-[200px] sm:max-w-[300px] bg-background shadow-none border-border"
@@ -269,7 +279,12 @@ export const ErrorView = ({ message }: StatesViewProps) => {
   );
 };
 
-export const EmptyView = ({ message, onNew, isCreating }: EmptyViewProps) => {
+export const EmptyView = ({
+  message,
+  onNew,
+  isCreating,
+  newButtonDataTourTarget,
+}: EmptyViewProps) => {
   return (
     <Empty className="border border-dashed bg-white">
       <EmptyHeader>
@@ -281,7 +296,12 @@ export const EmptyView = ({ message, onNew, isCreating }: EmptyViewProps) => {
       {!!message && <EmptyDescription>{message}</EmptyDescription>}
       {!!onNew && (
         <EmptyContent>
-          <Button onClick={onNew} disabled={isCreating} className="flex items-center gap-2">
+          <Button
+            {...(newButtonDataTourTarget && { "data-tour-target": newButtonDataTourTarget })}
+            onClick={onNew}
+            disabled={isCreating}
+            className="flex items-center gap-2"
+          >
             {isCreating ? (
               <>
                 <Spinner className="size-4" />
