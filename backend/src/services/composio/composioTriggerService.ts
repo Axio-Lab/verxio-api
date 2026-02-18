@@ -298,7 +298,11 @@ async function provisionTriggerForNode(
 
   const slug = (nodeData.composioTriggerSlug || "").trim();
   const triggerConfig = normalizeTriggerConfig(nodeData.triggerConfig);
-  const configHash = stableHash({ slug, triggerConfig, connectedAccountId: nodeData.connectedAccountId });
+  const configHash = stableHash({
+    slug,
+    triggerConfig,
+    connectedAccountId: nodeData.connectedAccountId,
+  });
   const existingTriggerId = nodeData.composioTriggerId;
 
   if (!slug) {

@@ -1791,9 +1791,8 @@ export const updateWorkflowData = async (
   if (composioTriggerNodes.length > 0 || previousComposioTriggerIds.length > 0) {
     process.nextTick(async () => {
       try {
-        const { reconcileWorkflowComposioTriggers } = await import(
-          "./composio/composioTriggerService"
-        );
+        const { reconcileWorkflowComposioTriggers } =
+          await import("./composio/composioTriggerService");
         await reconcileWorkflowComposioTriggers({
           workflowId: id,
           userId,
@@ -1859,9 +1858,8 @@ export const deleteWorkflow = async (id: string, userId: string): Promise<void> 
   if (composioTriggerIds.length > 0) {
     process.nextTick(async () => {
       try {
-        const { cleanupWorkflowComposioTriggers } = await import(
-          "./composio/composioTriggerService"
-        );
+        const { cleanupWorkflowComposioTriggers } =
+          await import("./composio/composioTriggerService");
         await cleanupWorkflowComposioTriggers(composioTriggerIds);
       } catch (error) {
         console.error(`[Composio Trigger] Failed to cleanup workflow ${id}:`, error);

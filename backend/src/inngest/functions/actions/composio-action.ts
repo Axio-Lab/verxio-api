@@ -41,18 +41,14 @@ export const composioActionExecutor: NodeExecutor = async ({
     }
   }
 
-  await publish(
-    composioActionChannel().status({ nodeId, status: "loading" })
-  );
+  await publish(composioActionChannel().status({ nodeId, status: "loading" }));
 
   try {
     const result = await step.run(`composio-${nodeId}`, async () => {
       return executeComposioAction(userId, actionName, compiledParams);
     });
 
-    await publish(
-      composioActionChannel().status({ nodeId, status: "success" })
-    );
+    await publish(composioActionChannel().status({ nodeId, status: "success" }));
 
     await publish(
       composioActionChannel().output({
@@ -66,11 +62,8 @@ export const composioActionExecutor: NodeExecutor = async ({
       composioActionName: actionName,
     };
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Unknown Composio error";
-    await publish(
-      composioActionChannel().status({ nodeId, status: "error" })
-    );
+    const message = error instanceof Error ? error.message : "Unknown Composio error";
+    await publish(composioActionChannel().status({ nodeId, status: "error" }));
     throw new NonRetriableError(`Composio action "${actionName}" failed: ${message}`);
   }
 };

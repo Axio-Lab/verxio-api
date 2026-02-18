@@ -18,9 +18,7 @@ function getClient(): Composio | null {
  * Get a Composio MCP URL scoped to a specific user.
  * Returns null if COMPOSIO_API_KEY is not configured or if the service is unavailable.
  */
-export async function getComposioMcpUrl(
-  userId: string
-): Promise<string | null> {
+export async function getComposioMcpUrl(userId: string): Promise<string | null> {
   try {
     const client = getClient();
     if (!client) {
@@ -30,10 +28,7 @@ export async function getComposioMcpUrl(
     const session = await client.create(userId);
     const mcpUrl = session.mcp?.url;
     if (!mcpUrl) {
-      console.warn(
-        "[Composio] Session created but no MCP URL returned for user:",
-        userId
-      );
+      console.warn("[Composio] Session created but no MCP URL returned for user:", userId);
       return null;
     }
 
@@ -55,9 +50,7 @@ export async function executeComposioAction(
 ): Promise<unknown> {
   const client = getClient();
   if (!client) {
-    throw new Error(
-      "Composio is not configured. Set COMPOSIO_API_KEY in your environment."
-    );
+    throw new Error("Composio is not configured. Set COMPOSIO_API_KEY in your environment.");
   }
 
   try {
@@ -65,8 +58,7 @@ export async function executeComposioAction(
     const tools = await session.tools();
 
     const tool = tools.find(
-      (t: any) =>
-        (t.name || t.function?.name || "").toUpperCase() === actionName.toUpperCase()
+      (t: any) => (t.name || t.function?.name || "").toUpperCase() === actionName.toUpperCase()
     );
     if (!tool) {
       throw new Error(
@@ -77,10 +69,7 @@ export async function executeComposioAction(
     const result = await (tool as any).execute(params);
     return result;
   } catch (error) {
-    console.error(
-      `[Composio] Failed to execute action "${actionName}" for user ${userId}:`,
-      error
-    );
+    console.error(`[Composio] Failed to execute action "${actionName}" for user ${userId}:`, error);
     throw error;
   }
 }
