@@ -212,6 +212,14 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("seedream"),
     enabled: true,
   });
+  const composioActionSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioAction"),
+    enabled: true,
+  });
+  const composioTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioTrigger"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -251,6 +259,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(markdownSub.data || []),
       ...(seedanceSub.data || []),
       ...(seedreamSub.data || []),
+      ...(composioActionSub.data || []),
+      ...(composioTriggerSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -289,6 +299,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       markdownSub.data,
       seedanceSub.data,
       seedreamSub.data,
+      composioActionSub.data,
+      composioTriggerSub.data,
     ]
   );
 

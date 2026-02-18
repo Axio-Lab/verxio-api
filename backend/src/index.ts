@@ -21,6 +21,7 @@ import { airtableRouter } from "./routes/triggers/airtable";
 import { stripeRouter } from "./routes/triggers/stripe";
 import { telegramRouter } from "./routes/triggers/telegram";
 import { webhookTriggerRouter } from "./routes/triggers/webhook";
+import { composioTriggerRouter } from "./routes/triggers/composio";
 import { publicChatRouter } from "./routes/public-chat";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
@@ -190,6 +191,7 @@ app.use("/api/webhooks", airtableRouter);
 app.use("/api/webhooks", stripeRouter);
 app.use("/api/webhooks/telegram", telegramRouter);
 app.use("/api/webhooks/webhook", webhookTriggerRouter);
+app.use("/api/webhooks/composio", composioTriggerRouter);
 app.use("/api/public/chat", publicChatRouter);
 
 // API routes

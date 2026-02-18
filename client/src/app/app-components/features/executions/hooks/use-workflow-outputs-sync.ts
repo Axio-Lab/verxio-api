@@ -126,6 +126,14 @@ export function useWorkflowOutputsSync() {
     refreshToken: createRefreshToken("seedream"),
     enabled: true,
   });
+  const composioActionSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioAction"),
+    enabled: true,
+  });
+  const composioTriggerSub = useInngestSubscription({
+    refreshToken: createRefreshToken("composioTrigger"),
+    enabled: true,
+  });
 
   // Merge all output messages
   const allMessages = useMemo(() => {
@@ -143,6 +151,8 @@ export function useWorkflowOutputsSync() {
       ...(markdownSub.data || []),
       ...(seedanceSub.data || []),
       ...(seedreamSub.data || []),
+      ...(composioActionSub.data || []),
+      ...(composioTriggerSub.data || []),
     ];
   }, [
     designProSub.data,
@@ -158,6 +168,8 @@ export function useWorkflowOutputsSync() {
     markdownSub.data,
     seedanceSub.data,
     seedreamSub.data,
+    composioActionSub.data,
+    composioTriggerSub.data,
   ]);
 
   // Extract outputs from all messages and merge into global store

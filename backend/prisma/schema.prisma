@@ -475,6 +475,21 @@ enum NodeType {
   SEEDANCE
   SEEDREAM
   COMPOSIO_ACTION
+  COMPOSIO_TRIGGER
+}
+
+model ComposioWebhookSubscription {
+  id             String   @id @default(cuid())
+  scope          String   @unique @default("global")
+  subscriptionId String?
+  webhookUrl     String?
+  secret         String?
+  enabled        Boolean  @default(true)
+  enabledEvents  Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("composio_webhook_subscriptions")
 }
 
 model Node {

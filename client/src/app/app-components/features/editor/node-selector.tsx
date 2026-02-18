@@ -96,6 +96,13 @@ const triggerNodes: NodeTypeOption[] = [
     description: "Triggers the workflow when an HTTP request is received.",
     icon: WebhookIcon,
   },
+  {
+    type: NodeType.COMPOSIO_TRIGGER,
+    label: "Composio Trigger",
+    description:
+      "Triggers workflow from Composio app events (e.g., SLACK_CHANNEL_CREATED, GITHUB_COMMIT_EVENT).",
+    icon: "/logo/composio.svg",
+  },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -659,6 +666,32 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.COMPOSIO_TRIGGER) {
+        const hasComposioTrigger = nodes.some((node) => node.type === NodeType.COMPOSIO_TRIGGER);
+        if (hasComposioTrigger) {
+          toast.error("Only one Composio trigger is allowed per workflow");
+          return;
+        }
+        const hasInitialTrigger = nodes.some((node) => node.type === NodeType.INITIAL);
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Composio Trigger",
+            variables: "composioTrigger",
+            composioTriggerSlug: "",
+            triggerConfig: {},
+            enabled: true,
+            composioTriggerStatus: "provisioning",
+          },
+          type: NodeType.COMPOSIO_TRIGGER,
+          position: flowPosition,
+        };
+        if (hasInitialTrigger) {
+          setNodes([newNode]);
+        } else {
+          setNodes((nodes) => [...nodes, newNode]);
+        }
         onOpenChange(false);
       } else if (selection.type === NodeType.OPENAI) {
         const newNode = {

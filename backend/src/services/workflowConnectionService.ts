@@ -39,6 +39,7 @@ export const identifyTriggerNodes = (nodes: WorkflowNode[]): WorkflowNode[] => {
     NodeType.WHATSAPP_TRIGGER,
     NodeType.TELEGRAM_TRIGGER,
     NodeType.AIRTABLE_TRIGGER,
+    NodeType.COMPOSIO_TRIGGER,
   ]);
 
   return nodes.filter((node) => triggerTypes.has(node.type));
@@ -58,6 +59,7 @@ export const identifyActionNodes = (nodes: WorkflowNode[]): WorkflowNode[] => {
     NodeType.WHATSAPP_TRIGGER,
     NodeType.TELEGRAM_TRIGGER,
     NodeType.AIRTABLE_TRIGGER,
+    NodeType.COMPOSIO_TRIGGER,
   ]);
 
   return nodes.filter((node) => !triggerTypes.has(node.type));

@@ -39,6 +39,7 @@ import { markdownChannel } from "./markdown";
 import { seedanceChannel } from "./seedance";
 import { seedreamChannel } from "./seedream";
 import { composioActionChannel } from "./composio-action";
+import { composioTriggerChannel } from "./composio-trigger";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -78,6 +79,7 @@ export const nodeStatusChannels = {
   seedance: seedanceChannel,
   seedream: seedreamChannel,
   composioAction: composioActionChannel,
+  composioTrigger: composioTriggerChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -121,4 +123,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   seedance: "seedance-execution",
   seedream: "seedream-execution",
   composioAction: "composio-action-execution",
+  composioTrigger: "composio-trigger-execution",
 };

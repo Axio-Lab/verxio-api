@@ -38,6 +38,14 @@ const NODE_TYPES_DOCUMENTATION = `
 - Fields: { variables: string, secret?: string }
 - Description: HTTP POST endpoint that triggers workflow
 
+**COMPOSIO_TRIGGER**
+- Fields: { variables, composioTriggerSlug (REQ), triggerConfig (JSON object), connectedAccountId?, enabled? }
+- Description: Trigger workflow from Composio event subscriptions (e.g. "SLACK_CHANNEL_CREATED", "GITHUB_COMMIT_EVENT")
+- Notes:
+  - composioTriggerSlug must match an exact Composio trigger slug
+  - triggerConfig must be valid JSON object matching that trigger type requirements
+  - If enabled=false, trigger stays configured but does not fire workflow executions
+
 **TELEGRAM_TRIGGER**
 - Fields: { credentialId (REQ) }
 - Credential workflow: See "Common Patterns" section below
@@ -269,6 +277,14 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 - Template examples:
   - {{webhook.payload.data}} - Access payload data
   - {{webhook.headers}} - Access headers
+
+**COMPOSIO_TRIGGER** (Variable name: uses "variables" field, default "composioTrigger")
+- Outputs: { event: {...}, metadata: {...}, type: "composio.trigger.message" }
+- Template examples:
+  - {{composioTrigger.event}} - Event payload from Composio trigger
+  - {{composioTrigger.metadata.trigger_slug}} - Trigger slug that fired
+  - {{composioTrigger.metadata.trigger_id}} - Trigger instance ID
+  - {{composioTrigger.metadata.connected_account_id}} - Connected account ID
 
 **GOOGLE_FORM_TRIGGER** (Variable name: "googleForm")
 - Outputs: { payload: { ...formSubmissionData } }
@@ -968,6 +984,11 @@ When creating or configuring nodes, you MUST:
 - variables: Output variable name (e.g., "trigger", "webhookData")
 - For TIMED_TRIGGER: Set scheduleType and cronExpression or interval
 - For WEBHOOK: variables is the only required field
+- For COMPOSIO_TRIGGER:
+  - composioTriggerSlug is REQUIRED (e.g., "SLACK_CHANNEL_CREATED", "GITHUB_COMMIT_EVENT")
+  - triggerConfig is REQUIRED (JSON object with trigger-specific fields from Composio docs)
+  - connectedAccountId is OPTIONAL (if omitted, Composio uses latest connected account)
+  - enabled defaults to true
 - For TELEGRAM_TRIGGER: credentialId is REQUIRED - MUST be set before creating node
   - CRITICAL WORKFLOW:
     1. ALWAYS call getCredentials("TELEGRAM") first
@@ -980,6 +1001,7 @@ When creating or configuring nodes, you MUST:
 - TRIGGERS use FIXED variable names:
   - TELEGRAM_TRIGGER: "telegram" -> {{telegram.message.text}}, {{telegram.chat.id}}, {{telegram.from.id}}
   - WEBHOOK: uses "variables" field (default "webhook") -> {{webhook.payload.data}}
+  - COMPOSIO_TRIGGER: uses "variables" field (default "composioTrigger") -> {{composioTrigger.event}}, {{composioTrigger.metadata.trigger_slug}}
   - GOOGLE_FORM_TRIGGER: "googleForm" -> {{googleForm.payload.answers}}
   - STRIPE_TRIGGER: "stripe" -> {{stripe.event}}, {{stripe.data}}
   - WHATSAPP_TRIGGER: "whatsapp" -> {{whatsapp.payload.body}}, {{whatsapp.payload.from}} (phone number only), {{whatsapp.payload.pushName}}

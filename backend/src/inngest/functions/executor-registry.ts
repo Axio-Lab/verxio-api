@@ -16,6 +16,7 @@ import { slackExecutor } from "./triggers/slack";
 import { discordExecutor } from "./triggers/discord";
 import { telegramTriggerExecutor } from "./triggers/telegram-trigger";
 import { telegramExecutor } from "./triggers/telegram";
+import { composioTriggerExecutor } from "./triggers/composio-trigger";
 import { googleDriveExecutor } from "./actions/google-drive";
 import { googleCalendarExecutor } from "./actions/google-calendar";
 import { googleSheetsExecutor } from "./actions/google-sheets";
@@ -70,6 +71,7 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.SLACK]: slackExecutor as NodeExecutor,
   [NodeType.DISCORD]: discordExecutor as NodeExecutor,
   [NodeType.TELEGRAM_TRIGGER]: telegramTriggerExecutor as NodeExecutor,
+  [NodeType.COMPOSIO_TRIGGER]: composioTriggerExecutor as NodeExecutor,
   [NodeType.TELEGRAM]: telegramExecutor as NodeExecutor,
   [NodeType.GOOGLE_DRIVE]: googleDriveExecutor as NodeExecutor,
   [NodeType.GOOGLE_CALENDAR]: googleCalendarExecutor as NodeExecutor,

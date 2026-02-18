@@ -51,6 +51,11 @@ export const AVAILABLE_NODE_TYPES = {
     { type: "AIRTABLE_TRIGGER", description: "Triggered by Airtable record changes" },
     { type: "TELEGRAM_TRIGGER", description: "Triggered by incoming Telegram messages" },
     { type: "WHATSAPP_TRIGGER", description: "Triggered by incoming WhatsApp messages" },
+    {
+      type: "COMPOSIO_TRIGGER",
+      description:
+        "Triggered by Composio app events (e.g. SLACK_CHANNEL_CREATED, GITHUB_COMMIT_EVENT) with custom trigger config",
+    },
   ],
 
   // AI Models (generate content, analyze data)
@@ -381,6 +386,11 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
       "Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.). Fields: composioActionName (REQ, e.g. GITHUB_CREATE_ISSUE, NOTION_CREATE_PAGE), composioParams (object with action-specific params), variables (output variable name, default: composioAction).",
     required: ["composioActionName", "variables"],
   },
+  COMPOSIO_TRIGGER: {
+    description:
+      "Subscribe workflow start to a Composio trigger slug. Fields: composioTriggerSlug (REQ, e.g. SLACK_CHANNEL_CREATED), triggerConfig (JSON object), variables (default: composioTrigger), connectedAccountId (optional), enabled (default true).",
+    required: ["composioTriggerSlug", "variables"],
+  },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
     credential: "Google OAuth",
@@ -482,7 +492,7 @@ export const getNodeSchemaTool: VerxioTool = {
     nodeType: z
       .string()
       .describe(
-        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, GMAIL, COMPOSIO_ACTION, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
+        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, GMAIL, COMPOSIO_ACTION, COMPOSIO_TRIGGER, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
       ),
   }),
   execute: async ({ nodeType }) => {

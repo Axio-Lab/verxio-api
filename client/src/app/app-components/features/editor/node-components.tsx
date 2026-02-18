@@ -5,6 +5,7 @@ import { ManualTriggerNode } from "@/app/app-components/features/executions/trig
 import { ManualInputNode } from "@/app/app-components/features/executions/triggers/manual-input/node";
 import { HttpRequestNode } from "@/app/app-components/features/executions/actions/https-request/node";
 import { WebhookNode } from "@/app/app-components/features/executions/webhook/node";
+import { ComposioTriggerNode } from "@/app/app-components/features/executions/triggers/composio-trigger/node";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { memo } from "react";
@@ -63,6 +64,7 @@ export const NodeComponents = {
   [NodeType.TIMED_TRIGGER]: TimedTriggerNode,
   [NodeType.HTTP_REQUEST]: HttpRequestNode,
   [NodeType.WEBHOOK]: WebhookNode,
+  [NodeType.COMPOSIO_TRIGGER]: ComposioTriggerNode,
   [NodeType.GOOGLE_FORM_TRIGGER]: GoogleFormTriggerNode,
   [NodeType.AIRTABLE_TRIGGER]: AirtableTriggerNode,
   [NodeType.STRIPE_TRIGGER]: StripeTriggerNode,

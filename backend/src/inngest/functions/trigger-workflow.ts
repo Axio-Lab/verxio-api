@@ -35,6 +35,7 @@ const TRIGGER_NODE_TYPES = [
   "TELEGRAM_TRIGGER",
   "WHATSAPP_TRIGGER",
   "WEBHOOK",
+  "COMPOSIO_TRIGGER",
 ] as const;
 
 /**
@@ -50,10 +51,19 @@ const findTriggerNode = (
 ): WorkflowNode | null => {
   // Check for specific trigger node IDs in event data (webhook triggers, etc.)
   const triggerNodeId =
+    eventData.googleFormNodeId ||
+    eventData.airtableNodeId ||
+    eventData.stripeNodeId ||
+    eventData.webhookNodeId ||
+    eventData.composioTriggerNodeId ||
+    eventData.telegramNodeId ||
+    eventData.whatsappNodeId ||
+    eventData.timedTriggerNodeId ||
     eventData.data?.googleFormNodeId ||
     eventData.data?.airtableNodeId ||
     eventData.data?.stripeNodeId ||
     eventData.data?.webhookNodeId ||
+    eventData.data?.composioTriggerNodeId ||
     eventData.data?.telegramNodeId ||
     eventData.data?.whatsappNodeId ||
     eventData.data?.timedTriggerNodeId ||
