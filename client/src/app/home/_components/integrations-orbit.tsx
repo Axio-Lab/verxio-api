@@ -40,10 +40,7 @@ export function IntegrationsOrbit() {
   }, []);
 
   return (
-    <section
-      ref={containerRef}
-      className="relative pt-8 pb-24 sm:pt-10 sm:pb-28 overflow-hidden"
-    >
+    <section ref={containerRef} className="relative pt-8 pb-24 sm:pt-10 sm:pb-28 overflow-hidden">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         {/* Heading */}
         <div className="mx-auto max-w-2xl text-center mb-12 sm:mb-16">
@@ -51,8 +48,8 @@ export function IntegrationsOrbit() {
             10,000+ Actions. 800+ Apps. One Agent.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Powered by Composio, your AI agent connects to every tool your team
-            uses — no custom integrations needed.
+            Powered by Composio, your AI agent connects to every tool your team uses — no custom
+            integrations needed.
           </p>
         </div>
 
@@ -66,9 +63,7 @@ export function IntegrationsOrbit() {
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div
               className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-500/10 transition-all duration-700 ${
-                isVisible
-                  ? "opacity-100 scale-100"
-                  : "opacity-0 scale-75"
+                isVisible ? "opacity-100 scale-100" : "opacity-0 scale-75"
               }`}
             >
               <Image
@@ -84,11 +79,7 @@ export function IntegrationsOrbit() {
           </div>
 
           {/* SVG connection lines */}
-          <svg
-            className="absolute inset-0 w-full h-full"
-            viewBox="0 0 560 560"
-            fill="none"
-          >
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 560 560" fill="none">
             {ORBIT_APPS.map((_, i) => {
               const angle = (i / ORBIT_APPS.length) * 2 * Math.PI - Math.PI / 2;
               const radius = 240;
@@ -112,21 +103,13 @@ export function IntegrationsOrbit() {
                   }`}
                   style={{
                     transitionDelay: `${i * 150}ms`,
-                    animation: isVisible
-                      ? `dash-flow 2s linear infinite ${i * 150}ms`
-                      : "none",
+                    animation: isVisible ? `dash-flow 2s linear infinite ${i * 150}ms` : "none",
                   }}
                 />
               );
             })}
             <defs>
-              <linearGradient
-                id="line-gradient"
-                x1="0%"
-                y1="0%"
-                x2="100%"
-                y2="100%"
-              >
+              <linearGradient id="line-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="rgb(168, 85, 247)" stopOpacity="0.6" />
                 <stop offset="100%" stopColor="rgb(99, 102, 241)" stopOpacity="0.2" />
               </linearGradient>
@@ -142,9 +125,7 @@ export function IntegrationsOrbit() {
               <div
                 key={app.name}
                 className={`absolute w-10 h-10 sm:w-14 sm:h-14 -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ${
-                  isVisible
-                    ? "opacity-100 scale-100"
-                    : "opacity-0 scale-50"
+                  isVisible ? "opacity-100 scale-100" : "opacity-0 scale-50"
                 }`}
                 style={{
                   left: `${50 + radiusPercent * Math.cos((angle * Math.PI) / 180)}%`,
@@ -183,7 +164,6 @@ export function IntegrationsOrbit() {
             );
           })}
         </div>
-
       </div>
 
       {/* CSS Animations */}

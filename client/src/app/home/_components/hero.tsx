@@ -138,8 +138,8 @@ export function Hero() {
             </h1>
 
             <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
-              Verxio lets you spin up AI agents with 10,000+ actions across 800+ apps. Connect
-              them to Slack, Discord, Telegram, or WhatsApp. Automate anything.
+              Verxio lets you spin up AI agents with 10,000+ actions across 800+ apps. Connect them
+              to Slack, Discord, Telegram, or WhatsApp. Automate anything.
             </p>
 
             <div className="flex flex-wrap gap-4">

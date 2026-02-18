@@ -36,9 +36,7 @@ const formSchema = z.object({
       message:
         "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores",
     }),
-  composioTriggerSlug: z
-    .string()
-    .min(1, { message: "Trigger slug is required" }),
+  composioTriggerSlug: z.string().min(1, { message: "Trigger slug is required" }),
   triggerConfigText: z
     .string()
     .min(1, { message: "Trigger config JSON is required" })
@@ -199,9 +197,7 @@ export const ComposioTriggerDialog = ({
                     <FormControl>
                       <Input {...field} placeholder="SLACK_CHANNEL_CREATED" />
                     </FormControl>
-                    <FormDescription>
-                      Exact Composio trigger slug to subscribe to.
-                    </FormDescription>
+                    <FormDescription>Exact Composio trigger slug to subscribe to.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -238,7 +234,8 @@ export const ComposioTriggerDialog = ({
                       <Input {...field} placeholder="ca_..." />
                     </FormControl>
                     <FormDescription>
-                      Optional. If omitted, Composio uses the user’s most recent account for the app.
+                      Optional. If omitted, Composio uses the user’s most recent account for the
+                      app.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

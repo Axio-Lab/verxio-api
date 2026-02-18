@@ -218,7 +218,8 @@ const executionNodes: NodeTypeOption[] = [
   {
     type: NodeType.COMPOSIO_ACTION,
     label: "Composio Action",
-    description: "Execute any of 10,000+ actions from 800+ apps (GitHub, Notion, Jira, HubSpot, etc.)",
+    description:
+      "Execute any of 10,000+ actions from 800+ apps (GitHub, Notion, Jira, HubSpot, etc.)",
     icon: "/logo/composio.svg",
   },
   {

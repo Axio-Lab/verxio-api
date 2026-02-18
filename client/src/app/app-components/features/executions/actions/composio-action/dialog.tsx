@@ -35,9 +35,7 @@ const formSchema = z.object({
       message:
         "Variable name must start with a letter or underscore and contain only letters, numbers, and underscores",
     }),
-  composioActionName: z
-    .string()
-    .min(1, { message: "Composio action name is required" }),
+  composioActionName: z.string().min(1, { message: "Composio action name is required" }),
   composioParamsText: z
     .string()
     .min(1, { message: "Action params JSON is required" })
