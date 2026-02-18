@@ -3,22 +3,36 @@
 import type { NodeProps } from "@xyflow/react";
 import { BaseExecutionNode } from "../https-request/base-execution-node";
 import { memo, useState } from "react";
-import { ElevenLabsDialog, ElevenLabsFormValues } from "./dialog";
 import { useNodeStatus } from "../../hooks/use-node-status";
 import { useReactFlow } from "@xyflow/react";
+import { ComposioActionDialog } from "./dialog";
 
-export const ElevenLabsNode = memo((props: NodeProps) => {
+export const ComposioActionNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
   const { status: nodeStatus, output } = useNodeStatus({
     nodeId: props.id,
   });
 
+  const nodeData = props.data as any;
+
+  const getDescription = () => {
+    if (nodeData?.composioActionName) {
+      return nodeData.composioActionName.replace(/_/g, " ").toLowerCase();
+    }
+    return "Execute any of 10,000+ actions from 800+ apps";
+  };
+
   const handleOpenSettings = () => {
     setDialogOpen(true);
   };
 
-  const handleSubmit = (values: ElevenLabsFormValues) => {
+  const handleSubmit = (values: {
+    variables: string;
+    composioActionName: string;
+    composioParams: Record<string, unknown>;
+    label: string;
+  }) => {
     setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id === props.id) {
@@ -35,29 +49,9 @@ export const ElevenLabsNode = memo((props: NodeProps) => {
     );
   };
 
-  const nodeData = props.data as any;
-
-  // Generate description based on configuration
-  const getDescription = () => {
-    if (!nodeData?.credentialId) {
-      return "Configure to generate speech, transcribe audio, or clone voices";
-    }
-    if (!nodeData?.action) {
-      return "Select an action to perform";
-    }
-    const actionLabels: Record<string, string> = {
-      textToSpeech: "Convert text to speech",
-      speechToText: "Transcribe audio to text",
-      cloneVoice: "Clone a voice from audio",
-      listVoices: "List available voices",
-      getVoice: "Get voice details",
-    };
-    return actionLabels[nodeData.action] || "ElevenLabs operation";
-  };
-
   return (
     <>
-      <ElevenLabsDialog
+      <ComposioActionDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSubmit={handleSubmit}
@@ -65,9 +59,11 @@ export const ElevenLabsNode = memo((props: NodeProps) => {
       />
       <BaseExecutionNode
         {...props}
-        icon="/logo/elevenlabs.svg"
-        name="ElevenLabs"
+        icon="/logo/composio.svg"
+        name={nodeData?.label || "Composio Action"}
         description={getDescription()}
+        iconColor="!text-purple-600 dark:!text-purple-400"
+        handleColor="!border-purple-500 !bg-purple-500"
         status={nodeStatus}
         output={output}
         onSettings={handleOpenSettings}
@@ -77,4 +73,4 @@ export const ElevenLabsNode = memo((props: NodeProps) => {
   );
 });
 
-ElevenLabsNode.displayName = "ElevenLabsNode";
+ComposioActionNode.displayName = "ComposioActionNode";

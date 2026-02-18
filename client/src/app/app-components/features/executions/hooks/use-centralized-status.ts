@@ -176,10 +176,6 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("airtable"),
     enabled: true,
   });
-  const elevenlabsSub = useInngestSubscription({
-    refreshToken: createRefreshToken("elevenlabs"),
-    enabled: true,
-  });
   const designSub = useInngestSubscription({
     refreshToken: createRefreshToken("design"),
     enabled: true,
@@ -246,7 +242,6 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(googleSlidesSub.data || []),
       ...(gmailSub.data || []),
       ...(airtableSub.data || []),
-      ...(elevenlabsSub.data || []),
       ...(designSub.data || []),
       ...(designProSub.data || []),
       ...(remotionSub.data || []),
@@ -285,7 +280,6 @@ export function useCentralizedNodeStatusSubscriptions() {
       googleSlidesSub.data,
       gmailSub.data,
       airtableSub.data,
-      elevenlabsSub.data,
       designSub.data,
       designProSub.data,
       remotionSub.data,

@@ -90,11 +90,6 @@ export function useWorkflowOutputsSync() {
     enabled: true,
   });
 
-  const elevenlabsSub = useInngestSubscription({
-    refreshToken: createRefreshToken("elevenlabs"),
-    enabled: true,
-  });
-
   const veoSub = useInngestSubscription({
     refreshToken: createRefreshToken("veo"),
     enabled: true,
@@ -140,7 +135,6 @@ export function useWorkflowOutputsSync() {
       ...(anthropicSub.data || []),
       ...(openaiSub.data || []),
       ...(geminiSub.data || []),
-      ...(elevenlabsSub.data || []),
       ...(veoSub.data || []),
       ...(remotionSub.data || []),
       ...(httpRequestSub.data || []),
@@ -156,7 +150,6 @@ export function useWorkflowOutputsSync() {
     anthropicSub.data,
     openaiSub.data,
     geminiSub.data,
-    elevenlabsSub.data,
     veoSub.data,
     remotionSub.data,
     httpRequestSub.data,

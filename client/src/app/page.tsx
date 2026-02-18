@@ -1,6 +1,7 @@
 import { Navbar } from "./home/_components/navbar";
 import { Hero } from "./home/_components/hero";
 import { Features } from "./home/_components/features";
+import { IntegrationsOrbit } from "./home/_components/integrations-orbit";
 import { HowItWorks } from "./home/_components/how-it-works";
 import { Pricing } from "./home/_components/pricing";
 import { CTA } from "./home/_components/cta";
@@ -76,6 +77,7 @@ export default function Home() {
         <Navbar />
         <Hero />
         <Features />
+        <IntegrationsOrbit />
         <HowItWorks />
         <Pricing />
         <CTA />

@@ -32,9 +32,6 @@ import { GoogleMeetNode } from "@/app/app-components/features/executions/actions
 import { GoogleSlidesNode } from "@/app/app-components/features/executions/actions/google-slides/node";
 import { GmailNode } from "@/app/app-components/features/executions/actions/gmail/node";
 import { AirtableNode } from "@/app/app-components/features/executions/actions/airtable/node";
-import { ElevenLabsNode } from "@/app/app-components/features/executions/actions/elevenlabs/node";
-import { FirecrawlNode } from "@/app/app-components/features/executions/actions/firecrawl/node";
-import { ApifyNode } from "@/app/app-components/features/executions/actions/apify/node";
 import { CodeBlockNode } from "@/app/app-components/features/executions/actions/code-block/node";
 import { PlanNode } from "@/app/app-components/features/executions/actions/plan/node";
 import { DesignNode } from "@/app/app-components/features/executions/actions/design/node";
@@ -57,6 +54,7 @@ import { OutputNode } from "@/app/app-components/features/executions/actions/out
 import { MarkdownNode } from "@/app/app-components/features/executions/actions/markdown/node";
 import { SeedanceNode } from "@/app/app-components/features/executions/actions/seedance/node";
 import { SeedreamNode } from "@/app/app-components/features/executions/actions/seedream/node";
+import { ComposioActionNode } from "@/app/app-components/features/executions/actions/composio-action/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -86,9 +84,6 @@ export const NodeComponents = {
   [NodeType.GOOGLE_SLIDES]: GoogleSlidesNode,
   [NodeType.GMAIL]: GmailNode,
   [NodeType.AIRTABLE]: AirtableNode,
-  [NodeType.ELEVENLABS]: ElevenLabsNode,
-  [NodeType.FIRECRAWL]: FirecrawlNode,
-  [NodeType.APIFY]: ApifyNode,
   [NodeType.CODE_BLOCK]: CodeBlockNode,
   [NodeType.PLAN]: PlanNode,
   [NodeType.DESIGN]: DesignNode,
@@ -111,6 +106,7 @@ export const NodeComponents = {
   [NodeType.MARKDOWN]: MarkdownNode,
   [NodeType.SEEDANCE]: SeedanceNode,
   [NodeType.SEEDREAM]: SeedreamNode,
+  [NodeType.COMPOSIO_ACTION]: ComposioActionNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

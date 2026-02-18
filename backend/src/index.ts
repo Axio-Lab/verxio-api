@@ -24,7 +24,6 @@ import { webhookTriggerRouter } from "./routes/triggers/webhook";
 import { publicChatRouter } from "./routes/public-chat";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
-import { elevenlabsRouter } from "./routes/elevenlabs";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
 import { workflowTemplateRouter } from "./routes/workflow-template";
 import { planningRouter } from "./routes/planning";
@@ -208,7 +207,7 @@ app.use("/credential", credentialRouter);
 app.use("/skill", skillRouter);
 app.use("/connections", connectionRouter);
 app.use("/api/auth/google", googleAuthRouter);
-app.use("/api/elevenlabs", elevenlabsRouter);
+
 app.use("/api/billing", billingStatusRouter);
 // TODO: Re-enable when billing portal is properly designed
 // app.use("/api/billing", billingPortalRouter);

@@ -84,7 +84,7 @@ const FEATURES = [
   {
     title: "10,000+ Integrations",
     description:
-      "Connect Google Workspace, GitHub, Stripe, Airtable, and dozens more. Your agents can read, write, and act across all your tools.",
+      "Powered by Composio, connect to GitHub, Notion, Jira, HubSpot, Salesforce, Shopify, and 800+ more apps. Your agents can act across every tool your team uses.",
     icon: (
       <svg
         className="w-6 h-6"

@@ -55,7 +55,6 @@ const NODE_TO_INTEGRATION: Record<string, string> = {
   ANTHROPIC: "Claude AI",
   OPENAI: "OpenAI",
   GEMINI: "Gemini",
-  FIRECRAWL: "Web Scraping",
   HTTP_REQUEST: "API Integration",
 };
 

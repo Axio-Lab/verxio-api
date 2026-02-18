@@ -95,8 +95,15 @@ export const AVAILABLE_NODE_TYPES = {
       description: "Read/write Airtable records",
       requiredCredential: "AIRTABLE",
     },
-    { type: "FIRECRAWL", description: "Web scraping and crawling" },
-    { type: "APIFY", description: "Run Apify actors for web automation" },
+  ],
+
+  // Composio (10,000+ external actions)
+  composio: [
+    {
+      type: "COMPOSIO_ACTION",
+      description:
+        "Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)",
+    },
   ],
 
   // Logic & Code
@@ -108,7 +115,6 @@ export const AVAILABLE_NODE_TYPES = {
 
   // Media
   media: [
-    { type: "ELEVENLABS", description: "Text-to-speech with ElevenLabs" },
     {
       type: "REMOTION",
       description:
@@ -370,31 +376,10 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
     },
     required: ["action", "variables", "credentialId"],
   },
-  FIRECRAWL: {
-    description: "Scrape, crawl, or use AI agent on web pages.",
-    credential: "FIRECRAWL API key",
-    actions: ["scrape", "crawl", "map", "search", "agent"],
-    fieldsByAction: {
-      scrape: ["url (REQ)", "formats", "onlyMainContent", "screenshot", "waitFor", "actions"],
-      crawl: ["url (REQ)", "limit", "maxDepth", "excludePaths", "includePaths"],
-      map: ["url (REQ)", "includeVisual"],
-      search: ["query (REQ)", "searchLimit"],
-      agent: ["prompt (REQ)", "urls (comma-separated)", "schema (JSON string)", "maxCredits"],
-    },
-    required: ["action", "variables"],
-  },
-  APIFY: {
-    description: "Run Apify actors and get dataset items.",
-    credential: "APIFY API token",
-    actions: ["listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems"],
-    fieldsByAction: {
-      listActors: ["my", "limit", "offset", "desc"],
-      getActorDetail: ["actorId (REQ, format: username~actor-name)"],
-      runActor: ["actorId (REQ)", "input (JSON string)", "waitForFinish"],
-      getRunStatus: ["runId (REQ)"],
-      getDatasetItems: ["datasetId (REQ)", "itemsLimit", "itemsOffset", "clean"],
-    },
-    required: ["action", "variables"],
+  COMPOSIO_ACTION: {
+    description:
+      "Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.). Fields: composioActionName (REQ, e.g. GITHUB_CREATE_ISSUE, NOTION_CREATE_PAGE), composioParams (object with action-specific params), variables (output variable name, default: composioAction).",
+    required: ["composioActionName", "variables"],
   },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
@@ -428,28 +413,6 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
       forwardEmail: ["emailId (REQ)", "forwardTo (REQ)", "body (optional)"],
       deleteEmail: ["emailId (REQ)"],
       addLabel: ["emailId (REQ)", "labelId or labelName (REQ)"],
-    },
-    required: ["action", "variables"],
-  },
-  ELEVENLABS: {
-    description: "Text-to-speech, speech-to-text, clone voice, list voices.",
-    credential: "ELEVENLABS API key",
-    actions: ["textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice"],
-    fieldsByAction: {
-      textToSpeech: [
-        "text (REQ)",
-        "voiceId (REQ)",
-        "model",
-        "language",
-        "stability",
-        "similarityBoost",
-        "style",
-        "speakerBoost",
-      ],
-      speechToText: ["audioUrl (REQ)", "language", "speakerDiarization", "entityDetection"],
-      cloneVoice: ["audioUrl (REQ)", "voiceName (REQ)", "description"],
-      listVoices: [],
-      getVoice: ["voiceId (REQ)"],
     },
     required: ["action", "variables"],
   },
@@ -519,7 +482,7 @@ export const getNodeSchemaTool: VerxioTool = {
     nodeType: z
       .string()
       .describe(
-        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, FIRECRAWL, APIFY, GMAIL, ELEVENLABS, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
+        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, GMAIL, COMPOSIO_ACTION, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
       ),
   }),
   execute: async ({ nodeType }) => {
@@ -1543,7 +1506,6 @@ function getCredentialSetupInstructions(type: string): string {
     AIRTABLE:
       "Go to https://airtable.com/create/tokens to create a personal access token with the required scopes.",
     GOOGLE: "Use the 'Connect Google Account' button to authorize access to Google services.",
-    ELEVENLABS: "Get your API key from https://elevenlabs.io/app/settings/api-keys",
   };
 
   return (

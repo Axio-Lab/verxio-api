@@ -209,23 +209,10 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/airtable.svg",
   },
   {
-    type: NodeType.ELEVENLABS,
-    label: "ElevenLabs",
-    description: "Generate speech, transcribe audio, or clone voices using AI",
-    icon: "/logo/elevenlabs.svg",
-  },
-  {
-    type: NodeType.FIRECRAWL,
-    label: "Firecrawl",
-    description: "Scrape, crawl, map, search, or use agent for deep research on web content",
-    icon: "/logo/firecrawl.svg",
-  },
-  {
-    type: NodeType.APIFY,
-    label: "Apify",
-    description:
-      "Browse actors, run scrapers (TikTok, LinkedIn, Facebook, etc.), or retrieve results",
-    icon: "/logo/apify.svg",
+    type: NodeType.COMPOSIO_ACTION,
+    label: "Composio Action",
+    description: "Execute any of 10,000+ actions from 800+ apps (GitHub, Notion, Jira, HubSpot, etc.)",
+    icon: "/logo/composio.svg",
   },
   {
     type: NodeType.CODE_BLOCK,
@@ -306,7 +293,7 @@ const executionNodes: NodeTypeOption[] = [
     type: NodeType.KLING_TTS,
     label: "Kling TTS",
     description: "Convert text to speech using Kling AI voices.",
-    icon: "/logo/elevenlabs.svg",
+    icon: "/logo/klingAI.svg",
   },
   {
     type: NodeType.KLING_OMNI_VIDEO,
@@ -382,9 +369,6 @@ const NODE_TYPE_TO_FEATURE: Record<string, string> = {
   VEO: "veo",
   SEEDANCE: "seedance",
   SEEDREAM: "seedream",
-  ELEVENLABS: "elevenlabs",
-  FIRECRAWL: "firecrawl",
-  APIFY: "apify",
   PLAN: "plan-node",
   KLING_TEXT2VIDEO: "kling-nodes",
   KLING_IMAGE2VIDEO: "kling-nodes",
@@ -903,41 +887,16 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
-      } else if (selection.type === NodeType.ELEVENLABS) {
+      } else if (selection.type === NodeType.COMPOSIO_ACTION) {
         const newNode = {
           id: createId(),
           data: {
-            label: "ElevenLabs",
-            variables: "elevenlabs",
-            action: "textToSpeech",
+            label: "Composio Action",
+            variables: "composioAction",
+            composioActionName: "",
+            composioParams: {},
           },
-          type: NodeType.ELEVENLABS,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.FIRECRAWL) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Firecrawl",
-            variables: "firecrawl",
-            action: "scrape",
-          },
-          type: NodeType.FIRECRAWL,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.APIFY) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Apify",
-            variables: "apify",
-            action: "listActors",
-          },
-          type: NodeType.APIFY,
+          type: NodeType.COMPOSIO_ACTION,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

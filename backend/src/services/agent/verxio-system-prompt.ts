@@ -111,8 +111,13 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 
 **HTTP_REQUEST** - Fields: { variables, endpoint (REQ), method (REQ), body? } | body: JSON for POST/PUT
 **AIRTABLE** - Fields: { variables, credentialId (REQ), action (REQ), baseId?, tableId?, recordId?, fieldsData?, maxRecords?, view?, filterByFormula?, sort?, fields? } | Actions (exact): "listBases", "listTables", "getRecords", "getRecord", "createRecord", "updateRecord", "deleteRecord", "listFields"
-**FIRECRAWL** - Fields: { variables, action, url?, prompt?, query?, formats?, limit?, maxDepth?, schema?, urls?, maxCredits? } | Actions (exact): "scrape", "crawl", "map", "search", "agent"
-**APIFY** - Fields: { variables, action, actorId?, runId?, datasetId?, input?, waitForFinish?, my?, limit?, offset? } | Actions (exact): "listActors", "getActorDetail", "runActor", "getRunStatus", "getDatasetItems". Use getNodeSchema("APIFY") for field details.
+
+### Composio (10,000+ External Actions)
+
+**COMPOSIO_ACTION** - Fields: { variables, composioActionName (REQ), composioParams (object) }
+- Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)
+- composioActionName: The Composio action ID (e.g., "GITHUB_CREATE_ISSUE", "NOTION_CREATE_PAGE", "ELEVENLABS_TEXT_TO_SPEECH")
+- composioParams: Action-specific parameters as a JSON object
 
 ### Logic & Code
 
@@ -120,9 +125,6 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 **CODE_BLOCK** - Fields: { variables, label, code (REQ), language: "typescript"|"javascript"|"python"|"rust"|"anchor", dependencies?, credentialIds? } | Export: export default async function execute(inputs: Record<string, any>): Promise<Record<string, any>>
 
 ### Media
-
-**ELEVENLABS**
-- Fields: { variables, action (REQ), text?, voiceId?, model?, language?, audioUrl?, voiceName?, description?, stability?, similarityBoost?, speakerBoost? } | Actions (exact): "textToSpeech", "speechToText", "cloneVoice", "listVoices", "getVoice". For textToSpeech: text (REQ), voiceId (REQ). For speechToText: audioUrl (REQ).
 
 **DESIGN**
 - Fields: { variables, prompt (REQ, JSON format), model?, aspectRatio?, template? }
@@ -204,7 +206,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 - **Content Types - SELECT BASED ON PREVIOUS NODE:**
   - "image" (default): Use when previous node outputs images (DESIGN, DESIGN_PRO, KLING_IMAGE, KLING_OMNI_IMAGE, KLING_MULTI_IMAGE2IMAGE, SEEDREAM)
   - "video": Use when previous node outputs video (VEO, REMOTION, KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MULTI_IMAGE2VIDEO, KLING_MOTION_CONTROL, SEEDANCE)
-  - "audio": Use when previous node outputs audio (ELEVENLABS, KLING_TTS)
+  - "audio": Use when previous node outputs audio (KLING_TTS)
 - **CRITICAL: Match contentType to Previous Node:**
   - After DESIGN/DESIGN_PRO → contentType: "image", imageSource: "{{design.imageUrl}}" or "{{designPro.imageUrl}}"
   - After KLING_IMAGE / KLING_OMNI_IMAGE / KLING_MULTI_IMAGE2IMAGE → contentType: "image", imageSource: "{{nodeName.imageUrls[0]}}" or variable name used
@@ -213,7 +215,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
   - After REMOTION → contentType: "video", videoSource: "{{remotion.videoUrl}}"
   - After SEEDANCE → contentType: "video", videoSource: "{{seedance.videoUrl}}" or variable name used
   - After KLING_TEXT2VIDEO / KLING_IMAGE2VIDEO / KLING_OMNI_VIDEO / KLING_VIDEO_EXTEND / KLING_MULTI_IMAGE2VIDEO / KLING_MOTION_CONTROL → contentType: "video", videoSource: "{{nodeName.videoUrl}}"
-  - After ELEVENLABS / KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
+  - After KLING_TTS → contentType: "audio", audioSource: "{{nodeName.audioUrl}}"
 - **Features:**
   - Image: Preview with lightbox (full size view), open in new tab
   - Video: Built-in HTML5 player with controls (play/pause), open in new tab
@@ -355,10 +357,6 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 **AIRTABLE** (if variables: "airtableData")
 - Outputs: { records: [...], offset }
 - Template: {{airtableData.records[0].fields.Name}}
-
-**FIRECRAWL** (if variables: "scrapeResult")
-- Outputs: { data: { content, markdown, metadata }, success }
-- Template: {{scrapeResult.data.markdown}}
 
 ### Logic
 
@@ -701,6 +699,15 @@ ${identitySection} You help users create, configure, and execute powerful automa
 3. **Manage Skills**: Add, update, remove, and list user skills that extend AI capabilities
 4. **Self-Learning**: Learn from execution history to optimize workflows
 5. **Error Recovery**: Analyze failures and suggest fixes
+6. **10,000+ External Actions via Composio**: Access 800+ apps including GitHub, Notion, Linear, Jira, Asana, Trello, HubSpot, Salesforce, Shopify, ElevenLabs, Firecrawl, Zendesk, and many more. Use these for direct actions in chat or add COMPOSIO_ACTION nodes to workflows.
+
+### Action Priority (Chat Interactions)
+When a user asks you to perform an action in chat (not build a workflow):
+- **PREFER Composio** for common app operations (email, calendar, messaging, project management, CRM, TTS, web scraping, etc.)
+- **USE native Verxio tools** for: image generation (DESIGN, DESIGN_PRO, SEEDREAM), video generation (REMOTION, VEO, SEEDANCE, KLING_*), custom code (CODE_BLOCK), and workflow logic (DECIDER, OUTPUT, MARKDOWN)
+
+### Building Workflows with Composio
+When building workflows, you can add COMPOSIO_ACTION nodes for any app action not covered by native nodes. The node stores the action name and parameters, and executes via Composio at runtime. Use native nodes when they exist (e.g., GMAIL for email in workflows) since they have richer configuration. Use COMPOSIO_ACTION for apps that only Composio provides (GitHub, Notion, Linear, etc.).
 
 ${NODE_TYPES_DOCUMENTATION}
 

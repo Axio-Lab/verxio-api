@@ -19,6 +19,7 @@ import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
 import { createTrace, endTrace, type TraceMetadata } from "../opikService";
+import { getComposioMcpUrl } from "../composio/composioService";
 
 const prisma = basePrismaClient as any;
 
@@ -205,16 +206,36 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     tools: createVerxioMcpTools(toolContext),
   });
 
-  // Load user's MCP connections and user context in parallel when both are needed
+  // Load user's MCP connections, Composio, and user context in parallel
   let userMcpServers: Record<string, McpServerConfig> = {};
+  let composioMcpConfig: McpServerConfig | undefined;
   let userContext: Awaited<ReturnType<typeof getUserContext>>;
   if (includeUserConnections) {
-    [userMcpServers, userContext] = await Promise.all([
+    const [mcpServers, context, composioUrl] = await Promise.all([
       loadUserMcpServers(userId),
       getUserContext(userId, workflowId),
+      getComposioMcpUrl(userId).catch((err) => {
+        console.error("[Composio] Failed to load MCP URL:", err);
+        return null;
+      }),
     ]);
+    userMcpServers = mcpServers;
+    userContext = context;
+    if (composioUrl) {
+      composioMcpConfig = { type: "http", url: composioUrl };
+    }
   } else {
-    userContext = await getUserContext(userId, workflowId);
+    const [context, composioUrl] = await Promise.all([
+      getUserContext(userId, workflowId),
+      getComposioMcpUrl(userId).catch((err) => {
+        console.error("[Composio] Failed to load MCP URL:", err);
+        return null;
+      }),
+    ]);
+    userContext = context;
+    if (composioUrl) {
+      composioMcpConfig = { type: "http", url: composioUrl };
+    }
   }
 
   // Filter skills based on integration config (when from chat integration)
@@ -266,6 +287,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         allowDangerouslySkipPermissions: true,
         mcpServers: {
           "verxio-workflow": verxioMcpServer,
+          ...(composioMcpConfig ? { composio: composioMcpConfig } : {}),
           ...userMcpServers,
         },
         tools: { type: "preset", preset: "claude_code" },
@@ -537,9 +559,10 @@ You are Verxio, an expert workflow planning assistant. You help users brainstorm
 - AI: Claude, GPT, Gemini
 - Communication: Email, Slack, Discord, Telegram, WhatsApp
 - Google: Sheets, Docs, Slides, Drive, Calendar
-- Data: HTTP, Airtable, Firecrawl
+- Data: HTTP, Airtable
 - Logic: Code blocks, Decider
-- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), ElevenLabs (text-to-speech), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
+- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
+- Composio: 10,000+ actions across 800+ apps (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, and more)
 
 ## Autonomous Image Generation
 
@@ -620,7 +643,7 @@ Read the conversation to decide whether the user needs a **workflow** (multi-ste
 - User says "do it", "help me do X", "can you book/check/list/create X" and expects confirmation or data back
 
 **Single-node path: use the right standard node first.**
-- You have access to **all existing node types** (same as for workflows). For a single task, **prefer the standard node that fits**: GOOGLE_CALENDAR (list/create events), GOOGLE_SHEETS (read/write), GOOGLE_MEET (create link), DESIGN/DESIGN_PRO (image), VEO/REMOTION/SEEDANCE (video), GEMINI/ANTHROPIC/OPENAI (AI), FIRECRAWL (scrape), GMAIL (email), etc. Use listNodeTypes or the Available Nodes list above to pick the right one.
+- You have access to **all existing node types** (same as for workflows) plus **Composio** for 10,000+ actions across 800+ apps. For a single task, **prefer Composio for common app operations** (email, calendar, project management, CRM, TTS, web scraping, etc.) and **native nodes for media generation** (DESIGN/DESIGN_PRO for images, VEO/REMOTION/SEEDANCE for video, KLING for video/image/TTS, SEEDREAM for images). Use listNodeTypes or the Available Nodes list above to pick the right one.
 - **Use CODE_BLOCK or other custom/special nodes only when needed** (e.g. custom logic, one-off script, or no standard node matches the task). Do not default to a custom node when a standard node exists for the task.
 
 **Single-node steps (executeSingleNodeAndWait):**

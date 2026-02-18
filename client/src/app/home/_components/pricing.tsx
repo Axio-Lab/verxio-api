@@ -24,7 +24,7 @@ const PLANS: Plan[] = [
     highlight: false,
     features: [
       "Visual workflow builder",
-      "40+ node types and integrations",
+      "10,000+ actions across 800+ apps",
       "Use your own API keys (OpenAI, Anthropic, etc.)",
       "1 chat integration agent",
       "1,000 AI credits included",

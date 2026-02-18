@@ -24,10 +24,8 @@ import { googleMeetExecutor } from "./actions/google-meet";
 import { googleSlidesExecutor } from "./actions/google-slides";
 import { gmailExecutor } from "./actions/gmail";
 import { airtableExecutor } from "./actions/airtable";
-import { elevenlabsExecutor } from "./actions/elevenlabs";
-import { firecrawlExecutor } from "./actions/firecrawl";
-import { apifyExecutor } from "./actions/apify";
 import { codeBlockExecutor } from "./actions/code-block";
+import { composioActionExecutor } from "./actions/composio-action";
 import { designExecutor } from "./actions/design";
 import { designProExecutor } from "./actions/designPro";
 import { loyaltyDealExecutor } from "./actions/loyalty-deal";
@@ -81,9 +79,6 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.GOOGLE_SLIDES]: googleSlidesExecutor as NodeExecutor,
   [NodeType.GMAIL]: gmailExecutor as NodeExecutor,
   [NodeType.AIRTABLE]: airtableExecutor as NodeExecutor,
-  [NodeType.ELEVENLABS]: elevenlabsExecutor as NodeExecutor,
-  [NodeType.FIRECRAWL]: firecrawlExecutor as NodeExecutor,
-  [NodeType.APIFY]: apifyExecutor as NodeExecutor,
   [NodeType.CODE_BLOCK]: codeBlockExecutor as NodeExecutor,
   // PLAN is a special node type for planning - it doesn't execute in workflows
   [NodeType.PLAN]: (async () => ({ result: "PLAN nodes are not executed" })) as NodeExecutor,
@@ -117,6 +112,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.SEEDANCE]: seedanceExecutor as NodeExecutor,
   // SEEDREAM node for BytePlus Seedream image generation
   [NodeType.SEEDREAM]: seedreamExecutor as NodeExecutor,
+  // COMPOSIO_ACTION node for executing any of 10,000+ Composio actions
+  [NodeType.COMPOSIO_ACTION]: composioActionExecutor as NodeExecutor,
 };
 
 /**
