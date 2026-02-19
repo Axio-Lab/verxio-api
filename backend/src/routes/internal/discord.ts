@@ -36,6 +36,12 @@ router.post("/incoming", async (req: Request, res: Response) => {
     guildId?: string;
     threadId?: string;
     messageId?: string;
+    attachments?: Array<{
+      type: "image" | "file" | "document";
+      url?: string;
+      mimeType?: string;
+      fileName?: string;
+    }>;
   };
 
   if (!body?.integrationId || !body?.message || !body?.channelId) {
@@ -109,6 +115,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
     externalId: authorId || "unknown",
     externalName: authorName,
     message: messageText,
+    attachments: body.attachments,
     metadata: {
       chatId: threadId || channelId,
       channelId,

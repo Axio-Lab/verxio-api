@@ -45,6 +45,13 @@ router.post("/incoming", async (req: Request, res: Response) => {
       participant?: string;
       mentionedJid?: string[];
       groupJid?: string;
+      attachments?: Array<{
+        type: "image" | "file" | "document";
+        url?: string;
+        base64?: string;
+        mimeType?: string;
+        fileName?: string;
+      }>;
     };
   };
 
@@ -140,6 +147,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
       externalId: fromJid,
       externalName: payload.pushName,
       message: payload.body,
+      attachments: payload.attachments,
       metadata: { chatId: replyToJid, whatsappPayload: payload, isGroup, groupJid },
     };
 

@@ -477,6 +477,7 @@ enum NodeType {
   COMPOSIO_ACTION
   COMPOSIO_TRIGGER
   TINYFISH
+  STRAPI
 }
 
 model ComposioWebhookSubscription {

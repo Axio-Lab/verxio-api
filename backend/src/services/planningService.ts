@@ -10,6 +10,7 @@ import {
   generateSmartPrompt,
   type AgentStreamEvent,
   type AgentPersonality,
+  type MediaAttachment,
 } from "./agent/agentService";
 import { prisma as prismaClient } from "@/lib/prisma";
 import {
@@ -24,10 +25,12 @@ export interface ConversationMessage {
   content: string;
   timestamp: string;
   attachments?: Array<{
-    fileId: string;
-    fileName: string;
-    fileType: string;
+    fileId?: string;
+    fileName?: string;
+    fileType?: string;
+    mimeType?: string;
     url?: string;
+    base64?: string;
     extractedText?: string;
   }>;
 }
@@ -129,10 +132,12 @@ export const sendPlanningMessage = async (options: {
   message: string;
   chatIntegrationId?: string | null;
   attachments?: Array<{
-    fileId: string;
-    fileName: string;
-    fileType: string;
+    fileId?: string;
+    fileName?: string;
+    fileType?: string;
+    mimeType?: string;
     url?: string;
+    base64?: string;
     extractedText?: string;
   }>;
   model?: string;
@@ -154,16 +159,18 @@ export const sendPlanningMessage = async (options: {
   // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
 
-  // Add user message with attachments
-  let userMessage = options.message;
-  if (options.attachments && options.attachments.length > 0) {
-    userMessage += `\n\n[Attachments: ${options.attachments.map((a) => a.fileName).join(", ")}]`;
-    for (const att of options.attachments) {
-      if (att.extractedText) {
-        userMessage += `\n\n${att.fileName} content:\n${att.extractedText}`;
-      }
-    }
-  }
+  // Build media attachments for the agent
+  const mediaAttachments: MediaAttachment[] = (options.attachments || []).map((att) => {
+    const mime = att.mimeType || att.fileType || "";
+    return {
+      type: (mime.startsWith("image/") ? "image" : "file") as "image" | "file" | "document",
+      url: att.url,
+      base64: att.base64,
+      mimeType: mime || undefined,
+      fileName: att.fileName,
+      extractedText: att.extractedText,
+    };
+  });
 
   // Collect response text from agent and track tool usage
   let assistantResponse = "";
@@ -173,10 +180,11 @@ export const sendPlanningMessage = async (options: {
   for await (const event of chatWithAgent({
     userId: options.userId,
     workflowId: options.workflowId,
-    message: userMessage,
+    message: options.message,
     conversationHistory,
     learningContext,
     agentPersonality: options.agentPersonality,
+    attachments: mediaAttachments.length > 0 ? mediaAttachments : undefined,
   })) {
     if (event.type === "message" && event.data.text && !event.data.partial) {
       assistantResponse += event.data.text;
@@ -246,10 +254,12 @@ export async function* sendPlanningMessageStreaming(options: {
   message: string;
   chatIntegrationId?: string | null;
   attachments?: Array<{
-    fileId: string;
-    fileName: string;
-    fileType: string;
+    fileId?: string;
+    fileName?: string;
+    fileType?: string;
+    mimeType?: string;
     url?: string;
+    base64?: string;
     extractedText?: string;
   }>;
   model?: string;
@@ -266,16 +276,18 @@ export async function* sendPlanningMessageStreaming(options: {
   // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
 
-  // Add user message with attachments
-  let userMessage = options.message;
-  if (options.attachments && options.attachments.length > 0) {
-    userMessage += `\n\n[Attachments: ${options.attachments.map((a) => a.fileName).join(", ")}]`;
-    for (const att of options.attachments) {
-      if (att.extractedText) {
-        userMessage += `\n\n${att.fileName} content:\n${att.extractedText}`;
-      }
-    }
-  }
+  // Build media attachments for the agent
+  const streamMediaAttachments: MediaAttachment[] = (options.attachments || []).map((att) => {
+    const mime = att.mimeType || att.fileType || "";
+    return {
+      type: (mime.startsWith("image/") ? "image" : "file") as "image" | "file" | "document",
+      url: att.url,
+      base64: att.base64,
+      mimeType: mime || undefined,
+      fileName: att.fileName,
+      extractedText: att.extractedText,
+    };
+  });
 
   let assistantResponse = "";
 
@@ -283,10 +295,11 @@ export async function* sendPlanningMessageStreaming(options: {
   for await (const event of chatWithAgent({
     userId: options.userId,
     workflowId: options.workflowId,
-    message: userMessage,
+    message: options.message,
     conversationHistory,
     learningContext,
     agentPersonality: options.agentPersonality,
+    attachments: streamMediaAttachments.length > 0 ? streamMediaAttachments : undefined,
   })) {
     // Collect response for history
     if (event.type === "message" && event.data.text && !event.data.partial) {

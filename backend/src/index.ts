@@ -37,6 +37,7 @@ import { adminManualPaymentsRouter } from "./routes/admin/manual-payments";
 import { chatIntegrationRouter } from "./routes/chat-integrations";
 import { internalWhatsAppRouter } from "./routes/internal/whatsapp";
 import { internalDiscordRouter } from "./routes/internal/discord";
+import strapiRouter from "./routes/strapi";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -219,6 +220,7 @@ app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
 app.use("/api/chat-integrations", chatIntegrationRouter);
 app.use("/api/internal/whatsapp", internalWhatsAppRouter);
 app.use("/api/internal/discord", internalDiscordRouter);
+app.use("/strapi", strapiRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,

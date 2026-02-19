@@ -23,6 +23,7 @@ export const SUBSCRIPTION_FEATURES = {
   // External integrations (premium nodes)
   COMPOSIO_ACTION_NODE: "composio-action-node",
   TINYFISH_NODE: "tinyfish-node",
+  STRAPI_NODE: "strapi-node",
 
   // Chat integrations (agent replies when users message the connected number)
   TELEGRAM_CHAT_INTEGRATION: "telegram-chat-integration",
@@ -65,6 +66,7 @@ export const NODE_TYPE_TO_FEATURE: Record<string, SubscriptionFeature> = {
   KLING_MULTI_IMAGE2IMAGE: SUBSCRIPTION_FEATURES.KLING_NODES,
   COMPOSIO_ACTION: SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE,
   TINYFISH: SUBSCRIPTION_FEATURES.TINYFISH_NODE,
+  STRAPI: SUBSCRIPTION_FEATURES.STRAPI_NODE,
 };
 
 /**
@@ -107,6 +109,7 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.KLING_NODES,
         SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE,
         SUBSCRIPTION_FEATURES.TINYFISH_NODE,
+        SUBSCRIPTION_FEATURES.STRAPI_NODE,
         SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION,

@@ -20,12 +20,25 @@ import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
 import { createTrace, endTrace, type TraceMetadata } from "../opikService";
 import { getComposioMcpUrl } from "../composio/composioService";
+import { checkFeatureAccess } from "../subscriptionCheck";
+import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
+import { consumePremiumQuota } from "../subscriptionService";
+import { QUOTA_COST } from "../../config/rate-limits";
 
 const prisma = basePrismaClient as any;
 
 // ============================================
 // Types
 // ============================================
+
+export interface MediaAttachment {
+  type: "image" | "file" | "document";
+  url?: string;
+  base64?: string;
+  mimeType?: string;
+  fileName?: string;
+  extractedText?: string;
+}
 
 export interface AgentQueryOptions {
   prompt: string;
@@ -36,6 +49,8 @@ export interface AgentQueryOptions {
   model?: string;
   maxTurns?: number;
   abortController?: AbortController;
+  /** Media attachments from the user (images, audio, video, documents) */
+  attachments?: MediaAttachment[];
   /** Type of agent query for Opik tracing categorization */
   traceType?: TraceMetadata["traceType"];
   /** Agent personality for soul.md injection */
@@ -164,6 +179,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     model = process.env.AGENT_CLAUDE_MODEL,
     maxTurns = 10,
     abortController,
+    attachments,
     traceType = "agent_query",
     agentPersonality,
   } = options;
@@ -206,6 +222,15 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     tools: createVerxioMcpTools(toolContext),
   });
 
+  // Check if user has Composio access (premium feature)
+  let hasComposioAccess = false;
+  try {
+    await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE);
+    hasComposioAccess = true;
+  } catch {
+    // Free user, skip Composio
+  }
+
   // Load user's MCP connections, Composio, and user context in parallel
   let userMcpServers: Record<string, McpServerConfig> = {};
   let composioMcpConfig: McpServerConfig | undefined;
@@ -214,10 +239,12 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     const [mcpServers, context, composioUrl] = await Promise.all([
       loadUserMcpServers(userId),
       getUserContext(userId, workflowId),
-      getComposioMcpUrl(userId).catch((err) => {
-        console.error("[Composio] Failed to load MCP URL:", err);
-        return null;
-      }),
+      hasComposioAccess
+        ? getComposioMcpUrl(userId).catch((err) => {
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     userMcpServers = mcpServers;
     userContext = context;
@@ -227,10 +254,12 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   } else {
     const [context, composioUrl] = await Promise.all([
       getUserContext(userId, workflowId),
-      getComposioMcpUrl(userId).catch((err) => {
-        console.error("[Composio] Failed to load MCP URL:", err);
-        return null;
-      }),
+      hasComposioAccess
+        ? getComposioMcpUrl(userId).catch((err) => {
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     userContext = context;
     if (composioUrl) {
@@ -263,13 +292,41 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   // Build system prompt (now async to load guide content)
   const systemPrompt = await getVerxioSystemPrompt(userContext);
 
+  // Enrich prompt with media attachment info when present
+  let enrichedPrompt = prompt;
+  if (attachments && attachments.length > 0) {
+    const mediaDescriptions: string[] = [];
+    for (const att of attachments) {
+      const label = att.fileName || att.type;
+      if (att.extractedText) {
+        mediaDescriptions.push(`[${label} content]\n${att.extractedText}`);
+      } else if (att.url) {
+        const mime = att.mimeType || "";
+        if (mime.startsWith("image/")) {
+          mediaDescriptions.push(`[User shared an image: ${label}]\nURL: ${att.url}`);
+        } else if (mime.startsWith("audio/")) {
+          mediaDescriptions.push(`[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`);
+        } else if (mime.startsWith("video/")) {
+          mediaDescriptions.push(`[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`);
+        } else {
+          mediaDescriptions.push(`[User shared a file: ${label}]\nURL: ${att.url}`);
+        }
+      } else if (att.base64 && att.mimeType?.startsWith("image/")) {
+        mediaDescriptions.push(`[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`);
+      } else {
+        mediaDescriptions.push(`[User shared a file: ${label}]`);
+      }
+    }
+    enrichedPrompt = `${prompt}\n\n--- User Attachments ---\n${mediaDescriptions.join("\n\n")}`;
+  }
+
   // Build conversation context if exists
-  let fullPrompt = prompt;
+  let fullPrompt = enrichedPrompt;
   if (conversationHistory && conversationHistory.length > 0) {
     const historyText = conversationHistory
       .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
-    fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${prompt}`;
+    fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${enrichedPrompt}`;
   }
 
   let lastResult: any = null;
@@ -741,6 +798,7 @@ export async function* chatWithAgent(options: {
     userPreferences?: Record<string, unknown>;
   };
   agentPersonality?: AgentPersonality;
+  attachments?: MediaAttachment[];
 }): AsyncGenerator<AgentStreamEvent> {
   // Build soul/personality preamble if available
   let soulPreamble = "";
@@ -783,6 +841,7 @@ You may refine your personality over time. If you notice patterns in how the use
     userId: options.userId,
     workflowId: options.workflowId,
     conversationHistory: options.conversationHistory,
+    attachments: options.attachments,
     maxTurns: 15,
     traceType: "chat",
     agentPersonality: options.agentPersonality,

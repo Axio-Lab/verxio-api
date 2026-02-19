@@ -118,6 +118,11 @@ export const AVAILABLE_NODE_TYPES = {
       description:
         "Browse any website, extract data, fill forms, or complete multi-step web tasks using AI-powered browser automation (TinyFish). Supports stealth mode and geographic proxies.",
     },
+    {
+      type: "STRAPI",
+      description:
+        "Create, update, or delete professional landing pages via Strapi CMS. Supports dynamic sections (hero, features, CTA, testimonials, pricing, FAQ, video, gallery) with SEO metadata.",
+    },
   ],
 
   // Logic & Code
@@ -404,6 +409,11 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
     description:
       "AI-powered web automation via TinyFish. Browse any website, extract structured data, fill forms, navigate multi-step workflows, handle bot-protected sites. Fields: url (REQ, target website URL), goal (REQ, natural language description of what to do), browserProfile (optional: 'lite' default or 'stealth' for anti-detection), proxyCountry (optional: US, GB, CA, DE, FR, JP, AU), variables (output variable name, default: tinyfish).",
     required: ["url", "goal", "variables"],
+  },
+  STRAPI: {
+    description:
+      "Create, update, or delete landing pages via Strapi CMS. Fields: action (REQ, 'create' | 'update' | 'delete'), pageTitle (REQ for create), pageId (REQ for update/delete), sections (JSON array of section objects: {type, heading, subheading, body, buttons, items}), seo (JSON: {metaTitle, metaDescription, keywords}), publishStatus ('draft' or 'published'), variables (output variable name, default: strapi).",
+    required: ["action", "variables"],
   },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
@@ -2307,13 +2317,24 @@ const browseWebsiteTool: VerxioTool = {
       .optional()
       .describe("ISO country code for proxy location: US, GB, CA, DE, FR, JP, AU"),
   }),
-  execute: async (args: {
-    url: string;
-    goal: string;
-    browserProfile?: "lite" | "stealth";
-    proxyCountry?: string;
-  }) => {
+  execute: async (
+    args: {
+      url: string;
+      goal: string;
+      browserProfile?: "lite" | "stealth";
+      proxyCountry?: string;
+    },
+    context: ToolContext
+  ) => {
     try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.TINYFISH_CHAT);
+
       const { runWebAutomation } = await import("@/services/tinyfish/tinyfishService");
       const result = await runWebAutomation(args.url, args.goal, {
         browserProfile: args.browserProfile,
@@ -2354,8 +2375,12 @@ const checkWebRunTool: VerxioTool = {
   inputSchema: z.object({
     runId: z.string().describe("The run_id returned by a previous TinyFish automation"),
   }),
-  execute: async (args: { runId: string }) => {
+  execute: async (args: { runId: string }, context: ToolContext) => {
     try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
+
       const { getRunStatus } = await import("@/services/tinyfish/tinyfishService");
       const result = await getRunStatus(args.runId);
 
@@ -2372,6 +2397,116 @@ const checkWebRunTool: VerxioTool = {
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to check web run status",
+      };
+    }
+  },
+};
+
+// ============================================
+// Tool: Create Landing Page (Strapi)
+// ============================================
+
+const createLandingPageTool: VerxioTool = {
+  name: "createLandingPage",
+  description:
+    "Create a professional landing page using Strapi CMS. Provide a title and sections (hero, features, cta, testimonials, pricing, faq, video, gallery). Returns the live page URL. Premium feature.",
+  inputSchema: z.object({
+    title: z.string().describe("Landing page title"),
+    sections: z
+      .array(
+        z.object({
+          type: z
+            .string()
+            .describe(
+              "Section type: hero, features, cta, testimonials, pricing, faq, video, gallery"
+            ),
+          heading: z.string().optional().describe("Section heading"),
+          subheading: z.string().optional().describe("Section subheading"),
+          body: z.string().optional().describe("Section body content (supports rich text/markdown)"),
+          buttons: z
+            .array(
+              z.object({
+                label: z.string(),
+                url: z.string(),
+                variant: z.string().optional().describe("primary, secondary, or outline"),
+              })
+            )
+            .optional()
+            .describe("Call-to-action buttons"),
+          items: z
+            .array(z.record(z.string(), z.unknown()))
+            .optional()
+            .describe("Items array for features, testimonials, pricing, faq, gallery sections"),
+        })
+      )
+      .describe("Page sections in order"),
+    seo: z
+      .object({
+        metaTitle: z.string().optional(),
+        metaDescription: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+      })
+      .optional()
+      .describe("SEO metadata"),
+    status: z.enum(["draft", "published"]).optional().describe("Page status (default: draft)"),
+  }),
+  execute: async (
+    args: {
+      title: string;
+      sections: Array<{
+        type: string;
+        heading?: string;
+        subheading?: string;
+        body?: string;
+        buttons?: Array<{ label: string; url: string; variant?: string }>;
+        items?: Array<Record<string, unknown>>;
+      }>;
+      seo?: { metaTitle?: string; metaDescription?: string; keywords?: string[] };
+      status?: "draft" | "published";
+    },
+    context: ToolContext
+  ) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
+
+      const {
+        createLandingPage,
+        getPublicPageUrl,
+        isStrapiConfigured,
+      } = await import("@/services/strapi/strapiService");
+
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured on this instance." };
+      }
+
+      const page = await createLandingPage(context.userId, {
+        title: args.title,
+        sections: args.sections as any,
+        seo: args.seo as any,
+        status: args.status || "draft",
+      });
+
+      const url = getPublicPageUrl(context.userId, page.slug);
+
+      return {
+        success: true,
+        pageId: page.documentId || page.id,
+        title: page.title,
+        slug: page.slug,
+        url,
+        status: page.status,
+        sectionsCount: args.sections.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create landing page",
       };
     }
   },
@@ -2408,6 +2543,7 @@ export const verxioTools: VerxioTool[] = [
   updateSoulMdTool,
   browseWebsiteTool,
   checkWebRunTool,
+  createLandingPageTool,
 ];
 
 export default verxioTools;

@@ -29,6 +29,7 @@ const PLANS: Plan[] = [
       "1 chat integration agent",
       "1,000 AI credits included",
       "Unlimited workflows",
+      "5 landing pages and hosting",
       "Community support",
     ],
     limitations: [],
@@ -42,6 +43,7 @@ const PLANS: Plan[] = [
     highlight: true,
     features: [
       "Everything in Basic",
+      "Unlimited landing pages and hosting",
       "5 chat integration agents",
       "5,000 AI credits included",
       "Custom skills per agent",
@@ -60,6 +62,7 @@ const PLANS: Plan[] = [
     highlight: false,
     features: [
       "Everything in Pro",
+      "Unlimited landing pages, hosting, and custom domain",
       "Unlimited agents",
       "20,000 AI credits included",
       "Workspaces and categories",
