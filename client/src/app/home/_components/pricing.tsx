@@ -240,10 +240,9 @@ export function Pricing() {
             );
           })}
         </div>
-
-        <p className="text-center mt-8 text-sm text-gray-500">
+        {/* <p className="text-center mt-8 text-sm text-gray-500">
           Need more credits? Purchase additional credit packs anytime without changing your plan.
-        </p>
+        </p> */}
       </div>
     </section>
   );

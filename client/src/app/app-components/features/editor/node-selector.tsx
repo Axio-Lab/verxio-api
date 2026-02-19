@@ -223,6 +223,13 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/composio.svg",
   },
   {
+    type: NodeType.TINYFISH,
+    label: "TinyFish",
+    description:
+      "AI-powered web automation. Browse websites, extract data, fill forms, handle bot-protected sites.",
+    icon: "/logo/tinyfish.svg",
+  },
+  {
     type: NodeType.CODE_BLOCK,
     label: "Code Block",
     description:
@@ -931,6 +938,22 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             composioParams: {},
           },
           type: NodeType.COMPOSIO_ACTION,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.TINYFISH) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "TinyFish",
+            variables: "tinyfish",
+            url: "",
+            goal: "",
+            browserProfile: "lite",
+            proxyCountry: "",
+          },
+          type: NodeType.TINYFISH,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

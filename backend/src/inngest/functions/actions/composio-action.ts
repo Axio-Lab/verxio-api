@@ -26,6 +26,33 @@ export const composioActionExecutor: NodeExecutor = async ({
   const rawParams = (data.composioParams as Record<string, unknown>) || {};
   const variablesKey = (data.variables as string) || "composioAction";
 
+  // Premium: check subscription and consume credits
+  const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+  await checkNodeAccess(userId, "COMPOSIO_ACTION");
+
+  const { consumePremiumQuota } = await import("@/services/subscriptionService");
+  const { QUOTA_COST } = await import("@/config/rate-limits");
+  try {
+    await step.run(`composio-consume-quota-${nodeId}`, async () => {
+      await consumePremiumQuota(userId, QUOTA_COST.COMPOSIO_ACTION);
+      return { consumed: true };
+    });
+  } catch (quotaError) {
+    await publish(composioActionChannel().status({ nodeId, status: "error" }));
+    const err = new NonRetriableError(
+      quotaError instanceof Error
+        ? quotaError.message
+        : "Rate limit exceeded. Upgrade or wait for reset."
+    );
+    await publish(
+      composioActionChannel().output({
+        nodeId,
+        output: { ...context, error: { message: err.message } },
+      })
+    );
+    throw err;
+  }
+
   // Compile Handlebars templates in params using workflow context
   const compiledParams: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(rawParams)) {

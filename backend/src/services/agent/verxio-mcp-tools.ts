@@ -111,6 +111,15 @@ export const AVAILABLE_NODE_TYPES = {
     },
   ],
 
+  // Web Automation (TinyFish)
+  web: [
+    {
+      type: "TINYFISH",
+      description:
+        "Browse any website, extract data, fill forms, or complete multi-step web tasks using AI-powered browser automation (TinyFish). Supports stealth mode and geographic proxies.",
+    },
+  ],
+
   // Logic & Code
   logic: [
     { type: "DECIDER", description: "Conditional branching based on data" },
@@ -390,6 +399,11 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
     description:
       "Subscribe workflow start to a Composio trigger slug. Fields: composioTriggerSlug (REQ, e.g. SLACK_CHANNEL_CREATED), triggerConfig (JSON object), variables (default: composioTrigger), connectedAccountId (optional), enabled (default true).",
     required: ["composioTriggerSlug", "variables"],
+  },
+  TINYFISH: {
+    description:
+      "AI-powered web automation via TinyFish. Browse any website, extract structured data, fill forms, navigate multi-step workflows, handle bot-protected sites. Fields: url (REQ, target website URL), goal (REQ, natural language description of what to do), browserProfile (optional: 'lite' default or 'stealth' for anti-detection), proxyCountry (optional: US, GB, CA, DE, FR, JP, AU), variables (output variable name, default: tinyfish).",
+    required: ["url", "goal", "variables"],
   },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
@@ -2268,6 +2282,102 @@ const updateSoulMdTool: VerxioTool = {
 };
 
 // ============================================
+// Tool: Browse Website (TinyFish)
+// ============================================
+
+const browseWebsiteTool: VerxioTool = {
+  name: "browseWebsite",
+  description:
+    "Browse any website using AI-powered browser automation (TinyFish). Extract data, fill forms, navigate multi-step workflows, handle authenticated or bot-protected sites. Returns structured results. Use this when you need live data from a website that has no API.",
+  inputSchema: z.object({
+    url: z.string().describe("Target website URL to browse"),
+    goal: z
+      .string()
+      .describe(
+        "Natural language description of what to accomplish on the website. Be specific: include output format, stopping conditions, and edge case handling."
+      ),
+    browserProfile: z
+      .enum(["lite", "stealth"])
+      .optional()
+      .describe(
+        "Browser profile: 'lite' (default) or 'stealth' for anti-detection on bot-protected sites"
+      ),
+    proxyCountry: z
+      .string()
+      .optional()
+      .describe("ISO country code for proxy location: US, GB, CA, DE, FR, JP, AU"),
+  }),
+  execute: async (args: {
+    url: string;
+    goal: string;
+    browserProfile?: "lite" | "stealth";
+    proxyCountry?: string;
+  }) => {
+    try {
+      const { runWebAutomation } = await import("@/services/tinyfish/tinyfishService");
+      const result = await runWebAutomation(args.url, args.goal, {
+        browserProfile: args.browserProfile,
+        proxyCountry: args.proxyCountry,
+      });
+
+      if (result.status === "FAILED") {
+        return {
+          success: false,
+          error: result.error?.message || "Web automation failed",
+          run_id: result.run_id,
+        };
+      }
+
+      return {
+        success: true,
+        result: result.result,
+        run_id: result.run_id,
+        num_of_steps: result.num_of_steps,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to browse website",
+      };
+    }
+  },
+};
+
+// ============================================
+// Tool: Check Web Automation Run (TinyFish)
+// ============================================
+
+const checkWebRunTool: VerxioTool = {
+  name: "checkWebRun",
+  description:
+    "Check the status and result of a previously started async web automation run (TinyFish). Use after browseWebsiteAsync or when you need to poll for completion.",
+  inputSchema: z.object({
+    runId: z.string().describe("The run_id returned by a previous TinyFish automation"),
+  }),
+  execute: async (args: { runId: string }) => {
+    try {
+      const { getRunStatus } = await import("@/services/tinyfish/tinyfishService");
+      const result = await getRunStatus(args.runId);
+
+      return {
+        success: result.status === "COMPLETED",
+        status: result.status,
+        result: result.result,
+        error: result.error?.message || null,
+        num_of_steps: result.num_of_steps,
+        started_at: result.started_at,
+        finished_at: result.finished_at,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to check web run status",
+      };
+    }
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -2296,6 +2406,8 @@ export const verxioTools: VerxioTool[] = [
   updateSkillTool,
   removeSkillTool,
   updateSoulMdTool,
+  browseWebsiteTool,
+  checkWebRunTool,
 ];
 
 export default verxioTools;

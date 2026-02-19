@@ -30,7 +30,9 @@ export const QUOTA_COST = {
   REMOTION: 15,
   DESIGN_AGENT_PRO: 10,
   // TIMED_TRIGGER: 5,
-  DEFAULT_PREMIUM_NODE: 10, // Code Block, Composio Action
+  DEFAULT_PREMIUM_NODE: 10, // Code Block
+  COMPOSIO_ACTION: 10,
+  TINYFISH: 20,
   // Kling node costs
   KLING_IMAGE: 10,
   KLING_TEXT2VIDEO: 15,
