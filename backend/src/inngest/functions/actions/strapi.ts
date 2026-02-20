@@ -16,6 +16,9 @@ export const strapiExecutor: NodeExecutor = async ({
   const sectionsJson = data.sections as string | undefined;
   const seoJson = data.seo as string | undefined;
   const pageId = data.pageId as string | undefined;
+  const websiteId = data.websiteId as string | undefined;
+  const pageType = data.pageType as string | undefined;
+  const blogContent = data.blogContent as string | undefined;
   const variablesKey = (data.variables as string) || "strapi";
 
   if (action === "create" && !pageTitle) {
@@ -24,6 +27,15 @@ export const strapiExecutor: NodeExecutor = async ({
   if ((action === "update" || action === "delete") && !pageId) {
     throw new NonRetriableError(`STRAPI node requires 'pageId' for ${action} action.`);
   }
+  if (action === "create-website" && !pageTitle) {
+    throw new NonRetriableError("STRAPI node requires 'pageTitle' for create-website action.");
+  }
+  if (action === "add-page" && (!websiteId || !pageTitle)) {
+    throw new NonRetriableError("STRAPI node requires 'websiteId' and 'pageTitle' for add-page action.");
+  }
+  if (action === "create-blog-post" && (!websiteId || !pageTitle || !blogContent)) {
+    throw new NonRetriableError("STRAPI node requires 'websiteId', 'pageTitle', and 'blogContent' for create-blog-post.");
+  }
 
   // Premium: check subscription and consume credits
   const { checkNodeAccess } = await import("@/services/subscriptionCheck");
@@ -31,9 +43,11 @@ export const strapiExecutor: NodeExecutor = async ({
 
   const { consumePremiumQuota } = await import("@/services/subscriptionService");
   const { QUOTA_COST } = await import("@/config/rate-limits");
+  const isBlogAction = action.includes("blog");
+  const creditCost = isBlogAction ? QUOTA_COST.STRAPI_BLOG : QUOTA_COST.STRAPI;
   try {
     await step.run(`strapi-consume-quota-${nodeId}`, async () => {
-      await consumePremiumQuota(userId, QUOTA_COST.STRAPI);
+      await consumePremiumQuota(userId, creditCost);
       return { consumed: true };
     });
   } catch (quotaError) {
@@ -90,7 +104,9 @@ export const strapiExecutor: NodeExecutor = async ({
         createLandingPage,
         updateLandingPage,
         deletePage,
+        listUserPages,
         getPublicPageUrl,
+        getPublicSiteUrl,
         isStrapiConfigured,
       } = await import("@/services/strapi/strapiService");
 
@@ -134,6 +150,98 @@ export const strapiExecutor: NodeExecutor = async ({
         case "delete": {
           await deletePage(compiledPageId!);
           return { action: "delete", pageId: compiledPageId, deleted: true };
+        }
+        case "list": {
+          const pages = await listUserPages(userId);
+          return {
+            action: "list",
+            pages: pages.map((p) => ({
+              pageId: p.documentId || p.id,
+              title: p.title,
+              slug: p.slug,
+              status: p.status,
+              url: getPublicPageUrl(userId, p.slug),
+            })),
+            total: pages.length,
+          };
+        }
+        case "create-website": {
+          const { createWebsite } = await import("@/services/strapi/websiteService");
+          const website = await createWebsite(userId, {
+            title: compiledTitle!,
+            type: (data.websiteType as "website" | "funnel" | "blog") || "website",
+            status: (data.publishStatus as "draft" | "published") || "draft",
+          });
+          return {
+            action: "create-website",
+            websiteId: website.documentId || website.id,
+            title: website.title,
+            slug: website.slug,
+            type: website.type,
+            url: getPublicSiteUrl(userId, website.slug),
+            status: website.status,
+          };
+        }
+        case "add-page": {
+          const compiledWebsiteId = websiteId ? compile(websiteId) : "";
+          const { addPageToWebsite, getWebsiteById } = await import("@/services/strapi/websiteService");
+          const page = await addPageToWebsite(userId, compiledWebsiteId, {
+            title: compiledTitle!,
+            pageType: (pageType as any) || "landing",
+            sections,
+            seo: seo as any,
+            status: (data.publishStatus as "draft" | "published") || "draft",
+          });
+          const website = await getWebsiteById(compiledWebsiteId);
+          return {
+            action: "add-page",
+            pageId: page.documentId || page.id,
+            title: page.title,
+            slug: page.slug,
+            pageType: page.pageType,
+            url: getPublicSiteUrl(userId, website?.slug || "", page.slug),
+            status: page.status,
+          };
+        }
+        case "create-blog-post": {
+          const compiledWebsiteId = websiteId ? compile(websiteId) : "";
+          const compiledContent = blogContent ? compile(blogContent) : "";
+          const { createBlogPost } = await import("@/services/strapi/blogService");
+          const post = await createBlogPost(userId, compiledWebsiteId, {
+            title: compiledTitle!,
+            content: compiledContent,
+            seo: seo as any,
+            status: (data.publishStatus as "draft" | "published") || "draft",
+          });
+          return {
+            action: "create-blog-post",
+            postId: post.documentId || post.id,
+            title: post.title,
+            slug: post.slug,
+            status: post.status,
+          };
+        }
+        case "update-blog-post": {
+          const { updateBlogPost } = await import("@/services/strapi/blogService");
+          const compiledContent = blogContent ? compile(blogContent) : undefined;
+          const post = await updateBlogPost(compiledPageId!, {
+            title: compiledTitle,
+            content: compiledContent,
+            seo: Object.keys(seo).length > 0 ? (seo as any) : undefined,
+            status: (data.publishStatus as "draft" | "published") || undefined,
+          });
+          return {
+            action: "update-blog-post",
+            postId: post.documentId || post.id,
+            title: post.title,
+            slug: post.slug,
+            status: post.status,
+          };
+        }
+        case "delete-blog-post": {
+          const { deleteBlogPost } = await import("@/services/strapi/blogService");
+          await deleteBlogPost(compiledPageId!);
+          return { action: "delete-blog-post", postId: compiledPageId, deleted: true };
         }
         default:
           throw new Error(`Unknown Strapi action: ${action}`);

@@ -133,13 +133,14 @@ export function Hero() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.1] tracking-tight">
-              Turn any chat channel into an
-              <span className="text-primary"> automation hub</span>
+              Your AI coworker that
+              <span className="text-primary"> ships, sells, and scales</span>
             </h1>
 
             <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
-              Verxio lets you spin up AI agents with 10,000+ actions across 800+ apps. Connect them
-              to Slack, Discord, Telegram, or WhatsApp. Automate anything.
+              Spin up AI agents that automate workflows, build websites and funnels, manage blogs,
+              and work across Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps.
+              One platform.
             </p>
 
             <div className="flex flex-wrap gap-4">

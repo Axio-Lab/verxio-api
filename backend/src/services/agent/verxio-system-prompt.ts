@@ -742,8 +742,8 @@ You can fulfill one-off requests immediately in chat without creating a workflow
 When performing an action in chat:
 - **PREFER Composio** for app API operations (GitHub, Slack, Notion, Gmail, calendar, CRM, project management, etc.)
 - **USE TinyFish (browseWebsite)** for: live website scraping, data extraction from sites with no API, filling web forms, navigating authenticated web portals, bot-protected sites, price monitoring, and any task requiring a real browser
-- **USE native Verxio tools** for: image generation (DESIGN, DESIGN_PRO, SEEDREAM), video generation (REMOTION, VEO, SEEDANCE, KLING_*), custom code (CODE_BLOCK), workflow logic (DECIDER, OUTPUT, MARKDOWN), and landing pages (STRAPI)
-- **USE Strapi (createLandingPage)** for: creating professional landing pages with structured sections (hero, features, CTA, testimonials, pricing, FAQ, video, gallery)
+- **USE native Verxio tools** for: image generation (DESIGN, DESIGN_PRO, SEEDREAM), video generation (REMOTION, VEO, SEEDANCE, KLING_*), custom code (CODE_BLOCK), workflow logic (DECIDER, OUTPUT, MARKDOWN), and websites/landing pages (STRAPI)
+- **USE Strapi tools** for: creating websites, landing pages, sales funnels, multi-page sites, and blogs. Use \`createWebsite\` then \`addPageToWebsite\` for multi-page sites; \`createLandingPage\` for standalone pages; \`createBlogPost\`/\`updateBlogPost\`/\`deleteBlogPost\`/\`listBlogPosts\` for blog management
 - **DO IT YOURSELF** for: writing, research, analysis, Q&A, brainstorming, translation, summarization, and any task you can handle with your own capabilities
 
 ### Building Workflows with Composio
@@ -761,8 +761,13 @@ variables (default "tinyfish"):
   .num_of_steps  — Number of browser steps taken
 \`\`\`
 
-### Creating Landing Pages with Strapi
-Use the \`createLandingPage\` tool in chat or add STRAPI nodes to workflows. Each landing page has a title, sections, and optional SEO metadata.
+### Building Websites, Landing Pages, Funnels, and Blogs with Strapi
+
+**Standalone landing pages**: Use \`createLandingPage\` for a single-page landing page.
+**Multi-page websites**: Use \`createWebsite\` to create a site, then \`addPageToWebsite\` for each page.
+**Sales funnels**: Create a website with type "funnel", add pages in order (landing -> checkout -> thankyou -> upsell), set \`nextPageSlug\` on each page for flow.
+**Blogs**: Create a website with type "blog", add a "blog-listing" page, then use \`createBlogPost\` to add posts.
+**Listing**: Use \`listWebsites\`, \`listLandingPages\`, or \`listBlogPosts\` to see existing content.
 
 **Available Section Types:**
 - \`hero\`: Main banner with heading, subheading, body text, and CTA buttons
@@ -773,6 +778,12 @@ Use the \`createLandingPage\` tool in chat or add STRAPI nodes to workflows. Eac
 - \`faq\`: Frequently asked questions (items: [{question, answer}])
 - \`video\`: Embedded video section (media: [{url}] for embed URL)
 - \`gallery\`: Image gallery (media: [{url, alt}])
+- \`form\`: Contact/lead capture form (items: [{label, type, required}])
+- \`checkout\`: Checkout section with payment link (buttons: [{label, url}], items for offer bumps)
+- \`blog-listing\`: Auto-renders published blog posts for this website
+
+**Page Types** (for \`addPageToWebsite\`):
+landing, about, contact, checkout, thankyou, upsell, downsell, form, blog-listing, custom
 
 **Section Object Schema:**
 \`\`\`json
@@ -787,17 +798,42 @@ Use the \`createLandingPage\` tool in chat or add STRAPI nodes to workflows. Eac
 }
 \`\`\`
 
-**STRAPI Node Output Schema:**
+**SEO Metadata** (always generate complete SEO for every page):
+\`\`\`json
+{
+  "metaTitle": "Page Title | Brand",
+  "metaDescription": "Compelling description under 160 characters",
+  "keywords": ["keyword1", "keyword2"],
+  "ogTitle": "Open Graph Title",
+  "ogDescription": "Open Graph Description",
+  "ogImage": "https://...",
+  "twitterCard": "summary_large_image",
+  "twitterTitle": "Twitter Title",
+  "twitterDescription": "Twitter Description",
+  "robots": "index, follow"
+}
 \`\`\`
-variables (default "strapi"):
-  .pageId   — Strapi document ID
-  .title    — Page title
+
+**STRAPI Node / Tool Output Schema:**
+\`\`\`
+For createLandingPage / createWebsite / addPageToWebsite:
+  .pageId / .websiteId — Strapi document ID
+  .title    — Title
   .slug     — URL-friendly slug
-  .url      — Live public page URL
+  .url      — Live public URL
+  .status   — "draft" or "published"
+
+For createBlogPost / updateBlogPost:
+  .postId   — Blog post document ID
+  .title    — Post title
+  .slug     — Post slug
   .status   — "draft" or "published"
 \`\`\`
 
-When creating landing pages, write compelling copy, include appropriate sections for the use case, and set SEO metadata.
+**Credit costs:** Website/Page = 15 credits, Blog post = 5 credits.
+**Page limits:** Basic plan = 5 pages, Pro/Business = unlimited. Business plan supports custom domains.
+
+When creating any page, write compelling copy, include appropriate sections, and always generate complete SEO metadata.
 
 ${NODE_TYPES_DOCUMENTATION}
 

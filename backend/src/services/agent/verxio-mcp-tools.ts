@@ -2513,6 +2513,408 @@ const createLandingPageTool: VerxioTool = {
 };
 
 // ============================================
+// Tool: Create Website
+// ============================================
+
+const createWebsiteTool: VerxioTool = {
+  name: "createWebsite",
+  description:
+    "Create a multi-page website, sales funnel, or blog. Returns the site ID for adding pages. Premium feature.",
+  inputSchema: z.object({
+    title: z.string().describe("Website title"),
+    type: z.enum(["website", "funnel", "blog"]).optional().describe("Site type (default: website)"),
+    navigation: z
+      .array(z.object({ label: z.string(), pageSlug: z.string() }))
+      .optional()
+      .describe("Navigation items"),
+    globalStyles: z
+      .object({
+        brandColor: z.string().optional(),
+        fontFamily: z.string().optional(),
+        logoUrl: z.string().optional(),
+      })
+      .optional()
+      .describe("Brand styles"),
+    status: z.enum(["draft", "published"]).optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
+
+      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const { createWebsite } = await import("@/services/strapi/websiteService");
+      const website = await createWebsite(context.userId, args);
+      const url = getPublicSiteUrl(context.userId, website.slug);
+
+      return {
+        success: true,
+        websiteId: website.documentId || website.id,
+        title: website.title,
+        slug: website.slug,
+        type: website.type,
+        url,
+        status: website.status,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to create website" };
+    }
+  },
+};
+
+// ============================================
+// Tool: Add Page to Website
+// ============================================
+
+const addPageToWebsiteTool: VerxioTool = {
+  name: "addPageToWebsite",
+  description:
+    "Add a page to an existing website or funnel. Supports landing, about, contact, checkout, thankyou, upsell, downsell, form, blog-listing, custom page types. Premium feature (15 credits per page).",
+  inputSchema: z.object({
+    websiteId: z.string().describe("Website documentId to add the page to"),
+    title: z.string().describe("Page title"),
+    pageType: z
+      .enum(["landing", "about", "contact", "checkout", "thankyou", "upsell", "downsell", "form", "blog-listing", "custom"])
+      .optional()
+      .describe("Page type (default: landing)"),
+    sections: z
+      .array(
+        z.object({
+          type: z.string().describe("Section type: hero, features, cta, testimonials, pricing, faq, video, gallery, form, checkout, blog-listing"),
+          heading: z.string().optional(),
+          subheading: z.string().optional(),
+          body: z.string().optional(),
+          buttons: z.array(z.object({ label: z.string(), url: z.string(), variant: z.string().optional() })).optional(),
+          items: z.array(z.record(z.string(), z.unknown())).optional(),
+        })
+      )
+      .describe("Page sections"),
+    seo: z
+      .object({
+        metaTitle: z.string().optional(),
+        metaDescription: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+        ogTitle: z.string().optional(),
+        ogDescription: z.string().optional(),
+      })
+      .optional(),
+    order: z.number().optional().describe("Page order in navigation"),
+    nextPageSlug: z.string().optional().describe("Next page slug for funnel flow"),
+    status: z.enum(["draft", "published"]).optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
+
+      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const { addPageToWebsite, getWebsiteById } = await import("@/services/strapi/websiteService");
+      const page = await addPageToWebsite(context.userId, args.websiteId, {
+        title: args.title,
+        pageType: args.pageType,
+        sections: args.sections || [],
+        seo: args.seo,
+        order: args.order,
+        nextPageSlug: args.nextPageSlug,
+        status: args.status,
+      });
+
+      const website = await getWebsiteById(args.websiteId);
+      const url = getPublicSiteUrl(context.userId, website?.slug || "", page.slug);
+
+      return {
+        success: true,
+        pageId: page.documentId || page.id,
+        title: page.title,
+        slug: page.slug,
+        pageType: page.pageType,
+        url,
+        status: page.status,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to add page" };
+    }
+  },
+};
+
+// ============================================
+// Tool: Create Blog Post
+// ============================================
+
+const createBlogPostTool: VerxioTool = {
+  name: "createBlogPost",
+  description:
+    "Create a blog post on a website. Premium feature (5 credits per post).",
+  inputSchema: z.object({
+    websiteId: z.string().describe("Website documentId the blog belongs to"),
+    title: z.string().describe("Blog post title"),
+    content: z.string().describe("Blog post content in markdown"),
+    excerpt: z.string().optional().describe("Short excerpt for listing"),
+    featuredImage: z.string().optional().describe("Featured image URL"),
+    author: z.string().optional(),
+    category: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    seo: z
+      .object({
+        metaTitle: z.string().optional(),
+        metaDescription: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+      })
+      .optional(),
+    status: z.enum(["draft", "published"]).optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_BLOG);
+
+      const { isStrapiConfigured } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const { createBlogPost } = await import("@/services/strapi/blogService");
+      const post = await createBlogPost(context.userId, args.websiteId, {
+        title: args.title,
+        content: args.content,
+        excerpt: args.excerpt,
+        featuredImage: args.featuredImage,
+        author: args.author,
+        category: args.category,
+        tags: args.tags,
+        seo: args.seo,
+        status: args.status,
+      });
+
+      return {
+        success: true,
+        postId: post.documentId || post.id,
+        title: post.title,
+        slug: post.slug,
+        status: post.status,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to create blog post" };
+    }
+  },
+};
+
+// ============================================
+// Tool: Update Blog Post
+// ============================================
+
+const updateBlogPostTool: VerxioTool = {
+  name: "updateBlogPost",
+  description: "Update an existing blog post. Provide the post documentId and fields to update.",
+  inputSchema: z.object({
+    postId: z.string().describe("Blog post documentId"),
+    title: z.string().optional(),
+    content: z.string().optional().describe("Updated content in markdown"),
+    excerpt: z.string().optional(),
+    featuredImage: z.string().optional(),
+    author: z.string().optional(),
+    category: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    seo: z
+      .object({
+        metaTitle: z.string().optional(),
+        metaDescription: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+      })
+      .optional(),
+    status: z.enum(["draft", "published"]).optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_BLOG);
+
+      const { updateBlogPost } = await import("@/services/strapi/blogService");
+      const { postId, ...updateFields } = args;
+      const post = await updateBlogPost(postId, updateFields);
+
+      return {
+        success: true,
+        postId: post.documentId || post.id,
+        title: post.title,
+        slug: post.slug,
+        status: post.status,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to update blog post" };
+    }
+  },
+};
+
+// ============================================
+// Tool: Delete Blog Post
+// ============================================
+
+const deleteBlogPostTool: VerxioTool = {
+  name: "deleteBlogPost",
+  description: "Delete a blog post by its documentId.",
+  inputSchema: z.object({
+    postId: z.string().describe("Blog post documentId to delete"),
+  }),
+  execute: async (args: { postId: string }, context: ToolContext) => {
+    try {
+      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
+      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
+      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
+
+      const { deleteBlogPost } = await import("@/services/strapi/blogService");
+      await deleteBlogPost(args.postId);
+
+      return { success: true, message: "Blog post deleted." };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to delete blog post" };
+    }
+  },
+};
+
+// ============================================
+// Tool: List Blog Posts
+// ============================================
+
+const listBlogPostsTool: VerxioTool = {
+  name: "listBlogPosts",
+  description: "List blog posts for a website. Optionally filter by status.",
+  inputSchema: z.object({
+    websiteId: z.string().describe("Website documentId"),
+    status: z.enum(["draft", "published"]).optional().describe("Filter by status"),
+  }),
+  execute: async (args: { websiteId: string; status?: "draft" | "published" }, context: ToolContext) => {
+    try {
+      const { isStrapiConfigured } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const { listWebsiteBlogPosts } = await import("@/services/strapi/blogService");
+      const posts = await listWebsiteBlogPosts(args.websiteId, { status: args.status });
+
+      return {
+        success: true,
+        posts: posts.map((p) => ({
+          postId: p.documentId || p.id,
+          title: p.title,
+          slug: p.slug,
+          status: p.status,
+          author: p.author,
+          category: p.category,
+          createdAt: p.createdAt,
+        })),
+        total: posts.length,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to list blog posts" };
+    }
+  },
+};
+
+// ============================================
+// Tool: List Landing Pages
+// ============================================
+
+const listLandingPagesTool: VerxioTool = {
+  name: "listLandingPages",
+  description: "List all landing pages created by the user. Returns page IDs, titles, slugs, and URLs.",
+  inputSchema: z.object({}),
+  execute: async (_args: Record<string, never>, context: ToolContext) => {
+    try {
+      const { isStrapiConfigured, getPublicPageUrl, listUserPages } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const pages = await listUserPages(context.userId);
+
+      return {
+        success: true,
+        pages: pages.map((p) => ({
+          pageId: p.documentId || p.id,
+          title: p.title,
+          slug: p.slug,
+          status: p.status,
+          url: getPublicPageUrl(context.userId, p.slug),
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+        })),
+        total: pages.length,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to list pages" };
+    }
+  },
+};
+
+// ============================================
+// Tool: List Websites
+// ============================================
+
+const listWebsitesTool: VerxioTool = {
+  name: "listWebsites",
+  description: "List all websites created by the user, including their pages.",
+  inputSchema: z.object({}),
+  execute: async (_args: Record<string, never>, context: ToolContext) => {
+    try {
+      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      if (!isStrapiConfigured()) {
+        return { success: false, error: "Strapi CMS is not configured." };
+      }
+
+      const { listUserWebsites } = await import("@/services/strapi/websiteService");
+      const websites = await listUserWebsites(context.userId);
+
+      return {
+        success: true,
+        websites: websites.map((w) => ({
+          websiteId: w.documentId || w.id,
+          title: w.title,
+          slug: w.slug,
+          type: w.type,
+          status: w.status,
+          url: getPublicSiteUrl(context.userId, w.slug),
+          pagesCount: w.pages?.length || 0,
+          createdAt: w.createdAt,
+        })),
+        total: websites.length,
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Failed to list websites" };
+    }
+  },
+};
+
+// ============================================
 // Export All Tools
 // ============================================
 
@@ -2544,6 +2946,14 @@ export const verxioTools: VerxioTool[] = [
   browseWebsiteTool,
   checkWebRunTool,
   createLandingPageTool,
+  createWebsiteTool,
+  addPageToWebsiteTool,
+  createBlogPostTool,
+  updateBlogPostTool,
+  deleteBlogPostTool,
+  listBlogPostsTool,
+  listLandingPagesTool,
+  listWebsitesTool,
 ];
 
 export default verxioTools;

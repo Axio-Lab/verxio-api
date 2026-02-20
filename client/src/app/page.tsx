@@ -13,14 +13,14 @@ const siteUrl = "https://www.verxio.xyz";
 export const metadata: Metadata = {
   title: "Verxio — AI coworker platform for every team",
   description:
-    "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp in minutes.",
+    "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and work across Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps. One platform.",
   alternates: {
     canonical: siteUrl,
   },
   openGraph: {
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and work across Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps.",
     url: siteUrl,
     siteName: "Verxio",
     locale: "en_US",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and work across Slack, Discord, Telegram, and WhatsApp.",
     images: [`${siteUrl}/logo/verxioLogoMain.svg`],
   },
 };
@@ -58,7 +58,7 @@ export default function Home() {
       priceCurrency: "USD",
     },
     description:
-      "AI coworker platform that turns any chat channel into an automation hub. Deploy AI agents to Slack, Discord, Telegram, and WhatsApp.",
+      "AI coworker platform that automates workflows, builds websites and funnels, and deploys agents to Slack, Discord, Telegram, and WhatsApp.",
     url: siteUrl,
     aggregateRating: {
       "@type": "AggregateRating",

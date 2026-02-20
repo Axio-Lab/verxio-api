@@ -3,6 +3,7 @@
  *
  * Handles all communication with the Strapi CMS for landing page management.
  * Provides CRUD operations for landing pages, section management, and media uploads.
+ * Exports shared utilities used by websiteService and blogService.
  */
 
 const STRAPI_URL = process.env.STRAPI_URL || "http://localhost:1337";
@@ -19,7 +20,6 @@ export function isStrapiConfigured(): boolean {
   return !!STRAPI_URL && !!STRAPI_API_TOKEN;
 }
 
-// Section types that map to Strapi dynamic zone components
 export type SectionType =
   | "hero"
   | "features"
@@ -28,7 +28,10 @@ export type SectionType =
   | "pricing"
   | "faq"
   | "video"
-  | "gallery";
+  | "gallery"
+  | "form"
+  | "checkout"
+  | "blog-listing";
 
 export interface SectionData {
   type: SectionType;
@@ -45,6 +48,16 @@ export interface SeoData {
   metaDescription?: string;
   ogImage?: string;
   keywords?: string[];
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogType?: string;
+  twitterCard?: string;
+  twitterTitle?: string;
+  twitterDescription?: string;
+  twitterImage?: string;
+  robots?: string;
+  structuredData?: Record<string, unknown>;
 }
 
 export interface LandingPageInput {
@@ -68,7 +81,7 @@ export interface LandingPage {
   updatedAt: string;
 }
 
-function generateSlug(title: string): string {
+export function generateSlug(title: string): string {
   return title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -76,7 +89,7 @@ function generateSlug(title: string): string {
     .slice(0, 80);
 }
 
-async function strapiRequest<T>(
+export async function strapiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -203,4 +216,10 @@ export async function uploadMedia(
 export function getPublicPageUrl(userId: string, slug: string): string {
   const pagesUrl = process.env.STRAPI_PAGES_URL || `${STRAPI_URL}/pages`;
   return `${pagesUrl}/${userId}/${slug}`;
+}
+
+export function getPublicSiteUrl(userId: string, siteSlug: string, pageSlug?: string): string {
+  const pagesUrl = process.env.STRAPI_PAGES_URL || `${STRAPI_URL}/pages`;
+  const base = `${pagesUrl}/${userId}/${siteSlug}`;
+  return pageSlug ? `${base}/${pageSlug}` : base;
 }

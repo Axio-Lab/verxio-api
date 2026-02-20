@@ -1,5 +1,16 @@
 "use strict";
 
+const PUBLIC_PERMISSIONS = [
+  "api::landing-page.landing-page.find",
+  "api::landing-page.landing-page.findOne",
+  "api::website.website.find",
+  "api::website.website.findOne",
+  "api::page.page.find",
+  "api::page.page.findOne",
+  "api::blog-post.blog-post.find",
+  "api::blog-post.blog-post.findOne",
+];
+
 module.exports = {
   register(/* { strapi } */) {},
 
@@ -10,37 +21,19 @@ module.exports = {
 
     if (!publicRole) return;
 
-    const permissions = await strapi
+    const existing = await strapi
       .query("plugin::users-permissions.permission")
       .findMany({ where: { role: publicRole.id } });
 
-    const hasFind = permissions.some(
-      (p) => p.action === "api::landing-page.landing-page.find"
-    );
-    const hasFindOne = permissions.some(
-      (p) => p.action === "api::landing-page.landing-page.findOne"
-    );
+    const existingActions = new Set(existing.map((p) => p.action));
 
-    if (!hasFind) {
-      await strapi.query("plugin::users-permissions.permission").create({
-        data: {
-          action: "api::landing-page.landing-page.find",
-          role: publicRole.id,
-          enabled: true,
-        },
-      });
-      strapi.log.info("Enabled public find for landing-page");
-    }
-
-    if (!hasFindOne) {
-      await strapi.query("plugin::users-permissions.permission").create({
-        data: {
-          action: "api::landing-page.landing-page.findOne",
-          role: publicRole.id,
-          enabled: true,
-        },
-      });
-      strapi.log.info("Enabled public findOne for landing-page");
+    for (const action of PUBLIC_PERMISSIONS) {
+      if (!existingActions.has(action)) {
+        await strapi.query("plugin::users-permissions.permission").create({
+          data: { action, role: publicRole.id, enabled: true },
+        });
+        strapi.log.info(`Enabled public ${action}`);
+      }
     }
   },
 

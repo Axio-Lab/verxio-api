@@ -10,8 +10,8 @@ export function CTA() {
           Ready to put AI to work?
         </h2>
         <p className="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
-          Create your first agent in minutes. Deploy to the channels your team already uses.
-          Autonomously execute tasks and workflows.
+          Build websites, automate workflows, and deploy AI agents to every channel your team uses.
+          Start in minutes.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link

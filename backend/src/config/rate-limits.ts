@@ -37,6 +37,8 @@ export const QUOTA_COST = {
   TINYFISH_CHAT: 20,
   STRAPI: 15,
   STRAPI_CHAT: 15,
+  STRAPI_BLOG: 5,
+  AI_GENERATE: 5,
   // Kling node costs
   KLING_IMAGE: 10,
   KLING_TEXT2VIDEO: 15,
