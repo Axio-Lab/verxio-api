@@ -169,13 +169,13 @@ This defines the agent's voice, tone, and communication style. How does it greet
 
 Output ONLY the soul.md content in markdown format. Do not wrap in code fences. Make it feel authentic and unique to this agent's personality — not generic.`;
 
-  const model = process.env.AGENT_CLAUDE_MODEL || "claude-sonnet-4-20250514";
+  const model = process.env.AGENT_CLAUDE_MODEL!;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+      "x-api-key": model,
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({

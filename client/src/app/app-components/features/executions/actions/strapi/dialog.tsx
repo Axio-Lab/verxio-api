@@ -27,12 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Copy, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useEffect, useState, useCallback } from "react";
-import { authenticatedGet, authenticatedFetch } from "@/lib/api-client";
+import { useEffect, useState } from "react";
+import { authenticatedFetch } from "@/lib/api-client";
 
 const formSchema = z.object({
   variables: z
@@ -45,7 +45,6 @@ const formSchema = z.object({
     "create",
     "update",
     "delete",
-    "list",
     "create-website",
     "add-page",
     "create-blog-post",
@@ -56,6 +55,7 @@ const formSchema = z.object({
   pageId: z.string().optional(),
   websiteId: z.string().optional(),
   websiteType: z.enum(["website", "funnel", "blog"]).optional(),
+  websitePrompt: z.string().optional(),
   pageType: z
     .enum([
       "landing",
@@ -75,7 +75,11 @@ const formSchema = z.object({
   seo: z.string().optional(),
   publishStatus: z.enum(["draft", "published"]).optional(),
   label: z.string().optional(),
-});
+}).refine(
+  (data) =>
+    data.action !== "create-website" || (data.websitePrompt?.trim()?.length ?? 0) > 0,
+  { message: "Describe your website or funnel (required for Create Website/Funnel).", path: ["websitePrompt"] }
+);
 
 export type StrapiFormValues = z.infer<typeof formSchema>;
 
@@ -84,15 +88,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: StrapiFormValues) => void;
   defaultValues?: Partial<StrapiFormValues>;
-}
-
-interface PageItem {
-  documentId?: string;
-  id?: number;
-  title: string;
-  slug: string;
-  status: string;
-  createdAt?: string;
 }
 
 const SECTION_TEMPLATE = `[
@@ -119,8 +114,6 @@ const SECTION_TEMPLATE = `[
 ]`;
 
 export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Props) => {
-  const [pages, setPages] = useState<PageItem[]>([]);
-  const [loadingPages, setLoadingPages] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -134,6 +127,7 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
       pageId: defaultValues?.pageId || "",
       websiteId: defaultValues?.websiteId || "",
       websiteType: defaultValues?.websiteType || "website",
+      websitePrompt: defaultValues?.websitePrompt || "",
       pageType: defaultValues?.pageType || "landing",
       blogContent: defaultValues?.blogContent || "",
       sections: defaultValues?.sections || "",
@@ -147,13 +141,16 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
 
   useEffect(() => {
     if (open && defaultValues) {
+      const rawAction = defaultValues.action as string | undefined;
+      const action = rawAction === "list" ? "create" : (rawAction || "create");
       form.reset({
         variables: defaultValues.variables || "strapi",
-        action: defaultValues.action || "create",
+        action: (action as StrapiFormValues["action"]) || "create",
         pageTitle: defaultValues.pageTitle || "",
         pageId: defaultValues.pageId || "",
         websiteId: defaultValues.websiteId || "",
         websiteType: defaultValues.websiteType || "website",
+        websitePrompt: defaultValues.websitePrompt || "",
         pageType: defaultValues.pageType || "landing",
         blogContent: defaultValues.blogContent || "",
         sections: defaultValues.sections || "",
@@ -163,29 +160,6 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
       });
     }
   }, [open, defaultValues]);
-
-  const fetchPages = useCallback(async () => {
-    setLoadingPages(true);
-    try {
-      const data = await authenticatedGet<{ pages: PageItem[] }>("/strapi/pages");
-      setPages(data.pages || []);
-    } catch {
-      toast.error("Failed to load pages");
-    } finally {
-      setLoadingPages(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open && action === "list") {
-      fetchPages();
-    }
-  }, [open, action, fetchPages]);
-
-  const handleCopyId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    toast.success("Document ID copied");
-  };
 
   const handleGenerateAi = async () => {
     if (!aiPrompt.trim()) return;
@@ -221,7 +195,6 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
   const needsTitle = [
     "create",
     "update",
-    "create-website",
     "add-page",
     "create-blog-post",
     "update-blog-post",
@@ -230,7 +203,10 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
   const needsWebsiteId = ["add-page", "create-blog-post"].includes(action);
   const needsSections = ["create", "update", "add-page"].includes(action);
   const needsBlogContent = ["create-blog-post", "update-blog-post"].includes(action);
-  const showPublishStatus = action !== "delete" && action !== "delete-blog-post" && action !== "list";
+  const showPublishStatus =
+    action !== "delete" &&
+    action !== "delete-blog-post" &&
+    action !== "create-website";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -276,7 +252,6 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
                       <SelectItem value="create">Create Landing Page</SelectItem>
                       <SelectItem value="update">Update Page</SelectItem>
                       <SelectItem value="delete">Delete Page</SelectItem>
-                      <SelectItem value="list">List My Pages</SelectItem>
                       <SelectItem value="create-website">Create Website/Funnel</SelectItem>
                       <SelectItem value="add-page">Add Page to Website</SelectItem>
                       <SelectItem value="create-blog-post">Create Blog Post</SelectItem>
@@ -289,95 +264,30 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
               )}
             />
 
-            {action === "list" && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <div className="p-3 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Your Pages
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={fetchPages}
-                    disabled={loadingPages}
-                  >
-                    {loadingPages ? <Loader2 className="h-3 w-3 animate-spin" /> : "Refresh"}
-                  </Button>
-                </div>
-                {loadingPages ? (
-                  <div className="p-6 text-center text-sm text-gray-500">Loading pages...</div>
-                ) : pages.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-gray-500">No pages found.</div>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-60 overflow-y-auto">
-                    {pages.map((page) => {
-                      const docId = page.documentId || String(page.id);
-                      return (
-                        <div
-                          key={docId}
-                          className="px-3 py-2.5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {page.title}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              /{page.slug} &middot;{" "}
-                              <span
-                                className={
-                                  page.status === "published"
-                                    ? "text-green-600"
-                                    : "text-amber-600"
-                                }
-                              >
-                                {page.status}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 ml-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              title="Copy document ID"
-                              onClick={() => handleCopyId(docId)}
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
             {action === "create-website" && (
-              <FormField
-                control={form.control}
-                name="websiteType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <>
+                <FormField
+                  control={form.control}
+                  name="websitePrompt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Describe your website or funnel (required)</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
+                        <Textarea
+                          placeholder="e.g. A 3-page sales funnel: landing page with hero and CTA, checkout page with offer bump, thank you page with upsell. Or: A simple 5-page business website with home, about, services, contact, and blog listing."
+                          rows={4}
+                          className="resize-none"
+                          {...field}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="website">Website</SelectItem>
-                        <SelectItem value="funnel">Sales Funnel</SelectItem>
-                        <SelectItem value="blog">Blog</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormDescription>
+                        When the workflow runs, AI will generate the full site (title, type, and all pages with sections and SEO) and create it. Required.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             {needsWebsiteId && (
@@ -436,8 +346,8 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {action.includes("blog") ? "Post Title" : action === "create-website" ? "Website Title" : "Page Title"}
-                      {["create", "create-website", "add-page", "create-blog-post"].includes(action) && " (required)"}
+                      {action.includes("blog") ? "Post Title" : "Page Title"}
+                      {["create", "add-page", "create-blog-post"].includes(action) && " (required)"}
                     </FormLabel>
                     <FormControl>
                       <Input placeholder="My Landing Page" {...field} />
@@ -460,7 +370,7 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
                       <Input placeholder="Document ID" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Use List Pages to find IDs, or Handlebars: {"{{strapi.pageId}}"}
+                      Find IDs on the Sites page, or use Handlebars: {"{{strapi.pageId}}"}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -609,9 +519,7 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
             )}
 
             <DialogFooter>
-              <Button type="submit">
-                {action === "list" ? "Save Configuration" : "Save Configuration"}
-              </Button>
+              <Button type="submit">Save Configuration</Button>
             </DialogFooter>
           </form>
         </Form>

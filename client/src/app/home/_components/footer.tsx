@@ -21,7 +21,7 @@ export function Footer() {
               <span className="text-xl font-bold text-gray-900 tracking-tight">Verxio</span>
             </Link>
             <p className="text-sm text-gray-500 leading-relaxed">
-              AI coworker platform for every team. Turn any chat channel into an automation hub.
+              AI coworker that ships, sells, and scales your business.
             </p>
           </div>
 
@@ -70,7 +70,7 @@ export function Footer() {
                   Twitter / X
                 </a>
               </li>
-              <li>
+              {/* <li>
                 <a
                   href=""
                   target="_blank"
@@ -78,6 +78,16 @@ export function Footer() {
                   className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
                 >
                   GitHub
+                </a>
+              </li> */}
+              <li>
+                <a
+                  href="https://blog.verxio.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  Blog
                 </a>
               </li>
             </ul>

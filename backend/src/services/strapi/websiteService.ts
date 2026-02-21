@@ -291,4 +291,15 @@ export async function verifyCustomDomain(documentId: string): Promise<Website> {
   return result.data;
 }
 
+export function getWebsitePublicUrl(
+  userId: string,
+  website: { slug: string; customDomain?: string | null; domainVerified?: boolean }
+): string {
+  if (website.customDomain && website.domainVerified) {
+    const domain = String(website.customDomain).replace(/^https?:\/\//, "").split("/")[0];
+    return `https://${domain}`;
+  }
+  return getPublicSiteUrl(userId, website.slug);
+}
+
 export { getPublicSiteUrl };

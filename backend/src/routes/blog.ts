@@ -2,9 +2,11 @@
  * Blog Routes
  *
  * REST endpoints for managing blog posts within websites.
+ * All routes require Better Auth (X-User-Email from session).
  */
 
 import { Router, Request, Response, NextFunction } from "express";
+import { betterAuthMiddleware } from "@/middleware/betterAuth";
 import {
   createBlogPost,
   updateBlogPost,
@@ -20,6 +22,8 @@ import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
 
 const router = Router();
+
+router.use(betterAuthMiddleware);
 
 function ensureStrapiConfigured(_req: Request, res: Response, next: NextFunction) {
   if (!isStrapiConfigured()) {

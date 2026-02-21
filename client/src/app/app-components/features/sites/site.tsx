@@ -11,7 +11,9 @@ import {
   EntityList,
   EntityItem,
 } from "../editor/entity-component";
-import { Globe } from "lucide-react";
+import { Globe, CopyIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export interface WebsiteSummary {
   documentId: string;
@@ -22,6 +24,8 @@ export interface WebsiteSummary {
   status: string;
   pages?: Array<{ title: string; slug: string; status: string }>;
   createdAt: string;
+  /** Public URL (custom domain if set and verified, else default). */
+  url?: string;
 }
 
 export interface LandingPageSummary {
@@ -31,6 +35,8 @@ export interface LandingPageSummary {
   slug: string;
   status: string;
   createdAt?: string;
+  /** Public URL for the page. */
+  url?: string;
 }
 
 export type SiteItem = { kind: "website"; data: WebsiteSummary } | { kind: "page"; data: LandingPageSummary };
@@ -185,6 +191,29 @@ function SiteListItem({
     await onDelete(item.kind, id);
   };
 
+  const url = item.data.url;
+  const copyAction =
+    url ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        title="Copy link"
+        onClick={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            await navigator.clipboard.writeText(url);
+            toast.success("Link copied to clipboard");
+          } catch {
+            toast.error("Failed to copy link");
+          }
+        }}
+      >
+        <CopyIcon className="size-4" />
+      </Button>
+    ) : undefined;
+
   return (
     <EntityItem
       href={href}
@@ -195,6 +224,7 @@ function SiteListItem({
           <Globe className="size-5" />
         </div>
       }
+      action={copyAction}
       onRemove={item.kind === "website" || item.kind === "page" ? handleRemove : undefined}
       isRemoving={isDeleting}
     />

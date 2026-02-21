@@ -2437,6 +2437,10 @@ const createLandingPageTool: VerxioTool = {
             .array(z.record(z.string(), z.unknown()))
             .optional()
             .describe("Items array for features, testimonials, pricing, faq, gallery sections"),
+          media: z
+            .array(z.object({ url: z.string().describe("Image or embed URL"), alt: z.string().optional().describe("Alt text for images") }))
+            .optional()
+            .describe("For hero: one image. For gallery: multiple images. For video: one embed URL. Use image URLs from DESIGN/DESIGN_PRO outputs or user-provided URLs."),
         })
       )
       .describe("Page sections in order"),
@@ -2445,6 +2449,13 @@ const createLandingPageTool: VerxioTool = {
         metaTitle: z.string().optional(),
         metaDescription: z.string().optional(),
         keywords: z.array(z.string()).optional(),
+        ogImage: z.string().optional().describe("Image URL for Open Graph and social previews"),
+        ogTitle: z.string().optional(),
+        ogDescription: z.string().optional(),
+        twitterCard: z.string().optional(),
+        twitterTitle: z.string().optional(),
+        twitterDescription: z.string().optional(),
+        twitterImage: z.string().optional(),
       })
       .optional()
       .describe("SEO metadata"),
@@ -2595,6 +2606,10 @@ const addPageToWebsiteTool: VerxioTool = {
           body: z.string().optional(),
           buttons: z.array(z.object({ label: z.string(), url: z.string(), variant: z.string().optional() })).optional(),
           items: z.array(z.record(z.string(), z.unknown())).optional(),
+          media: z
+            .array(z.object({ url: z.string(), alt: z.string().optional() }))
+            .optional()
+            .describe("Hero: one image. Gallery: multiple images. Video: one embed URL. Use DESIGN output imageUrl or user-provided URLs."),
         })
       )
       .describe("Page sections"),

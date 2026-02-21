@@ -68,6 +68,7 @@ export const betterAuthMiddleware = async (req: Request, res: Response, next: Ne
 
     // Attach user info to request for use in routes
     (req as any).user = betterAuthUser;
+    (req as any).userId = betterAuthUser.id; // Used by /websites, /strapi, /blog
     (req as any).userEmail = userEmail;
 
     next();

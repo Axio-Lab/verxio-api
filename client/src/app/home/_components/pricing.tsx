@@ -112,7 +112,7 @@ export function Pricing() {
             Simple, transparent pricing
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            Start free, scale as you grow. Need more credits? Purchase additional packs anytime
+          Choose your plan and scale as you grow. Need more credits? Purchase additional packs anytime
             without upgrading.
           </p>
         </div>

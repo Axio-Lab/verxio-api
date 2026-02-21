@@ -19,7 +19,6 @@ import {
   ImageIcon,
   Bot,
   ArrowUp,
-  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -399,7 +398,7 @@ export const PlanDialog = ({
         // Invalidate the query
         await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
 
-        toast.success("Workflow created! Click 'Save Plan' to update the canvas.");
+        toast.success("Workflow created! The canvas will update automatically.");
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -471,32 +470,16 @@ export const PlanDialog = ({
               <p className="text-[11px] text-muted-foreground leading-none">Workflow planner</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleSave}
-              disabled={isSaving}
-              title="Save plan"
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground"
-              onClick={() => setShowClearConfirm(true)}
-              disabled={conversationHistory.length === 0 || isSending}
-              title="Clear conversation"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground mr-8"
+            onClick={() => setShowClearConfirm(true)}
+            disabled={conversationHistory.length === 0 || isSending}
+            title="Clear conversation"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
 
         {/* Messages area */}
@@ -538,11 +521,10 @@ export const PlanDialog = ({
                     </div>
                   )}
                   <div
-                    className={`max-w-[85%] ${
-                      msg.role === "user"
+                    className={`max-w-[85%] ${msg.role === "user"
                         ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
                         : "flex-1 min-w-0"
-                    }`}
+                      }`}
                   >
                     {msg.role === "assistant" ? (
                       <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-xs [&_code]:text-xs [&_p]:text-sm [&_p]:leading-relaxed [&_li]:text-sm [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
@@ -606,11 +588,10 @@ export const PlanDialog = ({
                     {agentProgress.map((progress, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground">
                         <div
-                          className={`w-1 h-1 rounded-full flex-shrink-0 ${
-                            idx === agentProgress.length - 1
+                          className={`w-1 h-1 rounded-full flex-shrink-0 ${idx === agentProgress.length - 1
                               ? "bg-foreground/50 animate-pulse"
                               : "bg-green-500"
-                          }`}
+                            }`}
                         />
                         <span>{progress.status}</span>
                       </div>

@@ -22,10 +22,49 @@ import { createTrace, endTrace, type TraceMetadata } from "../opikService";
 import { getComposioMcpUrl } from "../composio/composioService";
 import { checkFeatureAccess } from "../subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
-import { consumePremiumQuota } from "../subscriptionService";
-import { QUOTA_COST } from "../../config/rate-limits";
+
 
 const prisma = basePrismaClient as any;
+
+// ============================================
+// Simple text generation via Claude Agent SDK (no MCP, no tools)
+// ============================================
+// Single-turn query with custom system prompt. Uses AGENT_CLAUDE_MODEL.
+// Used by Strapi (website/page JSON generation) and other simple LLM calls.
+
+export async function generateTextWithSystemPrompt(options: {
+  systemPrompt: string;
+  userPrompt: string;
+  model?: string;
+}): Promise<{ text: string }> {
+  const model = options.model || process.env.AGENT_CLAUDE_MODEL!;
+  const result = query({
+    prompt: options.userPrompt,
+    options: {
+      model,
+      systemPrompt: options.systemPrompt,
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      mcpServers: {},
+      tools: [],
+      maxTurns: 1,
+    },
+  });
+  let text = "";
+  for await (const message of result) {
+    if (message.type === "assistant" && message.message?.content) {
+      for (const block of message.message.content) {
+        if (block.type === "text") text += block.text;
+      }
+    }
+    if (message.type === "result" && (message as any).subtype === "success") {
+      const r = (message as any).result;
+      if (typeof r === "string") text = r;
+      break;
+    }
+  }
+  return { text };
+}
 
 // ============================================
 // Types
@@ -241,9 +280,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       getUserContext(userId, workflowId),
       hasComposioAccess
         ? getComposioMcpUrl(userId).catch((err) => {
-            console.error("[Composio] Failed to load MCP URL:", err);
-            return null;
-          })
+          console.error("[Composio] Failed to load MCP URL:", err);
+          return null;
+        })
         : Promise.resolve(null),
     ]);
     userMcpServers = mcpServers;
@@ -256,9 +295,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       getUserContext(userId, workflowId),
       hasComposioAccess
         ? getComposioMcpUrl(userId).catch((err) => {
-            console.error("[Composio] Failed to load MCP URL:", err);
-            return null;
-          })
+          console.error("[Composio] Failed to load MCP URL:", err);
+          return null;
+        })
         : Promise.resolve(null),
     ]);
     userContext = context;
@@ -379,9 +418,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         error: errorMessage,
         usage: lastResult?.usage
           ? {
-              inputTokens: lastResult.usage.input_tokens,
-              outputTokens: lastResult.usage.output_tokens,
-            }
+            inputTokens: lastResult.usage.input_tokens,
+            outputTokens: lastResult.usage.output_tokens,
+          }
           : undefined,
         cost: lastResult?.total_cost_usd,
       },
@@ -714,10 +753,17 @@ Read the conversation to decide whether the user needs a **workflow** (multi-ste
 **If the single-node execution fails (success: false),** tell the user in plain language what went wrong (e.g. "I couldn’t read your calendar because ...") and suggest fixing credentials or trying again.
 
 ## Plan Mode: Plan First, Build Only After Approval (CRITICAL)
+**SCOPE: Plan mode applies ONLY to multi-node WORKFLOW creation (addNode, configureNode, connectNodes).** It does NOT apply to:
+- Strapi operations (createLandingPage, createWebsite, addPageToWebsite, createBlogPost, updateBlogPost, deleteBlogPost) — execute these IMMEDIATELY when the user's request is clear
+- Direct tool calls (image generation, video generation, Composio actions, browseWebsite)
+- Single-node execution via executeSingleNodeAndWait
+
+For Strapi and direct tool calls: if the user says "create a landing page about X" or "build me a website for Y", Explain to the user the plan on what to build and then build it. Do NOT describe what you will create and then stop. Do NOT output "Creating now..." without actually invoking the tool. The user's request IS the instruction.
+
 The goal of plan mode is to **deeply plan with the user**. You must NEVER zoom off and build a workflow until the user has seen and approved a plan.
 
 **1. Always present a plan for review first**
-- When the user wants a workflow (e.g. "build a Telegram bot", "create the workflow", "I want to automate X"), respond with a **clear, reviewable plan**:
+- When the user wants a **workflow** (e.g. "build a Telegram bot", "create the workflow", "I want to automate X"), respond with a **clear, reviewable plan**:
   - **Summary**: 2–4 sentences of what the workflow will do
   - **Nodes in order**: Trigger → Node1 → Node2 → … (with brief purpose for each)
   - **Required credentials**: What the user must connect (e.g. Telegram, Anthropic)
@@ -768,8 +814,8 @@ Example sequence for replacing/adding nodes:
 - connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
 
 ## Important
-- **Plan first, build after approval**: Always show a reviewable plan before using any workflow-modifying tools; only build when the user explicitly approves.
-- **Tell the user what you're doing before execution** (single-node or workflow): like the plan node, give them a chance to review and request changes before you run. Nodes you add/configure are saved to the workflow.
+- **Plan first, build after approval**: For WORKFLOWS only. Show a reviewable plan before using workflow-modifying tools (addNode, configureNode, connectNodes); only build when the user explicitly approves.
+- **Strapi tools (landing pages, websites, funnels, blogs) are NOT workflows**: Execute them immediately. Do not plan or ask for confirmation. If the user says "create a page about X", call createLandingPage in the same turn with fully generated content.
 - **Fill all required fields** for each node; tell the user clearly if something is required and missing (e.g. credentials, calendar ID).
 - ALWAYS use the current workflow ID when adding nodes - do NOT create a new workflow
 - When generating a new workflow, REPLACE existing nodes to avoid duplicates on canvas
@@ -811,12 +857,11 @@ When asked "who are you", respond with your name and personality — you are ${n
 ## Your Personality (soul.md)
 ${soulMd}
 
-${
-  evolvePersonality
-    ? `## Personality Evolution
+${evolvePersonality
+        ? `## Personality Evolution
 You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
-    : ""
-}
+        : ""
+      }
 ---
 
 `;
@@ -948,12 +993,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-          .map((name) => {
-            const value = context[name];
-            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-          })
-          .join("\n")
+        .map((name) => {
+          const value = context[name];
+          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+        })
+        .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

@@ -13,6 +13,7 @@ export const strapiExecutor: NodeExecutor = async ({
 }) => {
   const action = (data.action as string) || "create";
   const pageTitle = data.pageTitle as string | undefined;
+  const websitePrompt = (data.websitePrompt as string) || "";
   const sectionsJson = data.sections as string | undefined;
   const seoJson = data.seo as string | undefined;
   const pageId = data.pageId as string | undefined;
@@ -27,8 +28,11 @@ export const strapiExecutor: NodeExecutor = async ({
   if ((action === "update" || action === "delete") && !pageId) {
     throw new NonRetriableError(`STRAPI node requires 'pageId' for ${action} action.`);
   }
-  if (action === "create-website" && !pageTitle) {
-    throw new NonRetriableError("STRAPI node requires 'pageTitle' for create-website action.");
+  const createWebsiteWithPrompt = action === "create-website" && websitePrompt.trim().length > 0;
+  if (action === "create-website" && !createWebsiteWithPrompt) {
+    throw new NonRetriableError(
+      "STRAPI node create-website requires a description (prompt) of the website or funnel you want."
+    );
   }
   if (action === "add-page" && (!websiteId || !pageTitle)) {
     throw new NonRetriableError("STRAPI node requires 'websiteId' and 'pageTitle' for add-page action.");
@@ -37,7 +41,7 @@ export const strapiExecutor: NodeExecutor = async ({
     throw new NonRetriableError("STRAPI node requires 'websiteId', 'pageTitle', and 'blogContent' for create-blog-post.");
   }
 
-  // Premium: check subscription and consume credits
+  // Premium: check subscription and consume credits (create-website-from-prompt consumes after creation)
   const { checkNodeAccess } = await import("@/services/subscriptionCheck");
   await checkNodeAccess(userId, "STRAPI");
 
@@ -45,25 +49,29 @@ export const strapiExecutor: NodeExecutor = async ({
   const { QUOTA_COST } = await import("@/config/rate-limits");
   const isBlogAction = action.includes("blog");
   const creditCost = isBlogAction ? QUOTA_COST.STRAPI_BLOG : QUOTA_COST.STRAPI;
-  try {
-    await step.run(`strapi-consume-quota-${nodeId}`, async () => {
-      await consumePremiumQuota(userId, creditCost);
-      return { consumed: true };
-    });
-  } catch (quotaError) {
-    await publish(strapiChannel().status({ nodeId, status: "error" }));
-    const err = new NonRetriableError(
-      quotaError instanceof Error
-        ? quotaError.message
-        : "Rate limit exceeded. Upgrade or wait for reset."
-    );
-    await publish(
-      strapiChannel().output({
-        nodeId,
-        output: { ...context, error: { message: err.message } },
-      })
-    );
-    throw err;
+  const skipInitialConsume = createWebsiteWithPrompt;
+
+  if (!skipInitialConsume) {
+    try {
+      await step.run(`strapi-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(userId, creditCost);
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publish(strapiChannel().status({ nodeId, status: "error" }));
+      const err = new NonRetriableError(
+        quotaError instanceof Error
+          ? quotaError.message
+          : "Rate limit exceeded. Upgrade or wait for reset."
+      );
+      await publish(
+        strapiChannel().output({
+          nodeId,
+          output: { ...context, error: { message: err.message } },
+        })
+      );
+      throw err;
+    }
   }
 
   // Compile Handlebars templates
@@ -166,11 +174,20 @@ export const strapiExecutor: NodeExecutor = async ({
           };
         }
         case "create-website": {
-          const { createWebsite } = await import("@/services/strapi/websiteService");
-          const website = await createWebsite(userId, {
-            title: compiledTitle!,
-            type: (data.websiteType as "website" | "funnel" | "blog") || "website",
-            status: (data.publishStatus as "draft" | "published") || "draft",
+          const compiledPrompt = compile(websitePrompt.trim());
+          const { createWebsiteFromPrompt } = await import(
+            "@/services/strapi/websiteFromPromptService"
+          );
+          const { website, pages: createdPages } = await step.run(
+            `strapi-create-website-from-prompt-${nodeId}`,
+            async () => createWebsiteFromPrompt(userId, compiledPrompt)
+          );
+          const totalCredits = 1 + createdPages.length;
+          await step.run(`strapi-consume-quota-prompt-${nodeId}`, async () => {
+            for (let i = 0; i < totalCredits; i++) {
+              await consumePremiumQuota(userId, QUOTA_COST.STRAPI);
+            }
+            return { consumed: totalCredits };
           });
           return {
             action: "create-website",
@@ -180,6 +197,8 @@ export const strapiExecutor: NodeExecutor = async ({
             type: website.type,
             url: getPublicSiteUrl(userId, website.slug),
             status: website.status,
+            pagesCreated: createdPages.length,
+            pageIds: createdPages.map((p) => p.documentId || p.id),
           };
         }
         case "add-page": {

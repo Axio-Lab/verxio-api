@@ -1,4 +1,66 @@
+"use client";
+
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+/** Use media-proxy for ngrok URLs so the browser gets the image instead of the interstitial page. */
+function imageSrc(url: string): string {
+  if (typeof url !== "string" || !url) return url;
+  if (url.includes("ngrok")) {
+    return `/api/media-proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
+/** Renders markdown body text with funnel-style typography (bold, lists, paragraphs, line breaks). */
+function SectionBody({
+  content,
+  className = "",
+  centered = false,
+}: {
+  content: string;
+  className?: string;
+  centered?: boolean;
+}) {
+  if (!content?.trim()) return null;
+  const wrapperClass = centered ? "text-center" : "";
+  return (
+    <div className={`section-body ${wrapperClass} ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => (
+            <p className="mt-3 first:mt-0 last:mb-0 text-[inherit] leading-relaxed whitespace-pre-line">
+              {children}
+            </p>
+          ),
+          strong: ({ children }) => (
+            <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>
+          ),
+          ul: ({ children }) => (
+            <ul className="mt-4 space-y-2 list-disc pl-6 text-left [&>li]:leading-relaxed text-[inherit]">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="mt-4 space-y-2 list-decimal pl-6 text-left [&>li]:leading-relaxed text-[inherit]">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => <li>{children}</li>,
+          h3: ({ children }) => (
+            <h3 className="mt-4 mb-1 text-sm font-semibold text-gray-900 dark:text-white">
+              {children}
+            </h3>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export interface SectionData {
   type: string;
@@ -46,7 +108,20 @@ function HeroSection({ section }: { section: SectionData }) {
           </p>
         )}
         {section.body && (
-          <p className="mt-4 text-base text-gray-500 dark:text-gray-400">{section.body}</p>
+          <div className="mt-4 text-base text-gray-500 dark:text-gray-400">
+            <SectionBody content={section.body} />
+          </div>
+        )}
+        {section.media && section.media.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <div className="relative w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+              <img
+                src={imageSrc(section.media[0].url)}
+                alt={section.media[0].alt || section.heading || "Hero"}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
         )}
         {section.buttons && section.buttons.length > 0 && (
           <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -82,6 +157,17 @@ function FeaturesSection({ section }: { section: SectionData }) {
         {section.subheading && (
           <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{section.subheading}</p>
         )}
+        {section.media && section.media.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <div className="relative w-full max-w-xl rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-video">
+              <img
+                src={imageSrc(section.media[0].url)}
+                alt={section.media[0].alt || section.heading || ""}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        )}
         {section.items && (
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {section.items.map((item, i) => (
@@ -108,8 +194,21 @@ function CTASection({ section }: { section: SectionData }) {
         {section.heading && (
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{section.heading}</h2>
         )}
+        {section.media && section.media.length > 0 && (
+          <div className="mt-6 flex justify-center">
+            <div className="relative w-full max-w-2xl rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-video">
+              <img
+                src={imageSrc(section.media[0].url)}
+                alt={section.media[0].alt || section.heading || ""}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        )}
         {section.body && (
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">{section.body}</p>
+          <div className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+            <SectionBody content={section.body} centered />
+          </div>
         )}
         {section.buttons && section.buttons.length > 0 && (
           <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -135,6 +234,20 @@ function TestimonialsSection({ section }: { section: SectionData }) {
       <div className="max-w-6xl mx-auto">
         {section.heading && (
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+        )}
+        {section.subheading && (
+          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{section.subheading}</p>
+        )}
+        {section.media && section.media.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <div className="relative w-full max-w-md rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-video">
+              <img
+                src={imageSrc(section.media[0].url)}
+                alt={section.media[0].alt || section.heading || ""}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
         )}
         {section.items && (
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -238,7 +351,7 @@ function VideoSection({ section }: { section: SectionData }) {
         {section.media?.[0]?.url && (
           <div className="aspect-video rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
             <iframe
-              src={section.media[0].url}
+              src={imageSrc(section.media[0].url)}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -246,7 +359,9 @@ function VideoSection({ section }: { section: SectionData }) {
           </div>
         )}
         {section.body && (
-          <p className="mt-6 text-gray-600 dark:text-gray-300">{section.body}</p>
+          <div className="mt-6 text-gray-600 dark:text-gray-300">
+            <SectionBody content={section.body} centered />
+          </div>
         )}
       </div>
     </section>
@@ -265,7 +380,7 @@ function GallerySection({ section }: { section: SectionData }) {
             {section.media.map((img, i) => (
               <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
                 <img
-                  src={img.url}
+                  src={imageSrc(img.url)}
                   alt={img.alt || ""}
                   className="w-full h-full object-cover"
                 />
@@ -333,7 +448,9 @@ function CheckoutSection({ section }: { section: SectionData }) {
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
         )}
         {section.body && (
-          <p className="mt-4 text-center text-lg text-gray-600 dark:text-gray-300">{section.body}</p>
+          <div className="mt-4 text-center text-lg text-gray-600 dark:text-gray-300">
+            <SectionBody content={section.body} centered />
+          </div>
         )}
         {section.items && section.items.length > 0 && (
           <div className="mt-8 space-y-3">
@@ -443,8 +560,8 @@ function GenericSection({ section }: { section: SectionData }) {
           <p className="mt-4 text-gray-600 dark:text-gray-300">{section.subheading}</p>
         )}
         {section.body && (
-          <div className="mt-6 text-gray-600 dark:text-gray-400 prose dark:prose-invert mx-auto">
-            <p>{section.body}</p>
+          <div className="mt-6 text-gray-600 dark:text-gray-400">
+            <SectionBody content={section.body} centered />
           </div>
         )}
       </div>

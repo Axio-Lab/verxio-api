@@ -2,9 +2,11 @@
  * Website Routes
  *
  * REST endpoints for managing multi-page websites, funnels, and their pages.
+ * All routes require Better Auth (X-User-Email from session).
  */
 
 import { Router, Request, Response, NextFunction } from "express";
+import { betterAuthMiddleware } from "@/middleware/betterAuth";
 import {
   createWebsite,
   updateWebsite,
@@ -18,6 +20,7 @@ import {
   countUserPages,
   setCustomDomain,
   getPublicSiteUrl,
+  getWebsitePublicUrl,
 } from "@/services/strapi/websiteService";
 import { isStrapiConfigured } from "@/services/strapi/strapiService";
 import { checkFeatureAccess } from "@/services/subscriptionCheck";
@@ -26,6 +29,8 @@ import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
 
 const router = Router();
+
+router.use(betterAuthMiddleware);
 
 function ensureStrapiConfigured(_req: Request, res: Response, next: NextFunction) {
   if (!isStrapiConfigured()) {
@@ -74,7 +79,9 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
     const websites = await listUserWebsites(userId);
-    res.json({ websites });
+    res.json({
+      websites: websites.map((w) => ({ ...w, url: getWebsitePublicUrl(userId, w) })),
+    });
   } catch (error) {
     next(error);
   }

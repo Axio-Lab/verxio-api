@@ -439,8 +439,6 @@ export const EntityItem = ({
             </div>
           )}
         </CardContent>
-
-        {action}
       </Card>
     </Link>
   );

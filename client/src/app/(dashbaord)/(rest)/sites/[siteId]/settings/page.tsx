@@ -30,6 +30,7 @@ export default function SiteSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [customDomain, setCustomDomain] = useState("");
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -60,6 +61,23 @@ export default function SiteSettingsPage() {
       toast.error(err?.message || "Failed to set domain. Business plan required.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerifyDomain = async () => {
+    setVerifying(true);
+    try {
+      const data = await authenticatedPost<{ website: Website; verified: boolean; message?: string }>(
+        `/websites/${siteId}/domain/verify`
+      );
+      setWebsite(data.website);
+      if (data.verified) toast.success(data.message || "Domain verified.");
+      else toast.error("Verification failed. Check that your CNAME points to pages.verxio.xyz");
+    } catch (err: any) {
+      const msg = err?.message || "Verification failed.";
+      toast.error(msg);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -125,7 +143,7 @@ export default function SiteSettingsPage() {
               </Button>
             </div>
             {website.customDomain && (
-              <div className="text-xs space-y-1">
+              <div className="text-xs space-y-2">
                 <p className="text-muted-foreground">
                   Current: <span className="font-mono text-foreground">{website.customDomain}</span>
                 </p>
@@ -138,6 +156,17 @@ export default function SiteSettingsPage() {
                     ? "Domain verified and active"
                     : "Pending verification. Add a CNAME record pointing to pages.verxio.xyz"}
                 </p>
+                {!website.domainVerified && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVerifyDomain}
+                    disabled={verifying}
+                  >
+                    {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify domain"}
+                  </Button>
+                )}
               </div>
             )}
           </div>
