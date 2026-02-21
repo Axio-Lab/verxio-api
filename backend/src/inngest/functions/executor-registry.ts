@@ -27,6 +27,8 @@ import { gmailExecutor } from "./actions/gmail";
 import { airtableExecutor } from "./actions/airtable";
 import { codeBlockExecutor } from "./actions/code-block";
 import { composioActionExecutor } from "./actions/composio-action";
+import { tinyfishExecutor } from "./actions/tinyfish";
+import { strapiExecutor } from "./actions/strapi";
 import { designExecutor } from "./actions/design";
 import { designProExecutor } from "./actions/designPro";
 import { loyaltyDealExecutor } from "./actions/loyalty-deal";
@@ -116,6 +118,10 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.SEEDREAM]: seedreamExecutor as NodeExecutor,
   // COMPOSIO_ACTION node for executing any of 10,000+ Composio actions
   [NodeType.COMPOSIO_ACTION]: composioActionExecutor as NodeExecutor,
+  // TINYFISH node for AI-powered web automation
+  [NodeType.TINYFISH]: tinyfishExecutor as NodeExecutor,
+  // STRAPI node for landing page creation and management
+  [NodeType.STRAPI]: strapiExecutor as NodeExecutor,
 };
 
 /**

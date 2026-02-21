@@ -4,6 +4,7 @@ import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
   Crown,
   FolderOpenIcon,
+  Globe,
   KeyIcon,
   LayoutTemplate,
   LogOutIcon,
@@ -70,6 +71,11 @@ const menuItems = [
         title: "Skills",
         url: "/skills",
         icon: <BookOpen />,
+      },
+      {
+        title: "My Sites",
+        url: "/sites",
+        icon: <Globe />,
       },
     ],
   },
@@ -254,7 +260,11 @@ export const AppSidebar = () => {
                             ? "menu-templates"
                             : subItem.url === "/credentials"
                               ? "menu-credentials"
-                              : undefined
+                              : subItem.url === "/integrations"
+                                ? "menu-integrations"
+                                : subItem.url === "/skills"
+                                  ? "menu-skills"
+                                  : undefined
                       }
                       tooltip={item.title}
                       isActive={isActive(subItem.url)}

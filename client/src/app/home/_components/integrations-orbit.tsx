@@ -40,7 +40,11 @@ export function IntegrationsOrbit() {
   }, []);
 
   return (
-    <section ref={containerRef} className="relative pt-8 pb-24 sm:pt-10 sm:pb-28 overflow-hidden">
+    <section
+      id="integrations"
+      ref={containerRef}
+      className="relative pt-8 pb-24 sm:pt-10 sm:pb-28 overflow-hidden"
+    >
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         {/* Heading */}
         <div className="mx-auto max-w-2xl text-center mb-12 sm:mb-16">

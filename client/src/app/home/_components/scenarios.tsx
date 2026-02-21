@@ -66,4 +66,29 @@ export const SCENARIOS: SimulationScenario[] = [
     ],
     completion: { name: "Content Bot is live", summary: "3 skills, Slack, 8 nodes" },
   },
+  {
+    prompt:
+      '"Build me a sales funnel with a landing page, checkout with offer bump, and thank-you page with upsell"',
+    steps: [
+      { label: "Creating website", detail: "Sales Funnel" },
+      { label: "Adding page", detail: "Lead Capture Landing Page" },
+      { label: "Adding page", detail: "Checkout with Offer Bump" },
+      { label: "Adding page", detail: "Thank You + Upsell" },
+      { label: "Generating SEO", detail: "All pages optimized" },
+      { label: "Publishing", detail: "3 pages live" },
+    ],
+    completion: { name: "Sales Funnel is live", summary: "3 pages, SEO-optimized, hosted" },
+  },
+  {
+    prompt: '"Create a company blog and write 3 SEO-optimized posts about AI automation"',
+    steps: [
+      { label: "Creating website", detail: "Company Blog" },
+      { label: "Adding page", detail: "Blog Listing Page" },
+      { label: "Writing post", detail: "How AI Automation Saves 20 Hours/Week" },
+      { label: "Writing post", detail: "5 Workflows Every Team Should Automate" },
+      { label: "Writing post", detail: "The Future of AI Coworkers" },
+      { label: "Publishing", detail: "Blog + 3 posts live" },
+    ],
+    completion: { name: "Company Blog is live", summary: "1 site, 3 posts, SEO-optimized" },
+  },
 ];

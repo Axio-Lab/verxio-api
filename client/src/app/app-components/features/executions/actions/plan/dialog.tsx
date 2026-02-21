@@ -8,39 +8,31 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, Trash2, Send, Paperclip, X, FileText, ImageIcon } from "lucide-react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import {
+  Loader2,
+  Trash2,
+  Send,
+  Paperclip,
+  X,
+  FileText,
+  ImageIcon,
+  Bot,
+  ArrowUp,
+} from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   authenticatedGet,
   authenticatedPost,
   authenticatedDelete,
   getAuthHeaders,
 } from "@/lib/api-client";
-import { Textarea } from "@/components/ui/textarea";
 import { useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
 
-const formSchema = z.object({
-  // PLAN nodes don't execute, so variables and label are not needed
-  // Removed to give more space to the conversation interface
-});
-
-export type PlanFormValues = z.infer<typeof formSchema>;
+export type PlanFormValues = Record<string, never>;
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -116,10 +108,14 @@ export const PlanDialog = ({
     "executeSingleNodeAndWait", // agent may add/configure a node then run it; we still need to refetch and sync canvas
   ];
 
-  const form = useForm<PlanFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {},
-  });
+  // Auto-resize textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, []);
 
   // Load conversation history when dialog opens
   useEffect(() => {
@@ -402,7 +398,7 @@ export const PlanDialog = ({
         // Invalidate the query
         await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
 
-        toast.success("Workflow created! Click 'Save Plan' to update the canvas.");
+        toast.success("Workflow created! The canvas will update automatically.");
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -433,272 +429,278 @@ export const PlanDialog = ({
     }
   };
 
-  const handleSubmit = async (values: PlanFormValues) => {
+  const handleSave = async () => {
     setIsSaving(true);
     try {
-      // PLAN nodes don't need variables/label, but we still call onSubmit for consistency
-      await Promise.resolve(onSubmit(values || {}));
+      await Promise.resolve(onSubmit({} as PlanFormValues));
 
-      // Refresh the canvas without page reload
       if (onRefreshCanvas) {
-        toast.success("Updating canvas...");
         await onRefreshCanvas();
-        toast.success("Workflow updated!");
+        toast.success("Workflow updated");
       } else {
-        // Fallback: invalidate query and close
         await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
-        toast.success("Plan saved!");
+        toast.success("Plan saved");
       }
 
       onOpenChange(false);
       setIsSaving(false);
-    } catch (error) {
+    } catch {
       setIsSaving(false);
       toast.error("Failed to save plan");
     }
   };
 
+  const suggestionChips = [
+    "Email automation workflow",
+    "Social media content pipeline",
+    "Data processing and alerts",
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-lg sm:text-xl">Plan Workflow with AI</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            Brainstorm and ideate your workflow with Verxio. Upload API docs, images, or documents
-            to provide context. When ready, approve to generate the workflow.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
-            <div className="space-y-3 sm:space-y-4 mt-2 sm:mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
-              {/* Chat Interface - Full width now that variables/label are removed */}
-              <div className="border rounded-lg p-2 sm:p-4 bg-muted/30 min-h-[300px] sm:min-h-[400px] max-h-[50vh] sm:max-h-[500px] overflow-y-auto flex flex-col">
-                {isLoadingHistory ? (
-                  <div className="flex items-center justify-center h-full min-h-[150px]">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : conversationHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-full min-h-[150px] text-muted-foreground">
-                    <div className="text-center px-4">
-                      <Sparkles className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-4 opacity-50" />
-                      <p className="text-sm sm:text-base">
-                        Start a conversation to plan your workflow
-                      </p>
-                      <p className="text-xs sm:text-sm mt-1 sm:mt-2">
-                        Upload files, ask questions, and iterate until ready
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3 sm:space-y-4 flex-1">
-                    {conversationHistory.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[90%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 overflow-hidden ${
-                            msg.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-card border border-border shadow-sm"
-                          }`}
-                        >
-                          {msg.role === "assistant" ? (
-                            <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none overflow-x-auto break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-all [&_p]:break-words [&_p]:text-xs [&_p]:sm:text-sm [&_li]:text-xs [&_li]:sm:text-sm [&_h1]:text-sm [&_h1]:sm:text-base [&_h2]:text-xs [&_h2]:sm:text-sm [&_h3]:text-xs [&_h3]:sm:text-sm [&_code]:text-[10px] [&_code]:sm:text-xs">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">
-                              {msg.content}
-                            </p>
-                          )}
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-current/20">
-                              <div className="flex flex-wrap gap-1">
-                                {msg.attachments.map((a, i) => (
-                                  <div
-                                    key={i}
-                                    className="flex items-center gap-1 bg-background/20 rounded px-1.5 py-0.5 text-[10px]"
-                                  >
-                                    {a.fileType?.startsWith("image/") ? (
-                                      <ImageIcon className="h-2.5 w-2.5" />
-                                    ) : (
-                                      <FileText className="h-2.5 w-2.5" />
-                                    )}
-                                    <span className="truncate max-w-[80px]">{a.fileName}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {isSending && !isCreatingWorkflow && (
-                      <div className="flex justify-start">
-                        <div className="bg-card border border-border shadow-sm rounded-lg p-2 sm:p-3">
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            Verxio is planning
-                            <span className="inline-block w-8">{thinkingDots}</span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {isCreatingWorkflow && agentProgress.length > 0 && (
-                      <div className="flex justify-start">
-                        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 sm:p-4 min-w-[250px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                            <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">
-                              Creating Workflow...
-                            </span>
-                          </div>
-                          <div className="space-y-1.5">
-                            {agentProgress.map((progress, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 text-xs text-muted-foreground"
-                              >
-                                <div
-                                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                    idx === agentProgress.length - 1
-                                      ? "bg-purple-500 animate-pulse"
-                                      : "bg-green-500"
-                                  }`}
-                                />
-                                <span>{progress.status}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-                )}
-              </div>
+      <DialogContent className="w-[95vw] max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-foreground/5">
+              <Bot className="h-4 w-4 text-foreground/70" />
+            </div>
+            <div>
+              <h2 className="text-sm font-medium">Verxio</h2>
+              <p className="text-[11px] text-muted-foreground leading-none">Workflow planner</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground mr-8"
+            onClick={() => setShowClearConfirm(true)}
+            disabled={conversationHistory.length === 0 || isSending}
+            title="Clear conversation"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
 
-              {/* Selected Files Preview */}
-              {selectedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded-lg border">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs border"
-                    >
-                      {file.type.startsWith("image/") ? (
-                        <ImageIcon className="h-3 w-3 text-muted-foreground" />
-                      ) : (
-                        <FileText className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      <span className="truncate max-w-[100px] sm:max-w-[150px]">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="ml-1 text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6">
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : conversationHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-5">
+              <div className="text-center">
+                <p className="text-base font-medium">What would you like to build?</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Describe your workflow or upload docs for context.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestionChips.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => {
+                      setMessage(chip);
+                      textareaRef.current?.focus();
+                    }}
+                    className="px-3 py-1.5 rounded-full border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 space-y-5">
+              {conversationHistory.map((msg, idx) => (
+                <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                  {msg.role === "assistant" && (
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center mt-0.5">
+                      <Bot className="h-3.5 w-3.5 text-foreground/60" />
                     </div>
-                  ))}
+                  )}
+                  <div
+                    className={`max-w-[85%] ${
+                      msg.role === "user"
+                        ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
+                        : "flex-1 min-w-0"
+                    }`}
+                  >
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-xs [&_code]:text-xs [&_p]:text-sm [&_p]:leading-relaxed [&_li]:text-sm [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div
+                        className={`flex flex-wrap gap-1.5 mt-2 ${msg.role === "user" ? "" : "ml-0"}`}
+                      >
+                        {msg.attachments.map((a, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 rounded-md bg-background/60 border px-2 py-0.5 text-[11px] text-muted-foreground"
+                          >
+                            {a.fileType?.startsWith("image/") ? (
+                              <ImageIcon className="h-3 w-3" />
+                            ) : (
+                              <FileText className="h-3 w-3" />
+                            )}
+                            <span className="truncate max-w-[100px]">{a.fileName}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {msg.role === "assistant" && (
+                      <p className="text-[10px] text-muted-foreground/50 mt-1.5">
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  {msg.role === "user" && (
+                    <p className="text-[10px] text-muted-foreground/50 self-end mb-0.5 flex-shrink-0">
+                      {new Date(msg.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {/* Thinking indicator */}
+              {isSending && !isCreatingWorkflow && (
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-foreground/60" />
+                  </div>
+                  <div className="flex items-center gap-1.5 py-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+                  </div>
                 </div>
               )}
 
-              {/* Message Input */}
-              <div className="flex gap-2">
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.txt,.md,.json,.csv"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+              {/* Workflow creation progress */}
+              {isCreatingWorkflow && agentProgress.length > 0 && (
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-foreground/5 flex items-center justify-center mt-0.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/60" />
+                  </div>
+                  <div className="space-y-1 py-1">
+                    {agentProgress.map((progress, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                      >
+                        <div
+                          className={`w-1 h-1 rounded-full flex-shrink-0 ${
+                            idx === agentProgress.length - 1
+                              ? "bg-foreground/50 animate-pulse"
+                              : "bg-green-500"
+                          }`}
+                        />
+                        <span>{progress.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                {/* File upload button */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSending || isUploading || !workflowId}
-                  className="h-[60px] sm:h-[80px] w-10 sm:w-12 flex-shrink-0"
-                  title="Attach files (images, PDFs, docs)"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-
-                <Textarea
-                  placeholder="Describe what you want to automate..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (
-                        (message.trim() || selectedFiles.length > 0) &&
-                        !isSending &&
-                        workflowId
-                      ) {
-                        handleSendMessage();
-                      }
-                    }
-                  }}
-                  rows={2}
-                  className="text-sm min-h-[60px] sm:min-h-[80px] resize-none"
-                  disabled={isSending || !workflowId}
-                />
-
-                <Button
-                  type="button"
-                  onClick={handleSendMessage}
-                  disabled={
-                    (!message.trim() && selectedFiles.length === 0) || isSending || !workflowId
-                  }
-                  size="icon"
-                  className="h-[60px] sm:h-[80px] w-10 sm:w-12 flex-shrink-0"
-                >
-                  {isSending || isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-start pt-2 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowClearConfirm(true)}
-                  disabled={conversationHistory.length === 0 || isSending}
-                  className="text-xs sm:text-sm"
-                >
-                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Clear Conversation</span>
-                  <span className="sm:hidden">Clear</span>
-                </Button>
-              </div>
+              <div ref={messagesEndRef} />
             </div>
+          )}
+        </div>
 
-            <DialogFooter className="flex-shrink-0 mt-2 sm:mt-4 pt-2 sm:pt-4 border-t">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={isSaving}
-                className="w-full sm:w-auto text-xs sm:text-sm"
-              >
-                {isSaving && (
-                  <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                )}
-                {isSaving ? "Saving..." : "Save Plan"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        {/* Input area */}
+        <div className="flex-shrink-0 border-t px-4 sm:px-6 py-3">
+          {/* File preview chips */}
+          {selectedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {selectedFiles.map((file, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 rounded-md border bg-muted/50 px-2 py-0.5 text-[11px]"
+                >
+                  {file.type.startsWith("image/") ? (
+                    <ImageIcon className="h-3 w-3 text-muted-foreground" />
+                  ) : (
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <span className="truncate max-w-[120px]">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    className="ml-0.5 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Compose row */}
+          <div className="relative flex items-end gap-2 rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring px-3 py-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.txt,.md,.json,.csv"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending || isUploading || !workflowId}
+              className="flex-shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+              title="Attach files"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+
+            <textarea
+              ref={textareaRef}
+              placeholder="Describe what you want to automate..."
+              value={message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                autoResize();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if ((message.trim() || selectedFiles.length > 0) && !isSending && workflowId) {
+                    handleSendMessage();
+                  }
+                }
+              }}
+              rows={1}
+              className="flex-1 resize-none bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none max-h-[120px] py-0.5"
+              disabled={isSending || !workflowId}
+            />
+
+            <button
+              type="button"
+              onClick={handleSendMessage}
+              disabled={(!message.trim() && selectedFiles.length === 0) || isSending || !workflowId}
+              className="flex-shrink-0 w-7 h-7 rounded-lg bg-foreground text-background flex items-center justify-center disabled:opacity-30 transition-opacity"
+            >
+              {isSending || isUploading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ArrowUp className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* Clear Confirmation Dialog */}
         <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
@@ -706,8 +708,7 @@ export const PlanDialog = ({
             <DialogHeader>
               <DialogTitle>Clear Conversation</DialogTitle>
               <DialogDescription>
-                Are you sure you want to clear the conversation history? This action cannot be
-                undone.
+                This will permanently delete the conversation history.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

@@ -31,6 +31,14 @@ export function Navbar() {
           <a href="#pricing" className="hover:text-gray-900 transition-colors">
             Pricing
           </a>
+          <a
+            href="https://blog.verxio.xyz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-900 transition-colors"
+          >
+            Blog
+          </a>
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -91,6 +99,15 @@ export function Navbar() {
             onClick={() => setMobileOpen(false)}
           >
             Pricing
+          </a>
+          <a
+            href="https://blog.verxio.xyz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-sm font-medium text-gray-600 hover:text-gray-900"
+            onClick={() => setMobileOpen(false)}
+          >
+            Blog
           </a>
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
             <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-gray-900">

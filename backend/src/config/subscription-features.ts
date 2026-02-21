@@ -20,6 +20,12 @@ export const SUBSCRIPTION_FEATURES = {
   TIMED_TRIGGER_NODE: "timed-trigger-node",
   KLING_NODES: "kling-nodes",
 
+  // External integrations (premium nodes)
+  COMPOSIO_ACTION_NODE: "composio-action-node",
+  TINYFISH_NODE: "tinyfish-node",
+  STRAPI_NODE: "strapi-node",
+  CUSTOM_DOMAIN: "custom-domain",
+
   // Chat integrations (agent replies when users message the connected number)
   TELEGRAM_CHAT_INTEGRATION: "telegram-chat-integration",
   WHATSAPP_CHAT_INTEGRATION: "whatsapp-chat-integration",
@@ -59,6 +65,10 @@ export const NODE_TYPE_TO_FEATURE: Record<string, SubscriptionFeature> = {
   KLING_MULTI_IMAGE2VIDEO: SUBSCRIPTION_FEATURES.KLING_NODES,
   KLING_MOTION_CONTROL: SUBSCRIPTION_FEATURES.KLING_NODES,
   KLING_MULTI_IMAGE2IMAGE: SUBSCRIPTION_FEATURES.KLING_NODES,
+  COMPOSIO_ACTION: SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE,
+  TINYFISH: SUBSCRIPTION_FEATURES.TINYFISH_NODE,
+  STRAPI: SUBSCRIPTION_FEATURES.STRAPI_NODE,
+  CUSTOM_DOMAIN: SUBSCRIPTION_FEATURES.CUSTOM_DOMAIN,
 };
 
 /**
@@ -87,7 +97,6 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
       // Beta testers get all features including experimental
       return Object.values(SUBSCRIPTION_FEATURES);
     case "pro":
-      // Pro plan gets all premium nodes but not experimental
       return [
         SUBSCRIPTION_FEATURES.GENERATE_WORKFLOW_WITH_AI,
         SUBSCRIPTION_FEATURES.PLAN_NODE,
@@ -99,12 +108,17 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.SEEDREAM_NODE,
         SUBSCRIPTION_FEATURES.TIMED_TRIGGER_NODE,
         SUBSCRIPTION_FEATURES.KLING_NODES,
+        SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE,
+        SUBSCRIPTION_FEATURES.TINYFISH_NODE,
+        SUBSCRIPTION_FEATURES.STRAPI_NODE,
         SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.DISCORD_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
+    case "business":
+      return [...getPlanFeatures("pro"), SUBSCRIPTION_FEATURES.CUSTOM_DOMAIN];
     default:
       return [];
   }

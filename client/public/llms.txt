@@ -1,0 +1,176 @@
+# Verxio
+
+> Verxio is an AI coworker platform that automates workflows, builds websites and funnels, manages blogs, and deploys intelligent agents to Slack, Discord, Telegram, and WhatsApp.
+
+## About Verxio
+
+Verxio is a SaaS platform designed for teams, marketers, agencies, and founders who want AI agents that do real work. Instead of building bots from scratch or stitching together dozens of tools, users describe what they need and Verxio creates, deploys, and manages AI-powered agents that operate across chat channels, automate multi-step workflows, and build entire websites.
+
+Verxio is not a chatbot builder. It is a full AI coworker platform where agents have persistent skills, domain knowledge, custom personalities, and access to 10,000+ actions across 800+ apps.
+
+Website: https://www.verxio.xyz
+Blog: https://blog.verxio.xyz
+Sign up: https://www.verxio.xyz/signup
+Login: https://www.verxio.xyz/login
+
+## Core Capabilities
+
+### AI Agents in Chat Channels
+Verxio agents deploy directly into Slack, Discord, Telegram, and WhatsApp workspaces. They join as team members, respond to mentions and direct messages, execute tasks, and report results. Each agent can be given a unique personality (soul.md), skills, and workflows. Agents can evolve their personality over time based on interactions.
+
+### Visual Workflow Builder
+A drag-and-drop canvas where users connect triggers, actions, conditions, AI model calls, and integrations into automated workflows. Nodes include webhook triggers, timed triggers, code blocks, AI model nodes (Anthropic Claude, OpenAI, Google Gemini), and integration nodes for 800+ apps. Workflows execute automatically when triggered.
+
+### AI-Built Websites, Funnels, and Blogs
+Users describe what they want in natural language and the AI agent builds complete, SEO-optimized websites. Supported content types include:
+- Single landing pages with hero, features, testimonials, pricing, FAQ, forms, and CTA sections
+- Multi-page websites with navigation, global styles, and per-page SEO
+- Sales funnels with lead capture, checkout (with order bumps), thank-you, upsell, and downsell pages
+- Blogs with listing pages, individual posts, categories, tags, and featured images
+
+All pages are hosted on pages.verxio.xyz with optional custom domain support (Business plan and above). Every page includes full SEO metadata: meta title, meta description, keywords, Open Graph tags, Twitter cards, canonical URLs, and JSON-LD structured data.
+
+### Custom Skills and Knowledge
+Each agent can be taught domain-specific knowledge through custom skills. Users upload documents, define procedures, and add tool integrations. Skills are scoped per agent or shared across agents. This allows agents to become experts in specific domains like customer support, sales qualification, content creation, or DevOps monitoring.
+
+### 10,000+ Integrations
+Powered by Composio, Verxio connects to Gmail, Slack, Discord, GitHub, Notion, Jira, HubSpot, Salesforce, Shopify, Google Sheets, Google Calendar, Google Drive, Stripe, Airtable, Linear, Telegram, WhatsApp, and 800+ more apps. Each integration provides multiple actions and triggers.
+
+### Multi-Model AI Support
+Workflows support multiple AI providers including Anthropic Claude, OpenAI GPT, and Google Gemini. Users can use their own API keys or rely on Verxio's built-in credits. Different nodes in the same workflow can use different models.
+
+### Video and Image Generation
+Verxio includes nodes for AI video generation (Google Veo, Kling AI with text-to-video, image-to-video, video extend, motion control, and omni modes), AI image generation (Kling AI, SeedReam), and text-to-speech. These integrate directly into workflows alongside other actions.
+
+## How It Works
+
+1. Connect a channel: Link Slack, Discord, Telegram, or WhatsApp. The agent joins as a team member.
+2. Define what it does: Set a personality, choose workflows, add skills. Give it access to your tools and knowledge.
+3. Build and publish: The agent creates websites, landing pages, and sales funnels. Every page is SEO-optimized and hosted.
+4. Deploy and automate: The agent goes live instantly. It handles tasks, runs workflows, and collaborates with your team around the clock.
+
+## Use Cases
+
+### Marketing Teams
+- Deploy a marketing bot that handles social scheduling, email sequences, and analytics reporting
+- Build landing pages and sales funnels from a text description
+- Create and manage a company blog with SEO-optimized posts
+- Automate content creation across multiple channels
+
+### Sales Teams
+- Build a sales assistant that qualifies leads, schedules demos, and updates the CRM
+- Create high-converting sales funnels with checkout, upsell, and downsell pages
+- Automate follow-up sequences and lead nurturing workflows
+
+### Customer Support
+- Deploy support agents that handle ticket triage, FAQ responses, and escalations
+- Integrate with help desk tools, CRMs, and communication channels
+- Provide 24/7 automated support with human escalation paths
+
+### DevOps and Engineering
+- Monitor deployments, run health checks, and alert teams on incidents
+- Automate CI/CD notifications and status updates
+- Connect to GitHub, Jira, Linear, and other development tools
+
+### Content and Media
+- Generate blog drafts, social posts, and newsletters automatically
+- Create AI-generated videos and images as part of content workflows
+- Manage multi-channel content distribution
+
+### Agencies
+- White-label the platform for client deployments
+- Manage multiple client workspaces from a single account
+- Build and deliver websites, funnels, and automation workflows for clients
+
+## Pricing
+
+Verxio offers four plans:
+
+### Basic ($9/month, $86/year)
+For individuals getting started with AI automation.
+- Visual workflow builder
+- 10,000+ actions across 800+ apps
+- Use your own API keys (OpenAI, Anthropic, etc.)
+- 1 chat integration agent
+- 1,000 AI credits included
+- Unlimited workflows
+- 5 landing pages and hosting
+- Community support
+
+### Pro ($49/month, $470/year)
+Full AI agent power for professionals and small teams.
+- Everything in Basic
+- Unlimited landing pages and hosting
+- 5 chat integration agents
+- 5,000 AI credits included
+- Custom skills per agent
+- Agent personality (soul.md)
+- Template export and sharing
+- Priority support
+
+### Business ($99/month, $950/year)
+For teams that need unlimited agents and collaboration.
+- Everything in Pro
+- Unlimited landing pages, hosting, and custom domains
+- Unlimited agents
+- 20,000 AI credits included
+- Workspaces and categories
+- Team collaboration
+- Organization management
+- Role-based access control
+
+### Agency ($500/month, $4,800/year)
+White-label AI automation for agencies and enterprises.
+- Everything in Business
+- White-label deployment
+- Custom branding
+- Client workspace management
+- Dedicated account manager
+- SLA and uptime guarantee
+- Custom integrations
+
+Additional credit packs can be purchased anytime without changing plans.
+
+## Technical Architecture
+
+- Frontend: Next.js (React) with TypeScript, Tailwind CSS, shadcn/ui components
+- Backend: Express.js with TypeScript, Prisma ORM, PostgreSQL
+- AI: Anthropic Claude Agent SDK, Vercel AI SDK, OpenAI, Google Gemini
+- CMS: Strapi headless CMS for website/page content management
+- Workflow engine: Inngest for durable, event-driven workflow execution
+- Integrations: Composio for 800+ app connections
+- Chat: Direct API integrations with Slack, Discord, Telegram, WhatsApp
+- Hosting: All user-created websites hosted on pages.verxio.xyz with CDN
+
+## Content and Resources
+
+- Blog: https://blog.verxio.xyz - Articles on AI automation, workflow building, and growth strategies
+- Website: https://www.verxio.xyz - Product homepage with features, pricing, and sign-up
+- Twitter/X: https://twitter.com/verxioprotocol
+
+## Contact
+
+For sales, partnerships, or enterprise inquiries, visit https://www.verxio.xyz or reach out via Twitter at @verxioprotocol.
+
+## Frequently Asked Questions
+
+### What is Verxio?
+Verxio is an AI coworker platform. It lets you spin up AI agents that automate workflows, build websites and funnels, manage blogs, and work inside Slack, Discord, Telegram, and WhatsApp as team members.
+
+### Is Verxio a chatbot builder?
+No. Verxio is a full AI agent platform. Agents have persistent skills, workflows, domain knowledge, custom personalities, and access to 10,000+ actions across 800+ apps. They do real work, not just answer questions.
+
+### What can Verxio agents build?
+Agents can build landing pages, multi-page websites, sales funnels (with checkout, upsells, downsells), and blogs with full SEO. All content is hosted and can use custom domains on Business plans.
+
+### What chat platforms does Verxio support?
+Slack, Discord, Telegram, and WhatsApp. Agents join as team members and respond to mentions and messages.
+
+### Can I use my own AI API keys?
+Yes. You can bring your own OpenAI, Anthropic, Google, or other API keys and use them in workflows alongside Verxio's built-in credits.
+
+### Does Verxio support custom domains?
+Yes. Business plan users can add custom domains to their websites and funnels. DNS verification is built into the platform.
+
+### How many integrations does Verxio have?
+Over 10,000 actions across 800+ apps including Gmail, Slack, Discord, GitHub, Notion, Jira, HubSpot, Salesforce, Shopify, Stripe, Google Sheets, Google Drive, Airtable, Linear, and many more.

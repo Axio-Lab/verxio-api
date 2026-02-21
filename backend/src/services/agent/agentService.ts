@@ -20,12 +20,63 @@ import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
 import { createTrace, endTrace, type TraceMetadata } from "../opikService";
 import { getComposioMcpUrl } from "../composio/composioService";
+import { checkFeatureAccess } from "../subscriptionCheck";
+import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
 
 const prisma = basePrismaClient as any;
 
 // ============================================
+// Simple text generation via Claude Agent SDK (no MCP, no tools)
+// ============================================
+// Single-turn query with custom system prompt. Uses AGENT_CLAUDE_MODEL.
+// Used by Strapi (website/page JSON generation) and other simple LLM calls.
+
+export async function generateTextWithSystemPrompt(options: {
+  systemPrompt: string;
+  userPrompt: string;
+  model?: string;
+}): Promise<{ text: string }> {
+  const model = options.model || process.env.AGENT_CLAUDE_MODEL!;
+  const result = query({
+    prompt: options.userPrompt,
+    options: {
+      model,
+      systemPrompt: options.systemPrompt,
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      mcpServers: {},
+      tools: [],
+      maxTurns: 1,
+    },
+  });
+  let text = "";
+  for await (const message of result) {
+    if (message.type === "assistant" && message.message?.content) {
+      for (const block of message.message.content) {
+        if (block.type === "text") text += block.text;
+      }
+    }
+    if (message.type === "result" && (message as any).subtype === "success") {
+      const r = (message as any).result;
+      if (typeof r === "string") text = r;
+      break;
+    }
+  }
+  return { text };
+}
+
+// ============================================
 // Types
 // ============================================
+
+export interface MediaAttachment {
+  type: "image" | "file" | "document";
+  url?: string;
+  base64?: string;
+  mimeType?: string;
+  fileName?: string;
+  extractedText?: string;
+}
 
 export interface AgentQueryOptions {
   prompt: string;
@@ -36,6 +87,8 @@ export interface AgentQueryOptions {
   model?: string;
   maxTurns?: number;
   abortController?: AbortController;
+  /** Media attachments from the user (images, audio, video, documents) */
+  attachments?: MediaAttachment[];
   /** Type of agent query for Opik tracing categorization */
   traceType?: TraceMetadata["traceType"];
   /** Agent personality for soul.md injection */
@@ -164,6 +217,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     model = process.env.AGENT_CLAUDE_MODEL,
     maxTurns = 10,
     abortController,
+    attachments,
     traceType = "agent_query",
     agentPersonality,
   } = options;
@@ -206,6 +260,15 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     tools: createVerxioMcpTools(toolContext),
   });
 
+  // Check if user has Composio access (premium feature)
+  let hasComposioAccess = false;
+  try {
+    await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE);
+    hasComposioAccess = true;
+  } catch {
+    // Free user, skip Composio
+  }
+
   // Load user's MCP connections, Composio, and user context in parallel
   let userMcpServers: Record<string, McpServerConfig> = {};
   let composioMcpConfig: McpServerConfig | undefined;
@@ -214,10 +277,12 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     const [mcpServers, context, composioUrl] = await Promise.all([
       loadUserMcpServers(userId),
       getUserContext(userId, workflowId),
-      getComposioMcpUrl(userId).catch((err) => {
-        console.error("[Composio] Failed to load MCP URL:", err);
-        return null;
-      }),
+      hasComposioAccess
+        ? getComposioMcpUrl(userId).catch((err) => {
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     userMcpServers = mcpServers;
     userContext = context;
@@ -227,10 +292,12 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   } else {
     const [context, composioUrl] = await Promise.all([
       getUserContext(userId, workflowId),
-      getComposioMcpUrl(userId).catch((err) => {
-        console.error("[Composio] Failed to load MCP URL:", err);
-        return null;
-      }),
+      hasComposioAccess
+        ? getComposioMcpUrl(userId).catch((err) => {
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     userContext = context;
     if (composioUrl) {
@@ -263,13 +330,47 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   // Build system prompt (now async to load guide content)
   const systemPrompt = await getVerxioSystemPrompt(userContext);
 
+  // Enrich prompt with media attachment info when present
+  let enrichedPrompt = prompt;
+  if (attachments && attachments.length > 0) {
+    const mediaDescriptions: string[] = [];
+    for (const att of attachments) {
+      const label = att.fileName || att.type;
+      if (att.extractedText) {
+        mediaDescriptions.push(`[${label} content]\n${att.extractedText}`);
+      } else if (att.url) {
+        const mime = att.mimeType || "";
+        if (mime.startsWith("image/")) {
+          mediaDescriptions.push(`[User shared an image: ${label}]\nURL: ${att.url}`);
+        } else if (mime.startsWith("audio/")) {
+          mediaDescriptions.push(
+            `[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`
+          );
+        } else if (mime.startsWith("video/")) {
+          mediaDescriptions.push(
+            `[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`
+          );
+        } else {
+          mediaDescriptions.push(`[User shared a file: ${label}]\nURL: ${att.url}`);
+        }
+      } else if (att.base64 && att.mimeType?.startsWith("image/")) {
+        mediaDescriptions.push(
+          `[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`
+        );
+      } else {
+        mediaDescriptions.push(`[User shared a file: ${label}]`);
+      }
+    }
+    enrichedPrompt = `${prompt}\n\n--- User Attachments ---\n${mediaDescriptions.join("\n\n")}`;
+  }
+
   // Build conversation context if exists
-  let fullPrompt = prompt;
+  let fullPrompt = enrichedPrompt;
   if (conversationHistory && conversationHistory.length > 0) {
     const historyText = conversationHistory
       .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
-    fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${prompt}`;
+    fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${enrichedPrompt}`;
   }
 
   let lastResult: any = null;
@@ -657,10 +758,17 @@ Read the conversation to decide whether the user needs a **workflow** (multi-ste
 **If the single-node execution fails (success: false),** tell the user in plain language what went wrong (e.g. "I couldn’t read your calendar because ...") and suggest fixing credentials or trying again.
 
 ## Plan Mode: Plan First, Build Only After Approval (CRITICAL)
+**SCOPE: Plan mode applies ONLY to multi-node WORKFLOW creation (addNode, configureNode, connectNodes).** It does NOT apply to:
+- Strapi operations (createLandingPage, createWebsite, addPageToWebsite, createBlogPost, updateBlogPost, deleteBlogPost) — execute these IMMEDIATELY when the user's request is clear
+- Direct tool calls (image generation, video generation, Composio actions, browseWebsite)
+- Single-node execution via executeSingleNodeAndWait
+
+For Strapi and direct tool calls: if the user says "create a landing page about X" or "build me a website for Y", Explain to the user the plan on what to build and then build it. Do NOT describe what you will create and then stop. Do NOT output "Creating now..." without actually invoking the tool. The user's request IS the instruction.
+
 The goal of plan mode is to **deeply plan with the user**. You must NEVER zoom off and build a workflow until the user has seen and approved a plan.
 
 **1. Always present a plan for review first**
-- When the user wants a workflow (e.g. "build a Telegram bot", "create the workflow", "I want to automate X"), respond with a **clear, reviewable plan**:
+- When the user wants a **workflow** (e.g. "build a Telegram bot", "create the workflow", "I want to automate X"), respond with a **clear, reviewable plan**:
   - **Summary**: 2–4 sentences of what the workflow will do
   - **Nodes in order**: Trigger → Node1 → Node2 → … (with brief purpose for each)
   - **Required credentials**: What the user must connect (e.g. Telegram, Anthropic)
@@ -711,8 +819,8 @@ Example sequence for replacing/adding nodes:
 - connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
 
 ## Important
-- **Plan first, build after approval**: Always show a reviewable plan before using any workflow-modifying tools; only build when the user explicitly approves.
-- **Tell the user what you're doing before execution** (single-node or workflow): like the plan node, give them a chance to review and request changes before you run. Nodes you add/configure are saved to the workflow.
+- **Plan first, build after approval**: For WORKFLOWS only. Show a reviewable plan before using workflow-modifying tools (addNode, configureNode, connectNodes); only build when the user explicitly approves.
+- **Strapi tools (landing pages, websites, funnels, blogs) are NOT workflows**: Execute them immediately. Do not plan or ask for confirmation. If the user says "create a page about X", call createLandingPage in the same turn with fully generated content.
 - **Fill all required fields** for each node; tell the user clearly if something is required and missing (e.g. credentials, calendar ID).
 - ALWAYS use the current workflow ID when adding nodes - do NOT create a new workflow
 - When generating a new workflow, REPLACE existing nodes to avoid duplicates on canvas
@@ -741,6 +849,7 @@ export async function* chatWithAgent(options: {
     userPreferences?: Record<string, unknown>;
   };
   agentPersonality?: AgentPersonality;
+  attachments?: MediaAttachment[];
 }): AsyncGenerator<AgentStreamEvent> {
   // Build soul/personality preamble if available
   let soulPreamble = "";
@@ -783,6 +892,7 @@ You may refine your personality over time. If you notice patterns in how the use
     userId: options.userId,
     workflowId: options.workflowId,
     conversationHistory: options.conversationHistory,
+    attachments: options.attachments,
     maxTurns: 15,
     traceType: "chat",
     agentPersonality: options.agentPersonality,

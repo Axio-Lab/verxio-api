@@ -19,7 +19,7 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://verxio.com";
+const siteUrl = "https://www.verxio.xyz";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -28,20 +28,28 @@ export const metadata: Metadata = {
     template: "%s | Verxio",
   },
   description:
-    "Verxio is an AI platform that turns any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp in minutes.",
+    "Verxio is an AI coworker platform that ships, sells, and scales your business. Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps. One platform.",
   keywords: [
+    "AI coworker",
     "AI agents",
-    "chat automation",
+    "AI automation",
+    "AI workflow builder",
+    "AI website builder",
+    "AI funnel builder",
+    "AI blog",
+    "AI landing page",
     "Slack bot",
     "Discord bot",
     "Telegram bot",
     "WhatsApp bot",
     "workflow automation",
-    "AI coworker",
-    "chat integration",
-    "automation platform",
+    "no-code automation",
+    "AI integrations",
+    "AI sales funnel",
+    "AI content creation",
+    "AI platform",
+    "marketing automation",
     "AI assistant",
-    "AI skills",
   ],
   authors: [{ name: "Verxio" }],
   creator: "Verxio",
@@ -58,7 +66,7 @@ export const metadata: Metadata = {
     siteName: "Verxio",
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Verxio is an AI coworker platform that ships, sells, and scales your business. Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps. One platform.",
     images: [
       {
         url: `${siteUrl}/logo/verxioLogoMain.svg`,
@@ -72,7 +80,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Verxio is an AI coworker platform that ships, sells, and scales your business. Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp.",
     images: [`${siteUrl}/logo/verxioLogoMain.svg`],
     creator: "@verxioprotocol",
   },

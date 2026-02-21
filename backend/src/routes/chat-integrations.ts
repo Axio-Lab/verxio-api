@@ -1228,11 +1228,31 @@ chatIntegrationRouter.post(
             );
           } catch (_) {}
 
+          // Extract file attachments from Slack event (images, documents, etc.)
+          const slackAttachments: Array<{
+            type: "image" | "file" | "document";
+            url?: string;
+            mimeType?: string;
+            fileName?: string;
+          }> = [];
+          if (event.files && Array.isArray(event.files)) {
+            for (const file of event.files) {
+              const isImage = file.mimetype?.startsWith("image/");
+              slackAttachments.push({
+                type: isImage ? "image" : "file",
+                url: file.url_private_download || file.url_private,
+                mimeType: file.mimetype,
+                fileName: file.name,
+              });
+            }
+          }
+
           const isChannel = event.channel_type !== "im";
           const chatIntegrationMessage = {
             platform: "SLACK" as const,
             externalId: senderId,
             message: messageText || "[non-text message]",
+            attachments: slackAttachments.length > 0 ? slackAttachments : undefined,
             metadata: {
               chatId: channel,
               threadTs,

@@ -220,6 +220,14 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("composioTrigger"),
     enabled: true,
   });
+  const tinyfishSub = useInngestSubscription({
+    refreshToken: createRefreshToken("tinyfish"),
+    enabled: true,
+  });
+  const strapiSub = useInngestSubscription({
+    refreshToken: createRefreshToken("strapi"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -261,6 +269,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(seedreamSub.data || []),
       ...(composioActionSub.data || []),
       ...(composioTriggerSub.data || []),
+      ...(tinyfishSub.data || []),
+      ...(strapiSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -301,6 +311,8 @@ export function useCentralizedNodeStatusSubscriptions() {
       seedreamSub.data,
       composioActionSub.data,
       composioTriggerSub.data,
+      tinyfishSub.data,
+      strapiSub.data,
     ]
   );
 

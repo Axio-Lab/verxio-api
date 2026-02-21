@@ -13,14 +13,14 @@ const siteUrl = "https://www.verxio.xyz";
 export const metadata: Metadata = {
   title: "Verxio — AI coworker platform for every team",
   description:
-    "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp in minutes.",
+    "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps. One platform.",
   alternates: {
     canonical: siteUrl,
   },
   openGraph: {
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps.",
     url: siteUrl,
     siteName: "Verxio",
     locale: "en_US",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Verxio — AI coworker platform for every team",
     description:
-      "Turn any chat channel into an automation hub. Spin up AI agents, add custom skills, and deploy to Slack, Discord, Telegram, and WhatsApp.",
+      "Spin up AI agents that automate workflows, build websites and funnels, manage blogs, and deploy to Slack, Discord, Telegram, and WhatsApp.",
     images: [`${siteUrl}/logo/verxioLogoMain.svg`],
   },
 };
@@ -46,26 +46,61 @@ export const metadata: Metadata = {
 export default function Home() {
   const siteUrl = "https://www.verxio.xyz";
 
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Verxio",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
-    offers: {
-      "@type": "Offer",
-      price: "9",
-      priceCurrency: "USD",
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Verxio",
+      url: siteUrl,
+      description:
+        "AI coworker platform that automates workflows, builds websites and funnels, manages blogs, and deploys agents to Slack, Discord, Telegram, and WhatsApp.",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${siteUrl}/search?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
     },
-    description:
-      "AI coworker platform that turns any chat channel into an automation hub. Deploy AI agents to Slack, Discord, Telegram, and WhatsApp.",
-    url: siteUrl,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "127",
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Verxio",
+      url: siteUrl,
+      logo: `${siteUrl}/logo/verxioLogoMain.svg`,
+      sameAs: ["https://twitter.com/verxioprotocol", "https://blog.verxio.xyz"],
     },
-  };
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Verxio",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      offers: {
+        "@type": "AggregateOffer",
+        lowPrice: "9",
+        highPrice: "500",
+        priceCurrency: "USD",
+        offerCount: "4",
+      },
+      description:
+        "AI coworker platform that automates workflows, builds websites and funnels, manages blogs, and deploys agents to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions across 800+ apps.",
+      url: siteUrl,
+      featureList:
+        "AI Agents, Visual Workflow Builder, AI Website Builder, AI Funnel Builder, AI Blog Manager, Slack Integration, Discord Integration, Telegram Integration, WhatsApp Integration, 10000+ Actions, 800+ App Integrations, Custom Skills, Agent Personality, Custom Domains",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: "Verxio Blog",
+      url: "https://blog.verxio.xyz",
+      description:
+        "Articles, guides, and insights on AI automation, workflow building, website creation, and growth strategies from the Verxio team.",
+      isPartOf: {
+        "@type": "WebSite",
+        name: "Verxio",
+        url: siteUrl,
+      },
+    },
+  ];
 
   return (
     <>

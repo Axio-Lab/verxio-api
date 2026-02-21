@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /workflows/
+Disallow: /connections/
+Disallow: /credentials/
+Disallow: /integrations/
+Disallow: /skills/
+Disallow: /sites/
+Disallow: /templates/
+Disallow: /vibe/
+Disallow: /chat/
+
+Sitemap: https://www.verxio.xyz/sitemap.xml
+
+# LLM content summary
+# See https://www.verxio.xyz/llms.txt for a machine-readable overview of Verxio

@@ -35,10 +35,38 @@ const STEPS = [
     step: "02",
     title: "Define what it does",
     description:
-      "Set a personality, choose which workflows it can run, add custom skills. Give it access to your tools, knowledge, and procedures.",
+      "Set a personality, choose workflows, add skills. Build websites, create content, run automations. Give it access to your tools and knowledge.",
     visual: (
       <div className="space-y-2">
-        {["Personality configured", "3 workflows assigned", "5 custom skills added"].map((text) => (
+        {["Personality configured", "3 workflows assigned", "Website builder enabled"].map(
+          (text) => (
+            <div key={text} className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <svg
+                  className="w-3 h-3 text-primary"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              {text}
+            </div>
+          )
+        )}
+      </div>
+    ),
+  },
+  {
+    step: "03",
+    title: "Build and publish",
+    description:
+      "Your agent creates websites, landing pages, and sales funnels. Every page is SEO-optimized and hosted for you.",
+    visual: (
+      <div className="space-y-2">
+        {["Landing page published", "Sales funnel live", "Blog post written"].map((text) => (
           <div key={text} className="flex items-center gap-2 text-sm text-gray-600">
             <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <svg
@@ -58,7 +86,7 @@ const STEPS = [
     ),
   },
   {
-    step: "03",
+    step: "04",
     title: "Deploy and automate",
     description:
       "Your agent goes live instantly. It handles tasks, runs workflows, and collaborates with your team around the clock.",
@@ -77,14 +105,14 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
-            Three steps to your first AI coworker
+            Four steps to your first AI coworker
           </h2>
           <p className="mt-4 text-lg text-gray-600">
             From zero to a deployed agent in minutes, not weeks.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {STEPS.map((item) => (
             <div key={item.step} className="relative">
               <div className="p-8 rounded-2xl bg-white border border-gray-100 shadow-sm h-full">
