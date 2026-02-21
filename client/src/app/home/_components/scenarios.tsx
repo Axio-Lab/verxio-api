@@ -80,8 +80,7 @@ export const SCENARIOS: SimulationScenario[] = [
     completion: { name: "Sales Funnel is live", summary: "3 pages, SEO-optimized, hosted" },
   },
   {
-    prompt:
-      '"Create a company blog and write 3 SEO-optimized posts about AI automation"',
+    prompt: '"Create a company blog and write 3 SEO-optimized posts about AI automation"',
     steps: [
       { label: "Creating website", detail: "Company Blog" },
       { label: "Adding page", detail: "Blog Listing Page" },

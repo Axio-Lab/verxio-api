@@ -65,7 +65,10 @@ export async function fetchLandingPage(slug: string): Promise<StrapiPage | null>
   return result?.data?.[0] || null;
 }
 
-export async function fetchWebsite(userId: string, siteSlug: string): Promise<StrapiWebsite | null> {
+export async function fetchWebsite(
+  userId: string,
+  siteSlug: string
+): Promise<StrapiWebsite | null> {
   const result = await strapiGet<{ data: StrapiWebsite[] }>(
     `/websites?filters[userId][$eq]=${encodeURIComponent(userId)}&filters[slug][$eq]=${encodeURIComponent(siteSlug)}&populate[pages][sort]=order:asc&populate[blogPosts][sort]=createdAt:desc`
   );
@@ -92,9 +95,7 @@ export async function fetchBlogPost(
   return result?.data?.[0] || null;
 }
 
-export async function fetchWebsiteBlogPosts(
-  websiteDocumentId: string
-): Promise<StrapiBlogPost[]> {
+export async function fetchWebsiteBlogPosts(websiteDocumentId: string): Promise<StrapiBlogPost[]> {
   const result = await strapiGet<{ data: StrapiBlogPost[] }>(
     `/blog-posts?filters[website][documentId][$eq]=${encodeURIComponent(websiteDocumentId)}&filters[status][$eq]=published&sort=createdAt:desc&populate=*`
   );

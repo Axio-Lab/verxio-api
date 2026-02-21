@@ -66,10 +66,7 @@ export default function Home() {
       name: "Verxio",
       url: siteUrl,
       logo: `${siteUrl}/logo/verxioLogoMain.svg`,
-      sameAs: [
-        "https://twitter.com/verxioprotocol",
-        "https://blog.verxio.xyz",
-      ],
+      sameAs: ["https://twitter.com/verxioprotocol", "https://blog.verxio.xyz"],
     },
     {
       "@context": "https://schema.org",

@@ -34,52 +34,56 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "@/lib/api-client";
 
-const formSchema = z.object({
-  variables: z
-    .string()
-    .min(1, { message: "Variable name is required" })
-    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, {
-      message: "Must start with a letter/underscore, alphanumeric only",
-    }),
-  action: z.enum([
-    "create",
-    "update",
-    "delete",
-    "create-website",
-    "add-page",
-    "create-blog-post",
-    "update-blog-post",
-    "delete-blog-post",
-  ]),
-  pageTitle: z.string().optional(),
-  pageId: z.string().optional(),
-  websiteId: z.string().optional(),
-  websiteType: z.enum(["website", "funnel", "blog"]).optional(),
-  websitePrompt: z.string().optional(),
-  pageType: z
-    .enum([
-      "landing",
-      "about",
-      "contact",
-      "checkout",
-      "thankyou",
-      "upsell",
-      "downsell",
-      "form",
-      "blog-listing",
-      "custom",
-    ])
-    .optional(),
-  blogContent: z.string().optional(),
-  sections: z.string().optional(),
-  seo: z.string().optional(),
-  publishStatus: z.enum(["draft", "published"]).optional(),
-  label: z.string().optional(),
-}).refine(
-  (data) =>
-    data.action !== "create-website" || (data.websitePrompt?.trim()?.length ?? 0) > 0,
-  { message: "Describe your website or funnel (required for Create Website/Funnel).", path: ["websitePrompt"] }
-);
+const formSchema = z
+  .object({
+    variables: z
+      .string()
+      .min(1, { message: "Variable name is required" })
+      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/, {
+        message: "Must start with a letter/underscore, alphanumeric only",
+      }),
+    action: z.enum([
+      "create",
+      "update",
+      "delete",
+      "create-website",
+      "add-page",
+      "create-blog-post",
+      "update-blog-post",
+      "delete-blog-post",
+    ]),
+    pageTitle: z.string().optional(),
+    pageId: z.string().optional(),
+    websiteId: z.string().optional(),
+    websiteType: z.enum(["website", "funnel", "blog"]).optional(),
+    websitePrompt: z.string().optional(),
+    pageType: z
+      .enum([
+        "landing",
+        "about",
+        "contact",
+        "checkout",
+        "thankyou",
+        "upsell",
+        "downsell",
+        "form",
+        "blog-listing",
+        "custom",
+      ])
+      .optional(),
+    blogContent: z.string().optional(),
+    sections: z.string().optional(),
+    seo: z.string().optional(),
+    publishStatus: z.enum(["draft", "published"]).optional(),
+    label: z.string().optional(),
+  })
+  .refine(
+    (data) => data.action !== "create-website" || (data.websitePrompt?.trim()?.length ?? 0) > 0,
+    {
+      message: "Describe your website or funnel (required for Create Website/Funnel).",
+      path: ["websitePrompt"],
+    }
+  );
 
 export type StrapiFormValues = z.infer<typeof formSchema>;
 
@@ -142,7 +146,7 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
   useEffect(() => {
     if (open && defaultValues) {
       const rawAction = defaultValues.action as string | undefined;
-      const action = rawAction === "list" ? "create" : (rawAction || "create");
+      const action = rawAction === "list" ? "create" : rawAction || "create";
       form.reset({
         variables: defaultValues.variables || "strapi",
         action: (action as StrapiFormValues["action"]) || "create",
@@ -204,9 +208,7 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
   const needsSections = ["create", "update", "add-page"].includes(action);
   const needsBlogContent = ["create-blog-post", "update-blog-post"].includes(action);
   const showPublishStatus =
-    action !== "delete" &&
-    action !== "delete-blog-post" &&
-    action !== "create-website";
+    action !== "delete" && action !== "delete-blog-post" && action !== "create-website";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -281,7 +283,8 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
                         />
                       </FormControl>
                       <FormDescription>
-                        When the workflow runs, AI will generate the full site (title, type, and all pages with sections and SEO) and create it. Required.
+                        When the workflow runs, AI will generate the full site (title, type, and all
+                        pages with sections and SEO) and create it. Required.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -365,7 +368,9 @@ export const StrapiDialog = ({ open, onOpenChange, onSubmit, defaultValues }: Pr
                 name="pageId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{action.includes("blog") ? "Post ID" : "Page ID"} (required)</FormLabel>
+                    <FormLabel>
+                      {action.includes("blog") ? "Post ID" : "Page ID"} (required)
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Document ID" {...field} />
                     </FormControl>

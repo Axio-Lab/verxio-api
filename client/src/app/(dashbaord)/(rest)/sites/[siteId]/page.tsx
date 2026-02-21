@@ -100,8 +100,7 @@ export default function SiteDetailPage() {
               <>
                 <span className="text-xs text-muted-foreground">&middot;</span>
                 <span className="text-xs text-muted-foreground">
-                  {website.customDomain}{" "}
-                  {website.domainVerified ? "(verified)" : "(pending)"}
+                  {website.customDomain} {website.domainVerified ? "(verified)" : "(pending)"}
                 </span>
               </>
             )}
@@ -139,7 +138,9 @@ export default function SiteDetailPage() {
                     <p className="text-sm font-medium text-foreground">{page.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-muted-foreground">/{page.slug}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{page.pageType}</span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {page.pageType}
+                      </span>
                       <span
                         className={`text-xs ${page.status === "published" ? "text-green-600" : "text-amber-600"}`}
                       >

@@ -521,10 +521,11 @@ export const PlanDialog = ({
                     </div>
                   )}
                   <div
-                    className={`max-w-[85%] ${msg.role === "user"
+                    className={`max-w-[85%] ${
+                      msg.role === "user"
                         ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
                         : "flex-1 min-w-0"
-                      }`}
+                    }`}
                   >
                     {msg.role === "assistant" ? (
                       <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-xs [&_code]:text-xs [&_p]:text-sm [&_p]:leading-relaxed [&_li]:text-sm [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
@@ -534,7 +535,9 @@ export const PlanDialog = ({
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                     )}
                     {msg.attachments && msg.attachments.length > 0 && (
-                      <div className={`flex flex-wrap gap-1.5 mt-2 ${msg.role === "user" ? "" : "ml-0"}`}>
+                      <div
+                        className={`flex flex-wrap gap-1.5 mt-2 ${msg.role === "user" ? "" : "ml-0"}`}
+                      >
                         {msg.attachments.map((a, i) => (
                           <span
                             key={i}
@@ -552,13 +555,19 @@ export const PlanDialog = ({
                     )}
                     {msg.role === "assistant" && (
                       <p className="text-[10px] text-muted-foreground/50 mt-1.5">
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     )}
                   </div>
                   {msg.role === "user" && (
                     <p className="text-[10px] text-muted-foreground/50 self-end mb-0.5 flex-shrink-0">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(msg.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   )}
                 </div>
@@ -586,12 +595,16 @@ export const PlanDialog = ({
                   </div>
                   <div className="space-y-1 py-1">
                     {agentProgress.map((progress, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                      >
                         <div
-                          className={`w-1 h-1 rounded-full flex-shrink-0 ${idx === agentProgress.length - 1
+                          className={`w-1 h-1 rounded-full flex-shrink-0 ${
+                            idx === agentProgress.length - 1
                               ? "bg-foreground/50 animate-pulse"
                               : "bg-green-500"
-                            }`}
+                          }`}
                         />
                         <span>{progress.status}</span>
                       </div>
@@ -677,9 +690,7 @@ export const PlanDialog = ({
             <button
               type="button"
               onClick={handleSendMessage}
-              disabled={
-                (!message.trim() && selectedFiles.length === 0) || isSending || !workflowId
-              }
+              disabled={(!message.trim() && selectedFiles.length === 0) || isSending || !workflowId}
               className="flex-shrink-0 w-7 h-7 rounded-lg bg-foreground text-background flex items-center justify-center disabled:opacity-30 transition-opacity"
             >
               {isSending || isUploading ? (

@@ -67,9 +67,11 @@ export default function SiteSettingsPage() {
   const handleVerifyDomain = async () => {
     setVerifying(true);
     try {
-      const data = await authenticatedPost<{ website: Website; verified: boolean; message?: string }>(
-        `/websites/${siteId}/domain/verify`
-      );
+      const data = await authenticatedPost<{
+        website: Website;
+        verified: boolean;
+        message?: string;
+      }>(`/websites/${siteId}/domain/verify`);
       setWebsite(data.website);
       if (data.verified) toast.success(data.message || "Domain verified.");
       else toast.error("Verification failed. Check that your CNAME points to pages.verxio.xyz");
@@ -147,11 +149,7 @@ export default function SiteSettingsPage() {
                 <p className="text-muted-foreground">
                   Current: <span className="font-mono text-foreground">{website.customDomain}</span>
                 </p>
-                <p
-                  className={
-                    website.domainVerified ? "text-green-600" : "text-amber-600"
-                  }
-                >
+                <p className={website.domainVerified ? "text-green-600" : "text-amber-600"}>
                   {website.domainVerified
                     ? "Domain verified and active"
                     : "Pending verification. Add a CNAME record pointing to pages.verxio.xyz"}

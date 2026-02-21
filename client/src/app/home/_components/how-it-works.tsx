@@ -38,22 +38,24 @@ const STEPS = [
       "Set a personality, choose workflows, add skills. Build websites, create content, run automations. Give it access to your tools and knowledge.",
     visual: (
       <div className="space-y-2">
-        {["Personality configured", "3 workflows assigned", "Website builder enabled"].map((text) => (
-          <div key={text} className="flex items-center gap-2 text-sm text-gray-600">
-            <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <svg
-                className="w-3 h-3 text-primary"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+        {["Personality configured", "3 workflows assigned", "Website builder enabled"].map(
+          (text) => (
+            <div key={text} className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <svg
+                  className="w-3 h-3 text-primary"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              {text}
             </div>
-            {text}
-          </div>
-        ))}
+          )
+        )}
       </div>
     ),
   },

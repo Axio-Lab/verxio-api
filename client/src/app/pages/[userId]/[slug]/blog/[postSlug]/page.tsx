@@ -1,7 +1,12 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchWebsite, fetchBlogPost } from "../../../../_components/strapi-fetch";
-import { SiteNavigation, SiteFooter, JsonLd, generateBlogPostJsonLd } from "../../../../_components/sections";
+import {
+  SiteNavigation,
+  SiteFooter,
+  JsonLd,
+  generateBlogPostJsonLd,
+} from "../../../../_components/sections";
 
 type Params = Promise<{ userId: string; slug: string; postSlug: string }>;
 

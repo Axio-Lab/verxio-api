@@ -39,7 +39,9 @@ export interface LandingPageSummary {
   url?: string;
 }
 
-export type SiteItem = { kind: "website"; data: WebsiteSummary } | { kind: "page"; data: LandingPageSummary };
+export type SiteItem =
+  | { kind: "website"; data: WebsiteSummary }
+  | { kind: "page"; data: LandingPageSummary };
 
 export const SitesHeader = () => {
   return (
@@ -73,11 +75,7 @@ export const SitesContainer = ({
       header={<SitesHeader />}
       search={
         searchValue !== undefined && onSearchChange ? (
-          <EntitySearch
-            value={searchValue}
-            onChange={onSearchChange}
-            placeholder="Search sites"
-          />
+          <EntitySearch value={searchValue} onChange={onSearchChange} placeholder="Search sites" />
         ) : undefined
       }
       pagination={
@@ -105,9 +103,7 @@ export const SitesErrorView = () => {
 
 export const SitesEmptyView = () => {
   return (
-    <EmptyView
-      message="Ask your AI coworker to create a website, landing page, funnel, or blog."
-    />
+    <EmptyView message="Ask your AI coworker to create a website, landing page, funnel, or blog." />
   );
 };
 
@@ -157,11 +153,7 @@ function SiteListItem({
       <span>
         <span className="capitalize">{item.data.type}</span>
         <span className="text-muted-foreground"> &bull; </span>
-        <span
-          className={
-            item.data.status === "published" ? "text-green-600" : "text-amber-600"
-          }
-        >
+        <span className={item.data.status === "published" ? "text-green-600" : "text-amber-600"}>
           {item.data.status}
         </span>
         {item.data.pages && item.data.pages.length > 0 && (
@@ -177,11 +169,7 @@ function SiteListItem({
       <span>
         <span className="font-mono text-muted-foreground">/{item.data.slug}</span>
         <span className="text-muted-foreground"> &bull; </span>
-        <span
-          className={
-            item.data.status === "published" ? "text-green-600" : "text-amber-600"
-          }
-        >
+        <span className={item.data.status === "published" ? "text-green-600" : "text-amber-600"}>
           {item.data.status}
         </span>
       </span>
@@ -192,27 +180,26 @@ function SiteListItem({
   };
 
   const url = item.data.url;
-  const copyAction =
-    url ? (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-8"
-        title="Copy link"
-        onClick={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          try {
-            await navigator.clipboard.writeText(url);
-            toast.success("Link copied to clipboard");
-          } catch {
-            toast.error("Failed to copy link");
-          }
-        }}
-      >
-        <CopyIcon className="size-4" />
-      </Button>
-    ) : undefined;
+  const copyAction = url ? (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-8"
+      title="Copy link"
+      onClick={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success("Link copied to clipboard");
+        } catch {
+          toast.error("Failed to copy link");
+        }
+      }}
+    >
+      <CopyIcon className="size-4" />
+    </Button>
+  ) : undefined;
 
   return (
     <EntityItem

@@ -152,10 +152,14 @@ function FeaturesSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-6xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.subheading && (
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{section.subheading}</p>
+          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {section.subheading}
+          </p>
         )}
         {section.media && section.media.length > 0 && (
           <div className="mt-8 flex justify-center">
@@ -171,12 +175,19 @@ function FeaturesSection({ section }: { section: SectionData }) {
         {section.items && (
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {section.items.map((item, i) => (
-              <div key={i} className="p-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+              <div
+                key={i}
+                className="p-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+              >
                 {(item.title as string) && (
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{item.title as string}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {item.title as string}
+                  </h3>
                 )}
                 {(item.description as string) && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{item.description as string}</p>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {item.description as string}
+                  </p>
                 )}
               </div>
             ))}
@@ -233,10 +244,14 @@ function TestimonialsSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-6xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.subheading && (
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{section.subheading}</p>
+          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {section.subheading}
+          </p>
         )}
         {section.media && section.media.length > 0 && (
           <div className="mt-8 flex justify-center">
@@ -252,16 +267,25 @@ function TestimonialsSection({ section }: { section: SectionData }) {
         {section.items && (
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {section.items.map((item, i) => (
-              <div key={i} className="p-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+              <div
+                key={i}
+                className="p-6 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900"
+              >
                 {(item.quote as string) && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 italic">&ldquo;{item.quote as string}&rdquo;</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 italic">
+                    &ldquo;{item.quote as string}&rdquo;
+                  </p>
                 )}
                 <div className="mt-4">
                   {(item.name as string) && (
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{item.name as string}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {item.name as string}
+                    </p>
                   )}
                   {(item.role as string) && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.role as string}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.role as string}
+                    </p>
                   )}
                 </div>
               </div>
@@ -278,7 +302,9 @@ function PricingSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.subheading && (
           <p className="mt-4 text-center text-gray-600 dark:text-gray-300">{section.subheading}</p>
@@ -286,20 +312,32 @@ function PricingSection({ section }: { section: SectionData }) {
         {section.items && (
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {section.items.map((plan, i) => (
-              <div key={i} className="p-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 flex flex-col">
+              <div
+                key={i}
+                className="p-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 flex flex-col"
+              >
                 {(plan.name as string) && (
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{plan.name as string}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {plan.name as string}
+                  </h3>
                 )}
                 {(plan.price as string) && (
-                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{plan.price as string}</p>
+                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+                    {plan.price as string}
+                  </p>
                 )}
                 {(plan.description as string) && (
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{plan.description as string}</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    {plan.description as string}
+                  </p>
                 )}
                 {Array.isArray(plan.features) && (
                   <ul className="mt-6 space-y-2 flex-1">
                     {(plan.features as string[]).map((f, j) => (
-                      <li key={j} className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
+                      <li
+                        key={j}
+                        className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2"
+                      >
                         <span className="text-green-500 mt-0.5">&#10003;</span>
                         {f}
                       </li>
@@ -320,17 +358,23 @@ function FAQSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-3xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.items && (
           <div className="mt-12 space-y-6">
             {section.items.map((faq, i) => (
               <div key={i} className="border-b border-gray-200 dark:border-gray-800 pb-6">
                 {(faq.question as string) && (
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">{faq.question as string}</h3>
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white">
+                    {faq.question as string}
+                  </h3>
                 )}
                 {(faq.answer as string) && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{faq.answer as string}</p>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {faq.answer as string}
+                  </p>
                 )}
               </div>
             ))}
@@ -346,7 +390,9 @@ function VideoSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto text-center">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+            {section.heading}
+          </h2>
         )}
         {section.media?.[0]?.url && (
           <div className="aspect-video rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
@@ -373,12 +419,17 @@ function GallerySection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-6xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-10">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-10">
+            {section.heading}
+          </h2>
         )}
         {section.media && section.media.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {section.media.map((img, i) => (
-              <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+              <div
+                key={i}
+                className="aspect-square rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800"
+              >
                 <img
                   src={imageSrc(img.url)}
                   alt={img.alt || ""}
@@ -398,7 +449,9 @@ function FormSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.subheading && (
           <p className="mt-4 text-center text-gray-600 dark:text-gray-300">{section.subheading}</p>
@@ -445,7 +498,9 @@ function CheckoutSection({ section }: { section: SectionData }) {
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-2xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.body && (
           <div className="mt-4 text-center text-lg text-gray-600 dark:text-gray-300">
@@ -461,12 +516,18 @@ function CheckoutSection({ section }: { section: SectionData }) {
               >
                 <input type="checkbox" className="mt-1 rounded border-gray-300" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{(bump.title as string) || "Add-on"}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {(bump.title as string) || "Add-on"}
+                  </p>
                   {(bump.description as string) && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{bump.description as string}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {bump.description as string}
+                    </p>
                   )}
                   {(bump.price as string) && (
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{bump.price as string}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                      {bump.price as string}
+                    </p>
                   )}
                 </div>
               </label>
@@ -504,10 +565,14 @@ function BlogListingSection({
     <section className="py-16 px-6 sm:py-24 sm:px-8">
       <div className="max-w-6xl mx-auto">
         {section.heading && (
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">{section.heading}</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+            {section.heading}
+          </h2>
         )}
         {section.subheading && (
-          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{section.subheading}</p>
+          <p className="mt-4 text-center text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {section.subheading}
+          </p>
         )}
         {blogPosts && blogPosts.length > 0 ? (
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -519,18 +584,26 @@ function BlogListingSection({
               >
                 {post.featuredImage && (
                   <div className="aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                    <img src={post.featuredImage} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <img
+                      src={post.featuredImage}
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
                   </div>
                 )}
                 <div className="p-5">
                   {post.category && (
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{post.category}</span>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {post.category}
+                    </span>
                   )}
                   <h3 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
                     {post.title}
                   </h3>
                   {post.excerpt && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{post.excerpt}</p>
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                      {post.excerpt}
+                    </p>
                   )}
                   <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
                     {post.author && <span>{post.author}</span>}
@@ -639,7 +712,14 @@ export function RenderSections({
     <>
       {sections.map((section, i) => {
         if (section.type === "blog-listing") {
-          return <BlogListingSection key={i} section={section} blogPosts={blogPosts} basePath={basePath} />;
+          return (
+            <BlogListingSection
+              key={i}
+              section={section}
+              blogPosts={blogPosts}
+              basePath={basePath}
+            />
+          );
         }
         const Component = sectionComponents[section.type] || GenericSection;
         return <Component key={i} section={section} />;
@@ -651,19 +731,14 @@ export function RenderSections({
 export function SiteFooter() {
   return (
     <footer className="py-8 px-6 border-t border-gray-100 dark:border-gray-800">
-      <p className="text-center text-xs text-gray-400 dark:text-gray-600">
-        Built with Verxio
-      </p>
+      <p className="text-center text-xs text-gray-400 dark:text-gray-600">Built with Verxio</p>
     </footer>
   );
 }
 
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
   );
 }
 

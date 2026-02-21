@@ -75,14 +75,16 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     "/terms-of-service",
     "/",
   ];
-  const isPublicRoute = customDomainRequest || publicRoutes.some((route) => {
-    if (route === "/") {
-      // Exact match for home page
-      return pathname === "/";
-    }
-    // For other routes, check if pathname starts with the route
-    return pathname?.startsWith(route);
-  });
+  const isPublicRoute =
+    customDomainRequest ||
+    publicRoutes.some((route) => {
+      if (route === "/") {
+        // Exact match for home page
+        return pathname === "/";
+      }
+      // For other routes, check if pathname starts with the route
+      return pathname?.startsWith(route);
+    });
 
   useEffect(() => {
     // Don't redirect while loading
@@ -118,7 +120,16 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated && !isPublicRoute) {
       router.replace("/");
     }
-  }, [customDomainRequest, isAuthenticated, isLoading, isPublicRoute, pathname, router, user, isEmailVerified]);
+  }, [
+    customDomainRequest,
+    isAuthenticated,
+    isLoading,
+    isPublicRoute,
+    pathname,
+    router,
+    user,
+    isEmailVerified,
+  ]);
 
   // Show loader while checking authentication
   if (isLoading) {
