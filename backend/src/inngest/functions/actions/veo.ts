@@ -236,21 +236,89 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
     // Compile prompt with context using Handlebars
     const compiledPrompt = localPromptText ? Handlebars.compile(localPromptText)(context) : "";
 
+    // Build a narrow asset query to avoid pulling large unrelated blobs from NodeAsset.
+    const neededFileTypes = new Set<string>();
+    const neededFilenames = new Set<string>();
+    const collectAssetFilename = (value?: string) => {
+      if (typeof value === "string" && value.startsWith("asset:")) {
+        const name = value.replace("asset:", "").trim();
+        if (name) neededFilenames.add(name);
+      }
+    };
+
+    if (localMode === "image") {
+      neededFileTypes.add("veo-source-image");
+      collectAssetFilename(data?.sourceImage);
+    } else if (localMode === "reference") {
+      neededFileTypes.add("veo-reference-image");
+      for (const ref of data?.referenceImages || []) {
+        collectAssetFilename(ref?.file);
+      }
+    } else if (localMode === "frames") {
+      neededFileTypes.add("veo-first-frame");
+      neededFileTypes.add("veo-last-frame");
+      collectAssetFilename(data?.firstFrame);
+      collectAssetFilename(data?.lastFrame);
+    } else if (localMode === "extension") {
+      neededFileTypes.add("veo-source-video");
+      collectAssetFilename(data?.sourceVideo);
+    }
+
     // Load assets from database and generate video
-    const videoResult = await step.run("load-assets-and-generate-video", async () => {
-      // Load assets from database
-      const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({
-        where: { nodeId: localNodeId },
-      });
+    const videoResult = await step.run(`load-assets-and-generate-video-${localNodeId}`, async () => {
+      // Fetch asset IDs first (tiny response), then load each blob individually
+      // to stay under Prisma Data Proxy's 5MB response-size limit.
+      const prisma = basePrismaClient as any;
+      const nodeAssets: Array<{
+        filename?: string;
+        fileType?: string;
+        fileData?: string;
+      }> = [];
+
+      const typeLimit: Record<string, number> = {
+        "veo-source-image": 1,
+        "veo-reference-image": 3,
+        "veo-first-frame": 1,
+        "veo-last-frame": 1,
+        "veo-source-video": 1,
+      };
+
+      for (const fileType of neededFileTypes) {
+        const ids: Array<{ id: string }> = await prisma.nodeAsset.findMany({
+          where: { nodeId: localNodeId, fileType },
+          orderBy: { updatedAt: "desc" },
+          take: typeLimit[fileType] ?? 1,
+          select: { id: true },
+        });
+        for (const { id } of ids) {
+          const asset = await prisma.nodeAsset.findUnique({
+            where: { id },
+            select: { filename: true, fileType: true, fileData: true },
+          });
+          if (asset?.fileData) nodeAssets.push(asset);
+        }
+      }
+
+      for (const filename of neededFilenames) {
+        const meta = await prisma.nodeAsset.findFirst({
+          where: { nodeId: localNodeId, filename },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true },
+        });
+        if (meta) {
+          const asset = await prisma.nodeAsset.findUnique({
+            where: { id: meta.id },
+            select: { filename: true, fileType: true, fileData: true },
+          });
+          if (asset?.fileData) nodeAssets.push(asset);
+        }
+      }
 
       // Create a map of filename to asset data
-      const assetMap = new Map<string, { fileData: string; mimeType?: string }>();
+      const assetMap = new Map<string, { fileData: string }>();
       for (const asset of nodeAssets) {
         if (asset.filename && asset.fileData) {
-          assetMap.set(asset.filename, {
-            fileData: asset.fileData,
-            mimeType: asset.mimeType || "image/png",
-          });
+          assetMap.set(asset.filename, { fileData: asset.fileData });
         }
       }
 
