@@ -1,12 +1,22 @@
 const { parse } = require("pg-connection-string");
 
+// Use verify-full explicitly to avoid pg-connection-string v3 / pg v9 warning
+// (require/prefer/verify-ca are currently aliases for verify-full but will change)
+function normalizePgUrl(url) {
+  if (!url || typeof url !== "string") return url;
+  return url.replace(
+    /([?&])sslmode=(?:require|prefer|verify-ca)(&|$)/gi,
+    "$1sslmode=verify-full$2"
+  );
+}
+
 module.exports = ({ env }) => {
   const isProduction = env("NODE_ENV") === "production";
 
   if (isProduction || env("DATABASE_URL", "")) {
     const dbUrl = env("DATABASE_URL", "");
     if (dbUrl) {
-      const config = parse(dbUrl);
+      const config = parse(normalizePgUrl(dbUrl));
       return {
         connection: {
           client: "postgres",
