@@ -2422,7 +2422,10 @@ const createLandingPageTool: VerxioTool = {
             ),
           heading: z.string().optional().describe("Section heading"),
           subheading: z.string().optional().describe("Section subheading"),
-          body: z.string().optional().describe("Section body content (supports rich text/markdown)"),
+          body: z
+            .string()
+            .optional()
+            .describe("Section body content (supports rich text/markdown)"),
           buttons: z
             .array(
               z.object({
@@ -2438,9 +2441,16 @@ const createLandingPageTool: VerxioTool = {
             .optional()
             .describe("Items array for features, testimonials, pricing, faq, gallery sections"),
           media: z
-            .array(z.object({ url: z.string().describe("Image or embed URL"), alt: z.string().optional().describe("Alt text for images") }))
+            .array(
+              z.object({
+                url: z.string().describe("Image or embed URL"),
+                alt: z.string().optional().describe("Alt text for images"),
+              })
+            )
             .optional()
-            .describe("For hero: one image. For gallery: multiple images. For video: one embed URL. Use image URLs from DESIGN/DESIGN_PRO outputs or user-provided URLs."),
+            .describe(
+              "For hero: one image. For gallery: multiple images. For video: one embed URL. Use image URLs from DESIGN/DESIGN_PRO outputs or user-provided URLs."
+            ),
         })
       )
       .describe("Page sections in order"),
@@ -2486,11 +2496,8 @@ const createLandingPageTool: VerxioTool = {
       const { QUOTA_COST } = await import("@/config/rate-limits");
       await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
 
-      const {
-        createLandingPage,
-        getPublicPageUrl,
-        isStrapiConfigured,
-      } = await import("@/services/strapi/strapiService");
+      const { createLandingPage, getPublicPageUrl, isStrapiConfigured } =
+        await import("@/services/strapi/strapiService");
 
       if (!isStrapiConfigured()) {
         return { success: false, error: "Strapi CMS is not configured on this instance." };
@@ -2558,7 +2565,8 @@ const createWebsiteTool: VerxioTool = {
       const { QUOTA_COST } = await import("@/config/rate-limits");
       await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
 
-      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      const { isStrapiConfigured, getPublicSiteUrl } =
+        await import("@/services/strapi/strapiService");
       if (!isStrapiConfigured()) {
         return { success: false, error: "Strapi CMS is not configured." };
       }
@@ -2577,7 +2585,10 @@ const createWebsiteTool: VerxioTool = {
         status: website.status,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to create website" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create website",
+      };
     }
   },
 };
@@ -2594,22 +2605,41 @@ const addPageToWebsiteTool: VerxioTool = {
     websiteId: z.string().describe("Website documentId to add the page to"),
     title: z.string().describe("Page title"),
     pageType: z
-      .enum(["landing", "about", "contact", "checkout", "thankyou", "upsell", "downsell", "form", "blog-listing", "custom"])
+      .enum([
+        "landing",
+        "about",
+        "contact",
+        "checkout",
+        "thankyou",
+        "upsell",
+        "downsell",
+        "form",
+        "blog-listing",
+        "custom",
+      ])
       .optional()
       .describe("Page type (default: landing)"),
     sections: z
       .array(
         z.object({
-          type: z.string().describe("Section type: hero, features, cta, testimonials, pricing, faq, video, gallery, form, checkout, blog-listing"),
+          type: z
+            .string()
+            .describe(
+              "Section type: hero, features, cta, testimonials, pricing, faq, video, gallery, form, checkout, blog-listing"
+            ),
           heading: z.string().optional(),
           subheading: z.string().optional(),
           body: z.string().optional(),
-          buttons: z.array(z.object({ label: z.string(), url: z.string(), variant: z.string().optional() })).optional(),
+          buttons: z
+            .array(z.object({ label: z.string(), url: z.string(), variant: z.string().optional() }))
+            .optional(),
           items: z.array(z.record(z.string(), z.unknown())).optional(),
           media: z
             .array(z.object({ url: z.string(), alt: z.string().optional() }))
             .optional()
-            .describe("Hero: one image. Gallery: multiple images. Video: one embed URL. Use DESIGN output imageUrl or user-provided URLs."),
+            .describe(
+              "Hero: one image. Gallery: multiple images. Video: one embed URL. Use DESIGN output imageUrl or user-provided URLs."
+            ),
         })
       )
       .describe("Page sections"),
@@ -2636,7 +2666,8 @@ const addPageToWebsiteTool: VerxioTool = {
       const { QUOTA_COST } = await import("@/config/rate-limits");
       await consumePremiumQuota(context.userId, QUOTA_COST.STRAPI_CHAT);
 
-      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      const { isStrapiConfigured, getPublicSiteUrl } =
+        await import("@/services/strapi/strapiService");
       if (!isStrapiConfigured()) {
         return { success: false, error: "Strapi CMS is not configured." };
       }
@@ -2665,7 +2696,10 @@ const addPageToWebsiteTool: VerxioTool = {
         status: page.status,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to add page" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to add page",
+      };
     }
   },
 };
@@ -2676,8 +2710,7 @@ const addPageToWebsiteTool: VerxioTool = {
 
 const createBlogPostTool: VerxioTool = {
   name: "createBlogPost",
-  description:
-    "Create a blog post on a website. Premium feature (5 credits per post).",
+  description: "Create a blog post on a website. Premium feature (5 credits per post).",
   inputSchema: z.object({
     websiteId: z.string().describe("Website documentId the blog belongs to"),
     title: z.string().describe("Blog post title"),
@@ -2732,7 +2765,10 @@ const createBlogPostTool: VerxioTool = {
         status: post.status,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to create blog post" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create blog post",
+      };
     }
   },
 };
@@ -2784,7 +2820,10 @@ const updateBlogPostTool: VerxioTool = {
         status: post.status,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to update blog post" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update blog post",
+      };
     }
   },
 };
@@ -2810,7 +2849,10 @@ const deleteBlogPostTool: VerxioTool = {
 
       return { success: true, message: "Blog post deleted." };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to delete blog post" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete blog post",
+      };
     }
   },
 };
@@ -2826,7 +2868,10 @@ const listBlogPostsTool: VerxioTool = {
     websiteId: z.string().describe("Website documentId"),
     status: z.enum(["draft", "published"]).optional().describe("Filter by status"),
   }),
-  execute: async (args: { websiteId: string; status?: "draft" | "published" }, context: ToolContext) => {
+  execute: async (
+    args: { websiteId: string; status?: "draft" | "published" },
+    context: ToolContext
+  ) => {
     try {
       const { isStrapiConfigured } = await import("@/services/strapi/strapiService");
       if (!isStrapiConfigured()) {
@@ -2850,7 +2895,10 @@ const listBlogPostsTool: VerxioTool = {
         total: posts.length,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to list blog posts" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list blog posts",
+      };
     }
   },
 };
@@ -2861,11 +2909,13 @@ const listBlogPostsTool: VerxioTool = {
 
 const listLandingPagesTool: VerxioTool = {
   name: "listLandingPages",
-  description: "List all landing pages created by the user. Returns page IDs, titles, slugs, and URLs.",
+  description:
+    "List all landing pages created by the user. Returns page IDs, titles, slugs, and URLs.",
   inputSchema: z.object({}),
   execute: async (_args: Record<string, never>, context: ToolContext) => {
     try {
-      const { isStrapiConfigured, getPublicPageUrl, listUserPages } = await import("@/services/strapi/strapiService");
+      const { isStrapiConfigured, getPublicPageUrl, listUserPages } =
+        await import("@/services/strapi/strapiService");
       if (!isStrapiConfigured()) {
         return { success: false, error: "Strapi CMS is not configured." };
       }
@@ -2886,7 +2936,10 @@ const listLandingPagesTool: VerxioTool = {
         total: pages.length,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to list pages" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list pages",
+      };
     }
   },
 };
@@ -2901,7 +2954,8 @@ const listWebsitesTool: VerxioTool = {
   inputSchema: z.object({}),
   execute: async (_args: Record<string, never>, context: ToolContext) => {
     try {
-      const { isStrapiConfigured, getPublicSiteUrl } = await import("@/services/strapi/strapiService");
+      const { isStrapiConfigured, getPublicSiteUrl } =
+        await import("@/services/strapi/strapiService");
       if (!isStrapiConfigured()) {
         return { success: false, error: "Strapi CMS is not configured." };
       }
@@ -2924,7 +2978,10 @@ const listWebsitesTool: VerxioTool = {
         total: websites.length,
       };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Failed to list websites" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list websites",
+      };
     }
   },
 };

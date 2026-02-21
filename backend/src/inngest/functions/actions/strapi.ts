@@ -35,10 +35,14 @@ export const strapiExecutor: NodeExecutor = async ({
     );
   }
   if (action === "add-page" && (!websiteId || !pageTitle)) {
-    throw new NonRetriableError("STRAPI node requires 'websiteId' and 'pageTitle' for add-page action.");
+    throw new NonRetriableError(
+      "STRAPI node requires 'websiteId' and 'pageTitle' for add-page action."
+    );
   }
   if (action === "create-blog-post" && (!websiteId || !pageTitle || !blogContent)) {
-    throw new NonRetriableError("STRAPI node requires 'websiteId', 'pageTitle', and 'blogContent' for create-blog-post.");
+    throw new NonRetriableError(
+      "STRAPI node requires 'websiteId', 'pageTitle', and 'blogContent' for create-blog-post."
+    );
   }
 
   // Premium: check subscription and consume credits (create-website-from-prompt consumes after creation)
@@ -175,9 +179,8 @@ export const strapiExecutor: NodeExecutor = async ({
         }
         case "create-website": {
           const compiledPrompt = compile(websitePrompt.trim());
-          const { createWebsiteFromPrompt } = await import(
-            "@/services/strapi/websiteFromPromptService"
-          );
+          const { createWebsiteFromPrompt } =
+            await import("@/services/strapi/websiteFromPromptService");
           const { website, pages: createdPages } = await step.run(
             `strapi-create-website-from-prompt-${nodeId}`,
             async () => createWebsiteFromPrompt(userId, compiledPrompt)
@@ -203,7 +206,8 @@ export const strapiExecutor: NodeExecutor = async ({
         }
         case "add-page": {
           const compiledWebsiteId = websiteId ? compile(websiteId) : "";
-          const { addPageToWebsite, getWebsiteById } = await import("@/services/strapi/websiteService");
+          const { addPageToWebsite, getWebsiteById } =
+            await import("@/services/strapi/websiteService");
           const page = await addPageToWebsite(userId, compiledWebsiteId, {
             title: compiledTitle!,
             pageType: (pageType as any) || "landing",
@@ -275,9 +279,7 @@ export const strapiExecutor: NodeExecutor = async ({
     await publish(strapiChannel().status({ nodeId, status: "error" }));
     const message = error instanceof Error ? error.message : "Strapi execution failed";
     const errorOutput = { [variablesKey]: { error: { message } } };
-    await publish(
-      strapiChannel().output({ nodeId, output: { ...context, ...errorOutput } })
-    );
+    await publish(strapiChannel().output({ nodeId, output: { ...context, ...errorOutput } }));
     throw new NonRetriableError(message);
   }
 };

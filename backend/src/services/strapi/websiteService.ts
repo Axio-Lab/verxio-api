@@ -4,7 +4,13 @@
  * CRUD operations for multi-page websites, funnels, and blogs in Strapi.
  */
 
-import { strapiRequest, generateSlug, getPublicSiteUrl, type SeoData, type SectionData } from "./strapiService";
+import {
+  strapiRequest,
+  generateSlug,
+  getPublicSiteUrl,
+  type SeoData,
+  type SectionData,
+} from "./strapiService";
 
 export type WebsiteType = "website" | "funnel" | "blog";
 
@@ -88,10 +94,7 @@ interface BlogPostSummary {
 
 // ─── Website CRUD ────────────────────────────────────────────────────
 
-export async function createWebsite(
-  userId: string,
-  input: WebsiteInput
-): Promise<Website> {
+export async function createWebsite(userId: string, input: WebsiteInput): Promise<Website> {
   const slug = input.slug || generateSlug(input.title);
 
   const result = await strapiRequest<{ data: Website }>("/websites", {
@@ -124,13 +127,10 @@ export async function updateWebsite(
   if (input.navigation !== undefined) updateData.navigation = input.navigation;
   if (input.globalStyles !== undefined) updateData.globalStyles = input.globalStyles;
 
-  const result = await strapiRequest<{ data: Website }>(
-    `/websites/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ data: updateData }),
-    }
-  );
+  const result = await strapiRequest<{ data: Website }>(`/websites/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: updateData }),
+  });
 
   return result.data;
 }
@@ -146,10 +146,7 @@ export async function getWebsiteById(documentId: string): Promise<Website | null
   }
 }
 
-export async function getWebsiteBySlug(
-  userId: string,
-  slug: string
-): Promise<Website | null> {
+export async function getWebsiteBySlug(userId: string, slug: string): Promise<Website | null> {
   const result = await strapiRequest<{ data: Website[] }>(
     `/websites?filters[userId][$eq]=${encodeURIComponent(userId)}&filters[slug][$eq]=${encodeURIComponent(slug)}&populate[pages][sort]=order:asc&populate[blogPosts][sort]=createdAt:desc`
   );
@@ -213,13 +210,10 @@ export async function updateSitePage(
   if (input.order !== undefined) updateData.order = input.order;
   if (input.nextPageSlug !== undefined) updateData.nextPageSlug = input.nextPageSlug;
 
-  const result = await strapiRequest<{ data: SitePage }>(
-    `/pages/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ data: updateData }),
-    }
-  );
+  const result = await strapiRequest<{ data: SitePage }>(`/pages/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: updateData }),
+  });
 
   return result.data;
 }
@@ -259,34 +253,25 @@ export async function countUserPages(userId: string): Promise<number> {
 
 // ─── Custom domain ──────────────────────────────────────────────────
 
-export async function setCustomDomain(
-  documentId: string,
-  domain: string | null
-): Promise<Website> {
-  const result = await strapiRequest<{ data: Website }>(
-    `/websites/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({
-        data: {
-          customDomain: domain,
-          domainVerified: false,
-        },
-      }),
-    }
-  );
+export async function setCustomDomain(documentId: string, domain: string | null): Promise<Website> {
+  const result = await strapiRequest<{ data: Website }>(`/websites/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      data: {
+        customDomain: domain,
+        domainVerified: false,
+      },
+    }),
+  });
 
   return result.data;
 }
 
 export async function verifyCustomDomain(documentId: string): Promise<Website> {
-  const result = await strapiRequest<{ data: Website }>(
-    `/websites/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ data: { domainVerified: true } }),
-    }
-  );
+  const result = await strapiRequest<{ data: Website }>(`/websites/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: { domainVerified: true } }),
+  });
 
   return result.data;
 }
@@ -296,7 +281,9 @@ export function getWebsitePublicUrl(
   website: { slug: string; customDomain?: string | null; domainVerified?: boolean }
 ): string {
   if (website.customDomain && website.domainVerified) {
-    const domain = String(website.customDomain).replace(/^https?:\/\//, "").split("/")[0];
+    const domain = String(website.customDomain)
+      .replace(/^https?:\/\//, "")
+      .split("/")[0];
     return `https://${domain}`;
   }
   return getPublicSiteUrl(userId, website.slug);

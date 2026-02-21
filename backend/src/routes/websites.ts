@@ -107,7 +107,13 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
 
     const { title, type, navigation, globalStyles, status } = req.body;
-    const website = await updateWebsite(req.params.id, { title, type, navigation, globalStyles, status });
+    const website = await updateWebsite(req.params.id, {
+      title,
+      type,
+      navigation,
+      globalStyles,
+      status,
+    });
     res.json({ website, url: getPublicSiteUrl(userId, website.slug) });
   } catch (error) {
     next(error);

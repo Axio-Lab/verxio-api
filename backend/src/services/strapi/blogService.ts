@@ -83,13 +83,10 @@ export async function updateBlogPost(
   if (input.seo !== undefined) updateData.seo = input.seo;
   if (input.status !== undefined) updateData.status = input.status;
 
-  const result = await strapiRequest<{ data: BlogPost }>(
-    `/blog-posts/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ data: updateData }),
-    }
-  );
+  const result = await strapiRequest<{ data: BlogPost }>(`/blog-posts/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: updateData }),
+  });
 
   return result.data;
 }
@@ -107,9 +104,7 @@ export async function getBlogPostBySlug(
 
 export async function getBlogPostById(documentId: string): Promise<BlogPost | null> {
   try {
-    const result = await strapiRequest<{ data: BlogPost }>(
-      `/blog-posts/${documentId}?populate=*`
-    );
+    const result = await strapiRequest<{ data: BlogPost }>(`/blog-posts/${documentId}?populate=*`);
     return result.data || null;
   } catch {
     return null;

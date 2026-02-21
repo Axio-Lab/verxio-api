@@ -118,10 +118,7 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.EXPORT_WORKFLOW_AS_TEMPLATE,
       ];
     case "business":
-      return [
-        ...getPlanFeatures("pro"),
-        SUBSCRIPTION_FEATURES.CUSTOM_DOMAIN,
-      ];
+      return [...getPlanFeatures("pro"), SUBSCRIPTION_FEATURES.CUSTOM_DOMAIN];
     default:
       return [];
   }

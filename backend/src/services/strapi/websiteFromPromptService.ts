@@ -43,8 +43,7 @@ function parseAiResponse(text: string): GeneratedWebsitePlan {
   }
   const obj = parsed as Record<string, unknown>;
   const title = typeof obj.title === "string" ? obj.title : "My Website";
-  const type =
-    obj.type === "funnel" || obj.type === "blog" ? obj.type : "website";
+  const type = obj.type === "funnel" || obj.type === "blog" ? obj.type : "website";
   const pages = Array.isArray(obj.pages)
     ? (obj.pages as GeneratedPageSpec[]).map((p) => ({
         title: typeof p.title === "string" ? p.title : "Page",

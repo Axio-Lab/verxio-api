@@ -23,7 +23,6 @@ import { getComposioMcpUrl } from "../composio/composioService";
 import { checkFeatureAccess } from "../subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
 
-
 const prisma = basePrismaClient as any;
 
 // ============================================
@@ -280,9 +279,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       getUserContext(userId, workflowId),
       hasComposioAccess
         ? getComposioMcpUrl(userId).catch((err) => {
-          console.error("[Composio] Failed to load MCP URL:", err);
-          return null;
-        })
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
         : Promise.resolve(null),
     ]);
     userMcpServers = mcpServers;
@@ -295,9 +294,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       getUserContext(userId, workflowId),
       hasComposioAccess
         ? getComposioMcpUrl(userId).catch((err) => {
-          console.error("[Composio] Failed to load MCP URL:", err);
-          return null;
-        })
+            console.error("[Composio] Failed to load MCP URL:", err);
+            return null;
+          })
         : Promise.resolve(null),
     ]);
     userContext = context;
@@ -344,14 +343,20 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         if (mime.startsWith("image/")) {
           mediaDescriptions.push(`[User shared an image: ${label}]\nURL: ${att.url}`);
         } else if (mime.startsWith("audio/")) {
-          mediaDescriptions.push(`[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`);
+          mediaDescriptions.push(
+            `[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`
+          );
         } else if (mime.startsWith("video/")) {
-          mediaDescriptions.push(`[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`);
+          mediaDescriptions.push(
+            `[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`
+          );
         } else {
           mediaDescriptions.push(`[User shared a file: ${label}]\nURL: ${att.url}`);
         }
       } else if (att.base64 && att.mimeType?.startsWith("image/")) {
-        mediaDescriptions.push(`[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`);
+        mediaDescriptions.push(
+          `[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`
+        );
       } else {
         mediaDescriptions.push(`[User shared a file: ${label}]`);
       }
@@ -418,9 +423,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         error: errorMessage,
         usage: lastResult?.usage
           ? {
-            inputTokens: lastResult.usage.input_tokens,
-            outputTokens: lastResult.usage.output_tokens,
-          }
+              inputTokens: lastResult.usage.input_tokens,
+              outputTokens: lastResult.usage.output_tokens,
+            }
           : undefined,
         cost: lastResult?.total_cost_usd,
       },
@@ -857,11 +862,12 @@ When asked "who are you", respond with your name and personality — you are ${n
 ## Your Personality (soul.md)
 ${soulMd}
 
-${evolvePersonality
-        ? `## Personality Evolution
+${
+  evolvePersonality
+    ? `## Personality Evolution
 You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
-        : ""
-      }
+    : ""
+}
 ---
 
 `;
@@ -993,12 +999,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-        .map((name) => {
-          const value = context[name];
-          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-        })
-        .join("\n")
+          .map((name) => {
+            const value = context[name];
+            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+          })
+          .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

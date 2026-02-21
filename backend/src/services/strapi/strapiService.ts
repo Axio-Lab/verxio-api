@@ -89,10 +89,7 @@ export function generateSlug(title: string): string {
     .slice(0, 80);
 }
 
-export async function strapiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function strapiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${STRAPI_URL}/api${path}`;
   const response = await fetch(url, {
     ...options,
@@ -104,9 +101,7 @@ export async function strapiRequest<T>(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "");
-    throw new Error(
-      `Strapi API error (${response.status}): ${errorBody || response.statusText}`
-    );
+    throw new Error(`Strapi API error (${response.status}): ${errorBody || response.statusText}`);
   }
 
   return response.json();
@@ -146,13 +141,10 @@ export async function updateLandingPage(
   if (input.seo !== undefined) updateData.seo = input.seo;
   if (input.status !== undefined) updateData.status = input.status;
 
-  const result = await strapiRequest<{ data: LandingPage }>(
-    `/landing-pages/${documentId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ data: updateData }),
-    }
-  );
+  const result = await strapiRequest<{ data: LandingPage }>(`/landing-pages/${documentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ data: updateData }),
+  });
 
   return result.data;
 }

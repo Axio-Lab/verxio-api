@@ -43,7 +43,18 @@ router.post("/posts", async (req: Request, res: Response, next: NextFunction) =>
     await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
     await consumePremiumQuota(userId, QUOTA_COST.STRAPI_BLOG);
 
-    const { websiteId, title, content, excerpt, featuredImage, author, category, tags, seo, status } = req.body;
+    const {
+      websiteId,
+      title,
+      content,
+      excerpt,
+      featuredImage,
+      author,
+      category,
+      tags,
+      seo,
+      status,
+    } = req.body;
     if (!websiteId) return res.status(400).json({ error: "websiteId is required" });
     if (!title) return res.status(400).json({ error: "title is required" });
     if (!content) return res.status(400).json({ error: "content is required" });
@@ -72,7 +83,10 @@ router.get("/posts", async (req: Request, res: Response, next: NextFunction) => 
     const userId = (req as any).userId;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { websiteId, status } = req.query as { websiteId?: string; status?: "draft" | "published" };
+    const { websiteId, status } = req.query as {
+      websiteId?: string;
+      status?: "draft" | "published";
+    };
 
     let posts;
     if (websiteId) {
@@ -107,7 +121,8 @@ router.put("/posts/:id", async (req: Request, res: Response, next: NextFunction)
     await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.STRAPI_NODE);
     await consumePremiumQuota(userId, QUOTA_COST.STRAPI_BLOG);
 
-    const { title, content, excerpt, featuredImage, author, category, tags, seo, status } = req.body;
+    const { title, content, excerpt, featuredImage, author, category, tags, seo, status } =
+      req.body;
     const post = await updateBlogPost(req.params.id, {
       title,
       content,
