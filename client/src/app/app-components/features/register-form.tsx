@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,6 +56,20 @@ export function RegisterForm() {
       acceptTerms: false,
     },
   });
+
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref");
+
+  // Track referral click on mount
+  useEffect(() => {
+    if (refCode) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/referral/track-click`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: refCode }),
+      }).catch(() => {});
+    }
+  }, [refCode]);
 
   // Prefetch workflows page on mount for instant navigation
   useEffect(() => {

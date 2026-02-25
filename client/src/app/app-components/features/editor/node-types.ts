@@ -53,6 +53,7 @@ export const NodeType = {
   COMPOSIO_ACTION: "COMPOSIO_ACTION",
   TINYFISH: "TINYFISH",
   STRAPI: "STRAPI",
+  AGENT_TEAM: "AGENT_TEAM",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

@@ -46,7 +46,11 @@ export interface TraceMetadata {
     | "code_generation"
     | "workflow_generation"
     | "smart_prompt"
-    | "template_metadata";
+    | "template_metadata"
+    | "widget_chat"
+    | "agent_team_sub"
+    | "agent_team_supervisor"
+    | "migration_refinement";
   model?: string;
   [key: string]: any;
 }

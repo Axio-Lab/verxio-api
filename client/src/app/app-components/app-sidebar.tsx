@@ -14,6 +14,10 @@ import {
   StarIcon,
   Cable,
   BookOpen,
+  MessageSquare,
+  BarChart3,
+  Brain,
+  Gift,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -76,6 +80,26 @@ const menuItems = [
         title: "My Sites",
         url: "/sites",
         icon: <Globe />,
+      },
+      {
+        title: "Widgets",
+        url: "/widgets",
+        icon: <MessageSquare />,
+      },
+      {
+        title: "Knowledge Base",
+        url: "/knowledge",
+        icon: <Brain />,
+      },
+      {
+        title: "Analytics",
+        url: "/analytics",
+        icon: <BarChart3 />,
+      },
+      {
+        title: "Referrals",
+        url: "/referrals",
+        icon: <Gift />,
       },
     ],
   },

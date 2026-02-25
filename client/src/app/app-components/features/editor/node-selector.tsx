@@ -12,6 +12,7 @@ import {
   Video,
   Download,
   FileText,
+  Users,
 } from "lucide-react";
 import {
   Sheet,
@@ -235,6 +236,13 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Create, update, or delete professional landing pages via Strapi CMS with dynamic sections and SEO.",
     icon: "/logo/strapi.svg",
+  },
+  {
+    type: NodeType.AGENT_TEAM,
+    label: "Agent Team",
+    description:
+      "Orchestrate multiple AI agents working together on complex tasks with sequential, parallel, or supervisor strategies.",
+    icon: Users,
   },
   {
     type: NodeType.CODE_BLOCK,
@@ -978,6 +986,22 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             publishStatus: "draft",
           },
           type: NodeType.STRAPI,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.AGENT_TEAM) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Agent Team",
+            variables: "agentTeam",
+            objective: "",
+            strategy: "sequential",
+            agents: [{ name: "Researcher", role: "researcher", personality: "" }],
+            maxRounds: 5,
+          },
+          type: NodeType.AGENT_TEAM,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);
