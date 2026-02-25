@@ -58,6 +58,7 @@ import { SeedreamNode } from "@/app/app-components/features/executions/actions/s
 import { ComposioActionNode } from "@/app/app-components/features/executions/actions/composio-action/node";
 import { TinyfishNode } from "@/app/app-components/features/executions/actions/tinyfish/node";
 import { StrapiNode } from "@/app/app-components/features/executions/actions/strapi/node";
+import { AgentTeamNode } from "@/app/app-components/features/executions/actions/agent-team/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -113,6 +114,7 @@ export const NodeComponents = {
   [NodeType.COMPOSIO_ACTION]: ComposioActionNode,
   [NodeType.TINYFISH]: TinyfishNode,
   [NodeType.STRAPI]: StrapiNode,
+  [NodeType.AGENT_TEAM]: AgentTeamNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

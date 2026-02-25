@@ -130,6 +130,11 @@ export const AVAILABLE_NODE_TYPES = {
     { type: "DECIDER", description: "Conditional branching based on data" },
     { type: "CODE_BLOCK", description: "Execute custom TypeScript code" },
     { type: "PLAN", description: "AI-powered planning and decision making" },
+    {
+      type: "AGENT_TEAM",
+      description:
+        "Orchestrate multiple AI agents in one node: sequential (pipeline), parallel (same task, multiple agents), or supervisor (one agent delegates and reviews). Each agent has name, role, and optional personality. Use for research→write→edit pipelines or adaptive multi-step tasks.",
+    },
   ],
 
   // Media
@@ -415,6 +420,11 @@ export const NODE_SCHEMAS: Record<string, NodeSchemaEntry> = {
       "Create, update, or delete landing pages via Strapi CMS. Fields: action (REQ, 'create' | 'update' | 'delete'), pageTitle (REQ for create), pageId (REQ for update/delete), sections (JSON array of section objects: {type, heading, subheading, body, buttons, items}), seo (JSON: {metaTitle, metaDescription, keywords}), publishStatus ('draft' or 'published'), variables (output variable name, default: strapi).",
     required: ["action", "variables"],
   },
+  AGENT_TEAM: {
+    description:
+      "Orchestrate multiple AI agents in one node. Fields: variables (REQ), objective (REQ), strategy (REQ: 'sequential'|'parallel'|'supervisor'), agents (REQ, array of agent objects; you can add as many agents as needed). Each agent: { name (REQ), role (REQ), personality (optional, extra instructions for this agent) }. To update name/role/personality or add more agents, use configureNode with config.agents set to the full array (e.g. add a new agent by appending to the list). maxRounds (optional, for supervisor).",
+    required: ["variables", "objective", "strategy", "agents"],
+  },
   GMAIL: {
     description: "Send, list, and manage Gmail emails.",
     credential: "Google OAuth",
@@ -516,7 +526,7 @@ export const getNodeSchemaTool: VerxioTool = {
     nodeType: z
       .string()
       .describe(
-        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, GOOGLE_DOCS, GOOGLE_DRIVE, GOOGLE_SLIDES, AIRTABLE, GMAIL, COMPOSIO_ACTION, COMPOSIO_TRIGGER, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
+        "Node type (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS, GMAIL, COMPOSIO_ACTION, COMPOSIO_TRIGGER, TINYFISH, STRAPI, AGENT_TEAM, LOYALTY_PROGRAM, LOYALTY_DEAL). Use 'all' to return every schema."
       ),
   }),
   execute: async ({ nodeType }) => {
@@ -2990,6 +3000,65 @@ const listWebsitesTool: VerxioTool = {
 // Export All Tools
 // ============================================
 
+// ============================================
+// Knowledge Base Search Tool
+// ============================================
+
+const searchKnowledgeBaseTool: VerxioTool = {
+  name: "searchKnowledgeBase",
+  description:
+    "Search a user's knowledge base for relevant information. Returns the most relevant text chunks based on semantic similarity to the query. Use this when the user asks questions that might be answered by their uploaded documents or knowledge bases.",
+  inputSchema: z.object({
+    knowledgeBaseId: z.string().describe("The ID of the knowledge base to search"),
+    query: z.string().describe("The search query to find relevant information"),
+    topK: z.number().optional().default(5).describe("Number of results to return (default 5)"),
+  }),
+  execute: async (
+    args: { knowledgeBaseId: string; query: string; topK?: number },
+    context: ToolContext
+  ) => {
+    try {
+      const { searchKnowledge } = await import("../knowledgeBaseService");
+      const results = await searchKnowledge(args.knowledgeBaseId, args.query, args.topK || 5);
+      return {
+        success: true,
+        results: results.map((r) => ({
+          content: r.content,
+          score: Math.round(r.score * 100) / 100,
+        })),
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Search failed" };
+    }
+  },
+};
+
+const listKnowledgeBasesTool: VerxioTool = {
+  name: "listKnowledgeBases",
+  description: "List all knowledge bases belonging to the current user.",
+  inputSchema: z.object({}),
+  execute: async (_args: any, context: ToolContext) => {
+    try {
+      const { listKnowledgeBases } = await import("../knowledgeBaseService");
+      const kbs = await listKnowledgeBases(context.userId);
+      return {
+        success: true,
+        knowledgeBases: kbs.map((kb: any) => ({
+          id: kb.id,
+          name: kb.name,
+          description: kb.description,
+          documentCount: kb.documents?.length || 0,
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list knowledge bases",
+      };
+    }
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -3026,6 +3095,8 @@ export const verxioTools: VerxioTool[] = [
   listBlogPostsTool,
   listLandingPagesTool,
   listWebsitesTool,
+  searchKnowledgeBaseTool,
+  listKnowledgeBasesTool,
 ];
 
 export default verxioTools;

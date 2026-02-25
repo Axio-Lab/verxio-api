@@ -40,6 +40,11 @@ import { internalDiscordRouter } from "./routes/internal/discord";
 import strapiRouter from "./routes/strapi";
 import { websiteRouter } from "./routes/websites";
 import { blogRouter } from "./routes/blog";
+import { referralRouter } from "./routes/referral";
+import { widgetRouter } from "./routes/widget";
+import { knowledgeBaseRouter } from "./routes/knowledge-base";
+import { analyticsRouter } from "./routes/analytics";
+import { migrationRouter } from "./routes/migration";
 // import { apiKeyRouter } from './routes/apiKey';
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
@@ -225,6 +230,11 @@ app.use("/api/internal/discord", internalDiscordRouter);
 app.use("/strapi", strapiRouter);
 app.use("/websites", websiteRouter);
 app.use("/blog", blogRouter);
+app.use("/api/referral", referralRouter);
+app.use("/api/widget", widgetRouter);
+app.use("/api/knowledge-base", knowledgeBaseRouter);
+app.use("/api/analytics", analyticsRouter);
+app.use("/api/migration", migrationRouter);
 
 // Polar webhook handler – receives webhooks from Polar.
 // Billing/status reads from THIS backend’s DB. For the UI to show premium after payment,
@@ -274,6 +284,24 @@ app.post("/api/auth/polar/webhooks", async (req: Request, res: Response) => {
       case "subscription.active":
       case "subscription.activated":
         await handleSubscriptionActive(payload);
+        // Record referral conversion when a referred user subscribes
+        try {
+          const { recordConversion } = await import("./services/referralService");
+          const email = payload?.data?.customer?.email || payload?.data?.user?.email;
+          if (email) {
+            const { prisma } = await import("./lib/prisma");
+            const subscribedUser = await prisma.user.findUnique({
+              where: { email },
+              select: { id: true, referredBy: true },
+            });
+            if (subscribedUser?.referredBy) {
+              await recordConversion(subscribedUser.id);
+              console.log(`[Referral] Conversion recorded for user ${subscribedUser.id}`);
+            }
+          }
+        } catch (e) {
+          console.error("[Referral] Error recording conversion:", e);
+        }
         break;
       case "subscription.updated":
         await handleSubscriptionUpdated(payload);

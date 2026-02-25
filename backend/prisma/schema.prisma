@@ -277,6 +277,12 @@ model User {
   externalIdentities    ExternalIdentity[]
   chatIntegrations      ChatIntegration[]
   skills                UserSkill[]
+  referralCode          String?              @unique
+  referredBy            String?
+  referralsMade         Referral[]           @relation("Referrals")
+  referredByReferral    Referral?            @relation("ReferredBy")
+  widgetAgents          WidgetAgent[]
+  knowledgeBases        KnowledgeBase[]
 
   @@map("user")
 }
@@ -478,6 +484,7 @@ enum NodeType {
   COMPOSIO_TRIGGER
   TINYFISH
   STRAPI
+  AGENT_TEAM
 }
 
 model ComposioWebhookSubscription {
@@ -849,4 +856,109 @@ model UserSkill {
   @@index([userId])
   @@index([userId, name])
   @@map("user_skills")
+}
+
+// ============================================
+// Chat Conversation (per-sender isolation)
+// ============================================
+
+model ChatConversation {
+  id                  String   @id @default(cuid())
+  chatIntegrationId   String
+  externalId          String
+  conversationHistory String   @default("[]")
+  lastMessageAt       DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([chatIntegrationId, externalId])
+  @@index([chatIntegrationId])
+  @@map("chat_conversations")
+}
+
+// ============================================
+// Referral Program
+// ============================================
+
+model Referral {
+  id              String    @id @default(cuid())
+  referrerId      String
+  referrer        User      @relation("Referrals", fields: [referrerId], references: [id])
+  referredUserId  String?   @unique
+  referredUser    User?     @relation("ReferredBy", fields: [referredUserId], references: [id])
+  code            String    @unique
+  clicks          Int       @default(0)
+  status          String    @default("pending")
+  commissionType  String    @default("credits")
+  commissionValue Float     @default(500)
+  totalEarned     Float     @default(0)
+  convertedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([referrerId])
+  @@index([code])
+  @@map("referrals")
+}
+
+// ============================================
+// Embeddable Widget Agent
+// ============================================
+
+model WidgetAgent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  greeting        String   @default("Hi! How can I help you?")
+  personality     String?
+  workflowId      String?
+  knowledgeBaseId String?
+  brandColor      String   @default("#6366f1")
+  position        String   @default("bottom-right")
+  avatarUrl       String?
+  allowedDomains  String[]
+  status          String   @default("active")
+  conversations   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@map("widget_agents")
+}
+
+// ============================================
+// Knowledge Base / RAG
+// ============================================
+
+model KnowledgeBase {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      String              @default("active")
+  documents   KnowledgeDocument[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([userId])
+  @@map("knowledge_bases")
+}
+
+model KnowledgeDocument {
+  id              String        @id @default(cuid())
+  knowledgeBaseId String
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title           String
+  sourceType      String
+  sourceUrl       String?
+  content         String
+  status          String        @default("processing")
+  chunkCount      Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([knowledgeBaseId])
+  @@map("knowledge_documents")
 }

@@ -82,6 +82,79 @@ export const getOrCreateWorkflowPlan = async (
 };
 
 /**
+ * Get or create a per-sender ChatConversation for chat integrations.
+ * This isolates conversation history per external user (telegram id, phone number, etc.)
+ * so that User A's messages never leak into User B's context.
+ */
+export const getOrCreateChatConversation = async (
+  chatIntegrationId: string,
+  externalId: string
+): Promise<{ id: string; conversationHistory: ConversationMessage[] }> => {
+  let convo = await (prismaClient as any).chatConversation.findUnique({
+    where: { chatIntegrationId_externalId: { chatIntegrationId, externalId } },
+  });
+
+  if (!convo) {
+    convo = await (prismaClient as any).chatConversation.create({
+      data: {
+        chatIntegrationId,
+        externalId,
+        conversationHistory: serializeConversationHistory([]),
+      },
+    });
+  }
+
+  return {
+    id: convo.id,
+    conversationHistory: parseConversationHistory(
+      convo.conversationHistory
+    ) as ConversationMessage[],
+  };
+};
+
+/**
+ * Save per-sender conversation history back to ChatConversation.
+ */
+export const saveChatConversation = async (
+  chatIntegrationId: string,
+  externalId: string,
+  history: ConversationMessage[]
+): Promise<void> => {
+  await (prismaClient as any).chatConversation.upsert({
+    where: { chatIntegrationId_externalId: { chatIntegrationId, externalId } },
+    update: {
+      conversationHistory: serializeConversationHistory(history),
+      lastMessageAt: new Date(),
+    },
+    create: {
+      chatIntegrationId,
+      externalId,
+      conversationHistory: serializeConversationHistory(history),
+    },
+  });
+};
+
+/**
+ * Clear per-sender conversation history.
+ */
+export const clearChatConversation = async (
+  chatIntegrationId: string,
+  externalId: string
+): Promise<void> => {
+  const convo = await (prismaClient as any).chatConversation.findUnique({
+    where: { chatIntegrationId_externalId: { chatIntegrationId, externalId } },
+  });
+  if (!convo) return;
+  await (prismaClient as any).chatConversation.update({
+    where: { id: convo.id },
+    data: {
+      conversationHistory: serializeConversationHistory([]),
+      lastMessageAt: new Date(),
+    },
+  });
+};
+
+/**
  * Get WorkflowPlan for a workflow.
  * @param workflowId - The workflow ID
  * @param chatIntegrationId - When set, fetches the plan scoped to this integration. Null/undefined = canvas/standalone.
@@ -131,6 +204,7 @@ export const sendPlanningMessage = async (options: {
   userId: string;
   message: string;
   chatIntegrationId?: string | null;
+  externalId?: string | null;
   attachments?: Array<{
     fileId?: string;
     fileName?: string;
@@ -152,9 +226,18 @@ export const sendPlanningMessage = async (options: {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  // Get or create plan (scoped by chatIntegrationId when from chat integration)
-  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
-  const conversationHistory = plan.conversationHistory;
+  // Per-sender isolation: when externalId is provided (chat integration context),
+  // use ChatConversation instead of WorkflowPlan for conversation history.
+  let conversationHistory: ConversationMessage[];
+  let useChatConversation = false;
+  if (options.chatIntegrationId && options.externalId) {
+    const convo = await getOrCreateChatConversation(options.chatIntegrationId, options.externalId);
+    conversationHistory = convo.conversationHistory;
+    useChatConversation = true;
+  } else {
+    const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
+    conversationHistory = plan.conversationHistory;
+  }
 
   // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
@@ -219,21 +302,25 @@ export const sendPlanningMessage = async (options: {
     },
   ];
 
-  // Save updated conversation history
-  const planRecord = await prismaClient.workflowPlan.findFirst({
-    where: {
-      workflowId: options.workflowId,
-      chatIntegrationId: options.chatIntegrationId ?? null,
-    },
-  });
-  if (planRecord) {
-    await prismaClient.workflowPlan.update({
-      where: { id: planRecord.id },
-      data: {
-        conversationHistory: serializeConversationHistory(updatedHistory),
-        updatedAt: new Date(),
+  // Save updated conversation history to the appropriate store
+  if (useChatConversation && options.chatIntegrationId && options.externalId) {
+    await saveChatConversation(options.chatIntegrationId, options.externalId, updatedHistory);
+  } else {
+    const planRecord = await prismaClient.workflowPlan.findFirst({
+      where: {
+        workflowId: options.workflowId,
+        chatIntegrationId: options.chatIntegrationId ?? null,
       },
     });
+    if (planRecord) {
+      await prismaClient.workflowPlan.update({
+        where: { id: planRecord.id },
+        data: {
+          conversationHistory: serializeConversationHistory(updatedHistory),
+          updatedAt: new Date(),
+        },
+      });
+    }
   }
 
   return {
@@ -253,6 +340,7 @@ export async function* sendPlanningMessageStreaming(options: {
   userId: string;
   message: string;
   chatIntegrationId?: string | null;
+  externalId?: string | null;
   attachments?: Array<{
     fileId?: string;
     fileName?: string;
@@ -269,9 +357,16 @@ export async function* sendPlanningMessageStreaming(options: {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  // Get or create plan (scoped by chatIntegrationId when from chat integration)
-  const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
-  const conversationHistory = plan.conversationHistory;
+  let conversationHistory: ConversationMessage[];
+  let useChatConversation = false;
+  if (options.chatIntegrationId && options.externalId) {
+    const convo = await getOrCreateChatConversation(options.chatIntegrationId, options.externalId);
+    conversationHistory = convo.conversationHistory;
+    useChatConversation = true;
+  } else {
+    const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
+    conversationHistory = plan.conversationHistory;
+  }
 
   // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
@@ -328,20 +423,24 @@ export async function* sendPlanningMessageStreaming(options: {
     },
   ];
 
-  const planRecord = await prismaClient.workflowPlan.findFirst({
-    where: {
-      workflowId: options.workflowId,
-      chatIntegrationId: options.chatIntegrationId ?? null,
-    },
-  });
-  if (planRecord) {
-    await prismaClient.workflowPlan.update({
-      where: { id: planRecord.id },
-      data: {
-        conversationHistory: serializeConversationHistory(updatedHistory),
-        updatedAt: new Date(),
+  if (useChatConversation && options.chatIntegrationId && options.externalId) {
+    await saveChatConversation(options.chatIntegrationId, options.externalId, updatedHistory);
+  } else {
+    const planRecord = await prismaClient.workflowPlan.findFirst({
+      where: {
+        workflowId: options.workflowId,
+        chatIntegrationId: options.chatIntegrationId ?? null,
       },
     });
+    if (planRecord) {
+      await prismaClient.workflowPlan.update({
+        where: { id: planRecord.id },
+        data: {
+          conversationHistory: serializeConversationHistory(updatedHistory),
+          updatedAt: new Date(),
+        },
+      });
+    }
   }
 }
 

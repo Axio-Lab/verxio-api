@@ -49,6 +49,7 @@ import { outputExecutor } from "./actions/output";
 import { markdownExecutor } from "./actions/markdown";
 import { seedanceExecutor } from "./actions/seedance";
 import { seedreamExecutor } from "./actions/seedream";
+import { agentTeamExecutor } from "./actions/agent-team";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -122,6 +123,8 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.TINYFISH]: tinyfishExecutor as NodeExecutor,
   // STRAPI node for landing page creation and management
   [NodeType.STRAPI]: strapiExecutor as NodeExecutor,
+  // AGENT_TEAM node for multi-agent orchestration
+  [NodeType.AGENT_TEAM]: agentTeamExecutor as NodeExecutor,
 };
 
 /**

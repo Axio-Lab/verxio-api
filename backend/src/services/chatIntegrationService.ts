@@ -4,6 +4,7 @@ import {
   sendPlanningMessage,
   sendPlanningMessageStreaming,
   clearPlanningConversation,
+  clearChatConversation,
 } from "./planningService";
 import { simpleAgentQuery } from "./agent/agentService";
 import * as workflowService from "./workflowService";
@@ -1399,7 +1400,7 @@ Just send a message to interact with the AI assistant. It can help you:
       };
 
     case "clear":
-      return handleClearConversation(userId, integration);
+      return handleClearConversation(userId, integration, message);
 
     case "add-skill":
       return handleAddSkill(userId, args);
@@ -1427,10 +1428,16 @@ Just send a message to interact with the AI assistant. It can help you:
  */
 async function handleClearConversation(
   userId: string,
-  integration: any
+  integration: any,
+  message: ChatIntegrationMessage
 ): Promise<ChatIntegrationResponse> {
   try {
-    // Get workflow ID using same logic as plan mode
+    // Clear per-sender conversation history
+    if (message.externalId) {
+      await clearChatConversation(integration.id, message.externalId);
+    }
+
+    // Also clear the legacy WorkflowPlan-based history
     let workflowId = integration.defaultWorkflowId;
     const allowedIds = resolveAllowedWorkflowIds(integration);
 
@@ -1445,16 +1452,9 @@ async function handleClearConversation(
       workflowId = allowedIds[0];
     }
 
-    if (!workflowId) {
-      return {
-        success: false,
-        type: "error",
-        message:
-          "No workflow found. Start a conversation first by sending a message, then you can clear it.",
-      };
+    if (workflowId) {
+      await clearPlanningConversation(workflowId, integration.id);
     }
-
-    await clearPlanningConversation(workflowId, integration.id);
 
     return {
       success: true,
@@ -1529,12 +1529,13 @@ async function handlePlanMessage(
       allowedSkillIds: integration.allowedSkillIds || [],
     };
 
-    // Send message to planning service (chatIntegrationId scopes conversation per integration)
+    // Send message to planning service with per-sender isolation via externalId
     const result = await sendPlanningMessage({
       workflowId,
       userId,
       message: message.message,
       chatIntegrationId: integration.id,
+      externalId: message.externalId || null,
       attachments: attachments as any,
       agentPersonality,
     });

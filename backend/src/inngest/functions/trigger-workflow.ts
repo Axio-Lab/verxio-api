@@ -316,6 +316,8 @@ export const triggerWorkflow = inngest.createFunction(
     }
 
     // Execute workflow nodes with conditional routing support for DECIDER nodes
+    const workflowStartTime = Date.now();
+    const nodeMetrics: Record<string, { duration: number; status: string; type: string }> = {};
     try {
       const executedNodeIds = new Set<string>();
       const skippedNodeIds = new Set<string>();
@@ -372,14 +374,29 @@ export const triggerWorkflow = inngest.createFunction(
         }
 
         const executor = getExecutor(node.type);
-        context = await executor({
-          data: node.data as Record<string, unknown>,
-          nodeId: node.id,
-          context,
-          step,
-          publish,
-          userId,
-        });
+        const nodeStart = Date.now();
+        try {
+          context = await executor({
+            data: node.data as Record<string, unknown>,
+            nodeId: node.id,
+            context,
+            step,
+            publish,
+            userId,
+          });
+          nodeMetrics[node.id] = {
+            duration: Date.now() - nodeStart,
+            status: "success",
+            type: node.type,
+          };
+        } catch (nodeError) {
+          nodeMetrics[node.id] = {
+            duration: Date.now() - nodeStart,
+            status: "failed",
+            type: node.type,
+          };
+          throw nodeError;
+        }
 
         executedNodeIds.add(node.id);
 
@@ -390,6 +407,23 @@ export const triggerWorkflow = inngest.createFunction(
             deciderResults.set(node.id, deciderResult);
           }
         }
+      }
+
+      const totalDuration = Date.now() - workflowStartTime;
+
+      // Record execution history for ROI analytics
+      try {
+        await prisma.executionHistory.create({
+          data: {
+            workflowId,
+            executionId: event.id || `exec_${Date.now()}`,
+            success: true,
+            duration: totalDuration,
+            nodeMetrics: nodeMetrics as any,
+          },
+        });
+      } catch {
+        // Don't fail the workflow if analytics recording fails
       }
 
       // Persist result for public chat (shareable link) when run ID was provided
@@ -409,6 +443,24 @@ export const triggerWorkflow = inngest.createFunction(
         result: context,
       };
     } catch (error) {
+      const totalDuration = Date.now() - workflowStartTime;
+
+      // Record failed execution for analytics
+      try {
+        await prisma.executionHistory.create({
+          data: {
+            workflowId,
+            executionId: event.id || `exec_${Date.now()}`,
+            success: false,
+            duration: totalDuration,
+            nodeMetrics: nodeMetrics as any,
+            errorContext: { error: error instanceof Error ? error.message : String(error) },
+          },
+        });
+      } catch {
+        // Don't fail if analytics recording fails
+      }
+
       if (publicChatRunId && publicChatRunDb) {
         await publicChatRunDb.update({
           where: { id: publicChatRunId },
