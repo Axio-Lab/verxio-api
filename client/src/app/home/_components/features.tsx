@@ -62,9 +62,9 @@ const FEATURES = [
     ),
   },
   {
-    title: "AI-Built Websites and Funnels",
+    title: "Workflow Automation",
     description:
-      "Tell your agent what you need. It builds landing pages, multi-page websites, sales funnels, and blogs -- complete with SEO, hosting, and custom domains.",
+      "Tell your agent what you need. Build workflows that connect your apps, run on schedules or triggers, and automate repetitive tasks.",
     icon: (
       <svg
         className="w-6 h-6"

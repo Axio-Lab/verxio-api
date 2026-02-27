@@ -231,13 +231,6 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/tinyfish.svg",
   },
   {
-    type: NodeType.STRAPI,
-    label: "Strapi",
-    description:
-      "Create, update, or delete professional landing pages via Strapi CMS with dynamic sections and SEO.",
-    icon: "/logo/strapi.svg",
-  },
-  {
     type: NodeType.AGENT_TEAM,
     label: "Agent Team",
     description:
@@ -969,23 +962,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             proxyCountry: "",
           },
           type: NodeType.TINYFISH,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
-      } else if (selection.type === NodeType.STRAPI) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Strapi",
-            variables: "strapi",
-            action: "create",
-            pageTitle: "",
-            sections: "",
-            seo: "",
-            publishStatus: "draft",
-          },
-          type: NodeType.STRAPI,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

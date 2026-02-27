@@ -4,7 +4,6 @@ import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
   Crown,
   FolderOpenIcon,
-  Globe,
   KeyIcon,
   LayoutTemplate,
   LogOutIcon,
@@ -75,11 +74,6 @@ const menuItems = [
         title: "Skills",
         url: "/skills",
         icon: <BookOpen />,
-      },
-      {
-        title: "My Sites",
-        url: "/sites",
-        icon: <Globe />,
       },
       {
         title: "Widgets",

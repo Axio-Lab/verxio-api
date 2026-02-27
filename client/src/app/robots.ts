@@ -15,7 +15,6 @@ export default function robots(): MetadataRoute.Robots {
           "/credentials/",
           "/integrations/",
           "/skills/",
-          "/sites/",
           "/templates/",
           "/vibe/",
           "/chat/",

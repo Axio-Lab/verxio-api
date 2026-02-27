@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type DomainWebsite = {
-  userId: string;
-  slug: string;
-};
-
 const DEFAULT_FIRST_PARTY_HOSTS = [
   "localhost",
   "127.0.0.1",
@@ -49,53 +44,6 @@ function getFirstPartyHosts(): Set<string> {
   return hosts;
 }
 
-function getDomainCandidates(hostname: string): string[] {
-  if (!hostname) return [];
-  if (hostname.startsWith("www.")) {
-    return [hostname, hostname.replace(/^www\./, "")];
-  }
-  return [hostname, `www.${hostname}`];
-}
-
-async function fetchWebsiteByDomain(hostname: string): Promise<DomainWebsite | null> {
-  const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || process.env.STRAPI_URL;
-  if (!strapiUrl) return null;
-
-  const token = process.env.STRAPI_API_TOKEN || "";
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
-
-  for (const domain of getDomainCandidates(hostname)) {
-    const query = new URLSearchParams();
-    query.set("filters[customDomain][$eq]", domain);
-    query.set("filters[domainVerified][$eq]", "true");
-    query.set("fields[0]", "userId");
-    query.set("fields[1]", "slug");
-    query.set("pagination[pageSize]", "1");
-
-    try {
-      const response = await fetch(`${strapiUrl}/api/websites?${query.toString()}`, {
-        headers: authHeader,
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        continue;
-      }
-
-      const payload = (await response.json()) as { data?: DomainWebsite[] };
-      const website = payload?.data?.[0];
-
-      if (website?.userId && website?.slug) {
-        return website;
-      }
-    } catch {
-      // Ignore lookup failures and let request continue normally.
-    }
-  }
-
-  return null;
-}
-
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -117,24 +65,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/pages/")) {
-    return NextResponse.next();
-  }
-
-  const website = await fetchWebsiteByDomain(hostname);
-  if (!website) {
-    return NextResponse.next();
-  }
-
-  const rewritePath =
-    pathname === "/"
-      ? `/pages/${website.userId}/${website.slug}`
-      : `/pages/${website.userId}/${website.slug}${pathname}`;
-
-  const rewriteUrl = new URL(rewritePath, request.url);
-  rewriteUrl.search = request.nextUrl.search;
-
-  return NextResponse.rewrite(rewriteUrl);
+  // Non-first-party hosts: no custom domain rewrite; continue normally
+  return NextResponse.next();
 }
 
 export const config = {
