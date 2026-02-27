@@ -780,7 +780,7 @@ export const addNodeTool: VerxioTool = {
         const availableModels: Record<string, string[]> = {
           ANTHROPIC: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"],
           OPENAI: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-          GEMINI: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-pro-latest"],
+          GEMINI: ["gemini-3.1-pro-preview", "gemini-3-flash-preview"],
         };
 
         return {
@@ -1584,7 +1584,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
             .string()
             .optional()
             .describe(
-              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3-pro-image-preview' (default, recommended)."
+              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3.1-flash-image-preview' (default, Nano Banana Pro 2)."
             ),
           // DESIGN_PRO specific fields
           mode: z
@@ -1678,7 +1678,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
 
         // Set default model to Pro model if not specified
         if (!spec.model) {
-          nodeData.model = "gemini-3-pro-image-preview";
+          nodeData.model = "gemini-3.1-flash-image-preview";
         }
 
         // Add imageSize if specified (defaults to 1K in backend)

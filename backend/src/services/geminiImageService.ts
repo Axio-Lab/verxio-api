@@ -2,8 +2,8 @@
  * Gemini Image Service
  *
  * Provides image generation capabilities using Gemini's Nano Banana models:
- * - gemini-2.5-flash-image: Fast, efficient image generation
- * - gemini-3-pro-image-preview: Advanced features, up to 4K resolution, thinking mode
+ * - gemini-2.5-flash-image: Fast, efficient image generation (DESIGN)
+ * - gemini-3.1-flash-image-preview: Nano Banana Pro 2 (DESIGN_PRO), advanced features, up to 4K
  *
  * Features:
  * - Text-to-image generation
@@ -44,7 +44,7 @@ export const IMAGE_SIZES = ["1K", "2K", "4K"] as const;
 export type ImageSize = (typeof IMAGE_SIZES)[number];
 
 // Supported models
-export const IMAGE_MODELS = ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"] as const;
+export const IMAGE_MODELS = ["gemini-2.5-flash-image", "gemini-3.1-flash-image-preview"] as const;
 export type ImageModel = (typeof IMAGE_MODELS)[number];
 
 // Preset templates with dimensions
@@ -170,7 +170,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
         config.imageConfig.aspectRatio = aspectRatio;
       }
       // Image size only works with Pro model
-      if (options.imageSize && model === "gemini-3-pro-image-preview") {
+      if (options.imageSize && model === "gemini-3.1-flash-image-preview") {
         config.imageConfig.imageSize = options.imageSize;
       }
     }
@@ -238,7 +238,7 @@ export async function editImage(options: EditImageOptions): Promise<GenerateImag
       if (options.aspectRatio) {
         config.imageConfig.aspectRatio = options.aspectRatio;
       }
-      if (options.imageSize && model === "gemini-3-pro-image-preview") {
+      if (options.imageSize && model === "gemini-3.1-flash-image-preview") {
         config.imageConfig.imageSize = options.imageSize;
       }
     }
@@ -365,7 +365,7 @@ export async function editImageWithReferences(
 ): Promise<GenerateImageResult> {
   try {
     const ai = getGeminiClient();
-    const model = options.model || "gemini-3-pro-image-preview";
+    const model = options.model || "gemini-3.1-flash-image-preview";
 
     // Validate reference image count
     if (options.referenceImages && options.referenceImages.length > 14) {

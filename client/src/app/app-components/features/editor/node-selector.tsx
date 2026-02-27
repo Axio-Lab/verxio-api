@@ -739,6 +739,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
           data: {
             label: "Gemini",
             variables: "gemini",
+            model: "gemini-3.1-pro-preview",
           },
           type: NodeType.GEMINI,
           position: flowPosition,
@@ -1026,7 +1027,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             label: "Nano Banana Pro",
             variables: "designPro",
             mode: "generate",
-            model: "gemini-3-pro-image-preview",
+            model: "gemini-3.1-flash-image-preview",
           },
           type: NodeType.DESIGN_PRO,
           position: flowPosition,

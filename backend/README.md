@@ -165,8 +165,8 @@ GEMINI_API_KEY=your_gemini_api_key
 
 Gemini enables AI-powered image generation for the Design Agent node using Nano Banana models:
 
-- `gemini-2.5-flash-image`: Fast, efficient image generation
-- `gemini-3-pro-image-preview`: Advanced features, up to 4K resolution, thinking mode
+- `gemini-2.5-flash-image`: Fast, efficient image generation (DESIGN)
+- `gemini-3.1-flash-image-preview`: Nano Banana Pro 2 (DESIGN_PRO), advanced features, up to 4K
 
 ### Remotion (Video Generation)
 

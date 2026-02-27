@@ -75,7 +75,7 @@ const NODE_TYPES_DOCUMENTATION = `
 
 **GEMINI**
 - Fields: { variables (REQ), model (REQ), systemPrompt?, userPrompt (REQ), credentialId (REQ) }
-- Models: "gemini-2.5-flash" (recommended), "gemini-2.0-flash", "gemini-pro-latest"
+- Models: "gemini-3.1-pro-preview" (recommended), "gemini-3-flash-preview"
 - Credential workflow: See "Common Patterns" section below
 - Variables: Set to camelCase of node name, access via {{nodeName.text}}
 
@@ -137,7 +137,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 
 **DESIGN**
 - Fields: { variables, prompt (REQ, JSON format), model?, aspectRatio?, template? }
-- Models: "gemini-2.5-flash-image" (default), "gemini-3-pro-image-preview"
+- Models: "gemini-2.5-flash-image" (default), "gemini-3.1-flash-image-preview"
 - Aspect ratios: "1:1", "16:9", "9:16", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "21:9"
 - Templates: "instagram_post", "instagram_story", "twitter_post", "twitter_header", "facebook_post", "linkedin_post", "presentation_slide", "youtube_thumbnail", "logo"
 - Prompt: JSON string (see guides/image-generation-guide.txt). Sections: context, inputVariable, metadata, composition, color_profile, lighting, technical_specs, artistic_elements, typography, subject_analysis, background, generation_parameters
@@ -148,7 +148,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 **DESIGN_PRO**
 - Fields: { variables, prompt (REQ, JSON format), mode?: "generate"|"edit"|"chat"|"editWithReferences", model?, aspectRatio?, imageSize?: "1K"|"2K"|"4K", template?, sourceImage?, sourceImageMimeType?, referenceImages?: Array<{image, mimeType?, type?: "object"|"human"}>, useGoogleSearch?, thinkingMode?, conversationHistory? }
 - Modes: "generate" (text-to-image), "edit" (requires sourceImage), "chat" (multi-turn), "editWithReferences" (up to 14 refs: 6 objects + 5 humans)
-- Models: "gemini-3-pro-image-preview" (default), "gemini-2.5-flash-image"
+- Models: "gemini-3.1-flash-image-preview" (default, Nano Banana Pro 2)
 - Image sizes: "1K", "2K", "4K" (Pro only)
 - Reference images: Up to 14 total. Source: URLs, base64, or {{previousNode.imageUrl}}
 - Chat mode: Maintains conversationHistory in output
@@ -939,7 +939,7 @@ When creating or configuring nodes, you MUST:
 - model: (REQUIRED) MUST be explicitly selected from available models
   - ANTHROPIC: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5", "claude-opus-4-5"
   - OPENAI: "gpt-4o" (recommended), "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
-  - GEMINI: "gemini-2.5-flash" (recommended), "gemini-2.0-flash", "gemini-pro-latest"
+  - GEMINI: "gemini-3.1-pro-preview" (recommended), "gemini-3-flash-preview"
 - userPrompt: (REQUIRED) Write detailed prompts with {{variableName.key}} references - THIS MUST NOT BE EMPTY
 - systemPrompt: Clear role definition when applicable
 - credentialId: (REQUIRED) ID of the credential to use - MUST be set before creating node

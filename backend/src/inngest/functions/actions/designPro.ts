@@ -19,7 +19,7 @@ type DesignProData = {
   variables?: string;
   prompt?: string; // JSON format
   mode?: "generate" | "edit" | "editWithReferences";
-  model?: string; // Default: gemini-3-pro-image-preview
+  model?: string; // Default: gemini-3.1-flash-image-preview (Nano Banana Pro 2)
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize; // 1K, 2K, 4K
   template?: TemplateType;
@@ -148,7 +148,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
     const localVariablesName = String(data?.variables || "designPro");
     const localMode = String(data?.mode || "generate");
     const localPromptText = String(data?.prompt || "");
-    const localModel = String(data?.model || "gemini-3-pro-image-preview");
+    const localModel = String(data?.model || "gemini-3.1-flash-image-preview");
     const localAspectRatio = data?.aspectRatio as AspectRatio | undefined;
     const localImageSize = data?.imageSize as ImageSize | undefined;
     const localTemplate = data?.template as TemplateType | undefined;
@@ -303,7 +303,7 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
     const computedAspectRatio =
       localAspectRatio || (localTemplate && DESIGN_TEMPLATES[localTemplate]?.aspectRatio) || "1:1";
 
-    const finalModel = (localModel as any) || "gemini-3-pro-image-preview";
+    const finalModel = (localModel as any) || "gemini-3.1-flash-image-preview";
     const MAX_RETRIES = 3;
 
     // Generate image and save to disk inside step.run for memoization

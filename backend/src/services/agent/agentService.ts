@@ -684,11 +684,11 @@ When users request images, slides, or visuals:
 - Aspect ratio: "16:9" for presentations, "1:1" for social posts, "9:16" for stories
 - Template: "presentation_slide" for slides, "instagram_post" for Instagram, other templates as appropriate
 - Output variables: design1, design2, etc. for sequential outputs
-- Model: "gemini-2.5-flash-image" (default, standard quality)
+- Model: "gemini-2.5-flash-image" (default, standard quality for DESIGN)
 
 **DESIGN_PRO Node Details:**
 - Use DESIGN_PRO when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
-- Model: "gemini-3-pro-image-preview" (default, recommended for Pro)
+- Model: "gemini-3.1-flash-image-preview" (default, Nano Banana Pro 2)
 - Image size options: "1K" (default/standard), "2K" (high quality), "4K" (ultra high quality)
 - Set imageSize to "2K" or "4K" when user requests high quality output
 - For presentations requiring high quality, use DESIGN_PRO with imageSize: "2K" or "4K"
@@ -811,8 +811,8 @@ Example sequence for replacing/adding nodes:
 - getWorkflow(workflowId: "<current_workflow_id>") - Check existing nodes
 - deleteNode(nodeId: "<old_node_id>") - Delete old nodes if replacing
 - addNode(workflowId: "<current_workflow_id>", nodeType: "TELEGRAM_TRIGGER", name: "Telegram Trigger", data: {...})
-- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-2.5-flash", ...})
-- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-2.5-flash", userPrompt: "...", credentialId: "..."})
+- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-3.1-pro-preview", ...})
+- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-3.1-pro-preview", userPrompt: "...", credentialId: "..."})
 - connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
 
 ## Important

@@ -35,12 +35,10 @@ import { useEffect } from "react";
 import { useCredentials, CredentialType } from "@/hooks/useCredentials";
 import Image from "next/image";
 
-// Available Google Gemini models
+// Available Google Gemini models (text/chat)
 export const GEMINI_MODELS = [
-  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-  { value: "gemini-3-pro-preview", label: "Gemini 3 Pro" },
-  { value: "gemini-3-flash", label: "Gemini 3 Flash" },
-  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
+  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
 ] as const;
 
 // Extract model values as tuple for z.enum
@@ -78,7 +76,7 @@ export const GeminiDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} 
     resolver: zodResolver(formSchema),
     defaultValues: {
       variables: defaultValues.variables || "gemini",
-      model: defaultValues.model || GEMINI_MODEL_VALUES[0],
+      model: defaultValues.model || "gemini-3.1-pro-preview",
       systemPrompt: defaultValues.systemPrompt || "",
       userPrompt: defaultValues.userPrompt || "",
       credentialId: defaultValues.credentialId || undefined,
@@ -89,7 +87,7 @@ export const GeminiDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} 
     if (open) {
       form.reset({
         variables: defaultValues.variables || "gemini",
-        model: defaultValues.model || GEMINI_MODEL_VALUES[0],
+        model: defaultValues.model || "gemini-3.1-pro-preview",
         systemPrompt: defaultValues.systemPrompt || "",
         userPrompt: defaultValues.userPrompt || "",
         credentialId: defaultValues.credentialId || undefined,
