@@ -78,7 +78,10 @@ export function AgentTeamDialog({
         <DialogHeader>
           <DialogTitle>Configure Agent Team</DialogTitle>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0 gap-0">
+        <form
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="flex flex-col flex-1 min-h-0 gap-0"
+        >
           <div className="space-y-4 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
             <div className="space-y-2">
               <Label>Variable Name</Label>
