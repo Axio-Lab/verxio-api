@@ -24,7 +24,6 @@ const MANUAL_TIME_ESTIMATES_MS: Record<string, number> = {
   ANTHROPIC: 5 * 60 * 1000,
   GEMINI: 5 * 60 * 1000,
   OPENAI: 5 * 60 * 1000,
-  STRAPI: 10 * 60 * 1000,
   COMPOSIO_ACTION: 3 * 60 * 1000,
   AGENT_TEAM: 30 * 60 * 1000,
 };

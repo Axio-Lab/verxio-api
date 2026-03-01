@@ -22,36 +22,47 @@ type OutputData = {
  * The actual content resolution and display happens on the frontend,
  * which parses the source template (e.g., {{designPro.imageUrl}}) and
  * directly accesses the previous node's output from the execution store.
+ *
+ * Each publish is wrapped in step.run() with a unique ID per nodeId to avoid
+ * Inngest duplicate step ID warnings when multiple OUTPUT nodes run (e.g. in
+ * parallel branches or in workflows with several output nodes).
  */
 export const outputExecutor: NodeExecutor<OutputData> = async ({
   data,
   nodeId,
   context,
+  step,
   publish,
 }) => {
-  // Publish loading status
-  await publish(
-    outputChannel().status({
-      nodeId,
-      status: "loading",
-    })
-  );
+  // Publish loading status (unique step ID per node to avoid AUTOMATIC_PARALLEL_INDEXING)
+  await step.run(`publish-output-status-loading-${nodeId}`, async () => {
+    await publish(
+      outputChannel().status({
+        nodeId,
+        status: "loading",
+      })
+    );
+  });
 
   // Immediately publish success - no processing needed
-  await publish(
-    outputChannel().status({
-      nodeId,
-      status: "success",
-    })
-  );
+  await step.run(`publish-output-status-success-${nodeId}`, async () => {
+    await publish(
+      outputChannel().status({
+        nodeId,
+        status: "success",
+      })
+    );
+  });
 
   // Publish output (just pass through the context)
-  await publish(
-    outputChannel().output({
-      nodeId,
-      output: context,
-    })
-  );
+  await step.run(`publish-output-data-${nodeId}`, async () => {
+    await publish(
+      outputChannel().output({
+        nodeId,
+        output: context,
+      })
+    );
+  });
 
   // Return context unchanged - the frontend handles display
   return context;

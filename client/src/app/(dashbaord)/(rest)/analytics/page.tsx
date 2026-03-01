@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Clock, DollarSign, Zap, TrendingUp } from "lucide-react";
 import { LoadingView, ErrorView } from "@/app/app-components/features/editor/entity-component";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface WorkflowAnalytics {
   workflowId: string;
@@ -182,8 +184,8 @@ function AnalyticsContent() {
               <CardTitle className="text-base">Agentic Insight</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm">
-                {insight}
+              <div className="prose prose-sm dark:prose-invert max-w-none text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_strong]:font-semibold">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{insight}</ReactMarkdown>
               </div>
             </CardContent>
           </Card>

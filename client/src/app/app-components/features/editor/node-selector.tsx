@@ -231,13 +231,6 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/tinyfish.svg",
   },
   {
-    type: NodeType.STRAPI,
-    label: "Strapi",
-    description:
-      "Create, update, or delete professional landing pages via Strapi CMS with dynamic sections and SEO.",
-    icon: "/logo/strapi.svg",
-  },
-  {
     type: NodeType.AGENT_TEAM,
     label: "Agent Team",
     description:
@@ -746,6 +739,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
           data: {
             label: "Gemini",
             variables: "gemini",
+            model: "gemini-3.1-pro-preview",
           },
           type: NodeType.GEMINI,
           position: flowPosition,
@@ -973,23 +967,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
-      } else if (selection.type === NodeType.STRAPI) {
-        const newNode = {
-          id: createId(),
-          data: {
-            label: "Strapi",
-            variables: "strapi",
-            action: "create",
-            pageTitle: "",
-            sections: "",
-            seo: "",
-            publishStatus: "draft",
-          },
-          type: NodeType.STRAPI,
-          position: flowPosition,
-        };
-        setNodes((nodes) => [...nodes, newNode]);
-        onOpenChange(false);
       } else if (selection.type === NodeType.AGENT_TEAM) {
         const newNode = {
           id: createId(),
@@ -1050,7 +1027,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             label: "Nano Banana Pro",
             variables: "designPro",
             mode: "generate",
-            model: "gemini-3-pro-image-preview",
+            model: "gemini-3.1-flash-image-preview",
           },
           type: NodeType.DESIGN_PRO,
           position: flowPosition,

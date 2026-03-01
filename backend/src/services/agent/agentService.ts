@@ -29,7 +29,7 @@ const prisma = basePrismaClient as any;
 // Simple text generation via Claude Agent SDK (no MCP, no tools)
 // ============================================
 // Single-turn query with custom system prompt. Uses AGENT_CLAUDE_MODEL.
-// Used by Strapi (website/page JSON generation) and other simple LLM calls.
+// Used for simple LLM text generation (e.g. JSON generation) without tools.
 
 export async function generateTextWithSystemPrompt(options: {
   systemPrompt: string;
@@ -684,11 +684,11 @@ When users request images, slides, or visuals:
 - Aspect ratio: "16:9" for presentations, "1:1" for social posts, "9:16" for stories
 - Template: "presentation_slide" for slides, "instagram_post" for Instagram, other templates as appropriate
 - Output variables: design1, design2, etc. for sequential outputs
-- Model: "gemini-2.5-flash-image" (default, standard quality)
+- Model: "gemini-2.5-flash-image" (default, standard quality for DESIGN)
 
 **DESIGN_PRO Node Details:**
 - Use DESIGN_PRO when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
-- Model: "gemini-3-pro-image-preview" (default, recommended for Pro)
+- Model: "gemini-3.1-flash-image-preview" (default, Nano Banana Pro 2)
 - Image size options: "1K" (default/standard), "2K" (high quality), "4K" (ultra high quality)
 - Set imageSize to "2K" or "4K" when user requests high quality output
 - For presentations requiring high quality, use DESIGN_PRO with imageSize: "2K" or "4K"
@@ -759,11 +759,8 @@ Read the conversation to decide whether the user needs a **workflow** (multi-ste
 
 ## Plan Mode: Plan First, Build Only After Approval (CRITICAL)
 **SCOPE: Plan mode applies ONLY to multi-node WORKFLOW creation (addNode, configureNode, connectNodes).** It does NOT apply to:
-- Strapi operations (createLandingPage, createWebsite, addPageToWebsite, createBlogPost, updateBlogPost, deleteBlogPost) — execute these IMMEDIATELY when the user's request is clear
 - Direct tool calls (image generation, video generation, Composio actions, browseWebsite)
 - Single-node execution via executeSingleNodeAndWait
-
-For Strapi and direct tool calls: if the user says "create a landing page about X" or "build me a website for Y", Explain to the user the plan on what to build and then build it. Do NOT describe what you will create and then stop. Do NOT output "Creating now..." without actually invoking the tool. The user's request IS the instruction.
 
 The goal of plan mode is to **deeply plan with the user**. You must NEVER zoom off and build a workflow until the user has seen and approved a plan.
 
@@ -814,13 +811,12 @@ Example sequence for replacing/adding nodes:
 - getWorkflow(workflowId: "<current_workflow_id>") - Check existing nodes
 - deleteNode(nodeId: "<old_node_id>") - Delete old nodes if replacing
 - addNode(workflowId: "<current_workflow_id>", nodeType: "TELEGRAM_TRIGGER", name: "Telegram Trigger", data: {...})
-- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-2.5-flash", ...})
-- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-2.5-flash", userPrompt: "...", credentialId: "..."})
+- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-3.1-pro-preview", ...})
+- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-3.1-pro-preview", userPrompt: "...", credentialId: "..."})
 - connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
 
 ## Important
 - **Plan first, build after approval**: For WORKFLOWS only. Show a reviewable plan before using workflow-modifying tools (addNode, configureNode, connectNodes); only build when the user explicitly approves.
-- **Strapi tools (landing pages, websites, funnels, blogs) are NOT workflows**: Execute them immediately. Do not plan or ask for confirmation. If the user says "create a page about X", call createLandingPage in the same turn with fully generated content.
 - **Fill all required fields** for each node; tell the user clearly if something is required and missing (e.g. credentials, calendar ID).
 - ALWAYS use the current workflow ID when adding nodes - do NOT create a new workflow
 - When generating a new workflow, REPLACE existing nodes to avoid duplicates on canvas

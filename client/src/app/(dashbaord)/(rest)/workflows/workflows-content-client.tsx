@@ -305,7 +305,7 @@ export function WorkflowsContent() {
       </WorkflowsContainer>
 
       {/* Import from Zapier/Make */}
-      <div className="flex justify-end px-4 pb-4">
+      {/* <div className="flex justify-end px-4 pb-4">
         <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
           <Upload className="mr-2 h-4 w-4" /> Import from Zapier/Make
         </Button>
@@ -333,7 +333,7 @@ export function WorkflowsContent() {
             )}
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 }

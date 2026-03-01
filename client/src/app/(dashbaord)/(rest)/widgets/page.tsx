@@ -301,8 +301,12 @@ function WidgetsContent() {
                       style={{ backgroundColor: agent.brandColor }}
                     />
                     <div className="min-w-0">
-                      <CardTitle className="text-base sm:text-lg break-words">{agent.name}</CardTitle>
-                      <CardDescription className="mt-1 line-clamp-2">{agent.greeting}</CardDescription>
+                      <CardTitle className="text-base sm:text-lg break-words">
+                        {agent.name}
+                      </CardTitle>
+                      <CardDescription className="mt-1 line-clamp-2">
+                        {agent.greeting}
+                      </CardDescription>
                     </div>
                   </div>
                   <span

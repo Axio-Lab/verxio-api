@@ -4,7 +4,6 @@ import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
   Crown,
   FolderOpenIcon,
-  Globe,
   KeyIcon,
   LayoutTemplate,
   LogOutIcon,
@@ -14,7 +13,7 @@ import {
   StarIcon,
   Cable,
   BookOpen,
-  MessageSquare,
+  FileCodeCorner,
   BarChart3,
   Brain,
   Gift,
@@ -77,14 +76,9 @@ const menuItems = [
         icon: <BookOpen />,
       },
       {
-        title: "My Sites",
-        url: "/sites",
-        icon: <Globe />,
-      },
-      {
         title: "Widgets",
         url: "/widgets",
-        icon: <MessageSquare />,
+        icon: <FileCodeCorner />,
       },
       {
         title: "Knowledge Base",

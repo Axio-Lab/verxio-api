@@ -36,9 +36,9 @@ import { useEffect, useState, useRef } from "react";
 import { DESIGN_TEMPLATES, ASPECT_RATIOS } from "../design/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Available Gemini image models (only Pro model for Nano Banana Pro)
+// Available Gemini image models for Nano Banana Pro (Design Agent Pro)
 const DESIGN_PRO_MODELS = [
-  { value: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image (High Quality)" },
+  { value: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash Image (Nano Banana Pro 2)" },
 ] as const;
 
 // Extract values for zod enums
@@ -123,7 +123,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
     defaultValues: {
       variables: defaultValues.variables || "designPro",
       mode: defaultValues.mode || "generate",
-      model: defaultValues.model || "gemini-3-pro-image-preview",
+      model: defaultValues.model || "gemini-3.1-flash-image-preview",
       template: defaultValues.template || "none",
       aspectRatio: defaultValues.aspectRatio || "1:1",
       imageSize: defaultValues.imageSize || "1K",
@@ -343,7 +343,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
       form.reset({
         variables: defaultValues.variables || "designPro",
         mode: defaultValues.mode || "generate",
-        model: defaultValues.model || "gemini-3-pro-image-preview",
+        model: defaultValues.model || "gemini-3.1-flash-image-preview",
         template: defaultValues.template || "none",
         aspectRatio: defaultValues.aspectRatio || "1:1",
         imageSize: defaultValues.imageSize || "1K",

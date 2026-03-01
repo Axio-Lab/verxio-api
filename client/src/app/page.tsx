@@ -82,10 +82,10 @@ export default function Home() {
         offerCount: "4",
       },
       description:
-        "AI coworker platform that automates workflows, builds websites and funnels, manages blogs, and deploys agents to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions across 800+ apps.",
+        "AI coworker platform that automates workflows and deploys agents to Slack, Discord, Telegram, and WhatsApp. 10,000+ actions across 800+ apps.",
       url: siteUrl,
       featureList:
-        "AI Agents, Visual Workflow Builder, AI Website Builder, AI Funnel Builder, AI Blog Manager, Slack Integration, Discord Integration, Telegram Integration, WhatsApp Integration, 10000+ Actions, 800+ App Integrations, Custom Skills, Agent Personality, Custom Domains",
+        "AI Agents, Visual Workflow Builder, Slack Integration, Discord Integration, Telegram Integration, WhatsApp Integration, 10000+ Actions, 800+ App Integrations, Custom Skills, Agent Personality",
     },
     {
       "@context": "https://schema.org",
@@ -93,7 +93,7 @@ export default function Home() {
       name: "Verxio Blog",
       url: "https://blog.verxio.xyz",
       description:
-        "Articles, guides, and insights on AI automation, workflow building, website creation, and growth strategies from the Verxio team.",
+        "Articles, guides, and insights on AI automation, workflow building, and growth strategies from the Verxio team.",
       isPartOf: {
         "@type": "WebSite",
         name: "Verxio",
