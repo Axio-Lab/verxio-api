@@ -37,41 +37,23 @@ const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
-const formSchema = z
-  .object({
-    variables: z
-      .string()
-      .min(1)
-      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
-      .optional(),
-    prompt: z.string().min(1, "Prompt is required").max(2500),
-    negative_prompt: z.string().max(2500).optional(),
-    image: z.string().optional(),
-    imageFilename: z.string().optional(),
-    image_reference: z.enum(["subject", "face"]).optional(),
-    image_fidelity: z.coerce.number().min(0).max(1).optional(),
-    human_fidelity: z.coerce.number().min(0).max(1).optional(),
-    model_name: z.enum(["kling-v1", "kling-v1-5", "kling-v2", "kling-v2-new", "kling-v2-1"]),
-    aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9"]),
-    n: z.coerce.number().min(1).max(9),
-    resolution: z.enum(["1k", "2k"]),
-  })
-  .superRefine((values, ctx) => {
-    if (values.image && values.model_name === "kling-v1-5" && !values.image_reference) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "image_reference is required when using kling-v1-5 with a reference image",
-        path: ["image_reference"],
-      });
-    }
-    if (values.image_reference && !values.image) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "image is required when image_reference is set",
-        path: ["image"],
-      });
-    }
-  });
+const MAX_IMAGES = 9;
+
+const formSchema = z.object({
+  variables: z
+    .string()
+    .min(1)
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
+  prompt: z.string().min(1, "Prompt is required").max(2500),
+  negative_prompt: z.string().max(2500).optional(),
+  image: z.string().optional(),
+  imageFilename: z.string().optional(),
+  model_name: z.enum(["kling-v3"]),
+  aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9"]),
+  n: z.coerce.number().min(1, "At least 1 image").max(MAX_IMAGES, `Maximum ${MAX_IMAGES} images`),
+  resolution: z.enum(["1k", "2k"]),
+});
 
 export type KlingImageFormValues = z.infer<typeof formSchema>;
 
@@ -98,10 +80,7 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
       negative_prompt: defaultValues.negative_prompt ?? "",
       image: defaultValues.image ?? "",
       imageFilename: defaultValues.imageFilename ?? "",
-      image_reference: defaultValues.image_reference ?? undefined,
-      image_fidelity: defaultValues.image_fidelity ?? undefined,
-      human_fidelity: defaultValues.human_fidelity ?? undefined,
-      model_name: defaultValues.model_name ?? "kling-v1",
+      model_name: "kling-v3",
       aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
       n: defaultValues.n ?? 1,
       resolution: defaultValues.resolution ?? "1k",
@@ -133,10 +112,7 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
         negative_prompt: defaultValues.negative_prompt ?? "",
         image: defaultValues.image ?? "",
         imageFilename: defaultValues.imageFilename ?? "",
-        image_reference: defaultValues.image_reference ?? undefined,
-        image_fidelity: defaultValues.image_fidelity ?? undefined,
-        human_fidelity: defaultValues.human_fidelity ?? undefined,
-        model_name: defaultValues.model_name ?? "kling-v1",
+        model_name: "kling-v3",
         aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
         n: defaultValues.n ?? 1,
         resolution: defaultValues.resolution ?? "1k",
@@ -304,55 +280,6 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
                 <span className="text-xs text-muted-foreground">{imageFile.filename}</span>
               </div>
             )}
-            <FormField
-              control={form.control}
-              name="image_reference"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Image reference type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select reference type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="subject">Subject</SelectItem>
-                      <SelectItem value="face">Face</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="image_fidelity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image fidelity (0–1)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step={0.01} min={0} max={1} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="human_fidelity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Human fidelity (0–1)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step={0.01} min={0} max={1} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -360,20 +287,9 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Model</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="kling-v1">kling-v1</SelectItem>
-                        <SelectItem value="kling-v1-5">kling-v1-5</SelectItem>
-                        <SelectItem value="kling-v2">kling-v2</SelectItem>
-                        <SelectItem value="kling-v2-new">kling-v2-new</SelectItem>
-                        <SelectItem value="kling-v2-1">kling-v2-1</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Input {...field} value="kling-v3" readOnly className="bg-muted" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -410,9 +326,9 @@ export const KlingImageDialog = ({ open, onOpenChange, onSubmit, defaultValues =
                 name="n"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Number of images (1–9)</FormLabel>
+                    <FormLabel>Number of images (max {MAX_IMAGES})</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} max={9} {...field} />
+                      <Input type="number" min={1} max={MAX_IMAGES} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

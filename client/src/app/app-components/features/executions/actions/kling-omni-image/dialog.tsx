@@ -34,30 +34,31 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGES = 9;
 const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
-const formSchema = z.object({
-  variables: z
-    .string()
-    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
-    .optional(),
-  prompt: z.string().min(1, "Prompt is required").max(2500),
-  model_name: z.enum(["kling-image-o1"]),
-  image_list: z.string().max(2000).optional(),
-  referenceImages: z
-    .array(
-      z.object({
-        file: z.string(),
-        filename: z.string(),
-      })
-    )
-    .optional(),
-  element_list: z.string().max(2000).optional(),
-  resolution: z.enum(["1k", "2k"]),
-  n: z.coerce.number().min(1).max(9),
-  aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9", "auto"]),
-});
+const formSchema = z
+  .object({
+    variables: z
+      .string()
+      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+      .optional(),
+    prompt: z.string().min(1, "Prompt is required").max(2500),
+    model_name: z.enum(["kling-v3-omni"]),
+    referenceImages: z
+      .array(
+        z.object({
+          file: z.string(),
+          filename: z.string(),
+        })
+      )
+      .max(MAX_IMAGES, `Maximum ${MAX_IMAGES} reference images`)
+      .optional(),
+    resolution: z.enum(["1k", "2k"]),
+    n: z.coerce.number().min(1).max(MAX_IMAGES),
+    aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9", "auto"]),
+  });
 
 export type KlingOmniImageFormValues = z.infer<typeof formSchema>;
 
@@ -83,10 +84,8 @@ export const KlingOmniImageDialog = ({
     defaultValues: {
       variables: defaultValues.variables ?? "klingOmniImage",
       prompt: defaultValues.prompt ?? "",
-      model_name: "kling-image-o1",
-      image_list: defaultValues.image_list ?? "",
+      model_name: "kling-v3-omni",
       referenceImages: defaultValues.referenceImages ?? [],
-      element_list: defaultValues.element_list ?? "",
       resolution: defaultValues.resolution ?? "1k",
       n: defaultValues.n ?? 1,
       aspect_ratio: defaultValues.aspect_ratio ?? "auto",
@@ -98,10 +97,8 @@ export const KlingOmniImageDialog = ({
       form.reset({
         variables: defaultValues.variables ?? "klingOmniImage",
         prompt: defaultValues.prompt ?? "",
-        model_name: "kling-image-o1",
-        image_list: defaultValues.image_list ?? "",
+        model_name: "kling-v3-omni",
         referenceImages: defaultValues.referenceImages ?? [],
-        element_list: defaultValues.element_list ?? "",
         resolution: defaultValues.resolution ?? "1k",
         n: defaultValues.n ?? 1,
         aspect_ratio: defaultValues.aspect_ratio ?? "auto",
@@ -139,8 +136,8 @@ export const KlingOmniImageDialog = ({
     if (!files.length) return;
     e.target.value = "";
 
-    if (referenceImageFiles.length + files.length > 10) {
-      toast.error("You can upload up to 10 images.");
+    if (referenceImageFiles.length + files.length > MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} reference images. Error if exceeded.`);
       return;
     }
 
@@ -183,7 +180,7 @@ export const KlingOmniImageDialog = ({
         <DialogHeader>
           <DialogTitle>Kling Omni Image</DialogTitle>
           <DialogDescription>
-            Kling O1 omni-image. Prompt required. Optional image_list (JSON array or URL).
+            Kling v3 Omni image. Prompt required. Upload reference images (max {MAX_IMAGES}).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -221,28 +218,9 @@ export const KlingOmniImageDialog = ({
                 <FormItem>
                   <FormLabel>Model</FormLabel>
                   <FormControl>
-                    <Input {...field} value="kling-image-o1" readOnly />
+                    <Input {...field} value="kling-v3-omni" readOnly className="bg-muted" />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="image_list"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ReferenceImage list (optional)</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder='["{{klingImage.imageUrls[0]}}"]' />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground max-w-full break-words">
-                    Pass multiple URLs as a JSON array, e.g.
-                    <span className="ml-1 block font-mono break-all">
-                      [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
-                    </span>
-                  </p>
                 </FormItem>
               )}
             />
@@ -252,9 +230,9 @@ export const KlingOmniImageDialog = ({
                   type="button"
                   variant="outline"
                   onClick={() => referenceImagesInputRef.current?.click()}
-                  disabled={referenceImageFiles.length >= 10}
+                  disabled={referenceImageFiles.length >= MAX_IMAGES}
                 >
-                  Upload Reference Images ({referenceImageFiles.length}/10)
+                  Upload Reference Images ({referenceImageFiles.length}/{MAX_IMAGES})
                 </Button>
                 <input
                   ref={referenceImagesInputRef}
@@ -340,9 +318,9 @@ export const KlingOmniImageDialog = ({
                 name="n"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Number of images</FormLabel>
+                    <FormLabel>Number of images (max {MAX_IMAGES})</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} max={4} {...field} />
+                      <Input type="number" min={1} max={MAX_IMAGES} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

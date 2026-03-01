@@ -8,8 +8,6 @@ import { basePrismaClient } from "@/lib/prisma";
 type KlingMultiImage2ImageData = {
   prompt?: string;
   model_name?: "kling-v2" | "kling-v2-1";
-  subject_image_list?: string; // JSON array or comma-separated
-  image_list?: string; // legacy support
   subjectImages?: Array<{ file: string; filename?: string }>;
   scene_image?: string;
   style_image?: string;
@@ -86,20 +84,23 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
     }
 
     const prompt = String(data?.prompt ?? "").trim();
-    const subjectListRaw = data?.subject_image_list?.trim() ?? data?.image_list?.trim();
     const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
+    const hasSubjectUpload = data?.subjectImages && data.subjectImages.length > 0;
 
-    if (!prompt && !subjectListRaw && !(data?.subjectImages && data.subjectImages.length > 0)) {
+    if (!prompt && !hasSubjectUpload) {
+      const hasSubjectAsset = nodeAssets.some(
+        (a: any) => a.fileType === "kling-multi-image2image-subject"
+      );
       const hasSceneAsset = nodeAssets.some(
         (a: any) => a.fileType === "kling-multi-image2image-scene"
       );
       const hasStyleAsset = nodeAssets.some(
         (a: any) => a.fileType === "kling-multi-image2image-style"
       );
-      if (!hasSceneAsset && !hasStyleAsset) {
+      if (!hasSubjectAsset && !hasSceneAsset && !hasStyleAsset) {
         await publishStatus(publish, step, nodeId, "error");
         const err = new NonRetriableError(
-          "Kling Multi-Image-to-Image: prompt or subject_image_list is required"
+          "Kling Multi-Image-to-Image: prompt or upload subject image is required"
         );
         await step.run(`kling-multi-i2i-err-${nodeId}`, async () => {
           await publish(
@@ -117,20 +118,6 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
     const compiledPrompt = prompt ? compile(prompt) : undefined;
 
     const subjectSources: string[] = [];
-    if (subjectListRaw) {
-      try {
-        const parsed = JSON.parse(compile(subjectListRaw)) as unknown;
-        subjectSources.push(...(Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]));
-      } catch {
-        subjectSources.push(
-          ...subjectListRaw
-            .split(",")
-            .map((s) => compile(s.trim()))
-            .filter(Boolean)
-        );
-      }
-    }
-
     if (Array.isArray(data?.subjectImages)) {
       subjectSources.push(
         ...data.subjectImages.map((img) => img.file).filter((val) => typeof val === "string")
@@ -169,10 +156,27 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
       }
     }
 
-    if (subject_image_list.length > 4) {
+    if (subject_image_list.length > 9) {
       await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError(
-        "Kling Multi-Image-to-Image: subject_image_list supports up to 4 images"
+        "Kling Multi-Image-to-Image: maximum 9 subject images allowed"
+      );
+      await step.run(`kling-multi-i2i-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
+    const nRaw = typeof data?.n === "number" ? data.n : 1;
+    if (nRaw < 1 || nRaw > 9) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        "Kling Multi-Image-to-Image: number of images must be between 1 and 9"
       );
       await step.run(`kling-multi-i2i-err-${nodeId}`, async () => {
         await publish(
@@ -217,7 +221,7 @@ export const klingMultiImage2ImageExecutor: NodeExecutor<KlingMultiImage2ImageDa
 
     const body: Record<string, unknown> = {
       model_name: data?.model_name ?? "kling-v2",
-      n: typeof data?.n === "number" ? data.n : 1,
+      n: Math.floor(nRaw),
       aspect_ratio: data?.aspect_ratio ?? "16:9",
     };
     if (compiledPrompt) body.prompt = compiledPrompt;
