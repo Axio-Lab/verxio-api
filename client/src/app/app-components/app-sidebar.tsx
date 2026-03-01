@@ -13,7 +13,7 @@ import {
   StarIcon,
   Cable,
   BookOpen,
-  MessageSquare,
+  FileCodeCorner,
   BarChart3,
   Brain,
   Gift,
@@ -78,7 +78,7 @@ const menuItems = [
       {
         title: "Widgets",
         url: "/widgets",
-        icon: <MessageSquare />,
+        icon: <FileCodeCorner />,
       },
       {
         title: "Knowledge Base",
