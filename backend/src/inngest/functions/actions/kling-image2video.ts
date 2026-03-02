@@ -95,10 +95,7 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
 
     const multiShot = data?.multi_shot === true;
     const totalDurationRaw = Math.floor(Number(data?.duration) ?? 5);
-    const totalDuration = Math.min(
-      MAX_DURATION,
-      Math.max(MIN_DURATION, totalDurationRaw)
-    );
+    const totalDuration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, totalDurationRaw));
     if (totalDuration < MIN_DURATION || totalDuration > MAX_DURATION) {
       await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError(
@@ -134,10 +131,7 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
         });
         throw err;
       }
-      const sumDurations = multiPrompt.reduce(
-        (sum, s) => sum + (parseInt(s.duration, 10) || 0),
-        0
-      );
+      const sumDurations = multiPrompt.reduce((sum, s) => sum + (parseInt(s.duration, 10) || 0), 0);
       if (sumDurations !== totalDuration) {
         await publishStatus(publish, step, nodeId, "error");
         const err = new NonRetriableError(

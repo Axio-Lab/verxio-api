@@ -38,27 +38,26 @@ const MAX_IMAGES = 9;
 const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
-const formSchema = z
-  .object({
-    variables: z
-      .string()
-      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
-      .optional(),
-    prompt: z.string().min(1, "Prompt is required").max(2500),
-    model_name: z.enum(["kling-v3-omni"]),
-    referenceImages: z
-      .array(
-        z.object({
-          file: z.string(),
-          filename: z.string(),
-        })
-      )
-      .max(MAX_IMAGES, `Maximum ${MAX_IMAGES} reference images`)
-      .optional(),
-    resolution: z.enum(["1k", "2k"]),
-    n: z.coerce.number().min(1).max(MAX_IMAGES),
-    aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9", "auto"]),
-  });
+const formSchema = z.object({
+  variables: z
+    .string()
+    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+    .optional(),
+  prompt: z.string().min(1, "Prompt is required").max(2500),
+  model_name: z.enum(["kling-v3-omni"]),
+  referenceImages: z
+    .array(
+      z.object({
+        file: z.string(),
+        filename: z.string(),
+      })
+    )
+    .max(MAX_IMAGES, `Maximum ${MAX_IMAGES} reference images`)
+    .optional(),
+  resolution: z.enum(["1k", "2k"]),
+  n: z.coerce.number().min(1).max(MAX_IMAGES),
+  aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9", "auto"]),
+});
 
 export type KlingOmniImageFormValues = z.infer<typeof formSchema>;
 

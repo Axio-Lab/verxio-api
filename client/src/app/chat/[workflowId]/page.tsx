@@ -254,10 +254,7 @@ export default function PublicChatPage() {
             </div>
           )}
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "")}
-            >
+            <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "")}>
               {msg.role === "assistant" && (
                 <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-foreground/5">
                   <Bot className="h-3.5 w-3.5 text-foreground/60" />
