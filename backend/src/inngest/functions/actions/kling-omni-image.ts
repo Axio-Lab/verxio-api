@@ -135,9 +135,7 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
 
     if (image_list.length > 9) {
       await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        "Kling Omni-Image: maximum 9 reference images allowed"
-      );
+      const err = new NonRetriableError("Kling Omni-Image: maximum 9 reference images allowed");
       await step.run(`kling-omni-image-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({

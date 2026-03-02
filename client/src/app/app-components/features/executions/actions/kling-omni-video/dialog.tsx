@@ -147,7 +147,10 @@ export const KlingOmniVideoDialog = ({
   });
 
   const multiShot = form.watch("multi_shot");
-  const totalDuration = parseInt(form.watch("duration") ?? "5", 10) || 5;
+  const totalDuration = Math.min(
+    MAX_DURATION,
+    Math.max(MIN_DURATION, Number(form.watch("duration")) || 5)
+  );
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -157,16 +160,16 @@ export const KlingOmniVideoDialog = ({
   // When toggling storyboard on, ensure we have at least one shot (use append so useFieldArray stays in sync)
   const handleMultiShotChange = (checked: boolean) => {
     form.setValue("multi_shot", checked);
-      if (checked) {
-        const current = form.getValues("multi_prompt");
-        if (!Array.isArray(current) || current.length === 0) {
-          append({
-            index: 0,
-            prompt: "",
-            duration: String(form.getValues("duration") ?? 5),
-          });
-        }
+    if (checked) {
+      const current = form.getValues("multi_prompt");
+      if (!Array.isArray(current) || current.length === 0) {
+        append({
+          index: 0,
+          prompt: "",
+          duration: String(form.getValues("duration") ?? 5),
+        });
       }
+    }
   };
 
   useEffect(() => {
@@ -278,7 +281,8 @@ export const KlingOmniVideoDialog = ({
           <DialogTitle>Kling Omni Video</DialogTitle>
           <DialogDescription>
             Kling v3 Omni video (max {MAX_DURATION}s). Use a single prompt or enable storyboard for
-            multi-shot (1–{MAX_STORYBOARDS} shots, each prompt max {MAX_STORYBOARD_PROMPT_CHARS} chars).
+            multi-shot (1–{MAX_STORYBOARDS} shots, each prompt max {MAX_STORYBOARD_PROMPT_CHARS}{" "}
+            chars).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -322,10 +326,7 @@ export const KlingOmniVideoDialog = ({
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={handleMultiShotChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={handleMultiShotChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -365,7 +366,9 @@ export const KlingOmniVideoDialog = ({
                           min={MIN_DURATION}
                           max={MAX_DURATION}
                           placeholder="e.g. 10 or 15"
-                          value={field.value === undefined || field.value === null ? "" : field.value}
+                          value={
+                            field.value === undefined || field.value === null ? "" : field.value
+                          }
                           onChange={(e) => {
                             const v = e.target.value;
                             if (v === "") {
@@ -410,70 +413,67 @@ export const KlingOmniVideoDialog = ({
                     </Button>
                   </div>
                   {fields.map((item, i) => (
-                        <div
-                          key={item.id}
-                          className="rounded-lg border p-3 space-y-2 bg-muted/30"
+                    <div key={item.id} className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Shot {i + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={fields.length <= MIN_STORYBOARDS}
+                          onClick={() => remove(i)}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Shot {i + 1}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={fields.length <= MIN_STORYBOARDS}
-                              onClick={() => remove(i)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                          <FormField
-                            control={form.control}
-                            name={`multi_prompt.${i}.index`}
-                            render={({ field: f }) => (
-                              <FormItem className="hidden">
-                                <FormControl>
-                                  <Input type="hidden" {...f} value={i} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`multi_prompt.${i}.prompt`}
-                            render={({ field: f }) => (
-                              <FormItem>
-                                <FormLabel>Prompt (max {MAX_STORYBOARD_PROMPT_CHARS} chars)</FormLabel>
-                                <FormControl>
-                                  <Textarea {...f} placeholder="Describe this shot..." rows={2} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`multi_prompt.${i}.duration`}
-                            render={({ field: f }) => (
-                              <FormItem>
-                                <FormLabel>Duration (seconds)</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    max={totalDuration}
-                                    {...f}
-                                    onChange={(e) => {
-                                      f.onChange(e.target.value);
-                                      form.trigger("multi_prompt");
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      ))}
+                          Remove
+                        </Button>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name={`multi_prompt.${i}.index`}
+                        render={({ field: f }) => (
+                          <FormItem className="hidden">
+                            <FormControl>
+                              <Input type="hidden" {...f} value={i} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`multi_prompt.${i}.prompt`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormLabel>Prompt (max {MAX_STORYBOARD_PROMPT_CHARS} chars)</FormLabel>
+                            <FormControl>
+                              <Textarea {...f} placeholder="Describe this shot..." rows={2} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`multi_prompt.${i}.duration`}
+                        render={({ field: f }) => (
+                          <FormItem>
+                            <FormLabel>Duration (seconds)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={totalDuration}
+                                {...f}
+                                onChange={(e) => {
+                                  f.onChange(e.target.value);
+                                  form.trigger("multi_prompt");
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  ))}
                   {form.formState.errors.multi_prompt?.message && (
                     <p className="text-sm text-destructive">
                       {form.formState.errors.multi_prompt.message}
@@ -495,9 +495,7 @@ export const KlingOmniVideoDialog = ({
                         min={MIN_DURATION}
                         max={MAX_DURATION}
                         placeholder="e.g. 10 or 15"
-                        value={
-                          field.value === undefined || field.value === null ? "" : field.value
-                        }
+                        value={field.value === undefined || field.value === null ? "" : field.value}
                         onChange={(e) => {
                           const v = e.target.value;
                           if (v === "") {

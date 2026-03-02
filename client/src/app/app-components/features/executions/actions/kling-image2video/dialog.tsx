@@ -130,10 +130,7 @@ export const KlingImage2VideoDialog = ({
       imageFilename: defaultValues.imageFilename ?? "",
       model_name: "kling-v3",
       mode: defaultValues.mode ?? "std",
-      duration: Math.min(
-        MAX_DURATION,
-        Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)
-      ),
+      duration: Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)),
       negative_prompt: defaultValues.negative_prompt ?? "",
       multi_shot: defaultValues.multi_shot ?? false,
       multi_prompt:
@@ -338,10 +335,7 @@ export const KlingImage2VideoDialog = ({
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={handleMultiShotChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={handleMultiShotChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -387,9 +381,7 @@ export const KlingImage2VideoDialog = ({
                             }
                             const n = Number(v);
                             if (!Number.isNaN(n)) {
-                              field.onChange(
-                                Math.min(MAX_DURATION, Math.max(MIN_DURATION, n))
-                              );
+                              field.onChange(Math.min(MAX_DURATION, Math.max(MIN_DURATION, n)));
                               form.trigger("multi_prompt");
                             }
                           }}
@@ -424,10 +416,7 @@ export const KlingImage2VideoDialog = ({
                     </Button>
                   </div>
                   {fields.map((item, i) => (
-                    <div
-                      key={item.id}
-                      className="rounded-lg border p-3 space-y-2 bg-muted/30"
-                    >
+                    <div key={item.id} className="rounded-lg border p-3 space-y-2 bg-muted/30">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Shot {i + 1}</span>
                         <Button
@@ -519,14 +508,14 @@ export const KlingImage2VideoDialog = ({
                             }
                             const n = Number(v);
                             if (!Number.isNaN(n)) {
-                              field.onChange(
-                                Math.min(MAX_DURATION, Math.max(MIN_DURATION, n))
-                              );
+                              field.onChange(Math.min(MAX_DURATION, Math.max(MIN_DURATION, n)));
                             }
                           }}
                         />
                       </FormControl>
-                      <FormDescription>{MIN_DURATION}–{MAX_DURATION} seconds.</FormDescription>
+                      <FormDescription>
+                        {MIN_DURATION}–{MAX_DURATION} seconds.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
