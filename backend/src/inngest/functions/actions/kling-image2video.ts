@@ -5,14 +5,25 @@ import Handlebars from "handlebars";
 import { createTask, pollUntilDone, resolveImageSource } from "@/services/klingApi";
 import { basePrismaClient } from "@/lib/prisma";
 
+const MAX_DURATION = 15;
+const MIN_DURATION = 1;
+
+type KlingImage2VideoMultiPromptItem = {
+  index: number;
+  prompt: string;
+  duration: string;
+};
+
 type KlingImage2VideoData = {
   variables?: string;
   prompt?: string;
-  image?: string; // URL, base64, or Handlebars template
-  model_name?: string;
+  image?: string;
+  model_name?: "kling-v3";
   mode?: "std" | "pro";
-  duration?: "5" | "10";
+  duration?: number | string;
   negative_prompt?: string;
+  multi_shot?: boolean;
+  multi_prompt?: KlingImage2VideoMultiPromptItem[];
 };
 
 const PATH = "/v1/videos/image2video";
@@ -82,12 +93,88 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
       throw err;
     }
 
-    const prompt = String(data?.prompt ?? "").trim();
-    const imageInput = data?.image?.trim();
-    if (!imageInput && !prompt) {
+    const multiShot = data?.multi_shot === true;
+    const totalDurationRaw = Math.floor(Number(data?.duration) ?? 5);
+    const totalDuration = Math.min(
+      MAX_DURATION,
+      Math.max(MIN_DURATION, totalDurationRaw)
+    );
+    if (totalDuration < MIN_DURATION || totalDuration > MAX_DURATION) {
       await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError(
-        "Kling Image-to-Video: at least one of image or prompt is required"
+        `Kling Image-to-Video: duration must be between ${MIN_DURATION} and ${MAX_DURATION} seconds`
+      );
+      await step.run(`kling-i2v-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
+    const prompt = String(data?.prompt ?? "").trim();
+    const imageInput = data?.image?.trim();
+    if (multiShot) {
+      const multiPrompt = data?.multi_prompt ?? [];
+      if (multiPrompt.length < 1 || multiPrompt.length > 6) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Image-to-Video: multi_prompt must have 1 to 6 storyboards when storyboard is enabled"
+        );
+        await step.run(`kling-i2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      const sumDurations = multiPrompt.reduce(
+        (sum, s) => sum + (parseInt(s.duration, 10) || 0),
+        0
+      );
+      if (sumDurations !== totalDuration) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          `Kling Image-to-Video: sum of storyboard durations (${sumDurations}) must equal total duration (${totalDuration})`
+        );
+        await step.run(`kling-i2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      for (const shot of multiPrompt) {
+        if ((shot.prompt?.length ?? 0) > 512) {
+          await publishStatus(publish, step, nodeId, "error");
+          const err = new NonRetriableError(
+            `Kling Image-to-Video: each storyboard prompt must not exceed 512 characters (shot index ${shot.index})`
+          );
+          await step.run(`kling-i2v-err-${nodeId}`, async () => {
+            await publish(
+              klingChannel().output({
+                nodeId,
+                output: { ...context, error: { message: err.message } },
+              })
+            );
+          });
+          throw err;
+        }
+      }
+    }
+    if (!multiShot && !imageInput && !prompt) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        "Kling Image-to-Video: when not using storyboard, at least one of image or prompt is required"
       );
       await step.run(`kling-i2v-err-${nodeId}`, async () => {
         await publish(
@@ -135,12 +222,25 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
     const compiledNegative = data?.negative_prompt ? compile(data.negative_prompt) : undefined;
 
     const body: Record<string, unknown> = {
-      model_name: data?.model_name ?? "kling-v1",
+      model_name: data?.model_name ?? "kling-v3",
       mode: data?.mode ?? "std",
-      duration: data?.duration ?? "5",
+      duration: String(totalDuration),
     };
     if (imageBase64) body.image = imageBase64;
-    if (compiledPrompt) body.prompt = compiledPrompt;
+    if (multiShot) {
+      body.multi_shot = true;
+      body.shot_type = "customize";
+      const multiPrompt = data?.multi_prompt ?? [];
+      if (multiPrompt.length > 0) {
+        body.multi_prompt = multiPrompt.map((shot, i) => ({
+          index: i,
+          prompt: compile(shot.prompt ?? ""),
+          duration: String(shot.duration),
+        }));
+      }
+    } else {
+      if (compiledPrompt) body.prompt = compiledPrompt;
+    }
     if (compiledNegative) body.negative_prompt = compiledNegative;
 
     const { task_id } = await step.run("kling-i2v-create", async () => {

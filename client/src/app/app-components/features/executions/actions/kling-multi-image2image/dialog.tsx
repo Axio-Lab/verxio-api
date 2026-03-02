@@ -34,6 +34,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGES = 9;
 const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
@@ -44,7 +45,6 @@ const formSchema = z.object({
     .optional(),
   prompt: z.string().max(2500).optional(),
   model_name: z.enum(["kling-v2", "kling-v2-1"]),
-  subject_image_list: z.string().max(2000).optional(),
   subjectImages: z
     .array(
       z.object({
@@ -52,12 +52,13 @@ const formSchema = z.object({
         filename: z.string(),
       })
     )
+    .max(MAX_IMAGES, `Maximum ${MAX_IMAGES} subject images`)
     .optional(),
   scene_image: z.string().optional(),
   sceneImageFilename: z.string().optional(),
   style_image: z.string().optional(),
   styleImageFilename: z.string().optional(),
-  n: z.coerce.number().min(1).max(9),
+  n: z.coerce.number().min(1, "At least 1 image").max(MAX_IMAGES, `Maximum ${MAX_IMAGES} images`),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9"]),
 });
 
@@ -100,7 +101,6 @@ export const KlingMultiImage2ImageDialog = ({
       variables: defaultValues.variables ?? "klingMultiImage2Image",
       prompt: defaultValues.prompt ?? "",
       model_name: defaultValues.model_name ?? "kling-v2",
-      subject_image_list: defaultValues.subject_image_list ?? "",
       subjectImages: defaultValues.subjectImages ?? [],
       scene_image: defaultValues.scene_image ?? "",
       sceneImageFilename: defaultValues.sceneImageFilename ?? "",
@@ -117,7 +117,6 @@ export const KlingMultiImage2ImageDialog = ({
         variables: defaultValues.variables ?? "klingMultiImage2Image",
         prompt: defaultValues.prompt ?? "",
         model_name: defaultValues.model_name ?? "kling-v2",
-        subject_image_list: defaultValues.subject_image_list ?? "",
         subjectImages: defaultValues.subjectImages ?? [],
         scene_image: defaultValues.scene_image ?? "",
         sceneImageFilename: defaultValues.sceneImageFilename ?? "",
@@ -195,8 +194,8 @@ export const KlingMultiImage2ImageDialog = ({
     if (!files.length) return;
     e.target.value = "";
 
-    if (subjectImageFiles.length + files.length > 4) {
-      toast.error("You can upload up to 4 subject images.");
+    if (subjectImageFiles.length + files.length > MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} subject images. Error if exceeded.`);
       return;
     }
 
@@ -278,8 +277,8 @@ export const KlingMultiImage2ImageDialog = ({
         <DialogHeader>
           <DialogTitle>Kling Multi-Image to Image</DialogTitle>
           <DialogDescription>
-            Generate image from multiple reference images. Prompt or image_list required (JSON array
-            or URLs).
+            Generate image from uploaded subject images (max {MAX_IMAGES}). Optional prompt, scene
+            and style images.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -331,34 +330,15 @@ export const KlingMultiImage2ImageDialog = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="subject_image_list"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Subject image list</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder='["{{klingImage.imageUrls[0]}}"]' />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground max-w-full break-words">
-                    Pass multiple URLs as a JSON array, e.g.
-                    <span className="ml-1 block font-mono break-all">
-                      [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
-                    </span>
-                  </p>
-                </FormItem>
-              )}
-            />
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => subjectImagesInputRef.current?.click()}
-                  disabled={subjectImageFiles.length >= 4}
+                  disabled={subjectImageFiles.length >= MAX_IMAGES}
                 >
-                  Upload subject images ({subjectImageFiles.length}/4)
+                  Upload subject images ({subjectImageFiles.length}/{MAX_IMAGES})
                 </Button>
                 <input
                   ref={subjectImagesInputRef}
@@ -544,9 +524,9 @@ export const KlingMultiImage2ImageDialog = ({
                 name="n"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Number of images</FormLabel>
+                    <FormLabel>Number of images (max {MAX_IMAGES})</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} max={9} {...field} />
+                      <Input type="number" min={1} max={MAX_IMAGES} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

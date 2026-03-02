@@ -4,15 +4,26 @@ import { NonRetriableError } from "inngest";
 import Handlebars from "handlebars";
 import { createTask, pollUntilDone } from "@/services/klingApi";
 
+const MAX_DURATION = 15;
+const MIN_DURATION = 1;
+
+type KlingText2VideoMultiPromptItem = {
+  index: number;
+  prompt: string;
+  duration: string;
+};
+
 type KlingText2VideoData = {
   variables?: string;
   prompt?: string;
   negative_prompt?: string;
-  model_name?: string;
+  model_name?: "kling-v3";
   mode?: "std" | "pro";
   aspect_ratio?: "16:9" | "9:16" | "1:1";
-  duration?: "5" | "10";
+  duration?: number | string;
   sound?: "on" | "off";
+  multi_shot?: boolean;
+  multi_prompt?: KlingText2VideoMultiPromptItem[];
   camera_control?: {
     type?: "simple" | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
     config?: {
@@ -93,10 +104,17 @@ export const klingText2VideoExecutor: NodeExecutor<KlingText2VideoData> = async 
       throw err;
     }
 
-    const prompt = String(data?.prompt ?? "").trim();
-    if (!prompt) {
+    const multiShot = data?.multi_shot === true;
+    const totalDurationRaw = Math.floor(Number(data?.duration) ?? 5);
+    const totalDuration = Math.min(
+      MAX_DURATION,
+      Math.max(MIN_DURATION, totalDurationRaw)
+    );
+    if (totalDuration < MIN_DURATION || totalDuration > MAX_DURATION) {
       await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError("Kling Text-to-Video: prompt is required");
+      const err = new NonRetriableError(
+        `Kling Text-to-Video: duration must be between ${MIN_DURATION} and ${MAX_DURATION} seconds`
+      );
       await step.run(`kling-t2v-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({
@@ -108,19 +126,120 @@ export const klingText2VideoExecutor: NodeExecutor<KlingText2VideoData> = async 
       throw err;
     }
 
-    const compiledPrompt = Handlebars.compile(prompt)(context);
+    const compile = (s: string) => Handlebars.compile(s)(context);
+
+    if (multiShot) {
+      const multiPrompt = data?.multi_prompt ?? [];
+      if (multiPrompt.length < 1 || multiPrompt.length > 6) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Text-to-Video: multi_prompt must have 1 to 6 storyboards when storyboard is enabled"
+        );
+        await step.run(`kling-t2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      const sumDurations = multiPrompt.reduce(
+        (sum, s) => sum + (parseInt(s.duration, 10) || 0),
+        0
+      );
+      if (sumDurations !== totalDuration) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          `Kling Text-to-Video: sum of storyboard durations (${sumDurations}) must equal total duration (${totalDuration})`
+        );
+        await step.run(`kling-t2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      for (const shot of multiPrompt) {
+        if ((shot.prompt?.length ?? 0) > 512) {
+          await publishStatus(publish, step, nodeId, "error");
+          const err = new NonRetriableError(
+            `Kling Text-to-Video: each storyboard prompt must not exceed 512 characters (shot index ${shot.index})`
+          );
+          await step.run(`kling-t2v-err-${nodeId}`, async () => {
+            await publish(
+              klingChannel().output({
+                nodeId,
+                output: { ...context, error: { message: err.message } },
+              })
+            );
+          });
+          throw err;
+        }
+      }
+    } else {
+      const prompt = String(data?.prompt ?? "").trim();
+      if (!prompt) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Text-to-Video: prompt is required when not using storyboard"
+        );
+        await step.run(`kling-t2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      if (prompt.length > 2500) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Text-to-Video: prompt cannot exceed 2500 characters"
+        );
+        await step.run(`kling-t2v-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+    }
+
     const compiledNegative = data?.negative_prompt
-      ? Handlebars.compile(data.negative_prompt)(context)
+      ? compile(data.negative_prompt)
       : undefined;
 
     const body: Record<string, unknown> = {
-      model_name: data?.model_name ?? "kling-v1",
-      prompt: compiledPrompt,
+      model_name: data?.model_name ?? "kling-v3",
       mode: data?.mode ?? "std",
       aspect_ratio: data?.aspect_ratio ?? "16:9",
-      duration: data?.duration ?? "5",
+      duration: String(totalDuration),
       sound: data?.sound ?? "off",
     };
+    if (multiShot) {
+      body.multi_shot = true;
+      body.shot_type = "customize";
+      const multiPrompt = data?.multi_prompt ?? [];
+      if (multiPrompt.length > 0) {
+        body.multi_prompt = multiPrompt.map((shot, i) => ({
+          index: i,
+          prompt: compile(shot.prompt ?? ""),
+          duration: String(shot.duration),
+        }));
+      }
+    } else {
+      body.prompt = compile(String(data?.prompt ?? "").trim());
+    }
     if (compiledNegative) body.negative_prompt = compiledNegative;
     if (data?.camera_control?.type) {
       body.camera_control =

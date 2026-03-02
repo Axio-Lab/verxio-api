@@ -9,11 +9,8 @@ type KlingImageData = {
   variables?: string;
   prompt?: string;
   negative_prompt?: string;
-  model_name?: string;
+  model_name?: "kling-v3";
   image?: string; // optional reference image
-  image_reference?: "subject" | "face";
-  image_fidelity?: number;
-  human_fidelity?: number;
   aspect_ratio?: "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "3:2" | "2:3" | "21:9";
   n?: number;
   resolution?: "1k" | "2k";
@@ -133,12 +130,11 @@ export const klingImageExecutor: NodeExecutor<KlingImageData> = async ({
       }
     }
 
-    const modelName = data?.model_name ?? "kling-v1";
-    if (imageBase64 && modelName === "kling-v1-5" && !data?.image_reference) {
+    const modelName = data?.model_name ?? "kling-v3";
+    const nRaw = Number(data?.n) || 1;
+    if (nRaw < 1 || nRaw > 9) {
       await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        "Kling Image: image_reference is required when using kling-v1-5 with a reference image"
-      );
+      const err = new NonRetriableError("Kling Image: number of images must be between 1 and 9");
       await step.run(`kling-img-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({
@@ -149,27 +145,19 @@ export const klingImageExecutor: NodeExecutor<KlingImageData> = async ({
       });
       throw err;
     }
+    const n = Math.floor(nRaw);
 
     const body: Record<string, unknown> = {
       model_name: modelName,
       prompt: compile(prompt),
       aspect_ratio: data?.aspect_ratio ?? "16:9",
-      n: Math.min(9, Math.max(1, Number(data?.n) || 1)),
+      n,
       resolution: data?.resolution ?? "1k",
     };
     if (!imageBase64 && data?.negative_prompt) {
       body.negative_prompt = compile(data.negative_prompt);
     }
     if (imageBase64) body.image = imageBase64;
-    if (imageBase64 && modelName === "kling-v1-5" && data?.image_reference) {
-      body.image_reference = data.image_reference;
-      if (typeof data.image_fidelity === "number") {
-        body.image_fidelity = data.image_fidelity;
-      }
-      if (data.image_reference === "subject" && typeof data.human_fidelity === "number") {
-        body.human_fidelity = data.human_fidelity;
-      }
-    }
 
     const { task_id } = await step.run("kling-img-create", async () => {
       return createTask(PATH, body);

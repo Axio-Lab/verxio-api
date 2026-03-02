@@ -5,15 +5,25 @@ import Handlebars from "handlebars";
 import { createTask, pollUntilDone, resolveImageSource } from "@/services/klingApi";
 import { basePrismaClient } from "@/lib/prisma";
 
+const MAX_DURATION_SECONDS = 15;
+const MIN_DURATION_SECONDS = 1;
+
+type KlingOmniVideoMultiPromptItem = {
+  index: number;
+  prompt: string;
+  duration: string; // per-shot duration in seconds, e.g. "5"
+};
+
 type KlingOmniVideoData = {
   prompt?: string;
-  model_name?: "kling-video-o1";
-  image_list?: string; // JSON array of image URLs/templates or single image
+  model_name?: "kling-v3-omni";
+  multi_shot?: boolean;
+  multi_prompt?: KlingOmniVideoMultiPromptItem[];
   referenceImages?: Array<{ file: string; filename?: string; type?: "first_frame" | "end_frame" }>;
   element_list?: string;
   mode?: "std" | "pro";
   aspect_ratio?: string;
-  duration?: string;
+  duration?: string; // total duration 1-15 seconds
   variables?: string;
 };
 
@@ -84,10 +94,17 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
       throw err;
     }
 
-    const prompt = String(data?.prompt ?? "").trim();
-    if (!prompt) {
+    const multiShot = data?.multi_shot === true;
+    const totalDurationRaw = Math.floor(Number(data?.duration) || 5);
+    const totalDuration = Math.min(
+      MAX_DURATION_SECONDS,
+      Math.max(MIN_DURATION_SECONDS, totalDurationRaw)
+    );
+    if (totalDuration < MIN_DURATION_SECONDS || totalDuration > MAX_DURATION_SECONDS) {
       await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError("Kling Omni-Video: prompt is required");
+      const err = new NonRetriableError(
+        `Kling Omni-Video: duration must be between ${MIN_DURATION_SECONDS} and ${MAX_DURATION_SECONDS} seconds`
+      );
       await step.run(`kling-omni-video-err-${nodeId}`, async () => {
         await publish(
           klingChannel().output({
@@ -100,31 +117,91 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
     }
 
     const compile = (s: string) => Handlebars.compile(s)(context);
-    const compiledPrompt = compile(prompt);
+
+    if (multiShot) {
+      const multiPrompt = data?.multi_prompt ?? [];
+      if (multiPrompt.length < 1 || multiPrompt.length > 6) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Omni-Video: multi_prompt must have 1 to 6 storyboards when storyboard is enabled"
+        );
+        await step.run(`kling-omni-video-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      const sumDurations = multiPrompt.reduce((sum, s) => sum + (parseInt(s.duration, 10) || 0), 0);
+      if (sumDurations !== totalDuration) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          `Kling Omni-Video: sum of storyboard durations (${sumDurations}) must equal total duration (${totalDuration})`
+        );
+        await step.run(`kling-omni-video-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      for (const shot of multiPrompt) {
+        if ((shot.prompt?.length ?? 0) > 512) {
+          await publishStatus(publish, step, nodeId, "error");
+          const err = new NonRetriableError(
+            `Kling Omni-Video: each storyboard prompt must not exceed 512 characters (shot index ${shot.index})`
+          );
+          await step.run(`kling-omni-video-err-${nodeId}`, async () => {
+            await publish(
+              klingChannel().output({
+                nodeId,
+                output: { ...context, error: { message: err.message } },
+              })
+            );
+          });
+          throw err;
+        }
+      }
+    } else {
+      const prompt = String(data?.prompt ?? "").trim();
+      if (!prompt) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError(
+          "Kling Omni-Video: prompt is required when not using storyboard"
+        );
+        await step.run(`kling-omni-video-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+      if (prompt.length > 2500) {
+        await publishStatus(publish, step, nodeId, "error");
+        const err = new NonRetriableError("Kling Omni-Video: prompt cannot exceed 2500 characters");
+        await step.run(`kling-omni-video-err-${nodeId}`, async () => {
+          await publish(
+            klingChannel().output({
+              nodeId,
+              output: { ...context, error: { message: err.message } },
+            })
+          );
+        });
+        throw err;
+      }
+    }
     const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
 
     const imageSources: Array<{ src: string; type?: "first_frame" | "end_frame" }> = [];
-    const imageListRaw = data?.image_list?.trim();
-    if (imageListRaw) {
-      try {
-        const parsed = JSON.parse(compile(imageListRaw)) as unknown;
-        if (Array.isArray(parsed)) {
-          parsed.forEach((item) => {
-            if (typeof item === "string") {
-              imageSources.push({ src: item });
-            } else if (item && typeof item === "object") {
-              const src = String((item as any).image_url ?? (item as any).image ?? "");
-              const type = (item as any).type as "first_frame" | "end_frame" | undefined;
-              if (src) imageSources.push({ src, type });
-            }
-          });
-        } else if (parsed) {
-          imageSources.push({ src: String(parsed) });
-        }
-      } catch {
-        imageSources.push({ src: compile(imageListRaw) });
-      }
-    }
     if (Array.isArray(data?.referenceImages)) {
       imageSources.push(...data.referenceImages.map((img) => ({ src: img.file, type: img.type })));
     }
@@ -188,12 +265,25 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
     }
 
     const body: Record<string, unknown> = {
-      model_name: data?.model_name ?? "kling-video-o1",
-      prompt: compiledPrompt,
+      model_name: data?.model_name ?? "kling-v3-omni",
       mode: data?.mode ?? "std",
       aspect_ratio: data?.aspect_ratio ?? "16:9",
-      duration: data?.duration ?? "5",
+      duration: String(totalDuration),
     };
+    if (multiShot) {
+      body.multi_shot = true;
+      body.shot_type = "customize";
+      if (Array.isArray(data?.multi_prompt) && data.multi_prompt.length > 0) {
+        body.multi_prompt = data.multi_prompt.map((shot, i) => ({
+          index: i,
+          prompt: compile(shot.prompt ?? ""),
+          duration: String(shot.duration),
+        }));
+      }
+    } else {
+      const prompt = String(data?.prompt ?? "").trim();
+      body.prompt = compile(prompt);
+    }
     if (image_list.length) body.image_list = image_list;
     if (element_list && element_list.length > 0) body.element_list = element_list;
 

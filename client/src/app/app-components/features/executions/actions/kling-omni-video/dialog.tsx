@@ -29,36 +29,84 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { FormDescription } from "@/components/ui/form";
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_REFERENCE_IMAGES = 15;
+const MAX_DURATION = 15;
+const MIN_DURATION = 1;
+const MAX_STORYBOARDS = 6;
+const MIN_STORYBOARDS = 1;
+const MAX_PROMPT_CHARS = 2500;
+const MAX_STORYBOARD_PROMPT_CHARS = 512;
 const IMAGE_SIZE_ERROR_MSG =
   "Image exceeds 10MB. Please compress the image to under 10MB and try again.";
 
-const formSchema = z.object({
-  variables: z
-    .string()
-    .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
-    .optional(),
-  prompt: z.string().min(1, "Prompt is required").max(2500),
-  model_name: z.enum(["kling-video-o1"]),
-  image_list: z.string().max(2000).optional(),
-  referenceImages: z
-    .array(
-      z.object({
-        file: z.string(),
-        filename: z.string(),
-        type: z.enum(["reference", "first_frame", "end_frame"]).optional(),
-      })
-    )
-    .optional(),
-  element_list: z.string().max(2000).optional(),
-  mode: z.enum(["std", "pro"]),
-  aspect_ratio: z.enum(["16:9", "9:16", "1:1"]),
-  duration: z.enum(["3", "4", "5", "6", "7", "8", "9", "10"]),
+const multiPromptItemSchema = z.object({
+  index: z.number(),
+  prompt: z.string().max(MAX_STORYBOARD_PROMPT_CHARS),
+  duration: z.string(),
 });
+
+const formSchema = z
+  .object({
+    variables: z
+      .string()
+      .regex(/^[A-Za-z_$][A-Za-z0-9_]*$/)
+      .optional(),
+    prompt: z.string().max(MAX_PROMPT_CHARS).optional(),
+    model_name: z.enum(["kling-v3-omni"]),
+    multi_shot: z.boolean(),
+    multi_prompt: z.array(multiPromptItemSchema).max(MAX_STORYBOARDS),
+    referenceImages: z
+      .array(
+        z.object({
+          file: z.string(),
+          filename: z.string(),
+          type: z.enum(["reference", "first_frame", "end_frame"]).optional(),
+        })
+      )
+      .max(MAX_REFERENCE_IMAGES)
+      .optional(),
+    element_list: z.string().max(2000).optional(),
+    mode: z.enum(["std", "pro"]),
+    aspect_ratio: z.enum(["16:9", "9:16", "1:1"]),
+    duration: z.coerce.number().min(MIN_DURATION).max(MAX_DURATION),
+  })
+  .superRefine((data, ctx) => {
+    if (data.multi_shot) {
+      const list = data.multi_prompt;
+      if (list.length < MIN_STORYBOARDS || list.length > MAX_STORYBOARDS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Storyboard must have ${MIN_STORYBOARDS} to ${MAX_STORYBOARDS} shots`,
+          path: ["multi_prompt"],
+        });
+        return;
+      }
+      const total = Number(data.duration) || 0;
+      const sum = list.reduce((s, item) => s + (parseInt(item.duration, 10) || 0), 0);
+      if (sum !== total) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Sum of storyboard durations (${sum}) must equal total duration (${total})`,
+          path: ["multi_prompt"],
+        });
+      }
+    } else if (!data.multi_shot) {
+      if (!(data.prompt ?? "").trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Prompt is required when not using storyboard",
+          path: ["prompt"],
+        });
+      }
+    }
+  });
 
 export type KlingOmniVideoFormValues = z.infer<typeof formSchema>;
 
@@ -84,28 +132,63 @@ export const KlingOmniVideoDialog = ({
     defaultValues: {
       variables: defaultValues.variables ?? "klingOmniVideo",
       prompt: defaultValues.prompt ?? "",
-      model_name: "kling-video-o1",
-      image_list: defaultValues.image_list ?? "",
+      model_name: "kling-v3-omni",
+      multi_shot: defaultValues.multi_shot ?? false,
+      multi_prompt:
+        Array.isArray(defaultValues.multi_prompt) && defaultValues.multi_prompt.length > 0
+          ? defaultValues.multi_prompt
+          : [{ index: 0, prompt: "", duration: "5" }],
       referenceImages: defaultValues.referenceImages ?? [],
       element_list: defaultValues.element_list ?? "",
       mode: defaultValues.mode ?? "std",
       aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
-      duration: defaultValues.duration ?? "5",
+      duration: Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)),
     },
   });
 
+  const multiShot = form.watch("multi_shot");
+  const totalDuration = parseInt(form.watch("duration") ?? "5", 10) || 5;
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "multi_prompt",
+  });
+
+  // When toggling storyboard on, ensure we have at least one shot (use append so useFieldArray stays in sync)
+  const handleMultiShotChange = (checked: boolean) => {
+    form.setValue("multi_shot", checked);
+      if (checked) {
+        const current = form.getValues("multi_prompt");
+        if (!Array.isArray(current) || current.length === 0) {
+          append({
+            index: 0,
+            prompt: "",
+            duration: String(form.getValues("duration") ?? 5),
+          });
+        }
+      }
+  };
+
   useEffect(() => {
     if (open) {
+      const durationNum = Math.min(
+        MAX_DURATION,
+        Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)
+      );
       form.reset({
         variables: defaultValues.variables ?? "klingOmniVideo",
         prompt: defaultValues.prompt ?? "",
-        model_name: "kling-video-o1",
-        image_list: defaultValues.image_list ?? "",
+        model_name: "kling-v3-omni",
+        multi_shot: defaultValues.multi_shot ?? false,
+        multi_prompt:
+          Array.isArray(defaultValues.multi_prompt) && defaultValues.multi_prompt.length > 0
+            ? defaultValues.multi_prompt
+            : [{ index: 0, prompt: "", duration: String(durationNum) }],
         referenceImages: defaultValues.referenceImages ?? [],
         element_list: defaultValues.element_list ?? "",
         mode: defaultValues.mode ?? "std",
         aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
-        duration: defaultValues.duration ?? "5",
+        duration: durationNum,
       });
 
       if (defaultValues.referenceImages && defaultValues.referenceImages.length > 0) {
@@ -141,8 +224,8 @@ export const KlingOmniVideoDialog = ({
     if (!files.length) return;
     e.target.value = "";
 
-    if (referenceImageFiles.length + files.length > 7) {
-      toast.error("You can upload up to 7 images.");
+    if (referenceImageFiles.length + files.length > MAX_REFERENCE_IMAGES) {
+      toast.error(`You can upload up to ${MAX_REFERENCE_IMAGES} images.`);
       return;
     }
 
@@ -194,8 +277,8 @@ export const KlingOmniVideoDialog = ({
         <DialogHeader>
           <DialogTitle>Kling Omni Video</DialogTitle>
           <DialogDescription>
-            Kling O1 unified multimodal video. Prompt required. Optional image_list (JSON array or
-            URL).
+            Kling v3 Omni video (max {MAX_DURATION}s). Use a single prompt or enable storyboard for
+            multi-shot (1–{MAX_STORYBOARDS} shots, each prompt max {MAX_STORYBOARD_PROMPT_CHARS} chars).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -215,25 +298,12 @@ export const KlingOmniVideoDialog = ({
             />
             <FormField
               control={form.control}
-              name="prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Prompt</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Describe the video..." rows={3} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="model_name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Model</FormLabel>
                   <FormControl>
-                    <Input {...field} value="kling-video-o1" readOnly />
+                    <Input {...field} value="kling-v3-omni" readOnly className="bg-muted" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -241,32 +311,223 @@ export const KlingOmniVideoDialog = ({
             />
             <FormField
               control={form.control}
-              name="image_list"
+              name="multi_shot"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reference Image List (optional)</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel>Storyboard (multi-shot)</FormLabel>
+                    <FormDescription>
+                      When on, use multiple shots with per-shot prompt and duration instead of a
+                      single prompt.
+                    </FormDescription>
+                  </div>
                   <FormControl>
-                    <Input {...field} placeholder='["{{klingImage.imageUrls[0]}}"] or URL' />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={handleMultiShotChange}
+                    />
                   </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground max-w-full break-words">
-                    Pass multiple URLs as a JSON array, e.g.
-                    <span className="ml-1 block font-mono break-all">
-                      [&quot;https://example.com/1.png&quot;,&quot;https://example.com/2.png&quot;]
-                    </span>
-                  </p>
                 </FormItem>
               )}
             />
+            {!multiShot && (
+              <FormField
+                control={form.control}
+                name="prompt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prompt (required)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Describe the video... Use <<<element_1>>>, <<<image_1>>>, <<<video_1>>> for references."
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormDescription>Max {MAX_PROMPT_CHARS} characters.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            {multiShot && (
+              <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                <span className="text-sm font-medium">Storyboard setup</span>
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Total duration (seconds)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={MIN_DURATION}
+                          max={MAX_DURATION}
+                          placeholder="e.g. 10 or 15"
+                          value={field.value === undefined || field.value === null ? "" : field.value}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "") {
+                              field.onChange(MIN_DURATION);
+                              return;
+                            }
+                            const n = Number(v);
+                            if (!Number.isNaN(n)) {
+                              field.onChange(Math.min(MAX_DURATION, Math.max(MIN_DURATION, n)));
+                              form.trigger("multi_prompt");
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Enter a value from {MIN_DURATION} to {MAX_DURATION}. Sum of all storyboard
+                        shot durations must equal this total.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium leading-none">
+                      Storyboards (1–{MAX_STORYBOARDS} shots)
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={(form.getValues("multi_prompt")?.length ?? 0) >= MAX_STORYBOARDS}
+                      onClick={() =>
+                        append({
+                          index: fields.length,
+                          prompt: "",
+                          duration: "1",
+                        })
+                      }
+                    >
+                      Add shot
+                    </Button>
+                  </div>
+                  {fields.map((item, i) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border p-3 space-y-2 bg-muted/30"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Shot {i + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={fields.length <= MIN_STORYBOARDS}
+                              onClick={() => remove(i)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                          <FormField
+                            control={form.control}
+                            name={`multi_prompt.${i}.index`}
+                            render={({ field: f }) => (
+                              <FormItem className="hidden">
+                                <FormControl>
+                                  <Input type="hidden" {...f} value={i} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`multi_prompt.${i}.prompt`}
+                            render={({ field: f }) => (
+                              <FormItem>
+                                <FormLabel>Prompt (max {MAX_STORYBOARD_PROMPT_CHARS} chars)</FormLabel>
+                                <FormControl>
+                                  <Textarea {...f} placeholder="Describe this shot..." rows={2} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`multi_prompt.${i}.duration`}
+                            render={({ field: f }) => (
+                              <FormItem>
+                                <FormLabel>Duration (seconds)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={totalDuration}
+                                    {...f}
+                                    onChange={(e) => {
+                                      f.onChange(e.target.value);
+                                      form.trigger("multi_prompt");
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      ))}
+                  {form.formState.errors.multi_prompt?.message && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.multi_prompt.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {!multiShot && (
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration (seconds)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={MIN_DURATION}
+                        max={MAX_DURATION}
+                        placeholder="e.g. 10 or 15"
+                        value={
+                          field.value === undefined || field.value === null ? "" : field.value
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            field.onChange(MIN_DURATION);
+                            return;
+                          }
+                          const n = Number(v);
+                          if (!Number.isNaN(n)) {
+                            field.onChange(Math.min(MAX_DURATION, Math.max(MIN_DURATION, n)));
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter a value from {MIN_DURATION} to {MAX_DURATION} seconds.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => referenceImagesInputRef.current?.click()}
-                  disabled={referenceImageFiles.length >= 7}
+                  disabled={referenceImageFiles.length >= MAX_REFERENCE_IMAGES}
                 >
-                  Upload Reference Images ({referenceImageFiles.length}/7)
+                  Upload Reference Images ({referenceImageFiles.length}/{MAX_REFERENCE_IMAGES})
                 </Button>
                 <input
                   ref={referenceImagesInputRef}
@@ -338,7 +599,7 @@ export const KlingOmniVideoDialog = ({
                 </FormItem>
               )}
             /> */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="mode"
@@ -376,33 +637,6 @@ export const KlingOmniVideoDialog = ({
                         <SelectItem value="16:9">16:9</SelectItem>
                         <SelectItem value="9:16">9:16</SelectItem>
                         <SelectItem value="1:1">1:1</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="3">3s</SelectItem>
-                        <SelectItem value="4">4s</SelectItem>
-                        <SelectItem value="5">5s</SelectItem>
-                        <SelectItem value="6">6s</SelectItem>
-                        <SelectItem value="7">7s</SelectItem>
-                        <SelectItem value="8">8s</SelectItem>
-                        <SelectItem value="9">9s</SelectItem>
-                        <SelectItem value="10">10s</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

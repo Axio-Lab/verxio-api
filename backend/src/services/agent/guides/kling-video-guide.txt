@@ -3,6 +3,16 @@ Kling Video Guide (Quickstart Summary)
 Purpose
 - Use this guide for Kling video nodes: KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO, KLING_VIDEO_EXTEND, KLING_MOTION_CONTROL, KLING_MULTI_IMAGE2VIDEO.
 
+Models and Duration
+- KLING_TEXT2VIDEO and KLING_IMAGE2VIDEO use model kling-v3 (fixed). KLING_OMNI_VIDEO uses kling-v3-omni (fixed).
+- Duration: 1–15 seconds (integer). Use the duration field as a number (e.g. 5, 10, 15).
+
+Storyboard (Multi-Shot)
+- All three nodes (Text2Video, Image2Video, Omni Video) support storyboard mode: set multi_shot to true and provide multi_prompt.
+- multi_prompt: array of 1–6 shots. Each shot: { index: number, prompt: string (max 512 chars), duration: string } (duration in seconds per shot).
+- The sum of all shot durations must equal the total duration field.
+- When multi_shot is false, use a single prompt (required for Text2Video and Omni Video; for Image2Video at least one of image or prompt is required).
+
 Core Video Prompt Structure
 1) Subject: who/what appears in the scene.
 2) Action: what happens over time (movement, interaction, progression).
@@ -55,7 +65,7 @@ Audio (Kling 2.6 Audio)
 
 Parameter Selection
 - aspect_ratio: match platform (16:9 YouTube, 9:16 Shorts, 1:1 social).
-- duration: keep short for quality; extend only when needed.
+- duration: integer 1–15 seconds; keep short for quality when not using storyboard; for storyboard, set total duration and split across shots so sum equals total.
 - mode: use "pro" for premium outputs where available.
 
 Outputs and Variables

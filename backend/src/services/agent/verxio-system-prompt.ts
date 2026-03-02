@@ -181,16 +181,16 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 - Output: { success, videoUrl }
 - Use REMOTION for: motion graphics, animated designs, code-based video. Use VEO for photorealistic video.
 
-**KLING_TEXT2VIDEO** - Fields: { prompt (REQ), negative_prompt?, model_name?, mode?: "std"|"pro", aspect_ratio?: "16:9"|"9:16"|"1:1", duration?: "5"|"10", sound?: "on"|"off" } | Output: { videoUrl, videoId, duration, task_id } | Use variables field for output name
-**KLING_IMAGE2VIDEO** - Fields: { prompt?, image (REQ), model_name?, mode?, duration?, negative_prompt? } | Output: { videoUrl, videoId, duration, task_id }
-**KLING_IMAGE** - Fields: { prompt (REQ), negative_prompt?, image?, model_name?, aspect_ratio?, n?: 1-9, resolution?: "1k"|"2k" } | Output: { imageUrls[], images[], task_id }
+**KLING_TEXT2VIDEO** - Model: kling-v3 (fixed). Fields: { variables?, prompt?, negative_prompt?, mode?: "std"|"pro", aspect_ratio?: "16:9"|"9:16"|"1:1", duration: 1-15 (number, seconds), sound?: "on"|"off", multi_shot?: boolean, multi_prompt?: Array<{ index, prompt, duration: string }>, camera_control? }. When multi_shot is false: prompt (REQ). When multi_shot is true: use multi_prompt with 1-6 shots; each shot has prompt (max 512 chars) and duration (string, seconds); sum of shot durations must equal duration. Output: { videoUrl, videoId, duration, task_id }.
+**KLING_IMAGE2VIDEO** - Model: kling-v3 (fixed). Fields: { variables?, prompt?, image?, mode?: "std"|"pro", duration: 1-15 (number), negative_prompt?, multi_shot?: boolean, multi_prompt?: Array<{ index, prompt, duration: string }> }. When multi_shot is false: at least one of image or prompt required. When multi_shot is true: use multi_prompt (1-6 shots); sum of shot durations must equal duration. Image: URL, base64, or {{previousNode.imageUrl}}. Output: { videoUrl, videoId, duration, task_id }.
+**KLING_IMAGE** - Model: kling-v3 (fixed). Fields: { variables?, prompt (REQ), negative_prompt?, aspect_ratio?, n?: 1-9, resolution?: "1k"|"2k" } | Output: { imageUrls[], images[], task_id }
 **KLING_TTS** - Fields: { text (REQ), voice_id (REQ), voice_language?: "zh"|"en", voice_speed?: 0.8-2 } | Output: { audioUrl, audioId, duration, task_id }
-**KLING_OMNI_VIDEO** - Fields: { prompt (REQ), image_list?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
-**KLING_OMNI_IMAGE** - Fields: { prompt (REQ), image_list?, resolution?, n?, aspect_ratio? } | Output: { imageUrls, task_id }
+**KLING_OMNI_VIDEO** - Model: kling-v3-omni (fixed). Fields: { variables?, prompt?, referenceImages?: Array<{ file, filename?, type? }>, mode?, aspect_ratio?: "16:9"|"9:16"|"1:1", duration: 1-15 (number), multi_shot?: boolean, multi_prompt?: Array<{ index, prompt, duration: string }> }. When multi_shot is false: prompt (REQ). When multi_shot is true: multi_prompt (1-6 shots), sum of shot durations = duration. Max 15 reference images (upload). Output: { videoUrl, videoId, duration, task_id }.
+**KLING_OMNI_IMAGE** - Model: kling-v3-omni (fixed). Fields: { variables?, prompt (REQ), referenceImages?, resolution?, n?: 1-9, aspect_ratio? } | Max 9 reference images | Output: { imageUrls, task_id }
 **KLING_VIDEO_EXTEND** - Fields: { video_id (REQ, e.g. {{klingText2Video.videoId}}), prompt?, negative_prompt?, cfg_scale? } | Output: { videoUrl, videoId, duration, task_id }
 **KLING_MULTI_IMAGE2VIDEO** - Fields: { prompt?, image_list?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
 **KLING_MOTION_CONTROL** - Fields: { prompt?, image?, video_url?, mode?, aspect_ratio?, duration? } | Output: { videoUrl, videoId, duration, task_id }
-**KLING_MULTI_IMAGE2IMAGE** - Fields: { prompt?, image_list?, n?, aspect_ratio? } | Output: { imageUrls, task_id }
+**KLING_MULTI_IMAGE2IMAGE** - Fields: { variables?, prompt?, subjectImages (upload), n?: 1-9, aspect_ratio? } | Max 9 subject images | Output: { imageUrls, task_id }
 
 **SEEDANCE**
 - Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"reference"|"frames", firstFrameImage?, firstFrameImageFilename?, firstFrame?, firstFrameFilename?, lastFrame?, lastFrameFilename?, referenceImages?: Array<{file, filename}>, generateAudio?, ratio?: "16:9"|"4:3"|"1:1"|"3:4"|"9:16"|"21:9"|"adaptive", duration?: 4-12, resolution?: "480p"|"720p"|"1080p", cameraFixed?, draft?, returnLastFrame? }
@@ -1143,6 +1143,12 @@ When creating or configuring nodes, you MUST:
 - **When to use VEO vs REMOTION:**
   - Use VEO for high-fidelity, photorealistic videos with audio (Veo 3.1)
   - Use REMOTION for motion graphics, animated designs, code-based video generation
+
+**Kling Video (KLING_TEXT2VIDEO, KLING_IMAGE2VIDEO, KLING_OMNI_VIDEO):**
+- All use latest Kling models (kling-v3 or kling-v3-omni); no model selection in UI.
+- Duration: integer 1–15 seconds (number, not dropdown). Set duration (and when using storyboard, ensure sum of shot durations equals this total).
+- Storyboard (multi-shot): Set multi_shot: true and multi_prompt to an array of 1–6 items. Each item: { index: number, prompt: string (max 512 chars), duration: string } (duration in seconds). Sum of all shot durations must equal the total duration field. When multi_shot is false, use a single prompt (required for Text2Video and Omni Video; for Image2Video at least one of image or prompt is required).
+- Reference: See kling-video-guide.txt for prompt structure and parameters.
 
 ## Response Style
 

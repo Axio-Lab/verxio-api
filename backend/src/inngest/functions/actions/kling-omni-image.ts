@@ -7,14 +7,13 @@ import { basePrismaClient } from "@/lib/prisma";
 
 type KlingOmniImageData = {
   prompt?: string;
-  image_list?: string;
   referenceImages?: Array<{ file: string; filename?: string }>;
   element_list?: string;
   resolution?: "1k" | "2k";
   n?: number;
   aspect_ratio?: string;
   variables?: string;
-  model_name?: "kling-image-o1";
+  model_name?: "kling-v3-omni";
 };
 
 const PATH = "/v1/images/omni-image";
@@ -104,15 +103,6 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
     const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
 
     const imageSources: string[] = [];
-    const imageListRaw = data?.image_list?.trim();
-    if (imageListRaw) {
-      try {
-        const parsed = JSON.parse(compile(imageListRaw)) as unknown;
-        imageSources.push(...(Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]));
-      } catch {
-        imageSources.push(compile(imageListRaw));
-      }
-    }
     if (Array.isArray(data?.referenceImages)) {
       imageSources.push(...data.referenceImages.map((img) => img.file));
     }
@@ -143,6 +133,22 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
       }
     }
 
+    if (image_list.length > 9) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        "Kling Omni-Image: maximum 9 reference images allowed"
+      );
+      await step.run(`kling-omni-image-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
     let element_list: Array<{ element_id: number }> | undefined;
     const elementListRaw = data?.element_list?.trim();
     if (elementListRaw) {
@@ -160,11 +166,28 @@ export const klingOmniImageExecutor: NodeExecutor<KlingOmniImageData> = async ({
       }
     }
 
+    const nRaw = typeof data?.n === "number" ? data.n : 1;
+    if (nRaw < 1 || nRaw > 9) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        "Kling Omni-Image: number of images must be between 1 and 9"
+      );
+      await step.run(`kling-omni-image-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
     const body: Record<string, unknown> = {
-      model_name: data?.model_name ?? "kling-image-o1",
+      model_name: data?.model_name ?? "kling-v3-omni",
       prompt: compiledPrompt,
       resolution: data?.resolution ?? "1k",
-      n: typeof data?.n === "number" ? data.n : 1,
+      n: Math.floor(nRaw),
       aspect_ratio: data?.aspect_ratio ?? "auto",
     };
     if (image_list.length) body.image_list = image_list.map((image) => ({ image }));
