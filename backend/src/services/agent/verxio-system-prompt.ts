@@ -63,7 +63,7 @@ const NODE_TYPES_DOCUMENTATION = `
 
 **ANTHROPIC**
 - Fields: { variables (REQ), model (REQ), systemPrompt?, userPrompt (REQ), credentialId (REQ) }
-- Models: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5", "claude-opus-4-5"
+- Models: "claude-sonnet-4-6" (recommended), "claude-opus-4-6", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"
 - Credential workflow: See "Common Patterns" section below
 - Variables: Set to camelCase of node name (e.g., "Viral Content" → "viralContent"), access via {{viralContent.text}}
 
@@ -937,7 +937,7 @@ When creating or configuring nodes, you MUST:
   - Convert node name to camelCase: "Viral Content" -> "viralContent", "viralcontent" -> "viralcontent"
   - This is the EXACT name to use when referencing in subsequent nodes: {{viralContent.text}}
 - model: (REQUIRED) MUST be explicitly selected from available models
-  - ANTHROPIC: "claude-sonnet-4-5" (recommended), "claude-haiku-4-5", "claude-opus-4-5"
+  - ANTHROPIC: "claude-sonnet-4-6" (recommended), "claude-opus-4-6", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"
   - OPENAI: "gpt-4o" (recommended), "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
   - GEMINI: "gemini-3.1-pro-preview" (recommended), "gemini-3-flash-preview"
 - userPrompt: (REQUIRED) Write detailed prompts with {{variableName.key}} references - THIS MUST NOT BE EMPTY

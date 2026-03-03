@@ -778,7 +778,13 @@ export const addNodeTool: VerxioTool = {
       const model = data?.model;
       if (!model || typeof model !== "string" || model.trim() === "") {
         const availableModels: Record<string, string[]> = {
-          ANTHROPIC: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"],
+          ANTHROPIC: [
+            "claude-sonnet-4-6",
+            "claude-opus-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5",
+            "claude-opus-4-5",
+          ],
           OPENAI: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
           GEMINI: ["gemini-3.1-pro-preview", "gemini-3-flash-preview"],
         };
