@@ -15,6 +15,7 @@ export enum CredentialType {
   TELEGRAM = "TELEGRAM",
   WHATSAPP = "WHATSAPP",
   AIRTABLE = "AIRTABLE",
+   VALYU = "VALYU",
   CUSTOM = "CUSTOM",
 }
 

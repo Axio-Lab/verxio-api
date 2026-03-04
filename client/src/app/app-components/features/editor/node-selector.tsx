@@ -231,6 +231,30 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/tinyfish.svg",
   },
   {
+    type: NodeType.VALYU_SEARCH,
+    label: "Valyu Search",
+    description: "Search across web and proprietary data sources using Valyu AI.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_CONTENTS,
+    label: "Valyu Contents",
+    description: "Extract and process content from URLs with AI.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_ANSWER,
+    label: "Valyu Answer",
+    description: "Generate AI-powered answers with integrated search.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_DEEP_RESEARCH,
+    label: "Valyu Deep Research",
+    description: "Run comprehensive multi-source research with detailed reports.",
+    icon: "/logo/valyu.svg",
+  },
+  {
     type: NodeType.AGENT_TEAM,
     label: "Agent Team",
     description:
@@ -403,6 +427,10 @@ const NODE_TYPE_TO_FEATURE: Record<string, string> = {
   KLING_MULTI_IMAGE2VIDEO: "kling-nodes",
   KLING_MOTION_CONTROL: "kling-nodes",
   KLING_MULTI_IMAGE2IMAGE: "kling-nodes",
+  VALYU_SEARCH: "valyu-nodes",
+  VALYU_CONTENTS: "valyu-nodes",
+  VALYU_ANSWER: "valyu-nodes",
+  VALYU_DEEP_RESEARCH: "valyu-nodes",
 };
 
 export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {
@@ -963,6 +991,71 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             proxyCountry: "",
           },
           type: NodeType.TINYFISH,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_SEARCH) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Search",
+            variables: "valyuSearch",
+            credentialId: "",
+            query: "",
+            searchType: "all",
+            maxNumResults: 10,
+            fastMode: false,
+          },
+          type: NodeType.VALYU_SEARCH,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_CONTENTS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Contents",
+            variables: "valyuContents",
+            credentialId: "",
+            urls: "",
+            summary: false,
+            extractEffort: "normal",
+          },
+          type: NodeType.VALYU_CONTENTS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_ANSWER) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Answer",
+            variables: "valyuAnswer",
+            credentialId: "",
+            query: "",
+            searchType: "all",
+            maxNumResults: 10,
+          },
+          type: NodeType.VALYU_ANSWER,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_DEEP_RESEARCH) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Deep Research",
+            variables: "valyuDeepResearch",
+            credentialId: "",
+            query: "",
+            mode: "standard",
+            strategy: "",
+          },
+          type: NodeType.VALYU_DEEP_RESEARCH,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

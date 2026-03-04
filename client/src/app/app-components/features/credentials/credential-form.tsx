@@ -113,6 +113,11 @@ export const credentialTypeOptions: Array<{
     logo: "/logo/airtable.svg",
   },
   {
+    label: "Valyu",
+    value: CredentialType.VALYU,
+    logo: "/logo/valyu.svg",
+  },
+  {
     label: "Custom",
     value: CredentialType.CUSTOM,
   },

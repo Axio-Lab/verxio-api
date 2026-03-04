@@ -23,6 +23,7 @@ export const SUBSCRIPTION_FEATURES = {
   // External integrations (premium nodes)
   COMPOSIO_ACTION_NODE: "composio-action-node",
   TINYFISH_NODE: "tinyfish-node",
+  VALYU_NODES: "valyu-nodes",
 
   // Chat integrations (agent replies when users message the connected number)
   TELEGRAM_CHAT_INTEGRATION: "telegram-chat-integration",
@@ -106,6 +107,7 @@ export function getPlanFeatures(planType: string | null | undefined): Subscripti
         SUBSCRIPTION_FEATURES.KLING_NODES,
         SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE,
         SUBSCRIPTION_FEATURES.TINYFISH_NODE,
+        SUBSCRIPTION_FEATURES.VALYU_NODES,
         SUBSCRIPTION_FEATURES.TELEGRAM_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.WHATSAPP_CHAT_INTEGRATION,
         SUBSCRIPTION_FEATURES.SLACK_CHAT_INTEGRATION,

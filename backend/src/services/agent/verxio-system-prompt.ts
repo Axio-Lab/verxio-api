@@ -124,8 +124,32 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 
 **COMPOSIO_ACTION** - Fields: { variables, composioActionName (REQ), composioParams (object) }
 - Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)
-- composioActionName: The Composio action ID (e.g., "GITHUB_CREATE_ISSUE", "NOTION_CREATE_PAGE", "ELEVENLABS_TEXT_TO_SPEECH")
+- composioActionName: The Composio action ID (e.g., "GITHUB_CREATE_ISSUE", "NOTION_CREATE_PAGE", "ELEVENLABS_TEXT_TO_SPEECH"). **NEVER guess this. ALWAYS look it up using Composio tools.**
 - composioParams: Action-specific parameters as a JSON object
+- **CRITICAL:** Before setting composioActionName:
+  - Use \`listComposioConnections\` to verify the required app (e.g. googledocs) is connected.
+  - Use \`getComposioAppDetails(appSlug)\` (e.g. \`googledocs\`) to list the exact tool slugs and names for that app.
+  - Choose \`composioActionName\` by copying the \`slug\` returned by \`getComposioAppDetails\`. **Do not invent or approximate slugs.**
+
+### Search & Research (Valyu AI)
+
+**VALYU_SEARCH** - Fields: { variables (REQ), credentialId (REQ), query (REQ), searchType?: "web"|"proprietary"|"all"|"news", maxNumResults?: number, relevanceThreshold?: number, includedSources?: string[], excludeSources?: string[], category?: string, startDate?: string, endDate?: string, countryCode?: string, responseLength?: string|number, fastMode?: boolean }
+- Search across web and proprietary data sources (academic papers, stocks, news)
+- Credential: VALYU API key
+- Output: { results: [{ title, url, content, source, relevance_score }], resultCount, totalCharacters }
+
+**VALYU_CONTENTS** - Fields: { variables (REQ), credentialId (REQ), urls (REQ, one per line or JSON array), summary?: boolean|string, extractEffort?: "normal"|"high"|"auto", responseLength?: string|number }
+- Extract and process content from URLs with optional AI summarization
+- Output: { results: [{ url, title, content, length }], urlsProcessed, urlsFailed }
+
+**VALYU_ANSWER** - Fields: { variables (REQ), credentialId (REQ), query (REQ), searchType?: "web"|"proprietary"|"all", maxNumResults?: number, includedSources?: string[], excludeSources?: string[], responseLength?: string|number }
+- AI-powered answer generation with integrated search
+- Output: { answer: string, sources: [{ title, url }] }
+
+**VALYU_DEEP_RESEARCH** - Fields: { variables (REQ), credentialId (REQ), query (REQ), mode?: "fast"|"standard"|"heavy"|"max", strategy?: string, urls?: string[] }
+- Comprehensive multi-source research with detailed reports (async, can take minutes)
+- Modes: fast (~5min, $0.10), standard (~10-20min, $0.50), heavy (~90min, $2.50), max (~180min, $15)
+- Output: { output: string, outputType: "markdown"|"json", sources: [{ title, url, snippet }], cost, status, pdfUrl? }
 
 ### Logic & Code
 
@@ -459,6 +483,32 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
 - Outputs: { imageUrls: string[], task_id: string }
 - Template examples: {{nodeName.imageUrls[0]}}
 
+**VALYU_SEARCH** (if variables: "valyuSearch")
+- Outputs: { results: Array<{title, url, content, description, source, relevance_score}>, resultCount: number, totalCharacters: number }
+- Template examples:
+  - {{valyuSearch.results}} - Array of search results
+  - {{valyuSearch.resultCount}} - Number of results found
+  - {{json valyuSearch.results}} - All results as JSON
+
+**VALYU_CONTENTS** (if variables: "valyuContents")
+- Outputs: { results: Array<{url, title, content, length}>, urlsProcessed: number, urlsFailed: number }
+- Template examples:
+  - {{valyuContents.results[0].content}} - First URL's extracted content
+  - {{valyuContents.urlsProcessed}} - Number of URLs successfully processed
+
+**VALYU_ANSWER** (if variables: "valyuAnswer")
+- Outputs: { answer: string, sources: Array<{title, url}> }
+- Template examples:
+  - {{valyuAnswer.answer}} - The AI-generated answer
+  - {{json valyuAnswer.sources}} - Sources used for the answer
+
+**VALYU_DEEP_RESEARCH** (if variables: "valyuDeepResearch")
+- Outputs: { output: string, outputType: "markdown"|"json", sources: Array<{title, url, snippet}>, cost: number, status: string, pdfUrl?: string }
+- Template examples:
+  - {{valyuDeepResearch.output}} - The research report
+  - {{valyuDeepResearch.pdfUrl}} - PDF download URL (if generated)
+  - {{json valyuDeepResearch.sources}} - Sources used in research
+
 **OUTPUT** (if variables: "output")
 - Outputs: { content: string, contentType: "image"|"video"|"audio", filename?: string, success: boolean, imageUrl?: string, videoUrl?: string, audioUrl?: string }
 - Template examples:
@@ -783,7 +833,16 @@ When performing an action in chat or selecting nodes for workflows:
 - **DO IT YOURSELF** for: writing, analysis, Q&A, brainstorming, translation, summarization, and any task you can handle with your own capabilities
 
 ### Building Workflows with Composio
-When building workflows, you can add COMPOSIO_ACTION nodes for any app action not covered by native nodes. The node stores the action name and parameters, and executes via Composio at runtime. **IMPORTANT: Only suggest Composio actions for apps the user has connected.** Use \`listComposioConnections\` to check, or refer to the "Composio Connected Apps" section in User Context. If the required app is not connected, use \`connectComposioApp\` to help the user connect it right here in chat. Prefer Composio over native Google nodes (GOOGLE_DOCS, GOOGLE_SHEETS, GMAIL, GOOGLE_CALENDAR) when Google is connected via Composio.
+When building workflows, you can add COMPOSIO_ACTION nodes for any app action not covered by native nodes. The node stores the action name and parameters, and executes via Composio at runtime.
+
+- IMPORTANT: Only suggest Composio actions for apps the user has connected.
+  - Use listComposioConnections to check, or refer to the "Composio Connected Apps" section in User Context.
+  - If the required app is not connected, use connectComposioApp to help the user connect it right here in chat.
+- Do NOT guess Composio action names.
+  - Use getComposioAppDetails(appSlug) to list the exact available tools and triggers for that app.
+  - Set composioActionName to one of the returned tools.items[i].slug values.
+  - Example: For Google Docs, call getComposioAppDetails("googledocs"), then choose the slug for the appropriate action (e.g. "create a document") from the returned list. Do not invent names like "GOOGLEDOCS_CREATE_DOCUMENT" unless that exact slug appears in the results.
+- Prefer Composio over native Google nodes (GOOGLE_DOCS, GOOGLE_SHEETS, GMAIL, GOOGLE_CALENDAR) when Google is connected via Composio.
 
 ### Building Workflows with Agent Team (AGENT_TEAM)
 Add AGENT_TEAM nodes when the user wants multiple AI agents in a pipeline (e.g. researcher → writer → editor). Each agent has \`name\`, \`role\`, and optional \`personality\`. You can add as many agents as needed in the \`agents\` array. To update an agent's name, role, or personality, or to add/remove agents, use \`configureNode\` with \`config.agents\` set to the full new array (e.g. \`config: { agents: [ { name: "Researcher", role: "researcher", personality: "Focus on primary sources." }, { name: "Writer", role: "writer", personality: "" } ] }\`).

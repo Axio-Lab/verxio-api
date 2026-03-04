@@ -320,27 +320,37 @@ export default function ConnectedAppsPage() {
         </div>
       )}
 
-      {filteredApps.length === 0 ? (
-        <EmptyView message={search ? "No apps match your search." : "No apps available."} />
-      ) : (
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Available apps ({filteredApps.length})
-            </h2>
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search apps"
-                className="pl-8"
-              />
-            </div>
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Available apps ({filteredApps.length}
+            {search && filteredApps.length !== apps.length
+              ? ` of ${apps.length}`
+              : ""}
+            )
+          </h2>
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search apps"
+              className="pl-8"
+            />
           </div>
+        </div>
+        {filteredApps.length === 0 ? (
+          <EmptyView
+            message={
+              search
+                ? `No apps match "${search}".`
+                : "No apps available."
+            }
+          />
+        ) : (
           <div className="grid gap-2">
             {pagedApps.map((app) => (
               <AppCard
@@ -353,8 +363,8 @@ export default function ConnectedAppsPage() {
               />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <Dialog
         open={!!selectedAppSlug}

@@ -138,6 +138,10 @@ export function useWorkflowOutputsSync() {
     refreshToken: createRefreshToken("tinyfish"),
     enabled: true,
   });
+  const valyuSub = useInngestSubscription({
+    refreshToken: createRefreshToken("valyu"),
+    enabled: true,
+  });
 
   // Merge all output messages
   const allMessages = useMemo(() => {
@@ -158,6 +162,7 @@ export function useWorkflowOutputsSync() {
       ...(composioActionSub.data || []),
       ...(composioTriggerSub.data || []),
       ...(tinyfishSub.data || []),
+      ...(valyuSub.data || []),
     ];
   }, [
     designProSub.data,
@@ -176,6 +181,7 @@ export function useWorkflowOutputsSync() {
     composioActionSub.data,
     composioTriggerSub.data,
     tinyfishSub.data,
+    valyuSub.data,
   ]);
 
   // Extract outputs from all messages and merge into global store

@@ -308,14 +308,10 @@ export const WorkflowGenerationPanel = ({
       };
     });
 
-    // Update canvas
-    if (mode === "edit") {
-      setNodes(newNodes);
-      setEdges(newEdges);
-    } else {
-      setNodes((nodes) => [...nodes, ...newNodes]);
-      setEdges((edges) => [...edges, ...newEdges]);
-    }
+    // Update canvas: always replace with the latest generated workflow
+    // This ensures agent/plan/chat-driven generations keep the canvas in sync
+    setNodes(newNodes);
+    setEdges(newEdges);
 
     // Fit view to show new nodes
     setTimeout(() => {

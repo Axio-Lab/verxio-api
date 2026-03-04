@@ -84,6 +84,7 @@
     "swagger-ui-express": "^5.0.1",
     "toposort": "^2.0.2",
     "tweetnacl": "^1.0.3",
+    "valyu-js": "^2.5.9",
     "zod": "^4.3.5"
   },
   "devDependencies": {

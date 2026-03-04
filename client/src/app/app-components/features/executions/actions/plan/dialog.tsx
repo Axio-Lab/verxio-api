@@ -429,33 +429,6 @@ export const PlanDialog = ({
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await Promise.resolve(onSubmit({} as PlanFormValues));
-
-      if (onRefreshCanvas) {
-        await onRefreshCanvas();
-        toast.success("Workflow updated");
-      } else {
-        await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
-        toast.success("Plan saved");
-      }
-
-      onOpenChange(false);
-      setIsSaving(false);
-    } catch {
-      setIsSaving(false);
-      toast.error("Failed to save plan");
-    }
-  };
-
-  const suggestionChips = [
-    "Email automation workflow",
-    "Social media content pipeline",
-    "Data processing and alerts",
-  ];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
@@ -495,20 +468,6 @@ export const PlanDialog = ({
                 <p className="text-sm text-muted-foreground mt-1">
                   Describe your workflow or upload docs for context.
                 </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {suggestionChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => {
-                      setMessage(chip);
-                      textareaRef.current?.focus();
-                    }}
-                    className="px-3 py-1.5 rounded-full border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-                  >
-                    {chip}
-                  </button>
-                ))}
               </div>
             </div>
           ) : (

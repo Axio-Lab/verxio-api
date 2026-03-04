@@ -484,6 +484,10 @@ enum NodeType {
   COMPOSIO_TRIGGER
   TINYFISH
   AGENT_TEAM
+  VALYU_SEARCH
+  VALYU_CONTENTS
+  VALYU_ANSWER
+  VALYU_DEEP_RESEARCH
 }
 
 model ComposioWebhookSubscription {

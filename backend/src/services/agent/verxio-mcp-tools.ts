@@ -120,6 +120,30 @@ export const AVAILABLE_NODE_TYPES = {
     },
   ],
 
+  // Search & Research (Valyu AI)
+  valyu: [
+    {
+      type: "VALYU_SEARCH",
+      description: "Search across web and proprietary data sources (academic, news, stocks) via Valyu AI",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_CONTENTS",
+      description: "Extract and process content from URLs with optional AI summarization via Valyu",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_ANSWER",
+      description: "Generate AI-powered answers with integrated search via Valyu",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_DEEP_RESEARCH",
+      description: "Run comprehensive multi-source deep research with detailed reports via Valyu (async, can take minutes)",
+      requiredCredential: "VALYU",
+    },
+  ],
+
   // Logic & Code
   logic: [
     { type: "DECIDER", description: "Conditional branching based on data" },
@@ -678,6 +702,10 @@ async function validateRequiredCredentials(
     ANTHROPIC: "ANTHROPIC",
     OPENAI: "OPENAI",
     GEMINI: "GEMINI",
+    VALYU_SEARCH: "VALYU",
+    VALYU_CONTENTS: "VALYU",
+    VALYU_ANSWER: "VALYU",
+    VALYU_DEEP_RESEARCH: "VALYU",
   };
 
   const requiredCredentialType = requiredCredentials[nodeType];
@@ -885,6 +913,10 @@ export const configureNodeTool: VerxioTool = {
         ANTHROPIC: "ANTHROPIC",
         OPENAI: "OPENAI",
         GEMINI: "GEMINI",
+        VALYU_SEARCH: "VALYU",
+        VALYU_CONTENTS: "VALYU",
+        VALYU_ANSWER: "VALYU",
+        VALYU_DEEP_RESEARCH: "VALYU",
       };
       const requiredCredentialType = requiredCredentials[node.type];
 
@@ -2606,6 +2638,70 @@ const searchComposioAppsTool: VerxioTool = {
   },
 };
 
+const getComposioAppDetailsTool: VerxioTool = {
+  name: "getComposioAppDetails",
+  description:
+    "Fetch detailed information for a specific Composio app/toolkit, including the exact tool and trigger slugs. Use this before configuring COMPOSIO_ACTION nodes so you NEVER guess action names.",
+  inputSchema: z.object({
+    appSlug: z
+      .string()
+      .describe(
+        "The Composio app slug (e.g. 'googledocs', 'github', 'notion', 'slack'). Use lowercase."
+      ),
+  }),
+  execute: async (args: { appSlug: string }, _context: ToolContext) => {
+    try {
+      const { getAppDetails, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+
+      const appSlug = args.appSlug.toLowerCase();
+      const details = await getAppDetails(appSlug);
+
+      const tools = details?.tools || {};
+      const triggers = details?.triggers || {};
+
+      return {
+        success: true,
+        appSlug,
+        name: details?.toolkit?.name || appSlug,
+        description: details?.toolkit?.description || "",
+        isMcpToolkit: !!details?.isMcpToolkit,
+        tools: {
+          count: tools.count ?? (tools.items?.length || 0),
+          items: (tools.items || []).map((t: any) => ({
+            slug: t.slug,
+            name: t.name,
+            description: t.description || "",
+          })),
+        },
+        triggers: {
+          count: triggers.count ?? (triggers.items?.length || 0),
+          items: (triggers.items || []).map((tr: any) => ({
+            slug: tr.slug,
+            name: tr.name,
+            description: tr.description || "",
+          })),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch Composio app details",
+      };
+    }
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -2638,6 +2734,7 @@ export const verxioTools: VerxioTool[] = [
   listComposioConnectionsTool,
   connectComposioAppTool,
   searchComposioAppsTool,
+  getComposioAppDetailsTool,
 ];
 
 export default verxioTools;

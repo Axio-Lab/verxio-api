@@ -28,6 +28,10 @@ import { airtableExecutor } from "./actions/airtable";
 import { codeBlockExecutor } from "./actions/code-block";
 import { composioActionExecutor } from "./actions/composio-action";
 import { tinyfishExecutor } from "./actions/tinyfish";
+import { valyuSearchExecutor } from "./actions/valyu-search";
+import { valyuContentsExecutor } from "./actions/valyu-contents";
+import { valyuAnswerExecutor } from "./actions/valyu-answer";
+import { valyuDeepResearchExecutor } from "./actions/valyu-deep-research";
 import { designExecutor } from "./actions/design";
 import { designProExecutor } from "./actions/designPro";
 import { loyaltyDealExecutor } from "./actions/loyalty-deal";
@@ -122,6 +126,11 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.TINYFISH]: tinyfishExecutor as NodeExecutor,
   // AGENT_TEAM node for multi-agent orchestration
   [NodeType.AGENT_TEAM]: agentTeamExecutor as NodeExecutor,
+  // Valyu nodes - web search, contents, answer, deep research (single channel for all)
+  [NodeType.VALYU_SEARCH]: valyuSearchExecutor as NodeExecutor,
+  [NodeType.VALYU_CONTENTS]: valyuContentsExecutor as NodeExecutor,
+  [NodeType.VALYU_ANSWER]: valyuAnswerExecutor as NodeExecutor,
+  [NodeType.VALYU_DEEP_RESEARCH]: valyuDeepResearchExecutor as NodeExecutor,
 };
 
 /**

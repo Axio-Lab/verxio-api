@@ -224,6 +224,10 @@ export function useCentralizedNodeStatusSubscriptions() {
     refreshToken: createRefreshToken("tinyfish"),
     enabled: true,
   });
+  const valyuSub = useInngestSubscription({
+    refreshToken: createRefreshToken("valyu"),
+    enabled: true,
+  });
 
   const allMessages = useMemo(
     () => [
@@ -266,6 +270,7 @@ export function useCentralizedNodeStatusSubscriptions() {
       ...(composioActionSub.data || []),
       ...(composioTriggerSub.data || []),
       ...(tinyfishSub.data || []),
+      ...(valyuSub.data || []),
     ],
     [
       httpRequestSub.data,
@@ -307,6 +312,7 @@ export function useCentralizedNodeStatusSubscriptions() {
       composioActionSub.data,
       composioTriggerSub.data,
       tinyfishSub.data,
+      valyuSub.data,
     ]
   );
 
