@@ -216,6 +216,37 @@ export const EntityPagination = ({
     return null;
   }
 
+  const getPaginationItems = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1) as Array<number | "ellipsis">;
+    }
+
+    const pages: Array<number | "ellipsis"> = [];
+    const showLeftEllipsis = currentPage > 3;
+    const showRightEllipsis = currentPage < totalPages - 2;
+
+    pages.push(1);
+
+    if (showLeftEllipsis) {
+      pages.push("ellipsis");
+    }
+
+    const startPage = showLeftEllipsis ? Math.max(2, currentPage - 1) : 2;
+    const endPage = showRightEllipsis ? Math.min(totalPages - 1, currentPage + 1) : totalPages - 1;
+
+    for (let page = startPage; page <= endPage; page += 1) {
+      pages.push(page);
+    }
+
+    if (showRightEllipsis) {
+      pages.push("ellipsis");
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  };
+
   return (
     <div className="flex items-center justify-center gap-2 mt-6">
       <button
@@ -231,19 +262,25 @@ export const EntityPagination = ({
       </button>
 
       <div className="flex items-center gap-1">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-              currentPage === page
-                ? "bg-primary text-white"
-                : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
+        {getPaginationItems().map((item, index) =>
+          item === "ellipsis" ? (
+            <span key={`ellipsis-${index}`} className="px-2 text-sm text-muted-foreground">
+              ...
+            </span>
+          ) : (
+            <button
+              key={item}
+              onClick={() => onPageChange(item)}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                currentPage === item
+                  ? "bg-primary text-white"
+                  : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
+              }`}
+            >
+              {item}
+            </button>
+          )
+        )}
       </div>
 
       <button

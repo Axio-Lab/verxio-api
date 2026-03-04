@@ -8,7 +8,7 @@ import {
   LayoutTemplate,
   LogOutIcon,
   Loader2,
-  // PlugIcon,
+  PlugIcon,
   // SparklesIcon,
   StarIcon,
   Cable,
@@ -60,11 +60,11 @@ const menuItems = [
         url: "/credentials",
         icon: <KeyIcon />,
       },
-      // {
-      //   title: "Connections",
-      //   url: "/connections",
-      //   icon: <PlugIcon />,
-      // },
+      {
+        title: "Connections",
+        url: "/connections",
+        icon: <PlugIcon />,
+      },
       {
         title: "Integrations",
         url: "/integrations",

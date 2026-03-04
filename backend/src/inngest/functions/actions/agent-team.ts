@@ -48,7 +48,6 @@ async function runSubAgent(
     userId,
     workflowId: agent.workflowId,
     maxTurns: 5,
-    traceType: "agent_team_sub",
   });
 
   return result.result || "No output from agent.";
@@ -115,7 +114,6 @@ Respond with ONLY a JSON object:
       prompt: supervisorPrompt,
       userId,
       maxTurns: 3,
-      traceType: "agent_team_supervisor",
     });
 
     const responseText = supervisorResult.result || "";

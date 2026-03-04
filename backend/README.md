@@ -144,18 +144,6 @@ The backend infrastructure powering the Verxio ecosystem. It enables:
 
 The following environment variables are required for full functionality:
 
-### Opik (Agent Observability & Optimization)
-
-```bash
-# Opik API key from https://www.comet.com/opik
-OPIK_API_KEY=your_opik_api_key
-
-# Optional: Opik project name (defaults to "verxio-agent")
-OPIK_PROJECT=verxio-agent
-```
-
-Opik enables LLM observability, tracing, and prompt optimization for the Verxio Agent.
-
 ### Gemini (Design Agent Image Generation)
 
 ```bash

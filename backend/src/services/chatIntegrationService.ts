@@ -1035,7 +1035,6 @@ ${clipped}`;
     workflowId: options.workflowId,
     includeUserConnections: false,
     maxTurns: 2,
-    traceType: "agent_query",
   });
 
   const fallback = `**Workflow completed.**\n\n${clipped.slice(0, 1200)}${clipped.length > 1200 ? "\n..." : ""}`;

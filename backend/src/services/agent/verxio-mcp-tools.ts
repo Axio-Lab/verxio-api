@@ -2467,6 +2467,145 @@ const listKnowledgeBasesTool: VerxioTool = {
   },
 };
 
+// ============================================
+// Composio Connection Tools (in-chat connection management)
+// ============================================
+
+const listComposioConnectionsTool: VerxioTool = {
+  name: "listComposioConnections",
+  description:
+    "List the user's connected Composio apps and their status. Use this to check which external apps (GitHub, Notion, Google, Slack, etc.) the user has connected before suggesting Composio actions.",
+  inputSchema: z.object({}),
+  execute: async (_args: any, context: ToolContext) => {
+    try {
+      const { listConnectedAccounts, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const accounts = await listConnectedAccounts(context.userId);
+      return {
+        success: true,
+        connectedApps: accounts.map((a: any) => ({
+          id: a.id,
+          appSlug: a.appSlug,
+          status: a.status,
+          connectedAt: a.createdAt,
+        })),
+        count: accounts.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list Composio connections",
+      };
+    }
+  },
+};
+
+const connectComposioAppTool: VerxioTool = {
+  name: "connectComposioApp",
+  description:
+    "Initiate a connection to an external app via Composio. Returns a redirect URL the user must visit to authorize the connection (e.g. OAuth). Present the URL as a clickable link so the user can complete the authorization. After they authorize, their account will be connected and ready for Composio actions.",
+  inputSchema: z.object({
+    appSlug: z
+      .string()
+      .describe(
+        "The Composio app slug to connect (e.g. 'github', 'notion', 'google', 'slack', 'linear', 'jira'). Use lowercase."
+      ),
+  }),
+  execute: async (args: { appSlug: string }, context: ToolContext) => {
+    try {
+      const { initiateAppConnection, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const result = await initiateAppConnection(context.userId, args.appSlug.toLowerCase());
+      return {
+        success: true,
+        appSlug: args.appSlug.toLowerCase(),
+        redirectUrl: result.redirectUrl,
+        connectionId: result.connectionId,
+        message: result.redirectUrl
+          ? `Connection initiated. The user must visit the authorization URL to complete the connection.`
+          : `Connection created successfully (no OAuth redirect needed).`,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to initiate connection";
+      if (msg.includes("MissingRequiredFields") || msg.includes("Missing required")) {
+        return {
+          success: false,
+          error: msg,
+          hint: "This app requires additional configuration fields that cannot be provided through the chat. The user should connect this app from the Connections page in Settings.",
+        };
+      }
+      return { success: false, error: msg };
+    }
+  },
+};
+
+const searchComposioAppsTool: VerxioTool = {
+  name: "searchComposioApps",
+  description:
+    "Search available Composio apps/toolkits by name or keyword. Use this when the user asks what apps are available to connect, or when you need to find the correct app slug for a connection. Returns matching apps with their slugs and descriptions.",
+  inputSchema: z.object({
+    query: z
+      .string()
+      .describe(
+        "Search query to find apps (e.g. 'github', 'email', 'crm', 'social media'). Case-insensitive."
+      ),
+  }),
+  execute: async (args: { query: string }, context: ToolContext) => {
+    try {
+      const { listAvailableApps, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const allApps = await listAvailableApps();
+      const q = args.query.toLowerCase();
+      const matches = allApps.filter(
+        (app) =>
+          app.name.toLowerCase().includes(q) ||
+          app.slug.toLowerCase().includes(q) ||
+          app.description.toLowerCase().includes(q) ||
+          app.categories.some((c) => c.toLowerCase().includes(q))
+      );
+      const limited = matches.slice(0, 20);
+      return {
+        success: true,
+        apps: limited.map((app) => ({
+          slug: app.slug,
+          name: app.name,
+          description: app.description,
+          categories: app.categories,
+          noAuth: app.noAuth,
+        })),
+        totalMatches: matches.length,
+        showing: limited.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to search Composio apps",
+      };
+    }
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -2496,6 +2635,9 @@ export const verxioTools: VerxioTool[] = [
   checkWebRunTool,
   searchKnowledgeBaseTool,
   listKnowledgeBasesTool,
+  listComposioConnectionsTool,
+  connectComposioAppTool,
+  searchComposioAppsTool,
 ];
 
 export default verxioTools;

@@ -18,8 +18,7 @@ import { basePrismaClient } from "../../lib/prisma";
 import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
-import { createTrace, endTrace, type TraceMetadata } from "../opikService";
-import { getComposioMcpUrl } from "../composio/composioService";
+import { getComposioMcpUrl, listConnectedAccounts } from "../composio/composioService";
 import { checkFeatureAccess } from "../subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
 
@@ -89,8 +88,6 @@ export interface AgentQueryOptions {
   abortController?: AbortController;
   /** Media attachments from the user (images, audio, video, documents) */
   attachments?: MediaAttachment[];
-  /** Type of agent query for Opik tracing categorization */
-  traceType?: TraceMetadata["traceType"];
   /** Agent personality for soul.md injection */
   agentPersonality?: AgentPersonality;
 }
@@ -176,23 +173,22 @@ async function loadUserMcpServers(userId: string): Promise<Record<string, McpSer
 // ============================================
 
 async function getUserContext(userId: string, workflowId?: string) {
-  // Get user's credentials
-  const credentials = await prisma.credential.findMany({
-    where: { userId },
-    select: { type: true, name: true },
-  });
-
-  // Get user's active connections
-  const connections = await prisma.userConnection.findMany({
-    where: { userId, isActive: true },
-    select: { name: true, type: true, description: true },
-  });
-
-  // Get user's skills (include id for integration skill filtering)
-  const skills = await prisma.userSkill.findMany({
-    where: { userId },
-    select: { id: true, name: true, description: true, content: true },
-  });
+  // Get user's credentials, connections, skills, and Composio accounts in parallel
+  const [credentials, connections, skills, composioAccounts] = await Promise.all([
+    prisma.credential.findMany({
+      where: { userId },
+      select: { type: true, name: true },
+    }),
+    prisma.userConnection.findMany({
+      where: { userId, isActive: true },
+      select: { name: true, type: true, description: true },
+    }),
+    prisma.userSkill.findMany({
+      where: { userId },
+      select: { id: true, name: true, description: true, content: true },
+    }),
+    listConnectedAccounts(userId).catch(() => []),
+  ]);
 
   return {
     userId,
@@ -200,6 +196,7 @@ async function getUserContext(userId: string, workflowId?: string) {
     availableCredentials: credentials,
     userConnections: connections,
     userSkills: skills,
+    composioConnectedApps: composioAccounts,
   };
 }
 
@@ -218,30 +215,8 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     maxTurns = 10,
     abortController,
     attachments,
-    traceType = "agent_query",
     agentPersonality,
   } = options;
-
-  // Create Opik trace for observability (with input so Opik captures prompt + context)
-  const traceInput: Record<string, unknown> = {
-    prompt: prompt.length > 8000 ? `${prompt.slice(0, 8000)}... [truncated]` : prompt,
-    model,
-    maxTurns,
-    conversationHistoryLength: conversationHistory?.length ?? 0,
-    ...(workflowId && { workflowId }),
-  };
-  const traceContext = createTrace(
-    traceType,
-    {
-      userId,
-      workflowId,
-      traceType,
-      model,
-      promptLength: prompt.length,
-      hasConversationHistory: !!conversationHistory?.length,
-    },
-    traceInput
-  );
 
   // Create tool context (include soul evolution info and skill scope when personality is set)
   const toolContext: ToolContext = {
@@ -373,10 +348,6 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${enrichedPrompt}`;
   }
 
-  let lastResult: any = null;
-  let hasError = false;
-  let errorMessage: string | undefined;
-
   try {
     // Start the query
     const result: Query = query({
@@ -400,37 +371,13 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
 
     // Stream messages
     for await (const message of result) {
-      // Capture result for tracing
-      if (message.type === "result") {
-        lastResult = message;
-      }
       yield* processSDKMessage(message);
     }
   } catch (error: any) {
-    hasError = true;
-    errorMessage = error.message;
     yield {
       type: "error",
       data: { message: error.message, stack: error.stack },
     };
-  } finally {
-    // End the Opik trace and log one span with agent input + output in one go
-    await endTrace(
-      traceContext,
-      {
-        success: !hasError,
-        output: lastResult,
-        error: errorMessage,
-        usage: lastResult?.usage
-          ? {
-              inputTokens: lastResult.usage.input_tokens,
-              outputTokens: lastResult.usage.output_tokens,
-            }
-          : undefined,
-        cost: lastResult?.total_cost_usd,
-      },
-      traceInput
-    );
   }
 }
 
@@ -609,7 +556,6 @@ export async function generateWorkflowWithAgent(
       userId,
       workflowId: existingWorkflowId,
       maxTurns: 20, // Allow more turns for complex workflows
-      traceType: "workflow_generation",
     })) {
       if (event.type === "tool_result" && !event.data.inProgress) {
         const result = event.data.result;
@@ -649,180 +595,11 @@ export async function generateWorkflowWithAgent(
 }
 
 // ============================================
-// Planning/Chat Query - Enhanced for Workflow Planning
+// Planning/Chat Query - Workflow Session Context
 // ============================================
 
-const PLANNING_SYSTEM_CONTEXT = `
-You are Verxio, an expert workflow planning assistant. You help users brainstorm, design and refine automation workflows through conversation.
-
-## Available Nodes
-- Triggers: Telegram, WhatsApp, Webhook, Timed, Manual, Google Forms, Airtable, Stripe
-- AI: Claude, GPT, Gemini
-- Communication: Email, Slack, Discord, Telegram, WhatsApp
-- Google: Sheets, Docs, Slides, Drive, Calendar
-- Data: HTTP, Airtable
-- Logic: Code blocks, Decider
-- Media: DESIGN (image generation), DESIGN_PRO (advanced image editing), SEEDREAM (BytePlus image generation), REMOTION (AI-powered video generation), VEO (Google Veo video), SEEDANCE (BytePlus video generation), Kling nodes (video/image/TTS)
-- Composio: 10,000+ actions across 800+ apps (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, and more)
-
-## Autonomous Image Generation
-
-When users request images, slides, or visuals:
-1. **Analyze Content:** If user provides content (e.g., blog post, script), analyze it to determine optimal number of images/slides OR follow explicit count (e.g., "5 slides")
-2. **Choose Node Type:** 
-   - Use **DESIGN** for standard quality output (default, faster, lower cost)
-   - Use **DESIGN_PRO** when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
-3. **JSON Prompt Format:** All DESIGN/DESIGN_PRO node prompts must be JSON strings with comprehensive specifications (see guides/image-generation-guide.txt). Never use plain string prompts.
-4. **Multi-Image Pattern:** For presentations, slides, campaigns, or multiple images, use createMultipleDesignNodesTool with nodeType parameter ("DESIGN" or "DESIGN_PRO") to create multiple nodes connected in sequence
-5. **Maintain Consistency:** When creating multiple images (e.g., presentation slides), keep the same structure and styling parameters across all images, only varying content-specific fields
-6. **Post-Generation Actions:** After images are generated, consider actions like adding to Google Slides, packaging for download, or organizing in specific structure based on user intent
-
-**DESIGN Node Details:**
-- Prompt field MUST be JSON string (use JSON.stringify() when creating)
-- Reference guides/image-generation-guide.txt for proper JSON structure
-- Reference guides/social-media-design-guide.txt for ready-made prompts for flyers, Instagram, ads, landing pages, and business branding
-- Aspect ratio: "16:9" for presentations, "1:1" for social posts, "9:16" for stories
-- Template: "presentation_slide" for slides, "instagram_post" for Instagram, other templates as appropriate
-- Output variables: design1, design2, etc. for sequential outputs
-- Model: "gemini-2.5-flash-image" (default, standard quality for DESIGN)
-
-**DESIGN_PRO Node Details:**
-- Use DESIGN_PRO when user requests: high quality, high resolution (1K/2K/4K), professional output, or advanced features
-- Model: "gemini-3.1-flash-image-preview" (default, Nano Banana Pro 2)
-- Image size options: "1K" (default/standard), "2K" (high quality), "4K" (ultra high quality)
-- Set imageSize to "2K" or "4K" when user requests high quality output
-- For presentations requiring high quality, use DESIGN_PRO with imageSize: "2K" or "4K"
-- Modes: generate (text-to-image, default), edit (edit existing image), editWithReferences (with up to 14 reference images)
-- Reference images: Can be from previous nodes ({{design1.imageUrl}}), URLs, or base64
-- Google Search: Enable for grounding and fact verification
-
-**Brand Consistency (CRITICAL for Business Branding):**
-- When creating multiple assets for the same brand (flyers, social posts, ads, etc.), ALWAYS establish brand foundation first
-- Use the Brand Foundation Prompt from social-media-design-guide.txt to lock in visual consistency
-- Maintain consistent colors, typography, and visual style across all branded assets
-- Reference the established brand identity when creating any subsequent branded content
-
-**REMOTION Node Details:**
-- Use REMOTION for AI-powered video generation using Remotion framework
-- Users provide a text description of the video they want to create
-- Supports multiple video formats: 16:9 (landscape), 9:16 (portrait), 1:1 (square), 4:3, 21:9 (ultrawide)
-- Can add background audio (optional) with volume control
-- Can add multiple assets (images, videos, audio) with scene descriptions
-- Claude automatically generates Remotion code based on the description
-- Video parameters (duration, fps, dimensions) are auto-detected from the prompt
-- Output Structure:
-  - The node outputs a variable (default: "remotion") containing an object with videoUrl (string) and success (boolean)
-  - Also outputs videoUrl directly for convenience
-  - To access in subsequent nodes: Use inputs.[variableName].videoUrl or inputs.videoUrl
-  - Example: If variable name is "remotion", access via inputs.remotion.videoUrl or inputs.videoUrl
-
-## Response Guidelines
-- Keep responses SHORT and focused (2-4 paragraphs max)
-- Use bullet points for lists
-- Ask one clarifying question at a time
-- No emojis, no excessive formatting
-- Be direct and practical
-- Ask clarifying questions to understand the full scope before suggesting solutions
-- Break complex automations into manageable steps
-- Explain trade-offs between different approaches
-- Consider edge cases and error scenarios
-- Suggest credentials and integrations the user will need
-- Provide specific examples when explaining concepts
-- Reference actual node types and their configurations
-
-## Workflow vs Single-Node: Choose Based on User Intent (CRITICAL)
-Read the conversation to decide whether the user needs a **workflow** (multi-step automation) or a **single action** (one node, then return the result in chat).
-
-**When to BUILD A WORKFLOW:**
-- User wants multi-step automation (e.g. "research X, create content with X, send the result to Y")
-- User wants something repeatable or triggered by events (e.g. "when I get a form response, do A then B")
-- User explicitly asks to "create a workflow", "automate", "build a bot"
-
-**When to RUN A SINGLE NODE and RETURN THE RESULT:**
-- User asks for a one-off action and expects an answer in the chat (e.g. "check my calendar for the day", "book a meeting with X", "list my events", "do X")
-- One node can fulfill the request (e.g. GOOGLE_CALENDAR list events, GOOGLE_MEET create link, DESIGN generate one image)
-- User says "do it", "help me do X", "can you book/check/list/create X" and expects confirmation or data back
-
-**Single-node path: use the right standard node first.**
-- You have access to **all existing node types** (same as for workflows) plus **Composio** for 10,000+ actions across 800+ apps. For a single task, **prefer Composio for common app operations** (email, calendar, project management, CRM, TTS, web scraping, etc.) and **native nodes for media generation** (DESIGN/DESIGN_PRO for images, VEO/REMOTION/SEEDANCE for video, KLING for video/image/TTS, SEEDREAM for images). Use listNodeTypes or the Available Nodes list above to pick the right one.
-- **Use CODE_BLOCK or other custom/special nodes only when needed** (e.g. custom logic, one-off script, or no standard node matches the task). Do not default to a custom node when a standard node exists for the task.
-
-**Single-node steps (executeSingleNodeAndWait):**
-0. **Before adding or running:** Tell the user what you'll do (which node, how you'll set it up, that you'll run it and return the result). Give them a chance to request changes (e.g. "use next week", "use work calendar") or say "go ahead." Like the plan node—user can review before execution. **If the user has already said "yes", "yes add it", "go ahead", "do it", "yeah", "create it", "use the same email", or similar, that is approval—proceed in this turn; do not ask "Should I proceed?" again.**
-0b. **CRITICAL — When user has approved, you MUST call the tools in the SAME turn.** If the user said "yes", "yeah", "go ahead", "create it", "proceed", "use the same email", or any clear approval, your very next response MUST include the actual tool calls (addNode, configureNode, executeSingleNodeAndWait). Do NOT send a message that only says "Proceeding now..." or "I'll create it now" without invoking the tools—that is not executing; the user would have to say "go ahead" again. Approval = execute immediately in the same turn; never reply with "Proceeding now" and then wait for another message.
-1. Ensure the workflow has the right node: use getWorkflow to check; if not, use addNode then configureNode. **Fill all required fields** (credentialId, model for AI, action for calendar, etc.); tell the user if anything is required and missing. Nodes are saved to the workflow when you add/configure. Choose the **standard node type** that matches the task (calendar → GOOGLE_CALENDAR, image → DESIGN, etc.).
-2. Optionally pass one-off params via nodeOverrides (e.g. timeMin/timeMax for "today", or a prompt for this run only).
-3. Call executeSingleNodeAndWait(workflowId, nodeId, nodeOverrides).
-4. In your **very next reply**, summarize the tool's output in **human language** and send that to the user (e.g. "You have 3 events today: ...", "Meeting booked with X at ...", "Here’s what I found: ..."). Do not dump raw JSON; turn the result into a short, readable summary.
-
-**If the single-node execution fails (success: false),** tell the user in plain language what went wrong (e.g. "I couldn’t read your calendar because ...") and suggest fixing credentials or trying again.
-
-## Plan Mode: Plan First, Build Only After Approval (CRITICAL)
-**SCOPE: Plan mode applies ONLY to multi-node WORKFLOW creation (addNode, configureNode, connectNodes).** It does NOT apply to:
-- Direct tool calls (image generation, video generation, Composio actions, browseWebsite)
-- Single-node execution via executeSingleNodeAndWait
-
-The goal of plan mode is to **deeply plan with the user**. You must NEVER zoom off and build a workflow until the user has seen and approved a plan.
-
-**1. Always present a plan for review first**
-- When the user wants a **workflow** (e.g. "build a Telegram bot", "create the workflow", "I want to automate X"), respond with a **clear, reviewable plan**:
-  - **Summary**: 2–4 sentences of what the workflow will do
-  - **Nodes in order**: Trigger → Node1 → Node2 → … (with brief purpose for each)
-  - **Required credentials**: What the user must connect (e.g. Telegram, Anthropic)
-  - **Trade-offs or alternatives**: If relevant (e.g. "We could use Webhook instead of Telegram if you prefer")
-- Invite the user to **review and suggest changes**: e.g. "Review this plan and tell me what you’d like to change, or say **yes, build it** when you’re ready."
-- Do NOT call addNode, configureNode, connectNodes, deleteNode, or createWorkflow in this same turn. Only output the plan.
-
-**2. Build only after explicit approval**
-- Use your workflow-modifying tools (addNode, configureNode, connectNodes, deleteNode) **only when**:
-  - You have already shown a plan in this conversation, AND
-  - The user has explicitly approved it (e.g. "yes build it", "looks good, go ahead", "approved", "build it as planned", "yes", "go ahead").
-- If the user says "build it" or "create the workflow" but you have **not** yet shown a plan in this thread, do **not** build yet: first output the plan, then ask them to confirm or request changes.
-- If the user requests changes to the plan, update the plan in your reply and again ask for review/approval before building.
-- **Do not ask for confirmation twice in workflow (multi-node) mode.** If you already showed a plan and the user replied with a clear yes (e.g. "yes", "yes build it", "go ahead", "approved", "looks good", "do it"), treat that as approval and **build in this turn**. Do not respond with "Should I proceed?" or "Say 'yes, build it' to continue"—they already approved; call addNode/configureNode/connectNodes now.
-
-**3. Deep planning with the user**
-- Prefer one clarifying question at a time when the request is vague.
-- Offer alternatives when there are multiple valid designs (e.g. different triggers or node types).
-- If the user asks to "build it" or says "yes" / "go ahead" and you have already presented a plan and they haven’t asked for changes, treat that as approval and **build in the same turn**—do not ask again for confirmation.
-
-## Saving nodes and filling all fields (CRITICAL)
-- **addNode, configureNode, and connectNodes persist to the workflow**—the same way as when building a workflow. Every node you add or configure is saved to the user's workflow and appears on the canvas.
-- **You have full access to all node types and must fill all required fields** for each node (e.g. credentialId for Google/Telegram nodes, model for AI nodes, action for GOOGLE_CALENDAR, calendarId if needed). Use getWorkflow and listNodeTypes; use getCredentials to find valid credential IDs. **For action-based nodes (e.g. GOOGLE_CALENDAR, GOOGLE_SHEETS), call getNodeSchema(nodeType) to get the exact action names and fields** (e.g. GOOGLE_CALENDAR uses action "listEvents" not "list"). If something is required and missing (e.g. no Google credential), **tell the user clearly**: "I need X to do this. You can [connect one in Settings / use your existing 'Y' credential]. Should I use Y, or will you add one?"
-- **For GOOGLE_CALENDAR createEvent:** You must **always ask the user where the meeting will be held** before creating the event. Their answer tells you whether to create a Meet link: "Where will the meeting be held — in-person at a physical location, online (Google Meet), or both?" If in-person → set location (address/place). If online/virtual → set addMeetLink: true (no location). If both → set location and addMeetLink: true. Do not create the event until you know this; it determines whether the event gets a Meet link.
-- **Tell the user what you're doing before you start execution.** Like the plan node, give the user a chance to review and make changes before you run anything. For example: "I'll add a Google Calendar node to list your events for this week, use your Google account, then run it and show you the results. If you want a different date range or calendar, say so now—otherwise say **go ahead** and I'll run it." Do not call addNode/configureNode/executeSingleNodeAndWait without first stating your plan in that turn or a previous turn and giving the user a moment to respond (unless they already said "go ahead" or "do it" and you just described the plan).
-- **Do not ask for confirmation twice.** If you offered a follow-up (e.g. "Would you like to add a Meet link?") and the user replied with a clear yes—e.g. "yes", "yeah", "yes add it", "go ahead", "do it", "please do", "sure", "add it"—treat that as approval and **call the tools (addNode/configureNode/executeSingleNodeAndWait) in that same turn**. Do not send a reply that only says "Proceeding now..." or "I'll create it" without making the tool calls; that forces the user to say "go ahead" again. Approval = execute in the same response.
-- For **workflow builds**, the plan (summary, nodes, credentials) is this "tell the user what you're doing"; only build after they approve. For **single-node execution**, briefly state what node you'll add, how you'll configure it, and that you'll run it and return the result—then run only after they confirm or say go ahead, or if the conversation already implied approval.
-
-## CRITICAL: Building/Updating Workflows
-When building or updating a workflow from the plan node, you MUST:
-1. **ALWAYS use the EXISTING WORKFLOW ID** provided in the context - the workflow already exists on the canvas
-2. **NEVER call createWorkflow** - this will create a duplicate workflow and break the canvas
-3. **REPLACE existing nodes** - If the workflow already has nodes, you should:
-   - First, delete existing nodes using deleteNode (if needed to replace them)
-   - Then add new nodes using addNode with the existing workflowId
-   - This ensures the new workflow replaces the old one on the canvas
-4. Call addNode with the workflow ID for each node you want to add
-5. Call configureNode to set up each node's data (prompts, credentials, settings, model - model is REQUIRED for AI nodes). Fill all required fields; tell the user if anything is missing.
-6. Call connectNodes to connect nodes in sequence
-7. After all nodes are added and connected, confirm to the user what was created/updated (nodes are saved to the workflow)
-
-Example sequence for replacing/adding nodes:
-- getWorkflow(workflowId: "<current_workflow_id>") - Check existing nodes
-- deleteNode(nodeId: "<old_node_id>") - Delete old nodes if replacing
-- addNode(workflowId: "<current_workflow_id>", nodeType: "TELEGRAM_TRIGGER", name: "Telegram Trigger", data: {...})
-- addNode(workflowId: "<current_workflow_id>", nodeType: "GEMINI", name: "AI Analysis", data: {model: "gemini-3.1-pro-preview", ...})
-- configureNode(nodeId: "<gemini_id>", config: {model: "gemini-3.1-pro-preview", userPrompt: "...", credentialId: "..."})
-- connectNodes(fromNodeId: "<trigger_id>", toNodeId: "<gemini_id>")
-
-## Important
-- **Plan first, build after approval**: For WORKFLOWS only. Show a reviewable plan before using workflow-modifying tools (addNode, configureNode, connectNodes); only build when the user explicitly approves.
-- **Fill all required fields** for each node; tell the user clearly if something is required and missing (e.g. credentials, calendar ID).
-- ALWAYS use the current workflow ID when adding nodes - do NOT create a new workflow
-- When generating a new workflow, REPLACE existing nodes to avoid duplicates on canvas
-- Model field is REQUIRED for all AI nodes (ANTHROPIC, OPENAI, GEMINI) - must be explicitly set
-- If user hasn't described what they want yet, ask what they'd like to automate
-- Focus on understanding their needs before proposing solutions
+const WORKFLOW_SESSION_CONTEXT = `
+All capabilities, node types, research/TinyFish/Composio rules, plan mode, single-node execution, and workflow-building instructions are in your system prompt. Follow them.
 `;
 
 export interface AgentPersonality {
@@ -869,8 +646,8 @@ You may refine your personality over time. If you notice patterns in how the use
 `;
   }
 
-  // Build enhanced prompt with planning context and learning insights
-  let enhancedPrompt = `${soulPreamble}${PLANNING_SYSTEM_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
+  // Build enhanced prompt with workflow session context
+  let enhancedPrompt = `${soulPreamble}${WORKFLOW_SESSION_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
 
   // Add learning context if available
   if (options.learningContext?.similarWorkflows?.length) {
@@ -890,7 +667,6 @@ You may refine your personality over time. If you notice patterns in how the use
     conversationHistory: options.conversationHistory,
     attachments: options.attachments,
     maxTurns: 15,
-    traceType: "chat",
     agentPersonality: options.agentPersonality,
   })) {
     yield event;
@@ -932,7 +708,6 @@ Do not include any other text outside these sections.`;
     userId: options.userId,
     workflowId: options.workflowId,
     maxTurns: 5,
-    traceType: "smart_prompt",
   });
 
   const responseText = result.result || "";
@@ -1047,7 +822,6 @@ Generate ONLY the code, no explanations. The code should be production-ready and
       prompt: codeGenPrompt,
       userId,
       maxTurns: 5,
-      traceType: "code_generation",
     });
 
     if (!result.success) {
@@ -1141,7 +915,6 @@ Output nothing else except this JSON object.`;
       userId,
       workflowId,
       maxTurns: 10,
-      traceType: "template_metadata",
     });
 
     if (!result.success) {

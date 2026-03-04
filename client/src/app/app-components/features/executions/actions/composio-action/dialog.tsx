@@ -22,10 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ComposioConnectionStatus } from "../../components/composio-connection-status";
 
 const formSchema = z.object({
   variables: z
@@ -94,6 +95,11 @@ export const ComposioActionDialog = ({
   }, [open, defaultValues, form]);
 
   const watchVariables = form.watch("variables") || "composioAction";
+  const watchActionName = form.watch("composioActionName") || "";
+  const appPrefix = useMemo(() => {
+    const name = watchActionName.trim().toUpperCase();
+    return name.includes("_") ? name.split("_")[0] : undefined;
+  }, [watchActionName]);
 
   const handleSubmit = async (values: ComposioActionFormValues) => {
     const params = JSON.parse(values.composioParamsText) as Record<string, unknown>;
@@ -123,6 +129,8 @@ export const ComposioActionDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
+              <ComposioConnectionStatus appPrefix={appPrefix} />
+
               <FormField
                 control={form.control}
                 name="variables"

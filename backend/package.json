@@ -77,7 +77,6 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^4.2.1",
-    "opik": "^1.9.87",
     "pg": "^8.17.2",
     "pinata": "^2.5.2",
     "prisma-field-encryption": "^1.6.0",

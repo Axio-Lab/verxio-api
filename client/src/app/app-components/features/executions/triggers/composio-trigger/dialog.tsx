@@ -24,9 +24,18 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ComposioConnectionStatus } from "../../components/composio-connection-status";
+import { useComposioConnectedAccounts } from "@/hooks/useComposioConnections";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const formSchema = z.object({
   variables: z
@@ -107,6 +116,13 @@ export const ComposioTriggerDialog = ({
   }, [open, defaultValues, form]);
 
   const watchVariables = form.watch("variables") || "composioTrigger";
+  const watchSlug = form.watch("composioTriggerSlug") || "";
+  const appPrefix = useMemo(() => {
+    const slug = watchSlug.trim().toUpperCase();
+    return slug.includes("_") ? slug.split("_")[0] : undefined;
+  }, [watchSlug]);
+  const { data: accountsData } = useComposioConnectedAccounts();
+  const connectedAccounts = accountsData?.accounts || [];
   const status = defaultValues.composioTriggerStatus || "provisioning";
 
   const handleSubmit = async (values: ComposioTriggerFormValues) => {
@@ -141,6 +157,8 @@ export const ComposioTriggerDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
+              <ComposioConnectionStatus appPrefix={appPrefix} />
+
               <div className="rounded-lg border bg-muted/30 p-3 text-xs">
                 <div className="font-medium">Provisioning status: {status}</div>
                 {defaultValues.composioLastSyncedAt ? (
@@ -229,13 +247,36 @@ export const ComposioTriggerDialog = ({
                 name="connectedAccountId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Connected Account ID (Optional)</FormLabel>
+                    <FormLabel>Connected Account (Optional)</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="ca_..." />
+                      {connectedAccounts.length > 0 ? (
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={(value) =>
+                            field.onChange(value === "__none__" ? "" : value)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Auto (most recent account)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Auto (most recent account)</SelectItem>
+                            {connectedAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                <span className="capitalize">{account.appSlug}</span>{" "}
+                                <span className="text-muted-foreground">
+                                  ({account.id.slice(0, 12)}...)
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input {...field} placeholder="ca_..." />
+                      )}
                     </FormControl>
                     <FormDescription>
-                      Optional. If omitted, Composio uses the user’s most recent account for the
-                      app.
+                      Optional. If omitted, Composio uses the most recent account for the app.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
