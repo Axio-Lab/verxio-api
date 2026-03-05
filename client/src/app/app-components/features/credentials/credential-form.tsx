@@ -118,6 +118,11 @@ export const credentialTypeOptions: Array<{
     logo: "/logo/valyu.svg",
   },
   {
+    label: "TinyFish",
+    value: CredentialType.TINYFISH,
+    logo: "/logo/tinyfish.svg",
+  },
+  {
     label: "Custom",
     value: CredentialType.CUSTOM,
   },

@@ -59,7 +59,7 @@ export const DesignNode = memo((props: NodeProps) => {
       <BaseExecutionNode
         {...props}
         icon={Palette}
-        name="Nano Banana"
+        name="Design Agent"
         description={getDescription()}
         status={nodeStatus}
         output={output}

@@ -264,14 +264,30 @@ export async function getAppDetails(appSlug: string): Promise<any> {
 
 /**
  * Initiate an OAuth/connection flow for a Composio app.
- * Uses toolkits.authorize() which auto-resolves auth config for managed apps.
+ * Uses session.authorize() so we can control the callbackUrl and
+ * always return users to the /connections page in the dashboard UI.
  */
 export async function initiateAppConnection(
   userId: string,
   appSlug: string
 ): Promise<{ redirectUrl: string | null; connectionId: string }> {
   const client = requireClient();
-  const connectionRequest = await client.toolkits.authorize(userId, appSlug);
+
+  const appBaseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+
+  // Ensure no trailing slash before appending the route.
+  const normalizedBase = appBaseUrl.replace(/\/+$/, "");
+  const callbackUrl = `${normalizedBase}/connections`;
+
+  // Create a session for this user and authorize the specific toolkit/app.
+  const session: any = await (client as any).create(userId, {
+    manageConnections: false,
+  });
+
+  const connectionRequest = await session.authorize(appSlug.toLowerCase(), {
+    callbackUrl,
+  });
+
   return {
     redirectUrl: connectionRequest.redirectUrl || null,
     connectionId: connectionRequest.id,

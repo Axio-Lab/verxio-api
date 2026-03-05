@@ -13,6 +13,7 @@ export enum CredentialType {
   WHATSAPP = "WHATSAPP",
   AIRTABLE = "AIRTABLE",
   VALYU = "VALYU",
+  TINYFISH = "TINYFISH",
 }
 
 /**

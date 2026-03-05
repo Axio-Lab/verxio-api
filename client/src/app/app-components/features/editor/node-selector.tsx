@@ -277,14 +277,14 @@ const executionNodes: NodeTypeOption[] = [
   },
   {
     type: NodeType.DESIGN,
-    label: "Nano Banana",
+    label: "Design Agent",
     description:
       "AI-powered design tool. Generate images, create presentations, social media posts, logos, and more with Gemini's image generation.",
     icon: Palette,
   },
   {
     type: NodeType.DESIGN_PRO,
-    label: "Nano Banana Pro",
+    label: "Design Agent Pro",
     description:
       "Advanced image editing with multi-turn conversations, reference images (up to 14), high-resolution output (1K/2K/4K), and Google Search grounding. Edit existing images, maintain character consistency, and iterate through conversational editing.",
     icon: Palette,
@@ -1100,7 +1100,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Nano Banana",
+            label: "Design Agent",
             variables: "design",
           },
           type: NodeType.DESIGN,
@@ -1112,7 +1112,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Nano Banana Pro",
+            label: "Design Agent Pro",
             variables: "designPro",
             mode: "generate",
             model: "gemini-3.1-flash-image-preview",

@@ -33,8 +33,6 @@ export const QUOTA_COST = {
   DEFAULT_PREMIUM_NODE: 10, // Code Block
   COMPOSIO_ACTION: 10,
   COMPOSIO_CHAT: 10,
-  TINYFISH: 20,
-  TINYFISH_CHAT: 20,
   AI_GENERATE: 5,
   // Kling node costs
   KLING_IMAGE: 10,

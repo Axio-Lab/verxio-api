@@ -27,13 +27,14 @@ function buildBody(url: string, goal: string, options?: TinyfishOptions) {
   return body;
 }
 
-function getHeaders(): Record<string, string> {
-  if (!TINYFISH_API_KEY) {
-    throw new Error("TINYFISH_API_KEY environment variable is not configured");
+function getHeaders(apiKeyOverride?: string): Record<string, string> {
+  const key = apiKeyOverride || TINYFISH_API_KEY;
+  if (!key) {
+    throw new Error("TinyFish API key is not configured. Provide a user credential or set TINYFISH_API_KEY.");
   }
   return {
     "Content-Type": "application/json",
-    "X-API-Key": TINYFISH_API_KEY,
+    "X-API-Key": key,
   };
 }
 
@@ -44,11 +45,12 @@ function getHeaders(): Record<string, string> {
 export async function runWebAutomation(
   url: string,
   goal: string,
-  options?: TinyfishOptions
+  options?: TinyfishOptions,
+  apiKeyOverride?: string
 ): Promise<TinyfishRunResult> {
   const res = await fetch(`${BASE_URL}/v1/automation/run`, {
     method: "POST",
-    headers: getHeaders(),
+    headers: getHeaders(apiKeyOverride),
     body: JSON.stringify(buildBody(url, goal, options)),
   });
 
@@ -67,11 +69,12 @@ export async function runWebAutomation(
 export async function runWebAutomationAsync(
   url: string,
   goal: string,
-  options?: TinyfishOptions
+  options?: TinyfishOptions,
+  apiKeyOverride?: string
 ): Promise<{ run_id: string }> {
   const res = await fetch(`${BASE_URL}/v1/automation/run-async`, {
     method: "POST",
-    headers: getHeaders(),
+    headers: getHeaders(apiKeyOverride),
     body: JSON.stringify(buildBody(url, goal, options)),
   });
 

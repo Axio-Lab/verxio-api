@@ -706,6 +706,7 @@ async function validateRequiredCredentials(
     VALYU_CONTENTS: "VALYU",
     VALYU_ANSWER: "VALYU",
     VALYU_DEEP_RESEARCH: "VALYU",
+    TINYFISH: "TINYFISH",
   };
 
   const requiredCredentialType = requiredCredentials[nodeType];
@@ -1622,7 +1623,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
             .string()
             .optional()
             .describe(
-              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3.1-flash-image-preview' (default, Nano Banana Pro 2)."
+              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3.1-flash-image-preview' (default, Design Agent Pro)."
             ),
           // DESIGN_PRO specific fields
           mode: z
@@ -1674,7 +1675,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
       const spec = imageSpecs[i];
       const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
       const nodeName =
-        nodeType === "DESIGN_PRO" ? `Nano Banana Pro ${i + 1}` : `Nano Banana ${i + 1}`;
+        nodeType === "DESIGN_PRO" ? `Design Agent Pro ${i + 1}` : `Design Agent ${i + 1}`;
 
       // Validate prompt is JSON
       let parsedPrompt;
@@ -2354,6 +2355,12 @@ const browseWebsiteTool: VerxioTool = {
       .string()
       .optional()
       .describe("ISO country code for proxy location: US, GB, CA, DE, FR, JP, AU"),
+    credentialId: z
+      .string()
+      .optional()
+      .describe(
+        "Optional TinyFish credential ID. If provided, uses the user's TinyFish API key; otherwise falls back to the server TinyFish key if configured."
+      ),
   }),
   execute: async (
     args: {
@@ -2361,6 +2368,7 @@ const browseWebsiteTool: VerxioTool = {
       goal: string;
       browserProfile?: "lite" | "stealth";
       proxyCountry?: string;
+      credentialId?: string;
     },
     context: ToolContext
   ) => {
@@ -2374,10 +2382,21 @@ const browseWebsiteTool: VerxioTool = {
       await consumePremiumQuota(context.userId, QUOTA_COST.TINYFISH_CHAT);
 
       const { runWebAutomation } = await import("@/services/tinyfish/tinyfishService");
-      const result = await runWebAutomation(args.url, args.goal, {
-        browserProfile: args.browserProfile,
-        proxyCountry: args.proxyCountry,
-      });
+      let apiKeyOverride: string | undefined;
+      if (args.credentialId) {
+        const { getCredential } = await import("@/services/credentialService");
+        const cred = await getCredential(args.credentialId, context.userId);
+        apiKeyOverride = cred.value;
+      }
+      const result = await runWebAutomation(
+        args.url,
+        args.goal,
+        {
+          browserProfile: args.browserProfile,
+          proxyCountry: args.proxyCountry,
+        },
+        apiKeyOverride
+      );
 
       if (result.status === "FAILED") {
         return {

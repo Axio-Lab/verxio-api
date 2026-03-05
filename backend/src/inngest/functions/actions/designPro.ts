@@ -19,7 +19,7 @@ type DesignProData = {
   variables?: string;
   prompt?: string; // JSON format
   mode?: "generate" | "edit" | "editWithReferences";
-  model?: string; // Default: gemini-3.1-flash-image-preview (Nano Banana Pro 2)
+  model?: string; // Default: gemini-3.1-flash-image-preview (Design Agent Pro)
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize; // 1K, 2K, 4K
   template?: TemplateType;

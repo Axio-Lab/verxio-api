@@ -1,9 +1,9 @@
 /**
  * Gemini Image Service
  *
- * Provides image generation capabilities using Gemini's Nano Banana models:
+ * Provides image generation capabilities using Gemini's image models used by the Design Agent:
  * - gemini-2.5-flash-image: Fast, efficient image generation (DESIGN)
- * - gemini-3.1-flash-image-preview: Nano Banana Pro 2 (DESIGN_PRO), advanced features, up to 4K
+ * - gemini-3.1-flash-image-preview: Pro image model (DESIGN_PRO), advanced features, up to 4K
  *
  * Features:
  * - Text-to-image generation

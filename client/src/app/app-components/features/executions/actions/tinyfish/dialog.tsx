@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCredentials, CredentialType } from "@/hooks/useCredentials";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -45,6 +46,7 @@ const formSchema = z.object({
   browserProfile: z.enum(["lite", "stealth"]).optional(),
   proxyCountry: z.string().optional(),
   label: z.string().optional(),
+  credentialId: z.string().min(1, { message: "TinyFish credential is required" }),
 });
 
 export type TinyfishFormValues = z.infer<typeof formSchema>;
@@ -68,6 +70,9 @@ const PROXY_COUNTRIES = [
 ];
 
 export const TinyfishDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+  const { data: credentialsData } = useCredentials(1, 100, CredentialType.TINYFISH);
+  const credentials = credentialsData?.credentials || [];
+
   const form = useForm<TinyfishFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -77,6 +82,7 @@ export const TinyfishDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
       browserProfile: defaultValues.browserProfile || "lite",
       proxyCountry: defaultValues.proxyCountry || "",
       label: defaultValues.label || "TinyFish",
+      credentialId: (defaultValues as any)?.credentialId || "",
     },
   });
 
@@ -89,6 +95,7 @@ export const TinyfishDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
         browserProfile: defaultValues.browserProfile || "lite",
         proxyCountry: defaultValues.proxyCountry || "",
         label: defaultValues.label || "TinyFish",
+        credentialId: (defaultValues as any)?.credentialId || "",
       });
     }
   }, [open, defaultValues, form]);
@@ -119,6 +126,44 @@ export const TinyfishDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="space-y-6 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
+              <FormField
+                control={form.control}
+                name="credentialId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>TinyFish Credential</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={credentials.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              credentials.length === 0
+                                ? "No TinyFish credentials found"
+                                : "Select a TinyFish credential"
+                            }
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {credentials.map((cred) => (
+                          <SelectItem key={cred.id} value={cred.id}>
+                            {cred.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      TinyFish uses this API key for web automation. Create it in Credentials under
+                      type &quot;TinyFish&quot;.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="variables"
