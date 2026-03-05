@@ -123,7 +123,6 @@ No explanation, just the JSON array.`;
       prompt,
       userId,
       maxTurns: 3,
-      traceType: "migration_refinement",
     });
 
     const responseText = result.result || "";

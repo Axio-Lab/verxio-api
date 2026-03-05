@@ -231,6 +231,30 @@ const executionNodes: NodeTypeOption[] = [
     icon: "/logo/tinyfish.svg",
   },
   {
+    type: NodeType.VALYU_SEARCH,
+    label: "Valyu Search",
+    description: "Search across web and proprietary data sources using Valyu AI.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_CONTENTS,
+    label: "Valyu Contents",
+    description: "Extract and process content from URLs with AI.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_ANSWER,
+    label: "Valyu Answer",
+    description: "Generate AI-powered answers with integrated search.",
+    icon: "/logo/valyu.svg",
+  },
+  {
+    type: NodeType.VALYU_DEEP_RESEARCH,
+    label: "Valyu Deep Research",
+    description: "Run comprehensive multi-source research with detailed reports.",
+    icon: "/logo/valyu.svg",
+  },
+  {
     type: NodeType.AGENT_TEAM,
     label: "Agent Team",
     description:
@@ -253,14 +277,14 @@ const executionNodes: NodeTypeOption[] = [
   },
   {
     type: NodeType.DESIGN,
-    label: "Nano Banana",
+    label: "Design Agent",
     description:
       "AI-powered design tool. Generate images, create presentations, social media posts, logos, and more with Gemini's image generation.",
     icon: Palette,
   },
   {
     type: NodeType.DESIGN_PRO,
-    label: "Nano Banana Pro",
+    label: "Design Agent Pro",
     description:
       "Advanced image editing with multi-turn conversations, reference images (up to 14), high-resolution output (1K/2K/4K), and Google Search grounding. Edit existing images, maintain character consistency, and iterate through conversational editing.",
     icon: Palette,
@@ -651,7 +675,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Manual Input",
             variables: "input",
             prompt: "",
           },
@@ -967,6 +990,71 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         };
         setNodes((nodes) => [...nodes, newNode]);
         onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_SEARCH) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Search",
+            variables: "valyuSearch",
+            credentialId: "",
+            query: "",
+            searchType: "all",
+            maxNumResults: 10,
+            fastMode: false,
+          },
+          type: NodeType.VALYU_SEARCH,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_CONTENTS) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Contents",
+            variables: "valyuContents",
+            credentialId: "",
+            urls: "",
+            summary: false,
+            extractEffort: "normal",
+          },
+          type: NodeType.VALYU_CONTENTS,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_ANSWER) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Answer",
+            variables: "valyuAnswer",
+            credentialId: "",
+            query: "",
+            searchType: "all",
+            maxNumResults: 10,
+          },
+          type: NodeType.VALYU_ANSWER,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.VALYU_DEEP_RESEARCH) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Valyu Deep Research",
+            variables: "valyuDeepResearch",
+            credentialId: "",
+            query: "",
+            mode: "standard",
+            strategy: "",
+          },
+          type: NodeType.VALYU_DEEP_RESEARCH,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
       } else if (selection.type === NodeType.AGENT_TEAM) {
         const newNode = {
           id: createId(),
@@ -1012,7 +1100,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Nano Banana",
+            label: "Design Agent",
             variables: "design",
           },
           type: NodeType.DESIGN,
@@ -1024,7 +1112,7 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Nano Banana Pro",
+            label: "Design Agent Pro",
             variables: "designPro",
             mode: "generate",
             model: "gemini-3.1-flash-image-preview",

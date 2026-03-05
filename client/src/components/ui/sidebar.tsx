@@ -138,6 +138,7 @@ const SidebarProvider = React.forwardRef<
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH,
+                "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
                 ...style,
               } as React.CSSProperties
@@ -211,15 +212,17 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            data-collapsible="icon"
+            // On mobile we always show the full sidebar width with labels,
+            // so we don't use the compact "icon" collapsible variant.
+            data-collapsible="offcanvas"
             className={cn(
-              "w-[--sidebar-width-icon] bg-white p-0 text-sidebar-foreground [&>button]:hidden z-50 group",
+              "w-[--sidebar-width-mobile] bg-white p-0 text-sidebar-foreground [&>button]:hidden z-50 group",
               mobileSheetClassName
             )}
             overlayClassName={mobileSheetClassName}
             style={
               {
-                "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+                "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
             side={side}

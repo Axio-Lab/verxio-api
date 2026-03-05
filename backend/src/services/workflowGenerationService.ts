@@ -181,6 +181,10 @@ const NODE_CREDENTIAL_MAP: Record<string, { type: string; setupUrl: string }> = 
   SLACK: { type: "SLACK", setupUrl: "/credentials/new?type=SLACK" },
   DISCORD: { type: "DISCORD", setupUrl: "/credentials/new?type=DISCORD" },
   WHATSAPP: { type: "WHATSAPP", setupUrl: "/credentials/new?type=WHATSAPP" },
+  VALYU_SEARCH: { type: "VALYU", setupUrl: "/credentials/new?type=VALYU" },
+  VALYU_CONTENTS: { type: "VALYU", setupUrl: "/credentials/new?type=VALYU" },
+  VALYU_ANSWER: { type: "VALYU", setupUrl: "/credentials/new?type=VALYU" },
+  VALYU_DEEP_RESEARCH: { type: "VALYU", setupUrl: "/credentials/new?type=VALYU" },
 };
 
 // Fields that require user input

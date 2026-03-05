@@ -28,9 +28,11 @@ import {
   authenticatedDelete,
   getAuthHeaders,
 } from "@/lib/api-client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSetAtom } from "jotai";
+import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
 
 export type PlanFormValues = Record<string, never>;
 
@@ -65,6 +67,8 @@ export const PlanDialog = ({
   const params = useParams();
   const workflowId = (params?.id || params?.workflow) as string;
   const queryClient = useQueryClient();
+  const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
+  const router = useRouter();
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -79,6 +83,7 @@ export const PlanDialog = ({
     []
   );
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+  const [hasWorkflowChanges, setHasWorkflowChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -342,6 +347,7 @@ export const PlanDialog = ({
                 if (WORKFLOW_TOOLS.includes(toolName)) {
                   setIsCreatingWorkflow(true);
                   workflowModified = true;
+                  setHasWorkflowChanges(true);
                 }
 
                 const message = getProgressMessage(toolName, event.data.input);
@@ -429,35 +435,27 @@ export const PlanDialog = ({
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await Promise.resolve(onSubmit({} as PlanFormValues));
-
-      if (onRefreshCanvas) {
-        await onRefreshCanvas();
-        toast.success("Workflow updated");
-      } else {
-        await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
-        toast.success("Plan saved");
-      }
-
-      onOpenChange(false);
-      setIsSaving(false);
-    } catch {
-      setIsSaving(false);
-      toast.error("Failed to save plan");
-    }
-  };
-
-  const suggestionChips = [
-    "Email automation workflow",
-    "Social media content pipeline",
-    "Data processing and alerts",
-  ];
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={async (nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen && hasWorkflowChanges) {
+          try {
+            if (onRefreshCanvas) {
+              await onRefreshCanvas();
+            } else {
+              router.refresh();
+            }
+            // After refresh, there should be no local unsaved changes
+            setHasUnsavedChanges(false);
+            setHasWorkflowChanges(false);
+          } catch {
+            // ignore refresh errors
+          }
+        }
+      }}
+    >
       <DialogContent className="w-[95vw] max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
@@ -495,20 +493,6 @@ export const PlanDialog = ({
                 <p className="text-sm text-muted-foreground mt-1">
                   Describe your workflow or upload docs for context.
                 </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {suggestionChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => {
-                      setMessage(chip);
-                      textareaRef.current?.focus();
-                    }}
-                    className="px-3 py-1.5 rounded-full border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-                  >
-                    {chip}
-                  </button>
-                ))}
               </div>
             </div>
           ) : (

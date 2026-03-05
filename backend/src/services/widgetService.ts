@@ -127,7 +127,6 @@ export async function sendWidgetMessage(
     prompt: fullPrompt,
     userId: agent.userId,
     maxTurns: 3,
-    traceType: "widget_chat",
   });
 
   const response = result.result || "I'm sorry, I couldn't process your request.";

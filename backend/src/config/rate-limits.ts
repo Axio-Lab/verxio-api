@@ -33,8 +33,6 @@ export const QUOTA_COST = {
   DEFAULT_PREMIUM_NODE: 10, // Code Block
   COMPOSIO_ACTION: 10,
   COMPOSIO_CHAT: 10,
-  TINYFISH: 20,
-  TINYFISH_CHAT: 20,
   AI_GENERATE: 5,
   // Kling node costs
   KLING_IMAGE: 10,
@@ -47,6 +45,11 @@ export const QUOTA_COST = {
   KLING_VIDEO_EXTEND: 10,
   KLING_MULTI_IMAGE2IMAGE: 10,
   KLING_MOTION_CONTROL: 10,
+  // Valyu AI nodes
+  VALYU_SEARCH: 10,
+  VALYU_CONTENTS: 10,
+  VALYU_ANSWER: 10,
+  VALYU_DEEP_RESEARCH: 20,
   // Chat integrations (per message when user chats with Verxio from Telegram/WhatsApp/Slack/Discord)
   TELEGRAM_CHAT_INTEGRATION: 10,
   WHATSAPP_CHAT_INTEGRATION: 10,

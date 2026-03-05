@@ -41,6 +41,7 @@ import { seedreamChannel } from "./seedream";
 import { composioActionChannel } from "./composio-action";
 import { composioTriggerChannel } from "./composio-trigger";
 import { tinyfishChannel } from "./tinyfish";
+import { valyuChannel } from "./valyu";
 
 export const nodeStatusChannels = {
   httpRequest: httpRequestChannel,
@@ -82,6 +83,7 @@ export const nodeStatusChannels = {
   composioAction: composioActionChannel,
   composioTrigger: composioTriggerChannel,
   tinyfish: tinyfishChannel,
+  valyu: valyuChannel,
 } as const;
 
 export type NodeStatusChannelKey = keyof typeof nodeStatusChannels;
@@ -127,4 +129,5 @@ export const channelNameMap: Record<NodeStatusChannelKey, string> = {
   composioAction: "composio-action-execution",
   composioTrigger: "composio-trigger-execution",
   tinyfish: "tinyfish-execution",
+  valyu: "valyu-execution",
 };

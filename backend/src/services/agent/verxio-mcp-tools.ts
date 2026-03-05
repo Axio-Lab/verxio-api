@@ -120,6 +120,32 @@ export const AVAILABLE_NODE_TYPES = {
     },
   ],
 
+  // Search & Research (Valyu AI)
+  valyu: [
+    {
+      type: "VALYU_SEARCH",
+      description:
+        "Search across web and proprietary data sources (academic, news, stocks) via Valyu AI",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_CONTENTS",
+      description: "Extract and process content from URLs with optional AI summarization via Valyu",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_ANSWER",
+      description: "Generate AI-powered answers with integrated search via Valyu",
+      requiredCredential: "VALYU",
+    },
+    {
+      type: "VALYU_DEEP_RESEARCH",
+      description:
+        "Run comprehensive multi-source deep research with detailed reports via Valyu (async, can take minutes)",
+      requiredCredential: "VALYU",
+    },
+  ],
+
   // Logic & Code
   logic: [
     { type: "DECIDER", description: "Conditional branching based on data" },
@@ -678,6 +704,11 @@ async function validateRequiredCredentials(
     ANTHROPIC: "ANTHROPIC",
     OPENAI: "OPENAI",
     GEMINI: "GEMINI",
+    VALYU_SEARCH: "VALYU",
+    VALYU_CONTENTS: "VALYU",
+    VALYU_ANSWER: "VALYU",
+    VALYU_DEEP_RESEARCH: "VALYU",
+    TINYFISH: "TINYFISH",
   };
 
   const requiredCredentialType = requiredCredentials[nodeType];
@@ -778,7 +809,13 @@ export const addNodeTool: VerxioTool = {
       const model = data?.model;
       if (!model || typeof model !== "string" || model.trim() === "") {
         const availableModels: Record<string, string[]> = {
-          ANTHROPIC: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"],
+          ANTHROPIC: [
+            "claude-sonnet-4-6",
+            "claude-opus-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5",
+            "claude-opus-4-5",
+          ],
           OPENAI: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
           GEMINI: ["gemini-3.1-pro-preview", "gemini-3-flash-preview"],
         };
@@ -879,6 +916,10 @@ export const configureNodeTool: VerxioTool = {
         ANTHROPIC: "ANTHROPIC",
         OPENAI: "OPENAI",
         GEMINI: "GEMINI",
+        VALYU_SEARCH: "VALYU",
+        VALYU_CONTENTS: "VALYU",
+        VALYU_ANSWER: "VALYU",
+        VALYU_DEEP_RESEARCH: "VALYU",
       };
       const requiredCredentialType = requiredCredentials[node.type];
 
@@ -1584,7 +1625,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
             .string()
             .optional()
             .describe(
-              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3.1-flash-image-preview' (default, Nano Banana Pro 2)."
+              "Model to use. For DESIGN: 'gemini-2.5-flash-image' (default). For DESIGN_PRO: 'gemini-3.1-flash-image-preview' (default, Design Agent Pro)."
             ),
           // DESIGN_PRO specific fields
           mode: z
@@ -1636,7 +1677,7 @@ export const createMultipleDesignNodesTool: VerxioTool = {
       const spec = imageSpecs[i];
       const variableName = spec.variables || `${defaultPrefix}${i + 1}`;
       const nodeName =
-        nodeType === "DESIGN_PRO" ? `Nano Banana Pro ${i + 1}` : `Nano Banana ${i + 1}`;
+        nodeType === "DESIGN_PRO" ? `Design Agent Pro ${i + 1}` : `Design Agent ${i + 1}`;
 
       // Validate prompt is JSON
       let parsedPrompt;
@@ -2316,6 +2357,12 @@ const browseWebsiteTool: VerxioTool = {
       .string()
       .optional()
       .describe("ISO country code for proxy location: US, GB, CA, DE, FR, JP, AU"),
+    credentialId: z
+      .string()
+      .optional()
+      .describe(
+        "Optional TinyFish credential ID. If provided, uses the user's TinyFish API key; otherwise falls back to the server TinyFish key if configured."
+      ),
   }),
   execute: async (
     args: {
@@ -2323,23 +2370,27 @@ const browseWebsiteTool: VerxioTool = {
       goal: string;
       browserProfile?: "lite" | "stealth";
       proxyCountry?: string;
+      credentialId?: string;
     },
     context: ToolContext
   ) => {
     try {
-      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
-      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
-      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
-
-      const { consumePremiumQuota } = await import("@/services/subscriptionService");
-      const { QUOTA_COST } = await import("@/config/rate-limits");
-      await consumePremiumQuota(context.userId, QUOTA_COST.TINYFISH_CHAT);
-
       const { runWebAutomation } = await import("@/services/tinyfish/tinyfishService");
-      const result = await runWebAutomation(args.url, args.goal, {
-        browserProfile: args.browserProfile,
-        proxyCountry: args.proxyCountry,
-      });
+      let apiKeyOverride: string | undefined;
+      if (args.credentialId) {
+        const { getCredential } = await import("@/services/credentialService");
+        const cred = await getCredential(args.credentialId, context.userId);
+        apiKeyOverride = cred.value;
+      }
+      const result = await runWebAutomation(
+        args.url,
+        args.goal,
+        {
+          browserProfile: args.browserProfile,
+          proxyCountry: args.proxyCountry,
+        },
+        apiKeyOverride
+      );
 
       if (result.status === "FAILED") {
         return {
@@ -2377,10 +2428,6 @@ const checkWebRunTool: VerxioTool = {
   }),
   execute: async (args: { runId: string }, context: ToolContext) => {
     try {
-      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
-      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
-      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
-
       const { getRunStatus } = await import("@/services/tinyfish/tinyfishService");
       const result = await getRunStatus(args.runId);
 
@@ -2461,6 +2508,205 @@ const listKnowledgeBasesTool: VerxioTool = {
   },
 };
 
+// ============================================
+// Composio Connection Tools (in-chat connection management)
+// ============================================
+
+const listComposioConnectionsTool: VerxioTool = {
+  name: "listComposioConnections",
+  description:
+    "List the user's connected Composio apps and their status. Use this to check which external apps (GitHub, Notion, Google, Slack, etc.) the user has connected before suggesting Composio actions.",
+  inputSchema: z.object({}),
+  execute: async (_args: any, context: ToolContext) => {
+    try {
+      const { listConnectedAccounts, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const accounts = await listConnectedAccounts(context.userId);
+      return {
+        success: true,
+        connectedApps: accounts.map((a: any) => ({
+          id: a.id,
+          appSlug: a.appSlug,
+          status: a.status,
+          connectedAt: a.createdAt,
+        })),
+        count: accounts.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list Composio connections",
+      };
+    }
+  },
+};
+
+const connectComposioAppTool: VerxioTool = {
+  name: "connectComposioApp",
+  description:
+    "Initiate a connection to an external app via Composio. Returns a redirect URL the user must visit to authorize the connection (e.g. OAuth). Present the URL as a clickable link so the user can complete the authorization. After they authorize, their account will be connected and ready for Composio actions.",
+  inputSchema: z.object({
+    appSlug: z
+      .string()
+      .describe(
+        "The Composio app slug to connect (e.g. 'github', 'notion', 'google', 'slack', 'linear', 'jira'). Use lowercase."
+      ),
+  }),
+  execute: async (args: { appSlug: string }, context: ToolContext) => {
+    try {
+      const { initiateAppConnection, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const result = await initiateAppConnection(context.userId, args.appSlug.toLowerCase());
+      return {
+        success: true,
+        appSlug: args.appSlug.toLowerCase(),
+        redirectUrl: result.redirectUrl,
+        connectionId: result.connectionId,
+        message: result.redirectUrl
+          ? `Connection initiated. The user must visit the authorization URL to complete the connection.`
+          : `Connection created successfully (no OAuth redirect needed).`,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to initiate connection";
+      if (msg.includes("MissingRequiredFields") || msg.includes("Missing required")) {
+        return {
+          success: false,
+          error: msg,
+          hint: "This app requires additional configuration fields that cannot be provided through the chat. The user should connect this app from the Connections page in Settings.",
+        };
+      }
+      return { success: false, error: msg };
+    }
+  },
+};
+
+const searchComposioAppsTool: VerxioTool = {
+  name: "searchComposioApps",
+  description:
+    "Search available Composio apps/toolkits by name or keyword. Use this when the user asks what apps are available to connect, or when you need to find the correct app slug for a connection. Returns matching apps with their slugs and descriptions.",
+  inputSchema: z.object({
+    query: z
+      .string()
+      .describe(
+        "Search query to find apps (e.g. 'github', 'email', 'crm', 'social media'). Case-insensitive."
+      ),
+  }),
+  execute: async (args: { query: string }, context: ToolContext) => {
+    try {
+      const { listAvailableApps, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+      const allApps = await listAvailableApps();
+      const q = args.query.toLowerCase();
+      const matches = allApps.filter(
+        (app) =>
+          app.name.toLowerCase().includes(q) ||
+          app.slug.toLowerCase().includes(q) ||
+          app.description.toLowerCase().includes(q) ||
+          app.categories.some((c) => c.toLowerCase().includes(q))
+      );
+      const limited = matches.slice(0, 20);
+      return {
+        success: true,
+        apps: limited.map((app) => ({
+          slug: app.slug,
+          name: app.name,
+          description: app.description,
+          categories: app.categories,
+          noAuth: app.noAuth,
+        })),
+        totalMatches: matches.length,
+        showing: limited.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to search Composio apps",
+      };
+    }
+  },
+};
+
+const getComposioAppDetailsTool: VerxioTool = {
+  name: "getComposioAppDetails",
+  description:
+    "Fetch detailed information for a specific Composio app/toolkit, including the exact tool and trigger slugs. Use this before configuring COMPOSIO_ACTION nodes so you NEVER guess action names.",
+  inputSchema: z.object({
+    appSlug: z
+      .string()
+      .describe(
+        "The Composio app slug (e.g. 'googledocs', 'github', 'notion', 'slack'). Use lowercase."
+      ),
+  }),
+  execute: async (args: { appSlug: string }, _context: ToolContext) => {
+    try {
+      const { getAppDetails, isComposioConfigured } = await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+
+      const appSlug = args.appSlug.toLowerCase();
+      const details = await getAppDetails(appSlug);
+
+      const tools = details?.tools || {};
+      const triggers = details?.triggers || {};
+
+      return {
+        success: true,
+        appSlug,
+        name: details?.toolkit?.name || appSlug,
+        description: details?.toolkit?.description || "",
+        isMcpToolkit: !!details?.isMcpToolkit,
+        tools: {
+          count: tools.count ?? (tools.items?.length || 0),
+          items: (tools.items || []).map((t: any) => ({
+            slug: t.slug,
+            name: t.name,
+            description: t.description || "",
+          })),
+        },
+        triggers: {
+          count: triggers.count ?? (triggers.items?.length || 0),
+          items: (triggers.items || []).map((tr: any) => ({
+            slug: tr.slug,
+            name: tr.name,
+            description: tr.description || "",
+          })),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch Composio app details",
+      };
+    }
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -2490,6 +2736,10 @@ export const verxioTools: VerxioTool[] = [
   checkWebRunTool,
   searchKnowledgeBaseTool,
   listKnowledgeBasesTool,
+  listComposioConnectionsTool,
+  connectComposioAppTool,
+  searchComposioAppsTool,
+  getComposioAppDetailsTool,
 ];
 
 export default verxioTools;

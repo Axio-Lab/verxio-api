@@ -36,9 +36,12 @@ import { useEffect, useState, useRef } from "react";
 import { DESIGN_TEMPLATES, ASPECT_RATIOS } from "../design/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Available Gemini image models for Nano Banana Pro (Design Agent Pro)
+// Available Gemini image models for Design Agent Pro
 const DESIGN_PRO_MODELS = [
-  { value: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash Image (Nano Banana Pro 2)" },
+  {
+    value: "gemini-3.1-flash-image-preview",
+    label: "Gemini 3.1 Flash Image (Design Agent Pro)",
+  },
 ] as const;
 
 // Extract values for zod enums
@@ -488,7 +491,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
 
       await Promise.resolve(onSubmit(submitValues));
       onOpenChange(false);
-      toast.success("Nano Banana Pro node configured");
+      toast.success("Design Agent Pro node configured");
       form.reset();
     } catch (error) {
       toast.dismiss(); // Dismiss any loading toasts
@@ -506,7 +509,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5 text-pink-500" />
-            Nano Banana Pro
+            Design Agent Pro
           </DialogTitle>
           <DialogDescription>
             Advanced image editing with multi-turn conversations, reference images, and

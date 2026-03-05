@@ -23,34 +23,8 @@ export const tinyfishExecutor: NodeExecutor = async ({
 
   const browserProfile = (data.browserProfile as "lite" | "stealth" | undefined) || undefined;
   const proxyCountry = (data.proxyCountry as string | undefined) || undefined;
+  const credentialId = data.credentialId as string | undefined;
   const variablesKey = (data.variables as string) || "tinyfish";
-
-  // Premium: check subscription and consume credits
-  const { checkNodeAccess } = await import("@/services/subscriptionCheck");
-  await checkNodeAccess(userId, "TINYFISH");
-
-  const { consumePremiumQuota } = await import("@/services/subscriptionService");
-  const { QUOTA_COST } = await import("@/config/rate-limits");
-  try {
-    await step.run(`tinyfish-consume-quota-${nodeId}`, async () => {
-      await consumePremiumQuota(userId, QUOTA_COST.TINYFISH);
-      return { consumed: true };
-    });
-  } catch (quotaError) {
-    await publish(tinyfishChannel().status({ nodeId, status: "error" }));
-    const err = new NonRetriableError(
-      quotaError instanceof Error
-        ? quotaError.message
-        : "Rate limit exceeded. Upgrade or wait for reset."
-    );
-    await publish(
-      tinyfishChannel().output({
-        nodeId,
-        output: { ...context, error: { message: err.message } },
-      })
-    );
-    throw err;
-  }
 
   // Compile Handlebars templates in url and goal using workflow context
   let compiledUrl = url;
@@ -66,14 +40,34 @@ export const tinyfishExecutor: NodeExecutor = async ({
     // Use original values if template compilation fails
   }
 
+  // Resolve TinyFish API key: prefer user credential if provided, otherwise fall back to env key
+  let apiKeyOverride: string | undefined;
+  if (credentialId) {
+    const { getCredential } = await import("@/services/credentialService");
+    try {
+      const credential = await getCredential(credentialId, userId);
+      apiKeyOverride = credential.value;
+    } catch (error) {
+      await publish(tinyfishChannel().status({ nodeId, status: "error" }));
+      throw new NonRetriableError(
+        error instanceof Error ? error.message : "Failed to load TinyFish credential for this node."
+      );
+    }
+  }
+
   await publish(tinyfishChannel().status({ nodeId, status: "loading" }));
 
   try {
     const result = await step.run(`tinyfish-${nodeId}`, async () => {
-      return runWebAutomation(compiledUrl, compiledGoal, {
-        browserProfile,
-        proxyCountry,
-      });
+      return runWebAutomation(
+        compiledUrl,
+        compiledGoal,
+        {
+          browserProfile,
+          proxyCountry,
+        },
+        apiKeyOverride
+      );
     });
 
     if (result.status === "FAILED") {

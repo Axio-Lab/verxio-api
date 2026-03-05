@@ -39,37 +39,13 @@ flowchart TB
         generateSmartPrompt[generateSmartPrompt]
     end
     
-    subgraph OpikLayer["Opik Integration Layer"]
-        OpikService[opikService.ts]
-        PromptOptimizer[promptOptimizer.ts]
-        AnalyticsService[analyticsService.ts]
-    end
-    
-    subgraph Opik["Opik Platform"]
-        Traces[Traces DB]
-        Metrics[Metrics]
-        Optimizer[Agent Optimizer]
-    end
-    
     VibePage --> runAgentQuery
     WorkflowEditor --> generateWorkflow
     WorkflowEditor --> chatWithAgent
     PlanNode --> chatWithAgent
     WorkflowEditor --> generateCode
     
-    runAgentQuery --> OpikService
-    chatWithAgent --> OpikService
-    generateCode --> OpikService
-    generateWorkflow --> OpikService
-    generateSmartPrompt --> OpikService
-    
-    OpikService --> Traces
-    OpikService --> Metrics
-    PromptOptimizer --> Optimizer
-    
-    AnalyticsService --> Traces
-    AnalyticsService --> Metrics
-    AnalyticsPage --> AnalyticsService
+    AnalyticsPage --> runAgentQuery
 ```
 ---
 

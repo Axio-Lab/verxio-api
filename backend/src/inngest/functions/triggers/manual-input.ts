@@ -3,7 +3,6 @@ import { manualInputChannel } from "@/inngest/channels/manual-input";
 
 type ManualInputData = {
   variables?: string;
-  label?: string;
   prompt?: string; // User instruction/prompt text
 };
 

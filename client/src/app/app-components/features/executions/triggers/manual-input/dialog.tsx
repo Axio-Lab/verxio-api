@@ -18,7 +18,6 @@ import { z } from "zod";
 import { useReactFlow } from "@xyflow/react";
 
 const formSchema = z.object({
-  label: z.string().min(1, "Label is required"),
   variables: z.string().min(1, "Variable name is required"),
   prompt: z.string().min(1, "User instruction/prompt is required"),
 });
@@ -43,7 +42,6 @@ export const ManualInputDialog = ({
   const form = useForm<ManualInputFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      label: (defaultValues?.label as string) || "Manual Input",
       variables: (defaultValues?.variables as string) || "input",
       prompt: (defaultValues?.prompt as string) || "",
     },
@@ -53,12 +51,10 @@ export const ManualInputDialog = ({
     setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id === nodeId) {
+          const { label: _removed, ...rest } = node.data as Record<string, unknown>;
           return {
             ...node,
-            data: {
-              ...node.data,
-              ...values,
-            },
+            data: { ...rest, ...values },
           };
         }
         return node;
@@ -79,16 +75,6 @@ export const ManualInputDialog = ({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
           <div className="space-y-4 mt-4 overflow-y-auto flex-1 pr-2 -mr-2">
-            <div>
-              <Label htmlFor="label">Label</Label>
-              <Input id="label" {...form.register("label")} placeholder="Enter node label" />
-              {form.formState.errors.label && (
-                <p className="text-sm text-destructive mt-1">
-                  {form.formState.errors.label.message}
-                </p>
-              )}
-            </div>
-
             <div>
               <Label htmlFor="variables">Variable Name</Label>
               <Input id="variables" {...form.register("variables")} placeholder="input" />
