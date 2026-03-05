@@ -22,7 +22,7 @@ export interface ValyuSearchParams {
 export async function valyuSearch(apiKey: string, params: ValyuSearchParams) {
   const client = createClient(apiKey);
   const { query, ...options } = params;
-  const response = await client.search(query, options);
+  const response: any = await client.search(query, options as any);
   if (!response.success) {
     throw new Error(response.error || "Valyu search failed");
   }
@@ -50,7 +50,7 @@ export interface ValyuContentsParams {
 export async function valyuContents(apiKey: string, params: ValyuContentsParams) {
   const client = createClient(apiKey);
   const { urls, ...options } = params;
-  const response = await client.contents(urls, options);
+  const response: any = await client.contents(urls, options as any);
   if (!response.success) {
     throw new Error(response.error || "Valyu contents extraction failed");
   }

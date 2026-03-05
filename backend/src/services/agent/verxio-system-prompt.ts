@@ -125,7 +125,7 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 **COMPOSIO_ACTION** - Fields: { variables, composioActionName (REQ), composioParams (object) }
 - Execute any of 10,000+ actions from 800+ apps via Composio (GitHub, Notion, Linear, Jira, HubSpot, Salesforce, ElevenLabs, Firecrawl, Shopify, Zendesk, etc.)
 - composioActionName: The Composio action ID (e.g., "GITHUB_CREATE_ISSUE", "NOTION_CREATE_PAGE", "ELEVENLABS_TEXT_TO_SPEECH"). **NEVER guess this. ALWAYS look it up using Composio tools.**
-- composioParams: Action-specific parameters as a JSON object
+- composioParams: Action-specific parameters as a JSON object. For **GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN** you MUST set: \`title\` (string) and \`markdown_text\` (string, the document body in markdown). If you omit markdown_text, the created doc will be empty. Use \`{{previousNode.output}}\` or similar for the body when the content comes from a prior node.
 - **CRITICAL:** Before setting composioActionName:
   - Use \`listComposioConnections\` to verify the required app (e.g. googledocs) is connected.
   - Use \`getComposioAppDetails(appSlug)\` (e.g. \`googledocs\`) to list the exact tool slugs and names for that app.
@@ -842,6 +842,7 @@ When building workflows, you can add COMPOSIO_ACTION nodes for any app action no
   - Use getComposioAppDetails(appSlug) to list the exact available tools and triggers for that app.
   - Set composioActionName to one of the returned tools.items[i].slug values.
   - Example: For Google Docs, call getComposioAppDetails("googledocs"), then choose the slug for the appropriate action (e.g. "create a document") from the returned list. Do not invent names like "GOOGLEDOCS_CREATE_DOCUMENT" unless that exact slug appears in the results.
+- For **GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN**: composioParams must include \`title\` and \`markdown_text\` (the document body in markdown). Without markdown_text the created document will be empty. Use \`{{nodeId.output}}\` or similar for the body when content comes from a previous node.
 - Prefer Composio over native Google nodes (GOOGLE_DOCS, GOOGLE_SHEETS, GMAIL, GOOGLE_CALENDAR) when Google is connected via Composio.
 
 ### Building Workflows with Agent Team (AGENT_TEAM)
@@ -1115,12 +1116,9 @@ When creating or configuring nodes, you MUST:
 - values: For write/append - JSON array like "[[value1, value2]]" or with templates "[[{{node.field1}}, {{node.field2}}]]"
 - ALWAYS configure ALL these fields: variables, action, spreadsheetId, sheetName, range
 
-**Google Docs:**
-- variables: Output variable name
-- action: "create", "read", or "append"
-- documentId: Ask user for existing docs
-- content: Template with variable references
-- title: For creating new docs
+**Google Docs (COMPOSIO_ACTION with googledocs):**
+- For creating a doc with markdown content use composioActionName **GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN** and composioParams: \`title\` (string), \`markdown_text\` (string, REQUIRED for body—e.g. \`{{writer.report}}\` or the full markdown). Without markdown_text the doc will be empty.
+- variables: Output variable name; action: "create", "read", "append" for native GOOGLE_DOCS; documentId for existing docs.
 
 **Communication (Telegram):**
 - variables: Output variable name

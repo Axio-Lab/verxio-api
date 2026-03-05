@@ -56,75 +56,21 @@ export async function executeComposioAction(
   actionName: string,
   params: Record<string, unknown>
 ): Promise<unknown> {
-  const client = getClient();
-  if (!client) {
-    throw new Error("Composio is not configured. Set COMPOSIO_API_KEY in your environment.");
-  }
+  const client = requireClient();
+  const normalizedActionName = actionName.toUpperCase();
 
   try {
-    const normalizedActionName = actionName.toUpperCase();
-    const providerPrefix = normalizedActionName.split("_")[0];
-    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-    const connectedAccounts = await listConnectedAccounts(userId);
-    const connectedToolkits = Array.from(
-      new Set(
-        connectedAccounts
-          .map((account) => String(account.appSlug || "").toLowerCase())
-          .filter(Boolean)
-      )
-    );
-
-    const matchedToolkit =
-      connectedToolkits.find((slug) => normalize(slug) === normalize(providerPrefix)) ||
-      connectedToolkits.find((slug) => normalize(slug).startsWith(normalize(providerPrefix))) ||
-      connectedToolkits.find((slug) => normalize(providerPrefix).startsWith(normalize(slug))) ||
-      providerPrefix.toLowerCase();
-
-    // IMPORTANT: include toolkits in the session, otherwise only COMPOSIO_* meta tools may be returned.
-    let session = await client.create(userId, {
-      manageConnections: true,
-      toolkits: [matchedToolkit],
+    const result = await (client as any).tools.execute(normalizedActionName, {
+      userId,
+      arguments: params,
+      dangerouslySkipVersionCheck: true,
     });
-    let tools = await session.tools();
-
-    const tool = tools.find(
-      (t: any) => (t.name || t.function?.name || "").toUpperCase() === normalizedActionName
-    );
-
-    // Fallback: if a targeted toolkit session doesn't include the action, load all connected toolkits.
-    let resolvedTool = tool;
-    if (!resolvedTool && connectedToolkits.length > 0) {
-      session = await client.create(userId, {
-        manageConnections: true,
-        toolkits: connectedToolkits,
-      });
-      tools = await session.tools();
-      resolvedTool = tools.find(
-        (t: any) => (t.name || t.function?.name || "").toUpperCase() === normalizedActionName
-      );
-    }
-
-    if (!resolvedTool) {
-      const availableToolNames = tools
-        .map((t: any) => (t.name || t.function?.name || "").toUpperCase())
-        .filter(Boolean);
-      const providerMatches = availableToolNames
-        .filter((name: string) => name.startsWith(`${providerPrefix}_`))
-        .slice(0, 12);
-      const sampleActions = availableToolNames.slice(0, 12);
-
-      throw new Error(
-        providerMatches.length > 0
-          ? `Composio action "${actionName}" not found. Similar available actions: ${providerMatches.join(", ")}`
-          : `Composio action "${actionName}" not found. The user needs to connect their ${providerPrefix} account first in Settings > Connections. Available actions sample: ${sampleActions.join(", ")}`
-      );
-    }
-
-    const result = await (resolvedTool as any).execute(params);
     return result;
   } catch (error) {
-    console.error(`[Composio] Failed to execute action "${actionName}" for user ${userId}:`, error);
+    console.error(
+      `[Composio] Failed to execute action "${normalizedActionName}" for user ${userId}:`,
+      error
+    );
     throw error;
   }
 }

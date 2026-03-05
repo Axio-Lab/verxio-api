@@ -94,16 +94,8 @@ export function useInitiateComposioConnection() {
       authenticatedPost<InitiateResponse>("/api/composio/connections/initiate", data),
     onSuccess: (data) => {
       if (data.redirectUrl) {
-        window.open(data.redirectUrl, "_blank");
-        toast.info("Complete the connection in the new tab. We'll detect it when you return.");
-
-        const handleFocus = () => {
-          queryClient.invalidateQueries({
-            queryKey: ["composio", "connected-accounts"],
-          });
-        };
-        window.addEventListener("focus", handleFocus);
-        setTimeout(() => window.removeEventListener("focus", handleFocus), 5 * 60 * 1000);
+        // Navigate in the current tab to avoid browser popup blockers
+        window.location.href = data.redirectUrl;
       } else {
         queryClient.invalidateQueries({
           queryKey: ["composio", "connected-accounts"],

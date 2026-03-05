@@ -28,9 +28,11 @@ import {
   authenticatedDelete,
   getAuthHeaders,
 } from "@/lib/api-client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSetAtom } from "jotai";
+import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
 
 export type PlanFormValues = Record<string, never>;
 
@@ -65,6 +67,8 @@ export const PlanDialog = ({
   const params = useParams();
   const workflowId = (params?.id || params?.workflow) as string;
   const queryClient = useQueryClient();
+  const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
+  const router = useRouter();
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -79,6 +83,7 @@ export const PlanDialog = ({
     []
   );
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+  const [hasWorkflowChanges, setHasWorkflowChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -342,6 +347,7 @@ export const PlanDialog = ({
                 if (WORKFLOW_TOOLS.includes(toolName)) {
                   setIsCreatingWorkflow(true);
                   workflowModified = true;
+                  setHasWorkflowChanges(true);
                 }
 
                 const message = getProgressMessage(toolName, event.data.input);
@@ -430,7 +436,26 @@ export const PlanDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={async (nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen && hasWorkflowChanges) {
+          try {
+            if (onRefreshCanvas) {
+              await onRefreshCanvas();
+            } else {
+              router.refresh();
+            }
+            // After refresh, there should be no local unsaved changes
+            setHasUnsavedChanges(false);
+            setHasWorkflowChanges(false);
+          } catch {
+            // ignore refresh errors
+          }
+        }
+      }}
+    >
       <DialogContent className="w-[95vw] max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">

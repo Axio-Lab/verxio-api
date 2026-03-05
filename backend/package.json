@@ -40,7 +40,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.7",
     "@anthropic-ai/claude-code": "^2.1.7",
     "@anthropic-ai/sdk": "^0.71.2",
-    "@composio/core": "^0.6.3",
+    "@composio/core": "^0.6.4",
     "@daytonaio/sdk": "^0.129.0",
     "@google/genai": "^1.37.0",
     "@inngest/realtime": "^0.4.5",

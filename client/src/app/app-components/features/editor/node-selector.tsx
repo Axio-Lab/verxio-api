@@ -427,10 +427,6 @@ const NODE_TYPE_TO_FEATURE: Record<string, string> = {
   KLING_MULTI_IMAGE2VIDEO: "kling-nodes",
   KLING_MOTION_CONTROL: "kling-nodes",
   KLING_MULTI_IMAGE2IMAGE: "kling-nodes",
-  VALYU_SEARCH: "valyu-nodes",
-  VALYU_CONTENTS: "valyu-nodes",
-  VALYU_ANSWER: "valyu-nodes",
-  VALYU_DEEP_RESEARCH: "valyu-nodes",
 };
 
 export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeSelectorProps) => {
@@ -679,7 +675,6 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
         const newNode = {
           id: createId(),
           data: {
-            label: "Manual Input",
             variables: "input",
             prompt: "",
           },

@@ -30,9 +30,6 @@ export const valyuDeepResearchExecutor: NodeExecutor = async ({
     throw new NonRetriableError("VALYU_DEEP_RESEARCH node requires a credentialId.");
   }
 
-  const { checkNodeAccess } = await import("@/services/subscriptionCheck");
-  await checkNodeAccess(userId, "VALYU_DEEP_RESEARCH");
-
   const credential = await step.run(`valyu-deep-research-get-credential-${nodeId}`, async () => {
     return getCredential(data.credentialId as string, userId);
   });

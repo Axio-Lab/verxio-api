@@ -28,23 +28,6 @@ export const valyuAnswerExecutor: NodeExecutor = async ({
     throw new NonRetriableError("VALYU_ANSWER node requires a credentialId.");
   }
 
-  const { checkNodeAccess } = await import("@/services/subscriptionCheck");
-  await checkNodeAccess(userId, "VALYU_ANSWER");
-
-  const { consumePremiumQuota } = await import("@/services/subscriptionService");
-  const { QUOTA_COST } = await import("@/config/rate-limits");
-  try {
-    await step.run(`valyu-answer-consume-quota-${nodeId}`, async () => {
-      await consumePremiumQuota(userId, QUOTA_COST.VALYU_ANSWER);
-      return { consumed: true };
-    });
-  } catch (quotaError) {
-    await publish(valyuChannel().status({ nodeId, status: "error" }));
-    throw new NonRetriableError(
-      quotaError instanceof Error ? quotaError.message : "Rate limit exceeded."
-    );
-  }
-
   const credential = await step.run(`valyu-answer-get-credential-${nodeId}`, async () => {
     return getCredential(data.credentialId as string, userId);
   });
