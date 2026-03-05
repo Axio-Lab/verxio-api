@@ -17,6 +17,7 @@ import {
   BarChart3,
   Brain,
   Gift,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -242,25 +243,37 @@ export const AppSidebar = () => {
   return (
     <Sidebar collapsible="icon" mobileSheetClassName={isSidebarTourActive ? "!z-[40]" : undefined}>
       <SidebarHeader>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            asChild
-            className={cn(
-              "gap-x-4 h-10 px-4 transition-all flex-1",
-              isCollapsed && "justify-center"
-            )}
-          >
-            <Link href="/workflows" prefetch>
-              <Image
-                src={isMobile || isCollapsed ? "/logo/verxioIcon.svg" : "/logo/verxioLogo.svg"}
-                alt="Verxio"
-                width={isMobile || isCollapsed ? 32 : 100}
-                height={isMobile || isCollapsed ? 32 : 100}
-                className={cn("transition-all", (isMobile || isCollapsed) && "w-8 h-8")}
-              />
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              className={cn(
+                "gap-x-4 h-10 px-4 transition-all flex-1",
+                isCollapsed && "justify-center"
+              )}
+            >
+              <Link href="/workflows" prefetch>
+                <Image
+                  src={isCollapsed ? "/logo/verxioIcon.svg" : "/logo/verxioLogo.svg"}
+                  alt="Verxio"
+                  width={isCollapsed ? 32 : 100}
+                  height={isCollapsed ? 32 : 100}
+                  className={cn("transition-all", isCollapsed && "w-8 h-8")}
+                />
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setOpenMobile(false)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground active:border-primary active:text-primary active:bg-primary/10"
+              aria-label="Close sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </SidebarHeader>
       <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
       <SidebarContent>
@@ -297,7 +310,7 @@ export const AppSidebar = () => {
                     >
                       <Link href={subItem.url} prefetch>
                         {subItem.icon}
-                        <span className="font-bold group-data-[collapsible=icon]:hidden">
+                        <span className="font-bold md:group-data-[collapsible=icon]:hidden">
                           {subItem.title}
                         </span>
                       </Link>
@@ -316,8 +329,7 @@ export const AppSidebar = () => {
           <div
             className={cn(
               "px-4 py-2 space-y-2 min-w-0 flex flex-col items-center",
-              isCollapsed && "px-0 pl-0",
-              "max-sm:flex max-sm:items-center max-sm:justify-center max-sm:gap-1 max-sm:px-2 max-sm:py-1.5"
+              isCollapsed && "md:px-0 md:pl-0"
             )}
           >
             {/* Free plan and subscribed plan share same button style: light bronze border, black text */}
@@ -329,8 +341,7 @@ export const AppSidebar = () => {
                   "w-full gap-x-2 h-10 px-4 font-bold transition-all duration-200",
                   "border-2 border-green-500 text-foreground bg-transparent hover:bg-green-50 hover:border-green-600 hover:shadow-md hover:scale-[1.02]",
                   "dark:border-green-400 dark:hover:bg-green-950/20 dark:hover:border-green-300",
-                  "max-sm:w-10 max-sm:h-10 max-sm:p-0 max-sm:shrink-0 max-sm:justify-center",
-                  isCollapsed && "w-10 h-10 p-0 ml-0 justify-center items-center",
+                  isCollapsed && "md:w-10 md:h-10 md:p-0 md:ml-0 md:justify-center md:items-center",
                   isUpgrading && "opacity-75 cursor-wait"
                 )}
                 onClick={handleUpgradePlan}
@@ -341,15 +352,13 @@ export const AppSidebar = () => {
                 ) : (
                   <StarIcon className="w-4 h-4" />
                 )}
-                <span
-                  className={cn(
-                    "font-bold group-data-[collapsible=icon]:hidden max-sm:hidden sm:inline"
-                  )}
-                >
+                <span className={cn("font-bold md:group-data-[collapsible=icon]:hidden")}>
                   {isUpgrading ? "Redirecting..." : "Free (Upgrade Plan)"}
                 </span>
                 {isCollapsed && (
-                  <span className="text-xs max-sm:hidden">{isUpgrading ? "..." : "F"}</span>
+                  <span className="text-xs md:inline-block hidden">
+                    {isUpgrading ? "..." : "F"}
+                  </span>
                 )}
               </SidebarMenuButton>
             ) : (
@@ -359,8 +368,7 @@ export const AppSidebar = () => {
                   className={cn(
                     "w-full flex items-center justify-center gap-x-2 h-10 px-4 font-bold rounded-md",
                     "border-2 border-amber-200 bg-amber-50/80 text-black",
-                    "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50",
-                    "max-sm:w-10 max-sm:h-10 max-sm:p-0 max-sm:shrink-0 max-sm:justify-center"
+                    "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50"
                   )}
                   title={planDisplayName ?? "Free"}
                   role={subscription?.subscriptionPlan === "beta-tester" ? "button" : undefined}
@@ -386,9 +394,7 @@ export const AppSidebar = () => {
                   }}
                 >
                   <Crown className="h-4 w-4 shrink-0" />
-                  <span
-                    className={cn("text-sm", isCollapsed && "sr-only", "max-sm:hidden sm:inline")}
-                  >
+                  <span className={cn("text-sm", isCollapsed && "md:sr-only")}>
                     {planDisplayName ?? "Free"}
                   </span>
                 </div>
@@ -397,35 +403,26 @@ export const AppSidebar = () => {
                   <div
                     className={cn(
                       "text-xs text-muted-foreground min-w-0 overflow-hidden",
-                      "px-4 py-2 max-sm:hidden",
-                      isCollapsed && "sm:hidden"
+                      "px-4 py-2",
+                      isCollapsed && "md:hidden"
                     )}
                   >
-                    {/* Small screen only: coin + X/200, tight so it doesn’t overflow */}
-                    <div className="max-sm:flex max-sm:items-center max-sm:gap-1 max-sm:min-w-0 max-sm:justify-end">
-                      <span className="font-semibold tabular-nums max-sm:block sm:hidden">
-                        {rateLimitRemaining}/{rateLimitTotal}
+                    <div className="flex items-center justify-between">
+                      <span>Credits remaining:</span>
+                      <span className="font-semibold tabular-nums">
+                        {rateLimitRemaining} / {rateLimitTotal}
                       </span>
                     </div>
-                    {/* Larger screens: full Credits label + Resets at */}
-                    <div className="max-sm:hidden">
-                      <div className="flex items-center justify-between">
-                        <span>Credits remaining:</span>
-                        <span className="font-semibold tabular-nums">
-                          {rateLimitRemaining} / {rateLimitTotal}
-                        </span>
+                    {subscription?.rateLimitResetAt && subscription.rateLimitResetAt !== null && (
+                      <div className="text-[10px] mt-1 opacity-70">
+                        Resets at{" "}
+                        {new Date(subscription.rateLimitResetAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
                       </div>
-                      {subscription?.rateLimitResetAt && subscription.rateLimitResetAt !== null && (
-                        <div className="text-[10px] mt-1 opacity-70">
-                          Resets at{" "}
-                          {new Date(subscription.rateLimitResetAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 )}
               </>

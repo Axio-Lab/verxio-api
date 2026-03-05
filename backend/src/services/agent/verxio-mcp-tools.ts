@@ -124,7 +124,8 @@ export const AVAILABLE_NODE_TYPES = {
   valyu: [
     {
       type: "VALYU_SEARCH",
-      description: "Search across web and proprietary data sources (academic, news, stocks) via Valyu AI",
+      description:
+        "Search across web and proprietary data sources (academic, news, stocks) via Valyu AI",
       requiredCredential: "VALYU",
     },
     {
@@ -139,7 +140,8 @@ export const AVAILABLE_NODE_TYPES = {
     },
     {
       type: "VALYU_DEEP_RESEARCH",
-      description: "Run comprehensive multi-source deep research with detailed reports via Valyu (async, can take minutes)",
+      description:
+        "Run comprehensive multi-source deep research with detailed reports via Valyu (async, can take minutes)",
       requiredCredential: "VALYU",
     },
   ],
@@ -2373,14 +2375,6 @@ const browseWebsiteTool: VerxioTool = {
     context: ToolContext
   ) => {
     try {
-      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
-      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
-      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
-
-      const { consumePremiumQuota } = await import("@/services/subscriptionService");
-      const { QUOTA_COST } = await import("@/config/rate-limits");
-      await consumePremiumQuota(context.userId, QUOTA_COST.TINYFISH_CHAT);
-
       const { runWebAutomation } = await import("@/services/tinyfish/tinyfishService");
       let apiKeyOverride: string | undefined;
       if (args.credentialId) {
@@ -2434,10 +2428,6 @@ const checkWebRunTool: VerxioTool = {
   }),
   execute: async (args: { runId: string }, context: ToolContext) => {
     try {
-      const { checkFeatureAccess } = await import("@/services/subscriptionCheck");
-      const { SUBSCRIPTION_FEATURES } = await import("@/config/subscription-features");
-      await checkFeatureAccess(context.userId, SUBSCRIPTION_FEATURES.TINYFISH_NODE);
-
       const { getRunStatus } = await import("@/services/tinyfish/tinyfishService");
       const result = await getRunStatus(args.runId);
 
@@ -2670,8 +2660,7 @@ const getComposioAppDetailsTool: VerxioTool = {
   }),
   execute: async (args: { appSlug: string }, _context: ToolContext) => {
     try {
-      const { getAppDetails, isComposioConfigured } =
-        await import("../composio/composioService");
+      const { getAppDetails, isComposioConfigured } = await import("../composio/composioService");
       if (!isComposioConfigured()) {
         return {
           success: false,
@@ -2712,10 +2701,7 @@ const getComposioAppDetailsTool: VerxioTool = {
     } catch (error) {
       return {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch Composio app details",
+        error: error instanceof Error ? error.message : "Failed to fetch Composio app details",
       };
     }
   },

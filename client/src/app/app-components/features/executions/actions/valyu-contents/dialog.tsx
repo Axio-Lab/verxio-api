@@ -107,9 +107,7 @@ export const ValyuContentsDialog = ({
       <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Valyu Contents</DialogTitle>
-          <DialogDescription>
-            Extract and process content from URLs with AI.
-          </DialogDescription>
+          <DialogDescription>Extract and process content from URLs with AI.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">

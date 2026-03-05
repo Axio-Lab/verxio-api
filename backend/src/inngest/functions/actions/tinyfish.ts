@@ -50,9 +50,7 @@ export const tinyfishExecutor: NodeExecutor = async ({
     } catch (error) {
       await publish(tinyfishChannel().status({ nodeId, status: "error" }));
       throw new NonRetriableError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load TinyFish credential for this node."
+        error instanceof Error ? error.message : "Failed to load TinyFish credential for this node."
       );
     }
   }

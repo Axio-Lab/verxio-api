@@ -19,9 +19,7 @@ export const valyuDeepResearchExecutor: NodeExecutor = async ({
 }) => {
   const query = data.query as string | undefined;
   if (!query?.trim()) {
-    throw new NonRetriableError(
-      "VALYU_DEEP_RESEARCH node requires a query in its configuration."
-    );
+    throw new NonRetriableError("VALYU_DEEP_RESEARCH node requires a query in its configuration.");
   }
 
   const variablesKey = (data.variables as string) || "valyuDeepResearch";
@@ -51,15 +49,17 @@ export const valyuDeepResearchExecutor: NodeExecutor = async ({
     if (Array.isArray(urlsInput)) {
       urls = urlsInput.map(String).filter(Boolean);
     } else if (typeof urlsInput === "string") {
-      const parsed =
-        urlsInput.includes("{{")
-          ? Handlebars.compile(urlsInput, { noEscape: true })(context)
-          : urlsInput;
+      const parsed = urlsInput.includes("{{")
+        ? Handlebars.compile(urlsInput, { noEscape: true })(context)
+        : urlsInput;
       try {
         const arr = JSON.parse(parsed);
         urls = Array.isArray(arr) ? arr.map(String).filter(Boolean) : [parsed].filter(Boolean);
       } catch {
-        urls = parsed.split(",").map((s) => s.trim()).filter(Boolean);
+        urls = parsed
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
     }
   }

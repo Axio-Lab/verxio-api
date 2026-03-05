@@ -13,7 +13,10 @@ function parseUrls(input: string | undefined): string[] {
   } catch {
     // Not JSON, treat as comma-separated
   }
-  return input.split(",").map((s) => s.trim()).filter(Boolean);
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /**

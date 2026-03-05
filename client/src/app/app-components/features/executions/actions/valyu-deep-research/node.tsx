@@ -5,10 +5,7 @@ import { BaseExecutionNode } from "../https-request/base-execution-node";
 import { memo, useState } from "react";
 import { useNodeStatus } from "../../hooks/use-node-status";
 import { useReactFlow } from "@xyflow/react";
-import {
-  ValyuDeepResearchDialog,
-  type ValyuDeepResearchFormValues,
-} from "./dialog";
+import { ValyuDeepResearchDialog, type ValyuDeepResearchFormValues } from "./dialog";
 
 export const ValyuDeepResearchNode = memo((props: NodeProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);

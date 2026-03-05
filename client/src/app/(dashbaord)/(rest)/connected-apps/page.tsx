@@ -324,10 +324,7 @@ export default function ConnectedAppsPage() {
         <div className="mb-3 flex items-center justify-between gap-4">
           <h2 className="text-sm font-medium text-muted-foreground">
             Available apps ({filteredApps.length}
-            {search && filteredApps.length !== apps.length
-              ? ` of ${apps.length}`
-              : ""}
-            )
+            {search && filteredApps.length !== apps.length ? ` of ${apps.length}` : ""})
           </h2>
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -343,13 +340,7 @@ export default function ConnectedAppsPage() {
           </div>
         </div>
         {filteredApps.length === 0 ? (
-          <EmptyView
-            message={
-              search
-                ? `No apps match "${search}".`
-                : "No apps available."
-            }
-          />
+          <EmptyView message={search ? `No apps match "${search}".` : "No apps available."} />
         ) : (
           <div className="grid gap-2">
             {pagedApps.map((app) => (

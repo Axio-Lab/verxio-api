@@ -59,12 +59,7 @@ interface Props {
   defaultValues?: Partial<ValyuSearchFormValues>;
 }
 
-export const ValyuSearchDialog = ({
-  open,
-  onOpenChange,
-  onSubmit,
-  defaultValues = {},
-}: Props) => {
+export const ValyuSearchDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
   const { data: credentialsData } = useCredentials(1, 100, CredentialType.VALYU);
   const valyuCredentials = credentialsData?.credentials || [];
   const form = useForm<ValyuSearchFormValues>({
@@ -231,7 +226,9 @@ export const ValyuSearchDialog = ({
                         }}
                       />
                     </FormControl>
-                    <FormDescription>Maximum number of results to return (optional, default 10).</FormDescription>
+                    <FormDescription>
+                      Maximum number of results to return (optional, default 10).
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -243,7 +240,9 @@ export const ValyuSearchDialog = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Fast Mode</FormLabel>
-                      <FormDescription>Enable faster search with potentially fewer results.</FormDescription>
+                      <FormDescription>
+                        Enable faster search with potentially fewer results.
+                      </FormDescription>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />

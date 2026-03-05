@@ -75,21 +75,21 @@ function AnalyticsContent() {
   const maxExec = Math.max(...(data.executionsByDay.map((d) => d.count) || [1]), 1);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">ROI Analytics</h1>
           <p className="text-muted-foreground mt-1">
             Track how much time and money your automations save.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Hourly Rate ($)</Label>
+        <div className="flex items-center gap-2 sm:justify-end">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Hourly Rate ($)</Label>
           <Input
             type="number"
             value={hourlyRate}
             onChange={(e) => setHourlyRate(parseInt(e.target.value) || 50)}
-            className="w-20 h-8"
+            className="w-24 h-8"
           />
         </div>
       </div>
@@ -202,14 +202,17 @@ function AnalyticsContent() {
             ) : (
               <div className="space-y-3">
                 {data.workflows.slice(0, 10).map((wf) => (
-                  <div key={wf.workflowId} className="flex items-center justify-between">
+                  <div
+                    key={wf.workflowId}
+                    className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{wf.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {wf.executions} runs &middot; {wf.successRate}% success
                       </p>
                     </div>
-                    <div className="text-right ml-4 shrink-0">
+                    <div className="text-left sm:text-right sm:ml-4 shrink-0">
                       <p className="text-sm font-semibold">{formatDuration(wf.timeSavedMs)}</p>
                       <p className="text-xs text-green-600">${wf.moneySaved.toFixed(0)} saved</p>
                     </div>

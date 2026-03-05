@@ -30,7 +30,9 @@ function buildBody(url: string, goal: string, options?: TinyfishOptions) {
 function getHeaders(apiKeyOverride?: string): Record<string, string> {
   const key = apiKeyOverride || TINYFISH_API_KEY;
   if (!key) {
-    throw new Error("TinyFish API key is not configured. Provide a user credential or set TINYFISH_API_KEY.");
+    throw new Error(
+      "TinyFish API key is not configured. Provide a user credential or set TINYFISH_API_KEY."
+    );
   }
   return {
     "Content-Type": "application/json",
