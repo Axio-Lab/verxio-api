@@ -9,7 +9,13 @@ import {
 } from "@/app/app-components/features/support/support";
 import { EntityPagination } from "@/app/app-components/features/editor/entity-component";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -160,7 +166,11 @@ export function SupportContent() {
 
   if (isLoading) {
     return (
-      <SupportContainer searchValue={searchQuery} onSearchChange={setSearchQuery} onNew={openCreateDialog}>
+      <SupportContainer
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onNew={openCreateDialog}
+      >
         <SupportLoadingView />
       </SupportContainer>
     );
@@ -168,7 +178,11 @@ export function SupportContent() {
 
   if (error) {
     return (
-      <SupportContainer searchValue={searchQuery} onSearchChange={setSearchQuery} onNew={openCreateDialog}>
+      <SupportContainer
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onNew={openCreateDialog}
+      >
         <SupportErrorView />
       </SupportContainer>
     );
@@ -197,7 +211,8 @@ export function SupportContent() {
                 placeholder="Short description of what this support agent helps with and its personality."
               />
               <p className="text-xs text-muted-foreground">
-                This is used to describe the agent&apos;s style and focus, giving it a more personal voice.
+                This is used to describe the agent&apos;s style and focus, giving it a more personal
+                voice.
               </p>
             </div>
             <div className="space-y-2">
@@ -253,12 +268,17 @@ export function SupportContent() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                When the agent cannot answer from the knowledge base, it will direct users to this email address.
+                When the agent cannot answer from the knowledge base, it will direct users to this
+                email address.
               </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="greeting">Greeting</Label>
-              <Input id="greeting" {...form.register("greeting")} placeholder="Hi! How can I help you?" />
+              <Input
+                id="greeting"
+                {...form.register("greeting")}
+                placeholder="Hi! How can I help you?"
+              />
             </div>
             <div className="flex gap-3">
               <div className="flex-1 space-y-2">
@@ -306,7 +326,9 @@ export function SupportContent() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editing ? "Save changes" : (
+                {editing ? (
+                  "Save changes"
+                ) : (
                   <>
                     {/* <Plus className="mr-2 h-4 w-4" /> */}
                     Create
@@ -375,7 +397,9 @@ export function SupportContent() {
                     {agent.knowledgeBaseIds.length
                       ? `${agent.knowledgeBaseIds.length} knowledge base${agent.knowledgeBaseIds.length > 1 ? "s" : ""} linked`
                       : "No knowledge bases linked yet"}
-                    {agent.fallbackEmail ? ` • Fallback: ${agent.fallbackEmail}` : " • No fallback email set"}
+                    {agent.fallbackEmail
+                      ? ` • Fallback: ${agent.fallbackEmail}`
+                      : " • No fallback email set"}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -433,4 +457,3 @@ export function SupportContent() {
     </SupportContainer>
   );
 }
-

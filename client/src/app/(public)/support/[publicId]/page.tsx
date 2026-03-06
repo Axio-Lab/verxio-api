@@ -161,9 +161,7 @@ export default function PublicSupportChatPage() {
             <h1 className="text-sm font-medium">
               {agentInfo?.success && agentInfo.name ? agentInfo.name : "Verxio Support"}
             </h1>
-            <p className="text-[11px] leading-none text-muted-foreground">
-              Support agent · Public chat
-            </p>
+            <p className="text-[11px] leading-none text-muted-foreground">24/7 Customer Support</p>
           </div>
         </div>
       </header>
@@ -270,10 +268,16 @@ export default function PublicSupportChatPage() {
           </div>
         </form>
         <p className="mx-auto mt-3 max-w-2xl text-center text-xs text-muted-foreground">
-          Powered by Verxio
+          <a
+            href="https://www.verxio.xyz"
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary underline-offset-2 hover:text-primary/80"
+          >
+            Powered by Verxio
+          </a>
         </p>
       </footer>
     </div>
   );
 }
-

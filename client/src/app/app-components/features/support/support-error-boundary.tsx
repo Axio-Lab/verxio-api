@@ -10,4 +10,3 @@ import { SupportErrorView } from "@/app/app-components/features/support/support"
 export function SupportErrorBoundaryFallback(_props: FallbackProps) {
   return <SupportErrorView />;
 }
-

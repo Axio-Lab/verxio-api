@@ -69,10 +69,7 @@ export async function deleteDocument(docId: string, userId: string) {
 
   // Chunks are cascade-deleted via foreign key
   try {
-    await rawDb.$executeRawUnsafe(
-      `DELETE FROM "knowledge_chunks" WHERE "documentId" = $1`,
-      docId
-    );
+    await rawDb.$executeRawUnsafe(`DELETE FROM "knowledge_chunks" WHERE "documentId" = $1`, docId);
   } catch {
     // table may not exist yet
   }
