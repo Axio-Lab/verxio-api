@@ -61,6 +61,7 @@ function KnowledgeContent() {
   const [kbForm, setKbForm] = useState({ name: "", description: "" });
   const [docForm, setDocForm] = useState({ title: "", content: "", sourceType: "text" });
   const [creating, setCreating] = useState(false);
+  const [shouldPoll, setShouldPoll] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -68,6 +69,13 @@ function KnowledgeContent() {
         "/api/knowledge-base"
       );
       setKnowledgeBases(data.knowledgeBases);
+
+      // If any document is still processing, enable short polling so the UI
+      // automatically reflects when it becomes ready and chunkCount updates.
+      const hasProcessingDocs = data.knowledgeBases.some((kb) =>
+        kb.documents?.some((doc) => doc.status === "processing")
+      );
+      setShouldPoll(hasProcessingDocs);
     } catch {
       toast.error("Failed to load knowledge bases");
     } finally {
@@ -78,6 +86,18 @@ function KnowledgeContent() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Lightweight polling while any document is in "processing" state, so users
+  // don't have to manually refresh to see status and chunk counts update.
+  useEffect(() => {
+    if (!shouldPoll) return;
+
+    const id = setInterval(() => {
+      fetchData();
+    }, 3000);
+
+    return () => clearInterval(id);
+  }, [shouldPoll, fetchData]);
 
   const createKB = async () => {
     if (!kbForm.name.trim()) return toast.error("Name is required");
