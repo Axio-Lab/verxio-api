@@ -67,6 +67,11 @@ const menuItems = [
         icon: <PlugIcon />,
       },
       {
+        title: "Support",
+        url: "/support",
+        icon: <FileCodeCorner />,
+      },
+      {
         title: "Integrations",
         url: "/integrations",
         icon: <Cable />,
@@ -75,11 +80,6 @@ const menuItems = [
         title: "Skills",
         url: "/skills",
         icon: <BookOpen />,
-      },
-      {
-        title: "Widgets",
-        url: "/widgets",
-        icon: <FileCodeCorner />,
       },
       {
         title: "Knowledge Base",

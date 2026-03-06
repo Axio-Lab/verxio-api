@@ -281,8 +281,8 @@ model User {
   referredBy            String?
   referralsMade         Referral[]           @relation("Referrals")
   referredByReferral    Referral?            @relation("ReferredBy")
-  widgetAgents          WidgetAgent[]
   knowledgeBases        KnowledgeBase[]
+  supportAgents         SupportAgent[]
 
   @@map("user")
 }
@@ -905,29 +905,41 @@ model Referral {
 }
 
 // ============================================
-// Embeddable Widget Agent
+// Support Agent (KB-based support + public chat/widget)
 // ============================================
 
-model WidgetAgent {
+model SupportAgent {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   name            String
+  description     String?
+
+  // Public identifier for shareable chat URL and embeds
+  publicId        String   @unique @default(cuid())
+
+  // Assigned knowledge bases (support answers are restricted to these)
+  knowledgeBaseIds String[] @default([])
+
+  // Fallback contact email when KB cannot answer confidently
+  fallbackEmail   String?
+
+  // Optional styling / placement for future widget embeds
   greeting        String   @default("Hi! How can I help you?")
-  personality     String?
-  workflowId      String?
-  knowledgeBaseId String?
   brandColor      String   @default("#6366f1")
   position        String   @default("bottom-right")
   avatarUrl       String?
   allowedDomains  String[]
+
   status          String   @default("active")
   conversations   Int      @default(0)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
-  @@map("widget_agents")
+  @@map("support_agents")
 }
 
 // ============================================
@@ -942,6 +954,7 @@ model KnowledgeBase {
   description String?
   status      String              @default("active")
   documents   KnowledgeDocument[]
+  chunks      KnowledgeChunk[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -962,6 +975,25 @@ model KnowledgeDocument {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  chunks          KnowledgeChunk[]
+
   @@index([knowledgeBaseId])
   @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id              String           @id @default(cuid())
+  documentId      String
+  knowledgeBaseId String
+  document        KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  content         String
+  chunkIndex      Int
+  embedding       Unsupported("vector")
+  createdAt       DateTime         @default(now())
+
+  @@index([documentId])
+  @@index([knowledgeBaseId])
+  @@index([knowledgeBaseId, chunkIndex])
+  @@map("knowledge_chunks")
 }
