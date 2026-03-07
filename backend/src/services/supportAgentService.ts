@@ -75,6 +75,20 @@ export async function deleteSupportAgent(userId: string, id: string) {
   if (!agent || agent.userId !== userId) {
     throw new Error("Support agent not found");
   }
+  // Delete all conversations (sessions + messages) for this agent, then the agent
+  const sessions = await prisma.supportChatSession.findMany({
+    where: { supportAgentId: id },
+    select: { id: true },
+  });
+  const sessionIds = sessions.map((s: { id: string }) => s.id);
+  if (sessionIds.length > 0) {
+    await prisma.supportChatMessage.deleteMany({
+      where: { supportChatSessionId: { in: sessionIds } },
+    });
+    await prisma.supportChatSession.deleteMany({
+      where: { supportAgentId: id },
+    });
+  }
   return prisma.supportAgent.delete({ where: { id } });
 }
 

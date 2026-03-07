@@ -8,6 +8,10 @@ import {
   deleteSupportAgent,
   getSupportAgent,
 } from "../services/supportAgentService";
+import {
+  getSupportAgentInsights,
+  getSupportAgentKBSuggestions,
+} from "../services/supportInsightsService";
 
 export const supportAgentsRouter: Router = Router();
 
@@ -71,6 +75,41 @@ supportAgentsRouter.delete(
       res.json({ success: true });
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+// Insights: CRM-style report for an agent (must be before /:id)
+supportAgentsRouter.get(
+  "/:id/insights/suggestions",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId as string;
+      const { id } = req.params;
+      if (!id) throw new AppError("id is required", 400);
+      const result = await getSupportAgentKBSuggestions(id, userId);
+      res.json(result);
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+supportAgentsRouter.get(
+  "/:id/insights",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId as string;
+      const { id } = req.params;
+      if (!id) throw new AppError("id is required", 400);
+      const since = req.query.since as string | undefined;
+      const options = since ? { since: new Date(since) } : undefined;
+      const result = await getSupportAgentInsights(id, userId, options);
+      res.json(result);
+    } catch (e) {
+      next(e);
     }
   }
 );

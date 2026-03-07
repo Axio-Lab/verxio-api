@@ -171,6 +171,9 @@ app.use(
 // Serve public chat uploads (images, video, audio) as URLs
 app.use("/chat-uploads", express.static(path.join(process.cwd(), "public", "chat-uploads")));
 
+// Serve support chat uploads (images, PDFs) as URLs
+app.use("/support-uploads", express.static(path.join(process.cwd(), "public", "support-uploads")));
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
