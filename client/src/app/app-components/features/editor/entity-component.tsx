@@ -169,8 +169,8 @@ export const EntityHeader = ({
 
 export const EntityContainer = ({ header, search, pagination, children }: EntityContainerProps) => {
   return (
-    <div className="px-4 md:px-6 py-4 md:py-6 h-full flex flex-col">
-      <div className="w-full flex flex-col gap-y-8 h-full flex-1">
+    <div className="min-w-0 flex-1 px-4 md:px-6 py-4 md:py-6 h-full flex flex-col">
+      <div className="min-w-0 w-full flex flex-col gap-y-8 h-full flex-1">
         <div>
           {header}
           {search && <div className="flex justify-end mt-3">{search}</div>}

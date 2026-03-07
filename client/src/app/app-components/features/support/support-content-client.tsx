@@ -417,8 +417,8 @@ export function SupportContent() {
       disabled={createMutation.isPending || updateMutation.isPending}
       isCreating={createMutation.isPending}
     >
-      <div className="space-y-3">
-        <div className="space-y-2 rounded-lg border bg-card p-3 sm:p-4">
+      <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-2 rounded-lg border bg-card p-3 sm:p-4">
           {pagedAgents.map((agent) => {
             const publicLink = baseUrl
               ? `${baseUrl.replace(/\/+$/, "")}/support/${agent.publicId}`
@@ -430,7 +430,7 @@ export function SupportContent() {
             return (
               <div
                 key={agent.id}
-                className="flex flex-col gap-3 rounded-md border bg-background p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="min-w-0 flex flex-col gap-3 rounded-md border bg-background p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">

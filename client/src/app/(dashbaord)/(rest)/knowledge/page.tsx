@@ -331,7 +331,6 @@ function KnowledgeContent() {
                 </SelectTrigger>
                 <SelectContent position="popper" sideOffset={4}>
                   <SelectItem value="text">Plain Text</SelectItem>
-                  <SelectItem value="url">URL</SelectItem>
                   <SelectItem value="file">File Content</SelectItem>
                 </SelectContent>
               </Select>
