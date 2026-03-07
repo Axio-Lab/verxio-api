@@ -17,7 +17,9 @@ function DashboardSidebarLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={!isMobile} preventMobileClose={preventMobileClose}>
       <AppSidebar />
-      <SidebarInset className="bg-accent/20 text-foreground">{children}</SidebarInset>
+      <SidebarInset className="min-w-0 overflow-x-hidden bg-accent/20 text-foreground">
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }

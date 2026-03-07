@@ -115,13 +115,11 @@ supportPublicChatRouter.post(
       const url = baseUrl
         ? `${baseUrl.replace(/\/+$/, "")}/support-uploads/${req.file.filename}`
         : `/support-uploads/${req.file.filename}`;
-      return res
-        .status(200)
-        .json({
-          success: true,
-          url,
-          type: req.file.mimetype.startsWith("image/") ? "image" : "pdf",
-        });
+      return res.status(200).json({
+        success: true,
+        url,
+        type: req.file.mimetype.startsWith("image/") ? "image" : "pdf",
+      });
     } catch (error) {
       next(error);
     }

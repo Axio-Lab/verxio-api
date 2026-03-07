@@ -3,7 +3,17 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ArrowUp, Bot, FileText, ImageIcon, Loader2, Paperclip, Star, Trash2, X } from "lucide-react";
+import {
+  ArrowUp,
+  Bot,
+  FileText,
+  ImageIcon,
+  Loader2,
+  Paperclip,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -288,7 +298,9 @@ export default function PublicSupportChatPage() {
               <h1 className="text-sm font-medium truncate">
                 {agentInfo?.success && agentInfo.name ? agentInfo.name : "Verxio Support"}
               </h1>
-              <p className="text-[11px] leading-none text-muted-foreground">24/7 Customer Support</p>
+              <p className="text-[11px] leading-none text-muted-foreground">
+                24/7 Customer Support
+              </p>
             </div>
           </div>
           <button
