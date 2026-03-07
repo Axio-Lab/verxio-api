@@ -935,11 +935,45 @@ model SupportAgent {
   status          String   @default("active")
   conversations   Int      @default(0)
 
+  chatSessions    SupportChatSession[]
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
   @@map("support_agents")
+}
+
+// Per-visitor support chat session (publicSessionId = client localStorage sessionId)
+model SupportChatSession {
+  id                String               @id @default(cuid())
+  supportAgentId    String
+  supportAgent      SupportAgent         @relation(fields: [supportAgentId], references: [id], onDelete: Cascade)
+  publicSessionId   String
+  createdAt         DateTime             @default(now())
+  lastMessageAt    DateTime             @default(now())
+  rating            Int?                 // 1-5 from customer
+  feedback          String?              @db.Text // optional improvement suggestion
+  suggestRating     Boolean             @default(false) // agent signaled conversation complete → show rating
+  messages         SupportChatMessage[]
+
+  @@unique([supportAgentId, publicSessionId])
+  @@index([supportAgentId])
+  @@map("support_chat_sessions")
+}
+
+model SupportChatMessage {
+  id                   String              @id @default(cuid())
+  supportChatSessionId String
+  supportChatSession   SupportChatSession  @relation(fields: [supportChatSessionId], references: [id], onDelete: Cascade)
+  role                 String              // "user" | "assistant"
+  content              String              @db.Text
+  attachmentUrls       Json?               // [{ type, url }]
+  hadFallbackReply     Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+
+  @@index([supportChatSessionId])
+  @@map("support_chat_messages")
 }
 
 // ============================================

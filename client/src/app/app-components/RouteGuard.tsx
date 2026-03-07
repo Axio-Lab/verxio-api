@@ -23,6 +23,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     "/verify-email",
     "/check-email",
     "/chat", // Shareable workflow chat (no auth)
+    "/support", // Public support chat / widget — no Verxio login required
     "/privacy",
     "/terms-of-service",
     "/",
