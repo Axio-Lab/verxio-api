@@ -178,20 +178,21 @@ function KnowledgeContent() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Knowledge Base</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Agent knowledge</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-            Upload documents for AI-powered search and retrieval.
+            Upload relevant documents your support agents will use to answer customer questions and
+            enquiries accurately.
           </p>
         </div>
         <Dialog open={kbDialogOpen} onOpenChange={setKbDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <PlusIcon className="mr-2 h-4 w-4" /> New Knowledge Base
+              <PlusIcon className="mr-2 h-4 w-4" /> New Agent Knowledge
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Create Knowledge Base</DialogTitle>
+              <DialogTitle>Create Agent Knowledge</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2 overflow-y-auto flex-1 pr-1 -mr-1">
               <div>

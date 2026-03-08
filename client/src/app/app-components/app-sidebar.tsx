@@ -4,6 +4,7 @@ import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
   Crown,
   FolderOpenIcon,
+  Headset,
   KeyIcon,
   LayoutTemplate,
   LogOutIcon,
@@ -13,7 +14,6 @@ import {
   StarIcon,
   Cable,
   BookOpen,
-  FileCodeCorner,
   BarChart3,
   Brain,
   Gift,
@@ -24,7 +24,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { SidebarGroupContent, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTour } from "@/app/app-components/features/onboarding";
@@ -35,69 +34,26 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 const menuItems = [
-  {
-    title: "Main",
-    items: [
-      {
-        title: "Workflows",
-        url: "/workflows",
-        icon: <FolderOpenIcon />,
-      },
-      {
-        title: "Templates",
-        url: "/templates",
-        icon: <LayoutTemplate />,
-      },
-      {
-        title: "Credentials",
-        url: "/credentials",
-        icon: <KeyIcon />,
-      },
-      {
-        title: "Connections",
-        url: "/connections",
-        icon: <PlugIcon />,
-      },
-      {
-        title: "Support",
-        url: "/support",
-        icon: <FileCodeCorner />,
-      },
-      {
-        title: "Integrations",
-        url: "/integrations",
-        icon: <Cable />,
-      },
-      {
-        title: "Skills",
-        url: "/skills",
-        icon: <BookOpen />,
-      },
-      {
-        title: "Knowledge Base",
-        url: "/knowledge",
-        icon: <Brain />,
-      },
-      {
-        title: "Analytics",
-        url: "/analytics",
-        icon: <BarChart3 />,
-      },
-      {
-        title: "Referrals",
-        url: "/referrals",
-        icon: <Gift />,
-      },
-    ],
-  },
+  { title: "Workflows", url: "/workflows", icon: <FolderOpenIcon /> },
+  { title: "Templates", url: "/templates", icon: <LayoutTemplate /> },
+  { title: "Credentials", url: "/credentials", icon: <KeyIcon /> },
+  { title: "Connections", url: "/connections", icon: <PlugIcon /> },
+  { title: "Integrations", url: "/integrations", icon: <Cable /> },
+  { title: "Support Agent", url: "/support", icon: <Headset /> },
+  { title: "Agent Knowledge", url: "/knowledge", icon: <Brain /> },
+  { title: "Agentic Skills", url: "/skills", icon: <BookOpen /> },
+  { title: "Analytics", url: "/analytics", icon: <BarChart3 /> },
+  { title: "Referrals", url: "/referrals", icon: <Gift /> },
 ];
 
 export const AppSidebar = () => {
@@ -277,50 +233,48 @@ export const AppSidebar = () => {
       </SidebarHeader>
       <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
       <SidebarContent>
-        {menuItems.map((item) => (
-          <SidebarGroup key={item.title} className="mb-0.5 py-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {item.items.map((subItem) => (
-                  <SidebarMenuItem key={subItem.title}>
-                    <SidebarMenuButton
-                      data-tour-target={
-                        subItem.url === "/workflows"
-                          ? "menu-workflows"
-                          : subItem.url === "/templates"
-                            ? "menu-templates"
-                            : subItem.url === "/credentials"
-                              ? "menu-credentials"
-                              : subItem.url === "/integrations"
-                                ? "menu-integrations"
-                                : subItem.url === "/skills"
-                                  ? "menu-skills"
-                                  : undefined
-                      }
-                      tooltip={item.title}
-                      isActive={isActive(subItem.url)}
-                      asChild
-                      className={cn(
-                        "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
-                        !isActive(subItem.url) &&
-                          "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
-                        isActive(subItem.url) &&
-                          "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
-                      )}
-                    >
-                      <Link href={subItem.url} prefetch>
-                        {subItem.icon}
-                        <span className="font-bold md:group-data-[collapsible=icon]:hidden">
-                          {subItem.title}
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <SidebarGroup className="mb-0.5 py-1">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((subItem) => (
+                <SidebarMenuItem key={subItem.title}>
+                  <SidebarMenuButton
+                    data-tour-target={
+                      subItem.url === "/workflows"
+                        ? "menu-workflows"
+                        : subItem.url === "/templates"
+                          ? "menu-templates"
+                          : subItem.url === "/credentials"
+                            ? "menu-credentials"
+                            : subItem.url === "/integrations"
+                              ? "menu-integrations"
+                              : subItem.url === "/skills"
+                                ? "menu-skills"
+                                : undefined
+                    }
+                    tooltip={subItem.title}
+                    isActive={isActive(subItem.url)}
+                    asChild
+                    className={cn(
+                      "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
+                      !isActive(subItem.url) &&
+                        "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
+                      isActive(subItem.url) &&
+                        "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-xl"
+                    )}
+                  >
+                    <Link href={subItem.url} prefetch>
+                      {subItem.icon}
+                      <span className="font-bold md:group-data-[collapsible=icon]:hidden">
+                        {subItem.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarSeparator className="my-2 h-px bg-gray-200 dark:bg-gray-700" />
       <SidebarFooter>
