@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { prisma } from "@/lib/prisma";
 import * as chatIntegrationService from "@/services/chatIntegrationService";
 import { sendDiscordMessage } from "@/services/discordConnectorClient";
+import { getSupportChannelByIdInternal } from "@/services/supportChannelService";
+import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
@@ -44,8 +46,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
     }>;
   };
 
-  if (!body?.integrationId || !body?.message || !body?.channelId) {
-    return res.status(400).json({ error: "integrationId, message, and channelId are required" });
+  if (!body?.message || !body?.channelId) {
+    return res.status(400).json({ error: "message and channelId are required" });
   }
 
   const {
@@ -57,6 +59,59 @@ router.post("/incoming", async (req: Request, res: Response) => {
     guildId,
     threadId,
   } = body;
+
+  // Support-channel path: Discord connector uses integrationId as session key.
+  // For support channels we pass supportChannelId as integrationId.
+  if (integrationId) {
+    const supportChannel = await getSupportChannelByIdInternal(integrationId);
+    if (
+      supportChannel &&
+      supportChannel.platform === "DISCORD" &&
+      supportChannel.status === "connected"
+    ) {
+      const replyChannelId = threadId || channelId;
+      const replyToMessageId = body.messageId;
+      const isServerChannel = !!guildId;
+      const groupPrefix = isServerChannel && authorId ? `<@${authorId}> ` : "";
+
+      void (async () => {
+        try {
+          const reply = await respondToChannelMessage({
+            supportAgentId: supportChannel.supportAgentId,
+            externalId: authorId || channelId,
+            message: messageText,
+          });
+          if (!reply?.trim()) return;
+          const withPrefix = groupPrefix + reply.trim();
+          const formatted = chatIntegrationService.formatDiscordMessage(withPrefix);
+          const chunks = chatIntegrationService.splitDiscordMessage(formatted);
+          for (let i = 0; i < chunks.length; i++) {
+            await sendDiscordMessage({
+              integrationId: supportChannel.id,
+              channelId: replyChannelId,
+              text: chunks[i],
+              replyToMessageId: i === 0 ? replyToMessageId : undefined,
+            });
+          }
+        } catch (err) {
+          console.error("[Discord incoming support] processMessage error:", err);
+          try {
+            await sendDiscordMessage({
+              integrationId: supportChannel.id,
+              channelId: replyChannelId,
+              text: "Something went wrong. Please try again.",
+            });
+          } catch (_) {}
+        }
+      })();
+
+      return res.json({ ok: true, support: true });
+    }
+  }
+
+  if (!integrationId) {
+    return res.status(400).json({ error: "integrationId is required" });
+  }
 
   const integration = await (prisma as any).chatIntegration.findFirst({
     where: { id: integrationId, platform: "DISCORD", isActive: true },

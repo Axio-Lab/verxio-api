@@ -20,12 +20,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BarChart3, Code2, Download, Link as LinkIcon, Loader2, Mail } from "lucide-react";
+import {
+  BarChart3,
+  Code2,
+  Download,
+  Link as LinkIcon,
+  Loader2,
+  Mail,
+  PlugIcon,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { authenticatedGet } from "@/lib/api-client";
+import { authenticatedDelete, authenticatedGet, authenticatedPost } from "@/lib/api-client";
 import {
   SupportAgent,
   useCreateSupportAgent,
@@ -63,6 +71,12 @@ type SupportAgentInsights = {
 type SupportAgentKBSuggestions = {
   suggestedTopics: string[];
   sampleQuestions: string[];
+};
+
+type SupportChannel = {
+  id: string;
+  platform: "WHATSAPP" | "TELEGRAM" | "SLACK" | "DISCORD";
+  status: string;
 };
 
 const supportAgentSchema = z.object({
@@ -108,6 +122,25 @@ export function SupportContent() {
   const [suggestionsData, setSuggestionsData] = useState<SupportAgentKBSuggestions | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseSummary[]>([]);
+  const [channelsAgent, setChannelsAgent] = useState<SupportAgent | null>(null);
+  const [channels, setChannels] = useState<SupportChannel[]>([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<{
+    status: string;
+    qr: string | null;
+  } | null>(null);
+  const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
+  const [connectingPlatform, setConnectingPlatform] = useState<
+    null | "TELEGRAM" | "SLACK" | "DISCORD"
+  >(null);
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [slackBotToken, setSlackBotToken] = useState("");
+  const [slackSigningSecret, setSlackSigningSecret] = useState("");
+  const [discordBotToken, setDiscordBotToken] = useState("");
+  const [discordGuildId, setDiscordGuildId] = useState("");
+  const [discordChannelId, setDiscordChannelId] = useState("");
+  const [telegramWebhookUrl, setTelegramWebhookUrl] = useState("");
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const selectedKnowledgeBaseIds = form.watch("knowledgeBaseIds") || [];
 
   useEffect(() => {
@@ -155,6 +188,55 @@ export function SupportContent() {
       cancelled = true;
     };
   }, [insightsAgent]);
+
+  useEffect(() => {
+    if (!channelsAgent) {
+      setChannels([]);
+      setWhatsappStatus(null);
+      setTelegramWebhookUrl("");
+      setSlackWebhookUrl("");
+      return;
+    }
+
+    let cancelled = false;
+    setChannelsLoading(true);
+    setChannels([]);
+    setWhatsappStatus(null);
+    setTelegramWebhookUrl("");
+    setSlackWebhookUrl("");
+
+    const load = async () => {
+      try {
+        const [channelsRes, statusRes] = await Promise.all([
+          authenticatedGet<{ success: boolean; channels: SupportChannel[] }>(
+            `/api/support/agents/${channelsAgent.id}/channels`
+          ),
+          authenticatedGet<{ success: boolean; status: string; qr: string | null }>(
+            `/api/support/agents/${channelsAgent.id}/channels/whatsapp/status`
+          ),
+        ]);
+        if (cancelled) return;
+        setChannels(channelsRes.channels || []);
+        setWhatsappStatus({ status: statusRes.status, qr: statusRes.qr });
+      } catch (err) {
+        if (!cancelled) {
+          // keep UI usable even if channels fail to load
+          console.error("Failed to load support channels", err);
+          toast.error("Failed to load support channels");
+        }
+      } finally {
+        if (!cancelled) {
+          setChannelsLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [channelsAgent]);
 
   const agents = data?.agents ?? [];
 
@@ -216,6 +298,137 @@ export function SupportContent() {
     }
   };
 
+  const handleConnectWhatsApp = async () => {
+    if (!channelsAgent) return;
+    setConnectingWhatsApp(true);
+    try {
+      const res = await authenticatedPost<{
+        success: boolean;
+        channelId: string;
+        sessionId: string;
+        status: string;
+        qr: string | null;
+      }>(`/api/support/agents/${channelsAgent.id}/channels/whatsapp/connect`, {});
+
+      if (!res.success) {
+        throw new Error("Failed to start WhatsApp connection");
+      }
+
+      toast.success("WhatsApp connection started. Scan the QR code to finish setup.");
+      setWhatsappStatus({ status: res.status, qr: res.qr ?? null });
+
+      const channelsRes = await authenticatedGet<{ success: boolean; channels: SupportChannel[] }>(
+        `/api/support/agents/${channelsAgent.id}/channels`
+      );
+      setChannels(channelsRes.channels || []);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start WhatsApp connection";
+      toast.error(message);
+    } finally {
+      setConnectingWhatsApp(false);
+    }
+  };
+
+  const refreshChannels = async (agentId: string) => {
+    const channelsRes = await authenticatedGet<{ success: boolean; channels: SupportChannel[] }>(
+      `/api/support/agents/${agentId}/channels`
+    );
+    setChannels(channelsRes.channels || []);
+  };
+
+  const handleConnectTelegram = async () => {
+    if (!channelsAgent) return;
+    if (!telegramBotToken.trim()) {
+      toast.error("Telegram bot token is required.");
+      return;
+    }
+    setConnectingPlatform("TELEGRAM");
+    try {
+      const res = await authenticatedPost<{ webhookUrl?: string }>(
+        `/api/support/agents/${channelsAgent.id}/channels/telegram/connect`,
+        {
+          telegramBotToken: telegramBotToken.trim(),
+        }
+      );
+      toast.success("Telegram support channel connected.");
+      setTelegramWebhookUrl(res.webhookUrl || "");
+      setTelegramBotToken("");
+      await refreshChannels(channelsAgent.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect Telegram.");
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectSlack = async () => {
+    if (!channelsAgent) return;
+    if (!slackBotToken.trim() || !slackSigningSecret.trim()) {
+      toast.error("Slack bot token and signing secret are required.");
+      return;
+    }
+    setConnectingPlatform("SLACK");
+    try {
+      const res = await authenticatedPost<{ webhookUrl?: string }>(
+        `/api/support/agents/${channelsAgent.id}/channels/slack/connect`,
+        {
+          slackBotToken: slackBotToken.trim(),
+          slackSigningSecret: slackSigningSecret.trim(),
+        }
+      );
+      toast.success("Slack support channel connected.");
+      setSlackWebhookUrl(res.webhookUrl || "");
+      setSlackBotToken("");
+      setSlackSigningSecret("");
+      await refreshChannels(channelsAgent.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect Slack.");
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectDiscord = async () => {
+    if (!channelsAgent) return;
+    if (!discordBotToken.trim()) {
+      toast.error("Discord bot token is required.");
+      return;
+    }
+    setConnectingPlatform("DISCORD");
+    try {
+      await authenticatedPost(`/api/support/agents/${channelsAgent.id}/channels/discord/connect`, {
+        discordBotToken: discordBotToken.trim(),
+        discordGuildId: discordGuildId.trim() || undefined,
+        discordChannelId: discordChannelId.trim() || undefined,
+      });
+      toast.success("Discord support channel connected.");
+      setDiscordBotToken("");
+      await refreshChannels(channelsAgent.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to connect Discord.");
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleDisconnectChannel = async (platform: SupportChannel["platform"]) => {
+    const channel = channels.find((c) => c.platform === platform && c.status !== "disabled");
+    if (!channel) return;
+    try {
+      await authenticatedDelete(`/api/support/channels/${channel.id}`);
+      toast.success(`${platform.toLowerCase()} support channel disconnected.`);
+      if (channelsAgent) {
+        await refreshChannels(channelsAgent.id);
+      }
+      if (platform === "WHATSAPP") {
+        setWhatsappStatus({ status: "disconnected", qr: null });
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect channel.");
+    }
+  };
+
   if (isLoading) {
     return (
       <SupportContainer
@@ -241,6 +454,11 @@ export function SupportContent() {
   }
 
   const isEmpty = agents.length === 0;
+  const telegramChannel = channels.find(
+    (c) => c.platform === "TELEGRAM" && c.status !== "disabled"
+  );
+  const slackChannel = channels.find((c) => c.platform === "SLACK" && c.status !== "disabled");
+  const discordChannel = channels.find((c) => c.platform === "DISCORD" && c.status !== "disabled");
 
   const dialog = (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -455,7 +673,7 @@ export function SupportContent() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -481,6 +699,15 @@ export function SupportContent() {
                     >
                       <Code2 className="mr-1.5 h-3.5 w-3.5" />
                       Embed
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setChannelsAgent(agent)}
+                      title="Manage support channels"
+                    >
+                      <PlugIcon className="mr-1.5 h-3.5 w-3.5" />
+                      Channels
                     </Button>
                   </div>
                   <div className="flex gap-2">
@@ -515,6 +742,272 @@ export function SupportContent() {
       </div>
 
       {dialog}
+
+      {/* Channels dialog */}
+      <Dialog open={!!channelsAgent} onOpenChange={(open) => !open && setChannelsAgent(null)}>
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="pr-6">
+              {channelsAgent?.name ?? "Support agent"} — Channels
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 flex-1 overflow-y-auto space-y-4 pr-1 -mr-1">
+            <p className="text-xs text-muted-foreground">
+              Connect this support agent to external chat channels. All conversations on these
+              channels are answered by this agent using your knowledge bases and fallback rules.
+            </p>
+            <div className="space-y-3 rounded-md border bg-card/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">WhatsApp</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Start a WhatsApp session for this agent using the Verxio WhatsApp connector
+                    (Baileys). Scan the QR code once and the connector will keep this number
+                    connected so the support agent can reply to chats.
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-muted-foreground">
+                    Status:{" "}
+                    <span className="font-medium">
+                      {channelsLoading ? "Loading..." : whatsappStatus?.status || "disconnected"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={connectingWhatsApp || channelsLoading}
+                  onClick={handleConnectWhatsApp}
+                  className="w-full justify-center"
+                >
+                  {connectingWhatsApp && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  {connectingWhatsApp
+                    ? "Starting WhatsApp connection..."
+                    : "Connect or refresh WhatsApp"}
+                </Button>
+                {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDisconnectChannel("WHATSAPP")}
+                    className="w-full justify-center"
+                  >
+                    Disconnect WhatsApp
+                  </Button>
+                )}
+                {whatsappStatus?.qr && (
+                  <div className="mt-1 flex flex-col items-center gap-2 rounded-md border bg-muted/40 p-3">
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Scan this QR code with WhatsApp on your phone to connect this support agent to
+                      your number.
+                    </p>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                        whatsappStatus.qr
+                      )}`}
+                      alt="WhatsApp QR code"
+                      className="max-h-48 w-auto rounded-sm border bg-background"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">Telegram</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Paste your Telegram bot token (from BotFather) and connect. We automatically
+                    configure the HTTPS webhook for you so any DM or group message to this bot is
+                    answered by this support agent.
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  {channelsLoading ? "Loading..." : telegramChannel?.status || "disconnected"}
+                </span>
+              </div>
+              {telegramChannel ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("TELEGRAM")}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Telegram bot token"
+                    value={telegramBotToken}
+                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={connectingPlatform === "TELEGRAM" || channelsLoading}
+                      onClick={handleConnectTelegram}
+                      className="flex-1"
+                    >
+                      {connectingPlatform === "TELEGRAM" && (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Connect Telegram
+                    </Button>
+                  </div>
+                </>
+              )}
+              {telegramWebhookUrl && (
+                <p className="text-[11px] text-muted-foreground break-all">
+                  Webhook URL: {telegramWebhookUrl}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">Slack</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Use a Slack bot token and signing secret for your workspace. After connecting,
+                    set the Events API request URL in your Slack app to the Events URL shown here so
+                    mentions and DMs are routed to this support agent.
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  {channelsLoading ? "Loading..." : slackChannel?.status || "disconnected"}
+                </span>
+              </div>
+              {slackChannel ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Signing secret: <span className="font-mono">••••••••</span> (stored securely)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("SLACK")}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Slack bot token (xoxb-...)"
+                    value={slackBotToken}
+                    onChange={(e) => setSlackBotToken(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Slack signing secret"
+                    value={slackSigningSecret}
+                    onChange={(e) => setSlackSigningSecret(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={connectingPlatform === "SLACK" || channelsLoading}
+                      onClick={handleConnectSlack}
+                      className="flex-1"
+                    >
+                      {connectingPlatform === "SLACK" && (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Connect Slack
+                    </Button>
+                  </div>
+                </>
+              )}
+              {slackWebhookUrl && (
+                <p className="text-[11px] text-muted-foreground break-all">
+                  Events URL: {slackWebhookUrl}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">Discord</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Connect a Discord bot token (using the Verxio Discord connector), then invite
+                    the bot to your server. Messages in the configured server/channel are answered
+                    by this support agent.
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  {channelsLoading ? "Loading..." : discordChannel?.status || "disconnected"}
+                </span>
+              </div>
+              {discordChannel ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("DISCORD")}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Discord bot token"
+                    value={discordBotToken}
+                    onChange={(e) => setDiscordBotToken(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Discord guild ID (optional)"
+                    value={discordGuildId}
+                    onChange={(e) => setDiscordGuildId(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Discord channel ID (optional)"
+                    value={discordChannelId}
+                    onChange={(e) => setDiscordChannelId(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={connectingPlatform === "DISCORD" || channelsLoading}
+                      onClick={handleConnectDiscord}
+                      className="flex-1"
+                    >
+                      {connectingPlatform === "DISCORD" && (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Connect Discord
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Insights dialog */}
       <Dialog open={!!insightsAgent} onOpenChange={(open) => !open && setInsightsAgent(null)}>

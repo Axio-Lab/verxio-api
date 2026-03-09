@@ -283,6 +283,7 @@ model User {
   referredByReferral    Referral?            @relation("ReferredBy")
   knowledgeBases        KnowledgeBase[]
   supportAgents         SupportAgent[]
+  supportChannels       SupportChannel[]
 
   @@map("user")
 }
@@ -820,6 +821,7 @@ model WhatsAppSession {
   updatedAt      DateTime @updatedAt
 
   chatIntegration ChatIntegration?
+  supportChannels SupportChannel[] @relation("SupportChannelWhatsAppSession")
 
   @@index([status])
   @@index([workerId])
@@ -936,12 +938,54 @@ model SupportAgent {
   conversations   Int      @default(0)
 
   chatSessions    SupportChatSession[]
+  channels        SupportChannel[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([userId])
   @@map("support_agents")
+}
+
+// Support channel configuration (per agent, per external platform)
+model SupportChannel {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  supportAgentId String
+  supportAgent   SupportAgent @relation(fields: [supportAgentId], references: [id], onDelete: Cascade)
+
+  platform       ChatPlatform
+  status         String   @default("pending") // pending | connected | disabled
+
+  // Optional WhatsApp session link when platform = WHATSAPP
+  whatsappSessionId String?
+  whatsappSession   WhatsAppSession? @relation("SupportChannelWhatsAppSession", fields: [whatsappSessionId], references: [id], onDelete: SetNull)
+
+  // Optional Telegram config when platform = TELEGRAM
+  telegramBotToken String?
+  telegramChatId   String?
+
+  // Optional Slack config when platform = SLACK
+  slackBotToken      String?
+  slackSigningSecret String?
+  slackTeamId        String?
+  slackChannelId     String?
+
+  // Optional Discord config when platform = DISCORD
+  discordBotToken  String?
+  discordGuildId   String?
+  discordChannelId String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([supportAgentId])
+  @@index([platform])
+  @@index([whatsappSessionId])
+  @@map("support_channels")
 }
 
 // Per-visitor support chat session (publicSessionId = client localStorage sessionId)

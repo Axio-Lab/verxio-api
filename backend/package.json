@@ -23,7 +23,8 @@
     "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js",
     "start:discord-connector": "tsx src/discord-connector/run.ts",
     "start:discord-connector:prod": "node dist/discord-connector/run.js",
-    "inngest:dev": "inngest dev"
+    "inngest:dev": "inngest dev",
+    "test:support-multichannel-smoke": "tsx src/tests/support-multichannel-smoke.ts"
   },
   "keywords": [
     "verxio",
