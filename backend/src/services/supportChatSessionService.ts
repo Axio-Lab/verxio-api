@@ -129,6 +129,20 @@ export async function updateSessionFeedback(
   return { success: true };
 }
 
+export async function updateSessionFeedbackById(
+  supportChatSessionId: string,
+  rating: number,
+  feedback?: string | null
+): Promise<void> {
+  await prisma.supportChatSession.update({
+    where: { id: supportChatSessionId },
+    data: {
+      rating: Math.min(5, Math.max(1, Math.round(rating))),
+      feedback: feedback && feedback.trim() ? feedback.trim().slice(0, 2000) : null,
+    },
+  });
+}
+
 export async function getSessionFeedback(
   supportAgentId: string,
   publicSessionId: string
