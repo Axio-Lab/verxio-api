@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import * as chatIntegrationService from "@/services/chatIntegrationService";
 import { inngest } from "@/inngest";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
+import { getSupportChannelByWhatsAppSession } from "@/services/supportChannelService";
+import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
@@ -229,6 +231,49 @@ router.post("/incoming", async (req: Request, res: Response) => {
     }
 
     return res.json({ ok: true });
+  }
+
+  // Support channel branch: sessionId without integrationId can map to a SupportChannel
+  if (body.sessionId && !body.integrationId) {
+    const supportChannel = await getSupportChannelByWhatsAppSession(body.sessionId);
+    if (supportChannel) {
+      // For now, always route messages to the bound support agent
+      const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
+
+      void (async () => {
+        try {
+          const replyText = await respondToChannelMessage({
+            supportAgentId: supportChannel.supportAgentId,
+            externalId: fromJid,
+            message: payload.body,
+          });
+
+          const withPrefix = groupPrefix + replyText;
+          const sendResult = await sendWhatsAppMessage({
+            sessionRef: body.sessionId!,
+            toJid: replyToJid,
+            text: withPrefix,
+          });
+          if (!sendResult.success) {
+            console.error(
+              "[WhatsApp incoming] support channel send reply failed:",
+              sendResult.error
+            );
+          }
+        } catch (err) {
+          console.error("[WhatsApp incoming] support channel error:", err);
+          try {
+            await sendWhatsAppMessage({
+              sessionRef: body.sessionId!,
+              toJid: replyToJid,
+              text: "Something went wrong. Please try again.",
+            });
+          } catch (_) {}
+        }
+      })();
+
+      return res.json({ ok: true, supportChannelId: supportChannel.id });
+    }
   }
 
   if (body.credentialId) {
