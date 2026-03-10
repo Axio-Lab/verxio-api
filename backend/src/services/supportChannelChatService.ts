@@ -4,7 +4,7 @@ import {
   getOrCreateSupportChatSession,
   updateSessionSuggestRating,
   getSessionFeedback,
-  updateSessionFeedback,
+  updateSessionFeedbackById,
 } from "./supportChatSessionService";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
@@ -103,7 +103,7 @@ export async function respondToChannelMessage(options: {
   if (looksLikeRating) {
     const ratingValue = numeric;
 
-    await updateSessionFeedback(agent.id, externalId, ratingValue);
+    await updateSessionFeedbackById(sessionId, ratingValue);
     await updateSessionSuggestRating(sessionId, false);
 
     const replyText =

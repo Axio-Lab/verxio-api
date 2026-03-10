@@ -6,6 +6,85 @@ const prisma = basePrismaClient as any;
 
 type InsightMessageRow = { role: string; content: string; hadFallbackReply: boolean };
 
+function isRatingLike(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  const firstChar = trimmed.charAt(0);
+  const numeric = Number(firstChar);
+  if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 5 && trimmed.length <= 4) {
+    // "5", "4.", "3)"
+    return true;
+  }
+
+  if (/^(?:[1-5])\s*stars?$/i.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isClosingMessage(text: string): boolean {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return false;
+
+  const phrases = [
+    "no",
+    "nope",
+    "nothing else",
+    "that's all",
+    "thats all",
+    "i'm good",
+    "im good",
+    "i am good",
+    "no thank you",
+    "no thanks",
+    "nothing more",
+    "no more questions",
+    "thanks, that's all",
+    "thank you, that's all",
+  ];
+
+  return phrases.some((p) => lower === p || lower.includes(p));
+}
+
+function isSystemCommand(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  // Telegram-style commands like /start
+  return trimmed.startsWith("/") || trimmed === "/start";
+}
+
+function isLikelyQuestion(text: string): boolean {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return false;
+
+  if (text.includes("?")) return true;
+
+  const prefixes = [
+    "what",
+    "how",
+    "why",
+    "where",
+    "which",
+    "who",
+    "when",
+    "can ",
+    "could ",
+    "would ",
+    "should ",
+    "do ",
+    "does ",
+    "is ",
+    "are ",
+    "tell me",
+    "explain",
+    "compare",
+  ];
+
+  return prefixes.some((p) => lower.startsWith(p));
+}
+
 export interface SupportAgentInsights {
   totalConversations: number;
   totalMessages: number;
@@ -80,10 +159,20 @@ export async function getSupportAgentInsights(
   const fallbackRate =
     assistantMessages.length > 0 ? (fallbackCount / assistantMessages.length) * 100 : 0;
 
-  const userMessages = messages.filter((m) => m.role === "user").map((m) => m.content.trim());
+  const userMessages = messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.content.trim())
+    .filter((text) => {
+      if (!text) return false;
+      if (isRatingLike(text)) return false;
+      if (isClosingMessage(text)) return false;
+      if (isSystemCommand(text)) return false;
+      return true;
+    });
   const normalizedCount = new Map<string, { text: string; count: number }>();
   for (const text of userMessages) {
     if (!text) continue;
+    if (!isLikelyQuestion(text)) continue;
     const normalized = text.toLowerCase().slice(0, 200).trim();
     const key = normalized;
     const existing = normalizedCount.get(key);
@@ -136,7 +225,9 @@ export async function getSupportAgentKBSuggestions(
   userId: string
 ): Promise<SupportAgentKBSuggestions> {
   const insights = await getSupportAgentInsights(supportAgentId, userId, { limit: 30 });
-  const sampleQuestions = insights.sampleFallbackQuestions;
+  const sampleQuestions = insights.sampleFallbackQuestions.filter(
+    (q) => q && !isRatingLike(q) && !isClosingMessage(q) && !isSystemCommand(q)
+  );
   const suggestedTopics = [...new Set(sampleQuestions)].slice(0, 15);
   return {
     suggestedTopics,

@@ -1226,9 +1226,8 @@ export function SupportContent() {
                   ) : (
                     <ul className="rounded-md border divide-y max-h-48 overflow-y-auto">
                       {insightsData.frequentQuestions.map((q, i) => (
-                        <li key={i} className="px-3 py-2 text-sm flex justify-between gap-2">
+                        <li key={i} className="px-3 py-2 text-sm">
                           <span className="truncate">{q.text}</span>
-                          <span className="text-muted-foreground shrink-0">{q.count}</span>
                         </li>
                       ))}
                     </ul>
