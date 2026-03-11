@@ -248,6 +248,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
             message: payload.body,
           });
 
+          if (!replyText || !replyText.trim()) return;
+
           const withPrefix = groupPrefix + replyText;
           const sendResult = await sendWhatsAppMessage({
             sessionRef: body.sessionId!,

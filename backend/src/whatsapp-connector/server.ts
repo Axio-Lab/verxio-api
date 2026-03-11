@@ -4,6 +4,7 @@ import {
   sendMessage as sendMessageHandler,
   getSessionStatus,
   startSession,
+  stopSession,
   type OnIncomingCallback,
 } from "./session-manager";
 
@@ -22,6 +23,16 @@ export function createConnectorServer(onIncoming: OnIncomingCallback) {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ status: "error", error: message });
+    }
+  });
+
+  app.post("/session/:id/stop", (req, res) => {
+    try {
+      stopSession(req.params.id);
+      return res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ success: false, error: message });
     }
   });
 

@@ -77,7 +77,7 @@ export async function getSupportChannelByWhatsAppSession(sessionId: string) {
   const channel = await prisma.supportChannel.findFirst({
     where: {
       whatsappSessionId: sessionId,
-      status: "connected",
+      status: { in: ["connected", "pending"] },
     },
   });
   return (channel || null) as SupportChannel | null;

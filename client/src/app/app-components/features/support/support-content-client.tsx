@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 type KnowledgeBaseSummary = {
   id: string;
@@ -130,6 +131,7 @@ export function SupportContent() {
     qr: string | null;
   } | null>(null);
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
+  const [refreshingWhatsApp, setRefreshingWhatsApp] = useState(false);
   const [connectingPlatform, setConnectingPlatform] = useState<
     null | "TELEGRAM" | "SLACK" | "DISCORD"
   >(null);
@@ -315,12 +317,32 @@ export function SupportContent() {
       }
 
       toast.success("WhatsApp connection started. Scan the QR code to finish setup.");
-      setWhatsappStatus({ status: res.status, qr: res.qr ?? null });
+      setWhatsappStatus({
+        status: res.status,
+        qr: res.status === "connected" ? null : (res.qr ?? null),
+      });
 
       const channelsRes = await authenticatedGet<{ success: boolean; channels: SupportChannel[] }>(
         `/api/support/agents/${channelsAgent.id}/channels`
       );
       setChannels(channelsRes.channels || []);
+
+      // QR can be generated shortly after the session starts. Poll briefly so it appears automatically.
+      if (!res.qr && res.status !== "connected") {
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const statusRes = await authenticatedGet<{
+            success: boolean;
+            status: string;
+            qr: string | null;
+          }>(`/api/support/agents/${channelsAgent.id}/channels/whatsapp/status`);
+          setWhatsappStatus({
+            status: statusRes.status,
+            qr: statusRes.status === "connected" ? null : statusRes.qr,
+          });
+          if (statusRes.qr || statusRes.status === "connected") break;
+        }
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to start WhatsApp connection";
@@ -335,6 +357,28 @@ export function SupportContent() {
       `/api/support/agents/${agentId}/channels`
     );
     setChannels(channelsRes.channels || []);
+  };
+
+  const handleRefreshWhatsApp = async () => {
+    if (!channelsAgent) return;
+    setRefreshingWhatsApp(true);
+    try {
+      const statusRes = await authenticatedGet<{
+        success: boolean;
+        status: string;
+        qr: string | null;
+      }>(`/api/support/agents/${channelsAgent.id}/channels/whatsapp/status`);
+      setWhatsappStatus({
+        status: statusRes.status,
+        qr: statusRes.status === "connected" ? null : statusRes.qr,
+      });
+      void refreshChannels(channelsAgent.id).catch(() => undefined);
+      toast.success("WhatsApp status updated.");
+    } catch {
+      toast.error("Failed to refresh WhatsApp status.");
+    } finally {
+      setRefreshingWhatsApp(false);
+    }
   };
 
   const handleConnectTelegram = async () => {
@@ -753,98 +797,113 @@ export function SupportContent() {
           </DialogHeader>
           <div className="mt-2 flex-1 overflow-y-auto space-y-4 pr-1 -mr-1">
             <p className="text-xs text-muted-foreground">
-              Connect this support agent to external chat channels. All conversations on these
-              channels are answered by this agent using your knowledge bases and fallback rules.
+              Conversations are answered by this agent using your knowledge bases and fallback.
             </p>
-            <div className="space-y-3 rounded-md border bg-card/40 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium">WhatsApp</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Start a WhatsApp session for this agent using the Verxio WhatsApp connector
-                    (Baileys). Scan the QR code once and the connector will keep this number
-                    connected so the support agent can reply to chats.
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] text-muted-foreground">
-                    Status:{" "}
-                    <span className="font-medium">
-                      {channelsLoading ? "Loading..." : whatsappStatus?.status || "disconnected"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button
+            <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">WhatsApp</span>
+                <Badge
                   variant="outline"
-                  size="sm"
-                  disabled={connectingWhatsApp || channelsLoading}
-                  onClick={handleConnectWhatsApp}
-                  className="w-full justify-center"
+                  className={
+                    channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
+                    whatsappStatus?.status === "connected"
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
                 >
-                  {connectingWhatsApp && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                  {connectingWhatsApp
-                    ? "Starting WhatsApp connection..."
-                    : "Connect or refresh WhatsApp"}
-                </Button>
-                {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") && (
+                  {channelsLoading || refreshingWhatsApp
+                    ? "Loading…"
+                    : channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
+                        whatsappStatus?.status === "connected"
+                      ? "Connected"
+                      : "Disconnected"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Scan the QR to link your number; the support agent replies to chats on this number.
+              </p>
+              {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
+              whatsappStatus?.status === "connected" ? (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={channelsLoading || refreshingWhatsApp}
+                    onClick={handleRefreshWhatsApp}
+                    className="flex-1"
+                  >
+                    {refreshingWhatsApp ? (
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Refresh
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleDisconnectChannel("WHATSAPP")}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={connectingWhatsApp || channelsLoading}
+                    onClick={handleConnectWhatsApp}
                     className="w-full justify-center"
                   >
-                    Disconnect WhatsApp
+                    {connectingWhatsApp && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    {connectingWhatsApp
+                      ? "Starting WhatsApp connection..."
+                      : "Connect or refresh WhatsApp"}
                   </Button>
-                )}
-                {whatsappStatus?.qr && (
-                  <div className="mt-1 flex flex-col items-center gap-2 rounded-md border bg-muted/40 p-3">
-                    <p className="text-[11px] text-muted-foreground text-center">
-                      Scan this QR code with WhatsApp on your phone to connect this support agent to
-                      your number.
-                    </p>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                        whatsappStatus.qr
-                      )}`}
-                      alt="WhatsApp QR code"
-                      className="max-h-48 w-auto rounded-sm border bg-background"
-                    />
-                  </div>
-                )}
-              </div>
+                  {whatsappStatus?.qr && (
+                    <div className="mt-1 flex flex-col items-center gap-2 rounded-md border bg-muted/40 p-3">
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        Scan this QR code with WhatsApp on your phone to connect this support agent
+                        to your number.
+                      </p>
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                          whatsappStatus.qr
+                        )}`}
+                        alt="WhatsApp QR code"
+                        className="max-h-48 w-auto rounded-sm border bg-background"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium">Telegram</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Paste your Telegram bot token (from BotFather) and connect. We automatically
-                    configure the HTTPS webhook for you so any DM or group message to this bot is
-                    answered by this support agent.
-                  </span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {channelsLoading ? "Loading..." : telegramChannel?.status || "disconnected"}
-                </span>
+            <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Telegram</span>
+                <Badge
+                  variant="outline"
+                  className={
+                    telegramChannel
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {channelsLoading ? "Loading…" : telegramChannel ? "Connected" : "Disconnected"}
+                </Badge>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Bot token from BotFather. We set the webhook so DMs and groups are answered by this
+                agent.
+              </p>
               {telegramChannel ? (
-                <div className="space-y-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDisconnectChannel("TELEGRAM")}
-                    >
-                      Disconnect
-                    </Button>
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDisconnectChannel("TELEGRAM")}
+                >
+                  Disconnect
+                </Button>
               ) : (
                 <>
                   <Input
@@ -875,38 +934,32 @@ export function SupportContent() {
               )}
             </div>
 
-            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium">Slack</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Use a Slack bot token and signing secret for your workspace. After connecting,
-                    set the Events API request URL in your Slack app to the Events URL shown here so
-                    mentions and DMs are routed to this support agent.
-                  </span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {channelsLoading ? "Loading..." : slackChannel?.status || "disconnected"}
-                </span>
+            <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Slack</span>
+                <Badge
+                  variant="outline"
+                  className={
+                    slackChannel
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {channelsLoading ? "Loading…" : slackChannel ? "Connected" : "Disconnected"}
+                </Badge>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Bot token and signing secret. Set your Slack app Events URL to the URL shown after
+                connecting.
+              </p>
               {slackChannel ? (
-                <div className="space-y-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Signing secret: <span className="font-mono">••••••••</span> (stored securely)
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDisconnectChannel("SLACK")}
-                    >
-                      Disconnect
-                    </Button>
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDisconnectChannel("SLACK")}
+                >
+                  Disconnect
+                </Button>
               ) : (
                 <>
                   <Input
@@ -942,35 +995,31 @@ export function SupportContent() {
               )}
             </div>
 
-            <div className="space-y-2 rounded-md border bg-card/40 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium">Discord</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Connect a Discord bot token (using the Verxio Discord connector), then invite
-                    the bot to your server. Messages in the configured server/channel are answered
-                    by this support agent.
-                  </span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  {channelsLoading ? "Loading..." : discordChannel?.status || "disconnected"}
-                </span>
+            <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Discord</span>
+                <Badge
+                  variant="outline"
+                  className={
+                    discordChannel
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {channelsLoading ? "Loading…" : discordChannel ? "Connected" : "Disconnected"}
+                </Badge>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Discord connector. Add the bot to your server; messages are answered by this agent.
+              </p>
               {discordChannel ? (
-                <div className="space-y-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Bot token: <span className="font-mono">••••••••</span> (stored securely)
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDisconnectChannel("DISCORD")}
-                    >
-                      Disconnect
-                    </Button>
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDisconnectChannel("DISCORD")}
+                >
+                  Disconnect
+                </Button>
               ) : (
                 <>
                   <Input
