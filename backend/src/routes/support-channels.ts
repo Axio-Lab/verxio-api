@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { betterAuthMiddleware } from "@/middleware/betterAuth";
+import { basePrismaClient } from "@/lib/prisma";
 import {
   createSupportChannel,
   listSupportChannelsForAgent,
@@ -8,10 +9,16 @@ import {
   getSupportChannelById,
   updateSupportChannelConfig,
 } from "@/services/supportChannelService";
-import { startWhatsAppSession, getWhatsAppSessionStatus } from "@/services/whatsappConnectorClient";
+import {
+  startWhatsAppSession,
+  getWhatsAppSessionStatus,
+  getWhatsAppSessionQr,
+  stopWhatsAppSession,
+} from "@/services/whatsappConnectorClient";
 import { connectDiscordBot, disconnectDiscordBot } from "@/services/discordConnectorClient";
 
 export const supportChannelsRouter = Router();
+const prisma = basePrismaClient as any;
 
 function getApiBaseUrl() {
   const base = process.env.API_URL?.trim();
@@ -75,6 +82,9 @@ supportChannelsRouter.post(
       const { agentId } = req.params;
 
       const channel = await getOrCreatePlatformChannel(user.id, agentId, "WHATSAPP");
+      if (channel.status === "disabled") {
+        await updateSupportChannelConfig(user.id, channel.id, { status: "pending" });
+      }
 
       // Create or reuse a WhatsAppSession owned by this support channel (no credential needed)
       const session = await getOrCreateWhatsAppSessionForSupportChannel(channel.id);
@@ -92,17 +102,22 @@ supportChannelsRouter.post(
       });
 
       const result = await startWhatsAppSession(session.id);
+      const statusAfterStart = await getWhatsAppSessionStatus(session.id).catch(() => null);
+      const qrAfterStart =
+        result.qr ?? statusAfterStart?.qr ?? (await getWhatsAppSessionQr(session.id));
+      const displayStatus = result.status === "open" ? "connected" : result.status;
 
       await updateSupportChannelConfig(user.id, channel.id, {
-        status: result.status === "connected" ? "connected" : "pending",
+        status: displayStatus === "connected" ? "connected" : "pending",
       });
 
       res.json({
         success: true,
         channelId: channel.id,
         sessionId: session.id,
-        status: result.status,
-        qr: result.qr ?? null,
+        status: displayStatus,
+        // If already connected, don't return a QR.
+        qr: displayStatus === "connected" ? null : (qrAfterStart ?? null),
       });
     } catch (error) {
       next(error);
@@ -123,7 +138,9 @@ supportChannelsRouter.get(
       const { agentId } = req.params;
 
       const channels = await listSupportChannelsForAgent(user.id, agentId);
-      const waChannel = channels.find((c) => c.platform === "WHATSAPP" && c.whatsappSessionId);
+      const waChannel = channels.find(
+        (c) => c.platform === "WHATSAPP" && c.status !== "disabled" && c.whatsappSessionId
+      );
 
       if (!waChannel || !waChannel.whatsappSessionId) {
         return res.json({ success: true, status: "disconnected", qr: null });
@@ -134,7 +151,17 @@ supportChannelsRouter.get(
         return res.json({ success: true, status: "disconnected", qr: null });
       }
 
-      res.json({ success: true, status: status.status, qr: status.qr ?? null });
+      const displayStatus = status.status === "open" ? "connected" : status.status;
+      if (displayStatus === "connected" && waChannel.status !== "connected") {
+        await updateSupportChannelConfig(user.id, waChannel.id, { status: "connected" });
+      }
+
+      res.json({
+        success: true,
+        status: displayStatus,
+        // Never return a QR once connected; otherwise UI can keep showing a stale QR.
+        qr: displayStatus === "connected" ? null : (status.qr ?? null),
+      });
     } catch (error) {
       next(error);
     }
@@ -347,6 +374,22 @@ supportChannelsRouter.delete(
       const channel = await getSupportChannelById(user.id, channelId);
       if (channel.platform === "DISCORD") {
         await disconnectDiscordBot(channel.id).catch(() => undefined);
+      }
+      if (channel.platform === "WHATSAPP" && channel.whatsappSessionId) {
+        // Stop connector socket, clear auth, and detach session so a new QR can be generated next time.
+        await stopWhatsAppSession(channel.whatsappSessionId).catch(() => undefined);
+        await prisma.whatsAppSession
+          .update({
+            where: { id: channel.whatsappSessionId },
+            data: {
+              status: "disconnected",
+              authState: null,
+              phoneNumber: null,
+              workerId: null,
+            },
+          })
+          .catch(() => undefined);
+        await updateSupportChannelConfig(user.id, channel.id, { whatsappSessionId: null });
       }
 
       await updateSupportChannelConfig(user.id, channel.id, { status: "disabled" });

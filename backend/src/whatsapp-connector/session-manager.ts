@@ -210,6 +210,28 @@ export async function startSession(
       return;
     }
 
+    // Support channel session (no integrationId, no credentialId): forward all incoming and group messages to backend
+    if (!row.integrationId && !row.credentialId) {
+      for (const msg of messages) {
+        const fromMe = msg.key.fromMe === true;
+        if (fromMe) continue;
+        const payload = normalizeMessage(msg as WAMessage, true);
+        if (!payload) continue;
+        try {
+          await onIncoming({
+            sessionId,
+            integrationId: undefined,
+            credentialId: undefined,
+            payload,
+            botJid: ownerJid || undefined,
+          });
+        } catch (err) {
+          console.error("[WhatsApp Connector] onIncoming error:", err);
+        }
+      }
+      return;
+    }
+
     // Chat Integration session: use only-owner setting
     if (!row.integrationId) return;
     const integration = await (prisma as any).chatIntegration

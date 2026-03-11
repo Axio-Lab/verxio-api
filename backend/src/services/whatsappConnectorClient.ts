@@ -60,6 +60,20 @@ export async function startWhatsAppSession(sessionId: string): Promise<{
   return data;
 }
 
+export async function stopWhatsAppSession(
+  sessionId: string
+): Promise<{ success: boolean; error?: string }> {
+  const res = await fetch(
+    `${CONNECTOR_URL.replace(/\/$/, "")}/session/${encodeURIComponent(sessionId)}/stop`,
+    { method: "POST" }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { success: false, error: data.error || res.statusText };
+  }
+  return data as { success: boolean; error?: string };
+}
+
 export async function getWhatsAppSessionStatus(sessionId: string): Promise<{
   status: string;
   qr?: string;
