@@ -19,6 +19,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "db:enable-vector": "prisma db execute --file prisma/scripts/enable-vector.sql --schema prisma/schema.prisma",
     "start:whatsapp-connector": "tsx src/whatsapp-connector/run.ts",
     "start:whatsapp-connector:prod": "node dist/whatsapp-connector/run.js",
     "start:discord-connector": "tsx src/discord-connector/run.ts",

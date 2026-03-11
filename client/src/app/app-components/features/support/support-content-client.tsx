@@ -117,6 +117,7 @@ export function SupportContent() {
 
   const [editing, setEditing] = useState<SupportAgent | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [insightsAgent, setInsightsAgent] = useState<SupportAgent | null>(null);
   const [insightsData, setInsightsData] = useState<SupportAgentInsights | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -288,6 +289,7 @@ export function SupportContent() {
   };
 
   const onSubmit = async (values: SupportAgentFormValues) => {
+    setIsFormSubmitting(true);
     try {
       if (editing) {
         await updateMutation.mutateAsync({ id: editing.id, data: values });
@@ -295,8 +297,10 @@ export function SupportContent() {
         await createMutation.mutateAsync(values);
       }
       setDialogOpen(false);
-    } catch (e) {
-      // hooks already toast on error/success
+    } catch {
+      // hooks already toast on error
+    } finally {
+      setIsFormSubmitting(false);
     }
   };
 
@@ -636,17 +640,24 @@ export function SupportContent() {
               </div>
             </div>
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={isFormSubmitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editing ? (
+              <Button type="submit" disabled={isFormSubmitting}>
+                {isFormSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {editing ? "Saving…" : "Creating…"}
+                  </>
+                ) : editing ? (
                   "Save changes"
                 ) : (
-                  <>
-                    {/* <Plus className="mr-2 h-4 w-4" /> */}
-                    Create
-                  </>
+                  "Create"
                 )}
               </Button>
             </DialogFooter>
