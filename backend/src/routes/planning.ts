@@ -15,6 +15,8 @@ import { requireFeature } from "../middleware/subscriptionAuth";
 import { checkQuota } from "../middleware/subscriptionRateLimit";
 import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
 import { QUOTA_COST } from "../config/rate-limits";
+import { consumePremiumQuota } from "../services/subscriptionService";
+import * as chatIntegrationService from "../services/chatIntegrationService";
 
 export const planningRouter: Router = Router();
 
@@ -78,7 +80,7 @@ planningRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const { workflowId, message, attachments, model } = req.body;
+      const { workflowId, message, attachments, model, agentPersonality } = req.body;
 
       if (!workflowId) {
         throw new AppError("Workflow ID is required", 400);
@@ -106,6 +108,18 @@ planningRouter.post(
         message: message.trim(),
         attachments,
         model,
+        agentPersonality:
+          agentPersonality && typeof agentPersonality === "object"
+            ? {
+                name: agentPersonality.name || "Verxio",
+                soulMd: agentPersonality.soulMd || "",
+                evolvePersonality: false,
+                skillScope: agentPersonality.skillScope,
+                allowedSkillIds: Array.isArray(agentPersonality.allowedSkillIds)
+                  ? agentPersonality.allowedSkillIds
+                  : [],
+              }
+            : undefined,
       });
 
       res.json({
@@ -130,7 +144,7 @@ planningRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const { workflowId, message, attachments, model } = req.body;
+      const { workflowId, message, attachments, model, agentPersonality } = req.body;
 
       if (!workflowId) {
         throw new AppError("Workflow ID is required", 400);
@@ -167,6 +181,18 @@ planningRouter.post(
           message: message.trim(),
           attachments,
           model,
+          agentPersonality:
+            agentPersonality && typeof agentPersonality === "object"
+              ? {
+                  name: agentPersonality.name || "Verxio",
+                  soulMd: agentPersonality.soulMd || "",
+                  evolvePersonality: false,
+                  skillScope: agentPersonality.skillScope,
+                  allowedSkillIds: Array.isArray(agentPersonality.allowedSkillIds)
+                    ? agentPersonality.allowedSkillIds
+                    : [],
+                }
+              : undefined,
         })) {
           // Send event to client
           res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -282,6 +308,42 @@ planningRouter.post("/upload", async (req: Request, res: Response, next: NextFun
     next(error);
   }
 });
+
+/**
+ * POST /planning/generate-soul
+ * Generate soul.md personality using AI (debits 20 credits)
+ */
+planningRouter.post(
+  "/generate-soul",
+  checkQuota(QUOTA_COST.GENERATE_SOUL_MD),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const { name, description, tone, coreTruths, boundaries } = req.body;
+
+      if (!name || !description || !tone) {
+        throw new AppError("name, description, and tone are required", 400);
+      }
+
+      await consumePremiumQuota(user.id, QUOTA_COST.GENERATE_SOUL_MD);
+
+      const soulMd = await chatIntegrationService.generateSoulMd({
+        name,
+        description,
+        tone,
+        coreTruths,
+        boundaries,
+      });
+
+      res.json({
+        success: true,
+        soulMd,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * DELETE /planning/workflow/:workflowId/clear

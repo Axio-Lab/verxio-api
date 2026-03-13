@@ -437,10 +437,11 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
   const itemsPerPage = 6; // Show 5 items per page
   const { subscription } = useSubscription();
   const userFeatures = subscription?.features || [];
+  const isBetaTester = subscription?.subscriptionPlan === "beta-tester";
 
-  // Check if user has access to a feature
+  // Check if user has access to a feature (beta-testers get all premium features)
   const hasFeatureAccess = (feature: string) => {
-    return userFeatures.includes(feature);
+    return isBetaTester || userFeatures.includes(feature);
   };
 
   // Check if a node requires subscription

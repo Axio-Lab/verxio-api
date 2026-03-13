@@ -54,7 +54,8 @@ export const Editor = ({ workflowId }: { workflowId: string }) => {
   const setEditor = useSetAtom(editorAtom);
   const { subscription } = useSubscription();
   const hasGenerateWorkflowAccess =
-    subscription?.features?.includes("generate-workflow-with-ai") ?? false;
+    subscription?.subscriptionPlan === "beta-tester" ||
+    (subscription?.features?.includes("generate-workflow-with-ai") ?? false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);

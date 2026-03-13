@@ -7,8 +7,25 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { z } from "zod";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2,
   Trash2,
@@ -19,7 +36,12 @@ import {
   ImageIcon,
   Bot,
   ArrowUp,
+  Settings,
+  Upload,
+  Wand2,
+  XCircle,
 } from "lucide-react";
+import NextLink from "next/link";
 import { toast } from "sonner";
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
@@ -30,11 +52,20 @@ import {
 } from "@/lib/api-client";
 import { useParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSetAtom } from "jotai";
 import { hasUnsavedChangesAtom } from "@/app/app-components/features/editor/atoms";
+import { useSkills } from "@/hooks/useSkills";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useProtectedMutation } from "@/hooks/useProtectedApi";
+import { cn } from "@/lib/utils";
 
-export type PlanFormValues = Record<string, never>;
+export type PlanFormValues = {
+  soulMd?: string;
+  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
+  allowedSkillIds?: string[];
+};
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -69,6 +100,8 @@ export const PlanDialog = ({
   const queryClient = useQueryClient();
   const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
   const router = useRouter();
+  const { data: skillsData } = useSkills(1, 100);
+  const isMobile = useIsMobile();
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -85,8 +118,64 @@ export const PlanDialog = ({
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
   const [hasWorkflowChanges, setHasWorkflowChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [personaSheetOpen, setPersonaSheetOpen] = useState(false);
+  const [isSavingPersona, setIsSavingPersona] = useState(false);
+  const [soulMd, setSoulMd] = useState(
+    () => (defaultValues?.soulMd as string | undefined) || ""
+  );
+  const [skillScope, setSkillScope] = useState<
+    "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS"
+  >(
+    () =>
+      (defaultValues?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
+  );
+  const [allowedSkillIds, setAllowedSkillIds] = useState<string[]>(
+    () => (defaultValues?.allowedSkillIds as string[] | undefined) || []
+  );
+  const [soulUpdateExpanded, setSoulUpdateExpanded] = useState(false);
+  const [soulTab, setSoulTab] = useState<string>("paste");
+  const [soulGenName, setSoulGenName] = useState("");
+  const [soulGenDescription, setSoulGenDescription] = useState("");
+  const [soulGenTone, setSoulGenTone] = useState("friendly");
+  const [soulGenCoreTruths, setSoulGenCoreTruths] = useState("");
+  const [soulGenBoundaries, setSoulGenBoundaries] = useState("");
+
+  const generatePlanSoul = useProtectedMutation<
+    { success: boolean; soulMd: string },
+    Error,
+    { name: string; description: string; tone: string; coreTruths?: string; boundaries?: string }
+  >({
+    mutationFn: (data) =>
+      authenticatedPost<{ success: boolean; soulMd: string }>("/planning/generate-soul", data),
+    onSuccess: (result) => {
+      setSoulMd(result.soulMd);
+      toast.success("Personality generated successfully");
+      setSoulGenName("");
+      setSoulGenDescription("");
+      setSoulGenTone("friendly");
+      setSoulGenCoreTruths("");
+      setSoulGenBoundaries("");
+      setSoulTab("paste");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to generate personality");
+    },
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const soulUploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync persona from defaultValues when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSoulMd((defaultValues?.soulMd as string | undefined) || "");
+      setSkillScope(
+        (defaultValues?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
+      );
+      setAllowedSkillIds((defaultValues?.allowedSkillIds as string[] | undefined) || []);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- only sync when dialog opens
 
   // Map tool names to user-friendly descriptions
   const getProgressMessage = (toolName: string, input?: any): string => {
@@ -304,6 +393,7 @@ export const PlanDialog = ({
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
       const authHeaders = await getAuthHeaders();
 
+      const hasPersona = soulMd.trim() || skillScope !== "ALL_SKILLS";
       const response = await fetch(`${baseUrl}/planning/message/stream`, {
         method: "POST",
         headers: authHeaders,
@@ -312,6 +402,15 @@ export const PlanDialog = ({
           workflowId,
           message: userMessage || "Please analyze the attached files.",
           attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+          agentPersonality: hasPersona
+            ? {
+                name: "Verxio",
+                soulMd: soulMd.trim(),
+                skillScope,
+                allowedSkillIds:
+                  skillScope === "SELECTED_SKILLS" ? allowedSkillIds : [],
+              }
+            : undefined,
         }),
       });
 
@@ -440,14 +539,13 @@ export const PlanDialog = ({
       open={open}
       onOpenChange={async (nextOpen) => {
         onOpenChange(nextOpen);
-        if (!nextOpen && hasWorkflowChanges) {
+        if (!nextOpen) {
           try {
             if (onRefreshCanvas) {
               await onRefreshCanvas();
             } else {
               router.refresh();
             }
-            // After refresh, there should be no local unsaved changes
             setHasUnsavedChanges(false);
             setHasWorkflowChanges(false);
           } catch {
@@ -457,6 +555,7 @@ export const PlanDialog = ({
       }}
     >
       <DialogContent className="w-[95vw] max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogTitle className="sr-only">Workflow planner</DialogTitle>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -468,16 +567,28 @@ export const PlanDialog = ({
               <p className="text-[11px] text-muted-foreground leading-none">Workflow planner</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground mr-8"
-            onClick={() => setShowClearConfirm(true)}
-            disabled={conversationHistory.length === 0 || isSending}
-            title="Clear conversation"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1 mr-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={() => setPersonaSheetOpen(true)}
+              disabled={isSending}
+              title="Persona settings"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={() => setShowClearConfirm(true)}
+              disabled={conversationHistory.length === 0 || isSending}
+              title="Clear conversation"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {/* Messages area */}
@@ -496,7 +607,7 @@ export const PlanDialog = ({
               </div>
             </div>
           ) : (
-            <div className="py-4 space-y-5">
+            <div className="py-6 space-y-6">
               {conversationHistory.map((msg, idx) => (
                 <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                   {msg.role === "assistant" && (
@@ -508,12 +619,24 @@ export const PlanDialog = ({
                     className={`max-w-[85%] ${
                       msg.role === "user"
                         ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
-                        : "flex-1 min-w-0"
+                        : "flex-1 min-w-0 rounded-2xl rounded-bl-md bg-muted/40 dark:bg-muted/20 px-4 py-3.5"
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-xs [&_code]:text-xs [&_p]:text-sm [&_p]:leading-relaxed [&_li]:text-sm [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <div className="plan-message prose prose-sm dark:prose-invert max-w-none break-words
+                        [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p]:text-[15px] [&_p]:leading-[1.65]
+                        [&_ul]:my-3 [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-[15px] [&_li]:leading-relaxed
+                        [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:first:mt-0
+                        [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2
+                        [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5
+                        [&_pre]:my-3 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:bg-background/80 [&_pre]:border [&_pre]:overflow-x-auto [&_pre]:text-[13px]
+                        [&_code]:text-[13px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-background/80 [&_code]:font-mono
+                        [&_pre_code]:p-0 [&_pre_code]:bg-transparent
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+                        [&_hr]:my-4 [&_hr]:border-border
+                        [&_table]:my-3 [&_table]:w-full [&_th]:text-left [&_th]:font-medium [&_th]:py-2 [&_th]:pr-3 [&_td]:py-2 [&_td]:pr-3
+                        [&_strong]:font-semibold">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                       </div>
                     ) : (
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
@@ -684,7 +807,312 @@ export const PlanDialog = ({
               )}
             </button>
           </div>
+          <p className="text-[11px] text-muted-foreground mt-2 text-center">
+            Verxio is AI and can make mistakes. Please double-check responses.
+          </p>
         </div>
+
+        {/* Persona Settings Sheet */}
+        <Sheet open={personaSheetOpen} onOpenChange={setPersonaSheetOpen}>
+          <SheetContent
+            side={isMobile ? "bottom" : "right"}
+            className={cn(
+              "flex flex-col overflow-hidden p-4 sm:p-6",
+              isMobile
+                ? "inset-x-0 bottom-0 top-auto max-h-[90vh] rounded-t-2xl border-t"
+                : "w-full sm:max-w-md"
+            )}
+          >
+            <div className="flex flex-1 flex-col overflow-y-auto min-h-0 pr-6">
+              <SheetHeader className="flex-shrink-0">
+                <SheetTitle>Configure your Planning Agent</SheetTitle>
+                <SheetDescription>
+                  Set a soul and skill scope so the agent uses your custom skills and personality.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-5">
+                {/* Personality: display + Paste/Upload/Generate (like chat integration) */}
+                <div className="space-y-2">
+                  <Label>Personality (soul.md)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Give your planning agent a unique personality. Display below, or update by pasting,
+                    uploading, or generating.
+                  </p>
+                  {soulMd && (
+                    <div className="border rounded-lg p-3 bg-muted/30 max-h-32 overflow-y-auto">
+                      <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">
+                        Current personality
+                      </h4>
+                      <pre className="text-xs whitespace-pre-wrap font-mono">
+                        {soulMd.length > 200 ? `${soulMd.slice(0, 200)}...` : soulMd}
+                      </pre>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSoulUpdateExpanded(!soulUpdateExpanded)}
+                    className="gap-2"
+                  >
+                    {soulUpdateExpanded ? (
+                      <>
+                        <XCircle className="h-3.5 w-3.5" />
+                        Hide options
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-3.5 w-3.5" />
+                        {soulMd ? "Update personality" : "Set personality"}
+                      </>
+                    )}
+                  </Button>
+                  {soulUpdateExpanded && (
+                    <Tabs value={soulTab} onValueChange={setSoulTab}>
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="paste" className="flex items-center gap-1.5 text-xs">
+                          <FileText className="h-3 w-3" />
+                          Paste
+                        </TabsTrigger>
+                        <TabsTrigger value="upload" className="flex items-center gap-1.5 text-xs">
+                          <Upload className="h-3 w-3" />
+                          Upload
+                        </TabsTrigger>
+                        <TabsTrigger value="generate" className="flex items-center gap-1.5 text-xs">
+                          <Wand2 className="h-3 w-3" />
+                          Generate
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="paste" className="space-y-2 mt-3">
+                        <Textarea
+                          placeholder="Paste your soul.md content..."
+                          value={soulMd}
+                          onChange={(e) => setSoulMd(e.target.value)}
+                          rows={6}
+                          className="font-mono text-xs resize-none"
+                        />
+                      </TabsContent>
+                      <TabsContent value="upload" className="space-y-2 mt-3">
+                        <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                          <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Upload a <code className="text-[10px]">.md</code> file
+                          </p>
+                          <input
+                            ref={soulUploadInputRef}
+                            type="file"
+                            accept=".md,.txt,.markdown"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const text = await file.text();
+                              setSoulMd(text);
+                              toast.success("Personality file uploaded");
+                              e.target.value = "";
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => soulUploadInputRef.current?.click()}
+                          >
+                            Choose file
+                          </Button>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="generate" className="space-y-2 mt-3">
+                        <div className="space-y-2">
+                          <div>
+                            <Label className="text-xs">Agent name</Label>
+                            <Input
+                              placeholder="e.g., Planner"
+                              value={soulGenName}
+                              onChange={(e) => setSoulGenName(e.target.value)}
+                              className="mt-0.5 h-8 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Description</Label>
+                            <Textarea
+                              placeholder="What does this planner do?"
+                              value={soulGenDescription}
+                              onChange={(e) => setSoulGenDescription(e.target.value)}
+                              rows={2}
+                              className="mt-0.5 text-sm resize-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Tone</Label>
+                            <Select value={soulGenTone} onValueChange={setSoulGenTone}>
+                              <SelectTrigger className="mt-0.5 h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="professional">Professional</SelectItem>
+                                <SelectItem value="friendly">Friendly</SelectItem>
+                                <SelectItem value="witty">Witty</SelectItem>
+                                <SelectItem value="sarcastic">Sarcastic</SelectItem>
+                                <SelectItem value="formal">Formal</SelectItem>
+                                <SelectItem value="creative">Creative</SelectItem>
+                                <SelectItem value="empathetic">Empathetic</SelectItem>
+                                <SelectItem value="concise">Concise</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Core truths (optional)</Label>
+                            <Textarea
+                              placeholder="Values and principles..."
+                              value={soulGenCoreTruths}
+                              onChange={(e) => setSoulGenCoreTruths(e.target.value)}
+                              rows={2}
+                              className="mt-0.5 text-sm resize-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Boundaries (optional)</Label>
+                            <Textarea
+                              placeholder="Hard limits — things to never do..."
+                              value={soulGenBoundaries}
+                              onChange={(e) => setSoulGenBoundaries(e.target.value)}
+                              rows={2}
+                              className="mt-0.5 text-sm resize-none"
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={
+                              !soulGenName.trim() ||
+                              !soulGenDescription.trim() ||
+                              generatePlanSoul.isPending
+                            }
+                            onClick={() =>
+                              generatePlanSoul.mutate({
+                                name: soulGenName,
+                                description: soulGenDescription,
+                                tone: soulGenTone,
+                                coreTruths: soulGenCoreTruths || undefined,
+                                boundaries: soulGenBoundaries || undefined,
+                              })
+                            }
+                          >
+                            {generatePlanSoul.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Wand2 className="h-4 w-4 mr-2" />
+                            )}
+                            Generate (20 credits)
+                          </Button>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Skill scope</Label>
+                  <Select
+                    value={skillScope}
+                    onValueChange={(v) =>
+                      setSkillScope(v as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS")
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL_SKILLS">All skills</SelectItem>
+                      <SelectItem value="SELECTED_SKILLS">Selected skills only</SelectItem>
+                      <SelectItem value="NO_SKILLS">No custom skills</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {skillScope === "ALL_SKILLS" && "Planner has access to all your custom skills."}
+                    {skillScope === "SELECTED_SKILLS" &&
+                      "Planner uses only the skills you select below."}
+                    {skillScope === "NO_SKILLS" &&
+                      "Planner uses built-in capabilities only, no custom skills."}
+                  </p>
+                </div>
+
+                {skillScope === "SELECTED_SKILLS" && (
+                  <div className="space-y-2">
+                    <Label>Choose skills</Label>
+                    <div className="max-h-[40vh] sm:max-h-[200px] overflow-y-auto rounded-md border p-2">
+                      {(skillsData?.skills ?? []).length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center px-2">
+                          No skills yet.{" "}
+                          <NextLink href="/skills" className="text-primary underline">
+                            Add skills
+                          </NextLink>{" "}
+                          in Settings to use them here.
+                        </p>
+                      ) : (
+                        <div className="grid gap-1.5 sm:gap-2">
+                          {(skillsData?.skills ?? []).map((skill) => (
+                            <label
+                              key={skill.id}
+                              className="flex items-center gap-3 rounded-md border px-3 py-2.5 sm:py-2 text-sm cursor-pointer hover:bg-muted/50 active:bg-muted/70 min-h-[44px] sm:min-h-0 touch-manipulation"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={allowedSkillIds.includes(skill.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setAllowedSkillIds((prev) => [...prev, skill.id]);
+                                  } else {
+                                    setAllowedSkillIds((prev) =>
+                                      prev.filter((id) => id !== skill.id)
+                                    );
+                                  }
+                                }}
+                                className="rounded h-4 w-4 flex-shrink-0"
+                              />
+                              <span className="font-medium truncate flex-1 min-w-0">
+                                {skill.name}
+                              </span>
+                              {skill.description && (
+                                <span className="text-muted-foreground text-xs truncate hidden sm:inline">
+                                  — {skill.description}
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t flex-shrink-0 pb-4 sm:pb-0">
+              <Button
+                className="w-full sm:w-auto"
+                disabled={isSavingPersona}
+                onClick={() => {
+                  setIsSavingPersona(true);
+                  try {
+                    onSubmit({ soulMd, skillScope, allowedSkillIds });
+                    toast.success("Configuration saved");
+                    setPersonaSheetOpen(false);
+                  } finally {
+                    setIsSavingPersona(false);
+                  }
+                }}
+              >
+                {isSavingPersona ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save configuration"
+                )}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Clear Confirmation Dialog */}
         <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>

@@ -305,6 +305,8 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
   // Build system prompt (now async to load guide content)
   const systemPrompt = await getVerxioSystemPrompt(userContext);
 
+  const { wrapUntrustedContent } = await import("./promptInjectionDefense");
+
   // Enrich prompt with media attachment info when present
   let enrichedPrompt = prompt;
   if (attachments && attachments.length > 0) {
@@ -336,16 +338,18 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         mediaDescriptions.push(`[User shared a file: ${label}]`);
       }
     }
-    enrichedPrompt = `${prompt}\n\n--- User Attachments ---\n${mediaDescriptions.join("\n\n")}`;
+    enrichedPrompt = `${prompt}\n\n${wrapUntrustedContent("User Attachments", mediaDescriptions.join("\n\n"))}`;
   }
 
-  // Build conversation context if exists
+  // Build conversation context if exists; wrap all user content to resist prompt injection
   let fullPrompt = enrichedPrompt;
   if (conversationHistory && conversationHistory.length > 0) {
     const historyText = conversationHistory
       .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
-    fullPrompt = `Previous conversation:\n${historyText}\n\nCurrent request: ${enrichedPrompt}`;
+    fullPrompt = `${wrapUntrustedContent("Previous conversation", historyText)}\n\n${wrapUntrustedContent("Current request", enrichedPrompt)}`;
+  } else {
+    fullPrompt = wrapUntrustedContent("Current request", enrichedPrompt);
   }
 
   try {
