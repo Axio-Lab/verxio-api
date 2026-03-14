@@ -939,6 +939,7 @@ model SupportAgent {
 
   chatSessions    SupportChatSession[]
   channels        SupportChannel[]
+  supportContacts SupportContact[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -978,6 +979,8 @@ model SupportChannel {
   discordGuildId   String?
   discordChannelId String?
 
+  supportContacts SupportContact[]
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -986,6 +989,30 @@ model SupportChannel {
   @@index([platform])
   @@index([whatsappSessionId])
   @@map("support_channels")
+}
+
+// Support contact: someone who messaged the agent via a channel (WhatsApp, Telegram)
+model SupportContact {
+  id                 String   @id @default(cuid())
+  supportAgentId     String
+  supportAgent       SupportAgent @relation(fields: [supportAgentId], references: [id], onDelete: Cascade)
+  supportChannelId   String
+  supportChannel     SupportChannel @relation(fields: [supportChannelId], references: [id], onDelete: Cascade)
+  platform           String   // "WHATSAPP" | "TELEGRAM"
+  externalId         String   // JID for WhatsApp, user id for Telegram
+  externalName       String?  // pushName / display name
+  phone              String?  // normalized phone (WhatsApp); Telegram typically has none
+  metadata           Json?    // optional: username for Telegram, etc.
+  firstContactAt     DateTime @default(now())
+  lastContactAt     DateTime @default(now())
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([supportAgentId, supportChannelId, platform, externalId])
+  @@index([supportAgentId])
+  @@index([supportChannelId])
+  @@map("support_contacts")
 }
 
 // Per-visitor support chat session (publicSessionId = client localStorage sessionId)
