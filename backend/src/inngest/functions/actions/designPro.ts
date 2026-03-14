@@ -404,6 +404,25 @@ export const designProExecutor: NodeExecutor<DesignProData> = async ({
                 });
               }
             }
+
+            // Validate limits: max 6 object, max 5 human (images without type count as object)
+            const objectCount = referenceImages.filter(
+              (img) => img.type === "object" || !img.type
+            ).length;
+            const humanCount = referenceImages.filter((img) => img.type === "human").length;
+            if (objectCount > 6) {
+              return {
+                success: false,
+                error:
+                  "Maximum 6 object reference images allowed. Remove some images or mark images of people as 'human' type.",
+              };
+            }
+            if (humanCount > 5) {
+              return {
+                success: false,
+                error: "Maximum 5 human reference images allowed.",
+              };
+            }
           }
 
           const sourceImage = imageData.sourceImage

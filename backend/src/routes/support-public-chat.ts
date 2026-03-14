@@ -3,6 +3,7 @@ import fs from "fs";
 import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { createId } from "@paralleldrive/cuid2";
+import { PROMPT_INJECTION_SECURITY_PREAMBLE } from "@/services/agent/promptInjectionDefense";
 import { getSupportAgentByPublicId } from "@/services/supportAgentService";
 import {
   getOrCreateSupportChatSession,
@@ -302,6 +303,7 @@ supportPublicChatRouter.post(
       ].filter(Boolean);
 
       const systemPrompt = [
+        PROMPT_INJECTION_SECURITY_PREAMBLE,
         personaParts.join(" "),
         "You are a dedicated customer support agent for a business using Verxio.",
         "You must answer ONLY using the provided support knowledge base context when available.",
@@ -312,7 +314,7 @@ supportPublicChatRouter.post(
           : "When you cannot answer confidently, ask the user to contact support via email and say that a human agent will respond.",
         'Keep responses concise, friendly, and focused on helping the user, using first-person language ("I") and a conversational tone.',
         "Only when the user has clearly indicated they have no further questions (e.g. they said no, that's all, I'm good, or similar in response to you asking if there's anything else you can help with), you may briefly ask for a rating. For example: \"If you have a moment, would you mind rating your experience with me from 1–5 stars? I'd love to hear how I could improve my service for you!\" Then end your reply with exactly a single line: [SUGGEST_RATING]. Do NOT ask for a rating or add [SUGGEST_RATING] in any other situation—only after the user has said they have no more questions. The [SUGGEST_RATING] line will not be shown to the user.",
-      ].join(" ");
+      ].join("\n\n");
 
       const conversationText = history
         .slice(-10)

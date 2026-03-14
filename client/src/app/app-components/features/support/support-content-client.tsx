@@ -28,12 +28,18 @@ import {
   Loader2,
   Mail,
   PlugIcon,
+  Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { authenticatedDelete, authenticatedGet, authenticatedPost } from "@/lib/api-client";
+import {
+  authenticatedDelete,
+  authenticatedFetch,
+  authenticatedGet,
+  authenticatedPost,
+} from "@/lib/api-client";
 import {
   SupportAgent,
   useCreateSupportAgent,
@@ -48,6 +54,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 
 type KnowledgeBaseSummary = {
@@ -78,6 +90,29 @@ type SupportChannel = {
   id: string;
   platform: "WHATSAPP" | "TELEGRAM" | "SLACK" | "DISCORD";
   status: string;
+};
+
+type SupportContactStats = {
+  total: number;
+  byPlatform: Record<string, number>;
+};
+
+type SupportContact = {
+  id: string;
+  platform: string;
+  externalId: string;
+  externalName: string | null;
+  phone: string | null;
+  firstContactAt: string;
+  lastContactAt: string;
+};
+
+type SupportContactListResult = {
+  contacts: SupportContact[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 };
 
 const supportAgentSchema = z.object({
@@ -145,6 +180,13 @@ export function SupportContent() {
   const [telegramWebhookUrl, setTelegramWebhookUrl] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const selectedKnowledgeBaseIds = form.watch("knowledgeBaseIds") || [];
+  const [contactsAgent, setContactsAgent] = useState<SupportAgent | null>(null);
+  const [contactsStats, setContactsStats] = useState<SupportContactStats | null>(null);
+  const [contactsList, setContactsList] = useState<SupportContactListResult | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsListLoading, setContactsListLoading] = useState(false);
+  const [contactsPage, setContactsPage] = useState(1);
+  const [exportingVcf, setExportingVcf] = useState(false);
 
   useEffect(() => {
     const fetchKnowledgeBases = async () => {
@@ -240,6 +282,58 @@ export function SupportContent() {
       cancelled = true;
     };
   }, [channelsAgent]);
+
+  useEffect(() => {
+    if (!contactsAgent) {
+      setContactsStats(null);
+      setContactsList(null);
+      return;
+    }
+    let cancelled = false;
+    setContactsLoading(true);
+    setContactsStats(null);
+    setContactsList(null);
+    const load = async () => {
+      try {
+        const [stats, list] = await Promise.all([
+          authenticatedGet<SupportContactStats>(
+            `/api/support-agents/${contactsAgent.id}/contacts/stats`
+          ),
+          authenticatedGet<SupportContactListResult>(
+            `/api/support-agents/${contactsAgent.id}/contacts?page=1&limit=10`
+          ),
+        ]);
+        if (!cancelled) {
+          setContactsStats(stats);
+          setContactsList(list);
+          setContactsPage(1);
+        }
+      } catch {
+        if (!cancelled) toast.error("Failed to load contacts");
+      } finally {
+        if (!cancelled) setContactsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [contactsAgent]);
+
+  const loadContactsPage = async (agentId: string, page: number) => {
+    setContactsListLoading(true);
+    try {
+      const list = await authenticatedGet<SupportContactListResult>(
+        `/api/support-agents/${agentId}/contacts?page=${page}&limit=10`
+      );
+      setContactsList(list);
+      setContactsPage(page);
+    } catch {
+      toast.error("Failed to load contacts");
+    } finally {
+      setContactsListLoading(false);
+    }
+  };
 
   const agents = data?.agents ?? [];
 
@@ -690,8 +784,8 @@ export function SupportContent() {
       disabled={createMutation.isPending || updateMutation.isPending}
       isCreating={createMutation.isPending}
     >
-      <div className="min-w-0 space-y-3">
-        <div className="min-w-0 space-y-2 rounded-lg border bg-card p-3 sm:p-4">
+      <div className="min-w-0 w-full max-w-full overflow-hidden space-y-3">
+        <div className="min-w-0 w-full max-w-full overflow-hidden space-y-2 rounded-lg border bg-card p-3 sm:p-4">
           {pagedAgents.map((agent) => {
             const publicLink = baseUrl
               ? `${baseUrl.replace(/\/+$/, "")}/support/${agent.publicId}`
@@ -703,22 +797,22 @@ export function SupportContent() {
             return (
               <div
                 key={agent.id}
-                className="min-w-0 flex flex-col gap-3 rounded-md border bg-background p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="min-w-0 w-full max-w-full overflow-hidden flex flex-col gap-3 rounded-md border bg-background p-3 sm:p-4"
               >
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
-                      className="h-7 w-7 rounded-md border"
+                      className="h-7 w-7 shrink-0 rounded-md border"
                       style={{ borderColor: agent.brandColor || "#6366f1" }}
                     />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{agent.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{agent.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {agent.description || "Support agent using your knowledge bases"}
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground break-words">
                     {agent.knowledgeBaseIds.length
                       ? `${agent.knowledgeBaseIds.length} knowledge base${agent.knowledgeBaseIds.length > 1 ? "s" : ""} linked`
                       : "No knowledge bases linked yet"}
@@ -727,11 +821,12 @@ export function SupportContent() {
                       : " • No fallback email set"}
                   </p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap sm:gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
                       onClick={() => {
                         navigator.clipboard
                           .writeText(publicLink)
@@ -739,12 +834,13 @@ export function SupportContent() {
                           .catch(() => toast.error("Failed to copy link"));
                       }}
                     >
-                      <LinkIcon className="mr-1.5 h-3.5 w-3.5" />
+                      <LinkIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                       Link
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
                       onClick={() => {
                         navigator.clipboard
                           .writeText(embedCode)
@@ -752,35 +848,53 @@ export function SupportContent() {
                           .catch(() => toast.error("Failed to copy embed code"));
                       }}
                     >
-                      <Code2 className="mr-1.5 h-3.5 w-3.5" />
+                      <Code2 className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                       Embed
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
                       onClick={() => setChannelsAgent(agent)}
                       title="Manage support channels"
                     >
-                      <PlugIcon className="mr-1.5 h-3.5 w-3.5" />
+                      <PlugIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                       Channels
                     </Button>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
+                      onClick={() => setContactsAgent(agent)}
+                      title="View contacts"
+                    >
+                      <Users className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                      Contacts
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
                       onClick={() => setInsightsAgent(agent)}
                       title="View insights"
                     >
-                      <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
+                      <BarChart3 className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                       Insights
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(agent)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => openEditDialog(agent)}
+                    >
                       Edit
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
                       onClick={() => deleteMutation.mutate({ id: agent.id })}
                       disabled={deleteMutation.isPending}
                     >
@@ -1338,6 +1452,206 @@ export function SupportContent() {
                       ) : null}
                       Load suggestions
                     </Button>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contacts dialog */}
+      <Dialog open={!!contactsAgent} onOpenChange={(open) => !open && setContactsAgent(null)}>
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="pr-8">
+              {contactsAgent?.name ?? "Support agent"} — Contacts
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 -mr-1 min-h-0">
+            {contactsLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Loading contacts</p>
+              </div>
+            ) : contactsStats ? (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  People who messaged this agent via WhatsApp or Telegram. Export to add them to your
+                  address book.
+                </p>
+                <div className="flex flex-wrap gap-2 sm:gap-3">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={contactsStats.total === 0 || exportingVcf}
+                      >
+                        {exportingVcf ? (
+                          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="mr-2 h-3.5 w-3.5" />
+                        )}
+                        Export VCF
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        disabled={contactsStats.total === 0 || exportingVcf}
+                        onClick={async () => {
+                          if (!contactsAgent || contactsStats.total === 0) return;
+                          setExportingVcf(true);
+                          try {
+                            const res = await authenticatedFetch(
+                              `/api/support-agents/${contactsAgent.id}/contacts/export`
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `support-contacts-${contactsAgent.name.replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.vcf`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast.success("All contacts exported as VCF");
+                          } catch {
+                            toast.error("Failed to export contacts");
+                          } finally {
+                            setExportingVcf(false);
+                          }
+                        }}
+                      >
+                        Export all ({contactsStats.total})
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={(contactsStats.byPlatform?.WHATSAPP ?? 0) === 0 || exportingVcf}
+                        onClick={async () => {
+                          if (!contactsAgent) return;
+                          setExportingVcf(true);
+                          try {
+                            const res = await authenticatedFetch(
+                              `/api/support-agents/${contactsAgent.id}/contacts/export?platform=WHATSAPP`
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `support-contacts-${contactsAgent.name.replace(/\s+/g, "-")}-whatsapp-${new Date().toISOString().slice(0, 10)}.vcf`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast.success("WhatsApp contacts exported as VCF");
+                          } catch {
+                            toast.error("Failed to export contacts");
+                          } finally {
+                            setExportingVcf(false);
+                          }
+                        }}
+                      >
+                        Export WhatsApp only ({contactsStats.byPlatform?.WHATSAPP ?? 0})
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={(contactsStats.byPlatform?.TELEGRAM ?? 0) === 0 || exportingVcf}
+                        onClick={async () => {
+                          if (!contactsAgent) return;
+                          setExportingVcf(true);
+                          try {
+                            const res = await authenticatedFetch(
+                              `/api/support-agents/${contactsAgent.id}/contacts/export?platform=TELEGRAM`
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `support-contacts-${contactsAgent.name.replace(/\s+/g, "-")}-telegram-${new Date().toISOString().slice(0, 10)}.vcf`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast.success("Telegram contacts exported as VCF");
+                          } catch {
+                            toast.error("Failed to export contacts");
+                          } finally {
+                            setExportingVcf(false);
+                          }
+                        }}
+                      >
+                        Export Telegram only ({contactsStats.byPlatform?.TELEGRAM ?? 0})
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-2xl font-bold">{contactsStats.total}</p>
+                      <p className="text-xs text-muted-foreground">Total contacts</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-2xl font-bold">
+                        {contactsStats.byPlatform?.WHATSAPP ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">WhatsApp</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-2xl font-bold">
+                        {contactsStats.byPlatform?.TELEGRAM ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Telegram</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Contact list</h4>
+                  {contactsListLoading && !contactsList ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !contactsList?.contacts?.length ? (
+                    <p className="text-sm text-muted-foreground py-4 rounded-md border bg-muted/30 px-3">
+                      No contacts yet. Contacts are saved when users message this agent via WhatsApp
+                      or Telegram.
+                    </p>
+                  ) : (
+                    <>
+                      <ul className="rounded-md border divide-y max-h-48 overflow-y-auto">
+                        {contactsList.contacts.map((c) => (
+                          <li
+                            key={c.id}
+                            className="px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-medium truncate block">
+                                {c.externalName || c.phone || `Contact (${c.platform})`}
+                              </span>
+                              {c.phone && c.externalName && (
+                                <span className="text-xs text-muted-foreground truncate block">
+                                  {c.phone}
+                                </span>
+                              )}
+                            </div>
+                            <Badge variant="outline" className="w-fit text-xs shrink-0">
+                              {c.platform}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
+                      {contactsList.totalPages > 1 && (
+                        <div className="mt-3 flex justify-center">
+                          <EntityPagination
+                            currentPage={contactsPage}
+                            totalPages={contactsList.totalPages}
+                            onPageChange={(p) =>
+                              contactsAgent && loadContactsPage(contactsAgent.id, p)
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </>

@@ -4,6 +4,7 @@ import {
   updateSupportChannelConfigInternal,
 } from "@/services/supportChannelService";
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
+import { upsertSupportContact } from "@/services/supportContactService";
 
 const router = Router();
 
@@ -57,6 +58,26 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
       if (!channel.telegramChatId || channel.telegramChatId !== chatId) {
         await updateSupportChannelConfigInternal(channel.id, { telegramChatId: chatId });
       }
+
+      // Save contact when someone messages the support agent
+      const from = message?.from || update?.callback_query?.from;
+      if (from && senderId) {
+        try {
+          const externalName = [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || null;
+          await upsertSupportContact({
+            supportAgentId: channel.supportAgentId,
+            supportChannelId: channel.id,
+            platform: "TELEGRAM",
+            externalId: senderId,
+            externalName: externalName || null,
+            phone: null,
+            metadata: from.username ? { username: from.username } : undefined,
+          });
+        } catch (contactErr) {
+          console.warn("[Support Telegram] upsert support contact failed:", contactErr);
+        }
+      }
+
       const reply = await respondToChannelMessage({
         supportAgentId: channel.supportAgentId,
         externalId: senderId || chatId,

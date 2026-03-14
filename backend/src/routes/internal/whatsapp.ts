@@ -5,6 +5,7 @@ import { inngest } from "@/inngest";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
 import { getSupportChannelByWhatsAppSession } from "@/services/supportChannelService";
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
+import { upsertSupportContact } from "@/services/supportContactService";
 import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
@@ -237,6 +238,22 @@ router.post("/incoming", async (req: Request, res: Response) => {
   if (body.sessionId && !body.integrationId) {
     const supportChannel = await getSupportChannelByWhatsAppSession(body.sessionId);
     if (supportChannel) {
+      // Save contact when someone messages the support agent (normalize JID to prevent duplicates)
+      try {
+        const normalizedJid = fromJid.replace(/:.*@/, "@");
+        const phoneMatch = normalizedJid.match(/^(\d+)@/);
+        await upsertSupportContact({
+          supportAgentId: supportChannel.supportAgentId,
+          supportChannelId: supportChannel.id,
+          platform: "WHATSAPP",
+          externalId: normalizedJid,
+          externalName: payload.pushName ?? null,
+          phone: phoneMatch ? `+${phoneMatch[1]}` : null,
+        });
+      } catch (contactErr) {
+        console.warn("[WhatsApp incoming] upsert support contact failed:", contactErr);
+      }
+
       // For now, always route messages to the bound support agent
       const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
 

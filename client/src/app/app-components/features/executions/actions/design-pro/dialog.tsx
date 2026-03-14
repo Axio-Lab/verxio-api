@@ -52,8 +52,10 @@ const ASPECT_RATIO_VALUES = ASPECT_RATIOS.map((a) => a.value) as [string, ...str
 const MODES = [
   { value: "generate", label: "Generate (Text-to-Image)" },
   { value: "edit", label: "Edit (Image + Text)" },
-  { value: "editWithReferences", label: "Edit with References (Up to 14 images)" },
+  { value: "editWithReferences", label: "Edit with References (6 objects + 5 humans max)" },
 ] as const;
+
+const MAX_REFERENCE_IMAGES = 6; // Max object refs (default type); use type selector for up to 5 more human refs
 
 const IMAGE_SIZES = [
   { value: "1K", label: "1K (Standard - Default)" },
@@ -206,8 +208,10 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
     const currentCount = referenceImageFiles.length;
     const newCount = currentCount + imageFiles.length;
 
-    if (newCount > 14) {
-      toast.error("Maximum 14 reference images allowed");
+    if (newCount > MAX_REFERENCE_IMAGES) {
+      toast.error(
+        `Maximum ${MAX_REFERENCE_IMAGES} object reference images allowed (or 6 objects + 5 humans if you set type)`
+      );
       return;
     }
 
@@ -576,7 +580,7 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                       {watchMode === "generate" && "Generate a new image from text prompt."}
                       {watchMode === "edit" && "Edit an existing image with text instructions."}
                       {watchMode === "editWithReferences" &&
-                        "Edit with up to 14 reference images (6 objects + 5 humans)."}
+                        "Up to 6 object reference images (default), or 6 objects + 5 humans if you set type per image."}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -814,10 +818,10 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                             size="sm"
                             onClick={() => referenceImagesInputRef.current?.click()}
                             className="flex items-center gap-2"
-                            disabled={referenceImageFiles.length >= 14}
+                            disabled={referenceImageFiles.length >= MAX_REFERENCE_IMAGES}
                           >
                             <Upload className="h-4 w-4" />
-                            Upload Images ({referenceImageFiles.length}/14)
+                            Upload Images ({referenceImageFiles.length}/{MAX_REFERENCE_IMAGES})
                           </Button>
                           <input
                             ref={referenceImagesInputRef}
@@ -855,8 +859,9 @@ export const DesignProDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
                         )}
                       </div>
                       <FormDescription>
-                        Upload up to 14 reference images (6 objects + 5 humans). Images are
-                        converted to base64 automatically.
+                        Upload up to 6 object reference images (default). Mark as &quot;human&quot;
+                        type for images of people to use up to 5 more. Images are converted to
+                        base64 automatically.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
