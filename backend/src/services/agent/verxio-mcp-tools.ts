@@ -2820,9 +2820,7 @@ const runComposioActionTool: VerxioTool = {
       if (error?.message?.includes("Rate limit") || error?.message?.includes("quota")) {
         return {
           success: false,
-          error:
-            error.message ||
-            "Rate limit exceeded. Upgrade or wait for quota reset.",
+          error: error.message || "Rate limit exceeded. Upgrade or wait for quota reset.",
         };
       }
       return {

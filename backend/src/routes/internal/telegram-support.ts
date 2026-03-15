@@ -63,7 +63,8 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
       const from = message?.from || update?.callback_query?.from;
       if (from && senderId) {
         try {
-          const externalName = [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || null;
+          const externalName =
+            [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || null;
           await upsertSupportContact({
             supportAgentId: channel.supportAgentId,
             supportChannelId: channel.id,

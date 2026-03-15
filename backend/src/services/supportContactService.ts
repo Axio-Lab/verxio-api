@@ -125,9 +125,7 @@ export type SupportContactStats = {
 /**
  * Get contact counts for an agent.
  */
-export async function getSupportContactStats(
-  supportAgentId: string
-): Promise<SupportContactStats> {
+export async function getSupportContactStats(supportAgentId: string): Promise<SupportContactStats> {
   const [total, byPlatform] = await Promise.all([
     prisma.supportContact.count({ where: { supportAgentId } }),
     prisma.supportContact.groupBy({

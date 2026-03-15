@@ -1477,8 +1477,8 @@ export function SupportContent() {
             ) : contactsStats ? (
               <>
                 <p className="text-xs text-muted-foreground">
-                  People who messaged this agent via WhatsApp or Telegram. Export to add them to your
-                  address book.
+                  People who messaged this agent via WhatsApp or Telegram. Export to add them to
+                  your address book.
                 </p>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
                   <DropdownMenu>

@@ -124,9 +124,7 @@ export const MarkdownNode = memo((props: NodeProps) => {
   const handleDownloadDocx = useCallback(async () => {
     if (!resolvedText) return;
     try {
-      const { convertMarkdownToDocx, downloadDocx } = await import(
-        "@mohtasham/md-to-docx"
-      );
+      const { convertMarkdownToDocx, downloadDocx } = await import("@mohtasham/md-to-docx");
       const blob = await convertMarkdownToDocx(resolvedText);
       downloadDocx(blob, `${baseFilename}.docx`);
       toast.success("Downloaded as DOCX");
@@ -196,15 +194,9 @@ export const MarkdownNode = memo((props: NodeProps) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[140px]">
-                  <DropdownMenuItem onClick={handleDownloadMd}>
-                    Markdown (.md)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDownloadPdf}>
-                    PDF (.pdf)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDownloadDocx}>
-                    Word (.docx)
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadMd}>Markdown (.md)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPdf}>PDF (.pdf)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadDocx}>Word (.docx)</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
