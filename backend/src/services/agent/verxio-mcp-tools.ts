@@ -1140,7 +1140,7 @@ export const executeWorkflowTool: VerxioTool = {
 export const executeSingleNodeAndWaitTool: VerxioTool = {
   name: "executeSingleNodeAndWait",
   description:
-    "Run a single workflow node and wait for its output. Use when the user asks for a one-off action (e.g. check calendar, book meeting, list events, generate image) that one node can do. You have access to ALL existing node types: prefer the standard node that fits (GOOGLE_CALENDAR, GOOGLE_SHEETS, GOOGLE_MEET, DESIGN, VEO, GEMINI, etc.); use CODE_BLOCK or custom nodes only when no standard node matches. Before running: tell the user what you'll do (which node, how you'll configure it) and give them a chance to request changes. Add/configure the node with addNode and configureNode (changes are saved to the workflow); fill all required fields and tell the user if anything is missing. Then call this with nodeId. Summarize the output in human language in your reply.",
+    "Run a single workflow node and wait for its output. Use for one-off actions that need workflow nodes (GOOGLE_CALENDAR, DESIGN, VEO, CODE_BLOCK, etc.). For Composio one-offs (create doc, send email, list events via Composio), use runComposioAction instead—it runs directly without adding nodes. Add/configure the node with addNode and configureNode; fill all required fields; then call this with nodeId. Summarize the output in human language in your reply.",
   inputSchema: z.object({
     workflowId: z.string().describe("ID of the workflow that contains the node"),
     nodeId: z.string().describe("ID of the node to execute"),
@@ -2707,6 +2707,130 @@ const getComposioAppDetailsTool: VerxioTool = {
   },
 };
 
+/**
+ * Run a Composio action directly without adding a workflow node.
+ * Use this for one-off actions (create doc, send email, list calendar, etc.).
+ * Use COMPOSIO_ACTION nodes only when building workflows.
+ */
+function detectComposioPermissionError(result: unknown): string | null {
+  try {
+    const serialized = JSON.stringify(result);
+    if (
+      /insufficient authentication scopes/i.test(serialized) ||
+      /ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(serialized) ||
+      /"status"\s*:\s*"PERMISSION_DENIED"/i.test(serialized)
+    ) {
+      return "Request had insufficient authentication scopes or permissions for the connected app.";
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+const runComposioActionTool: VerxioTool = {
+  name: "runComposioAction",
+  description:
+    "Execute a Composio action directly without adding a workflow node. Use this for ONE-OFF actions: create a Google Doc, send an email, list calendar events, create a GitHub issue, etc. Does NOT modify the workflow. Use COMPOSIO_ACTION nodes only when BUILDING workflows that will run repeatedly. Before calling: use listComposioConnections to verify the app is connected, getComposioAppDetails(appSlug) to get the exact action slug. Pass the actual content/values in composioParams—no template variables.",
+  inputSchema: z.object({
+    composioActionName: z
+      .string()
+      .describe(
+        "Exact Composio action slug (e.g. GITHUB_CREATE_ISSUE, NOTION_CREATE_PAGE, GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN, GOOGLECALENDAR_LIST_EVENTS). Get from getComposioAppDetails—do not guess."
+      ),
+    composioParams: z
+      .record(z.string(), z.any())
+      .describe(
+        "Action-specific parameters as JSON. For GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN: title (string), markdown_text (string, REQUIRED). For GOOGLECALENDAR_LIST_EVENTS: timeMin, timeMax (ISO dates). Pass resolved values—no {{variable}} templates."
+      ),
+  }),
+  execute: async (
+    args: { composioActionName: string; composioParams: Record<string, unknown> },
+    context: ToolContext
+  ) => {
+    try {
+      const { executeComposioAction, isComposioConfigured } =
+        await import("../composio/composioService");
+      if (!isComposioConfigured()) {
+        return {
+          success: false,
+          error:
+            "Composio is not configured. The COMPOSIO_API_KEY environment variable is not set.",
+        };
+      }
+
+      const { checkNodeAccess } = await import("@/services/subscriptionCheck");
+      await checkNodeAccess(context.userId, "COMPOSIO_ACTION");
+
+      const { consumePremiumQuota } = await import("@/services/subscriptionService");
+      const { QUOTA_COST } = await import("@/config/rate-limits");
+      await consumePremiumQuota(context.userId, QUOTA_COST.COMPOSIO_ACTION);
+
+      const actionName = args.composioActionName.toUpperCase();
+      let params = { ...(args.composioParams || {}) };
+
+      // Normalize GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN params
+      if (actionName === "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN") {
+        if (
+          (params.markdown_text === undefined || params.markdown_text === "") &&
+          (params.content !== undefined ||
+            params.body !== undefined ||
+            params.markdown !== undefined ||
+            params.markdown_content !== undefined ||
+            params.text !== undefined)
+        ) {
+          const body =
+            params.content ??
+            params.body ??
+            params.markdown ??
+            params.markdown_content ??
+            params.text;
+          if (body !== undefined && body !== "") {
+            params = { ...params, markdown_text: body };
+          }
+        }
+        const bodyValue = params.markdown_text;
+        if (!bodyValue || (typeof bodyValue === "string" && bodyValue.trim() === "")) {
+          return {
+            success: false,
+            error:
+              "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN requires markdown_text (or content/body) with non-empty content.",
+          };
+        }
+      }
+
+      const result = await executeComposioAction(context.userId, actionName, params);
+
+      const permissionError = detectComposioPermissionError(result);
+      if (permissionError) {
+        return {
+          success: false,
+          error: `${permissionError} Ask the user to reconnect this app in Settings > Connections and grant all requested scopes, then retry.`,
+        };
+      }
+
+      return {
+        success: true,
+        actionName: actionName,
+        result,
+        message:
+          "Composio action completed. Summarize this result in human language for the user in your reply.",
+      };
+    } catch (error: any) {
+      if (error?.message?.includes("Rate limit") || error?.message?.includes("quota")) {
+        return {
+          success: false,
+          error: error.message || "Rate limit exceeded. Upgrade or wait for quota reset.",
+        };
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Composio action failed",
+      };
+    }
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -2740,6 +2864,7 @@ export const verxioTools: VerxioTool[] = [
   connectComposioAppTool,
   searchComposioAppsTool,
   getComposioAppDetailsTool,
+  runComposioActionTool,
 ];
 
 export default verxioTools;

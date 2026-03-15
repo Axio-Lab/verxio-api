@@ -120,12 +120,8 @@ export const PlanDialog = ({
   const [isSaving, setIsSaving] = useState(false);
   const [personaSheetOpen, setPersonaSheetOpen] = useState(false);
   const [isSavingPersona, setIsSavingPersona] = useState(false);
-  const [soulMd, setSoulMd] = useState(
-    () => (defaultValues?.soulMd as string | undefined) || ""
-  );
-  const [skillScope, setSkillScope] = useState<
-    "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS"
-  >(
+  const [soulMd, setSoulMd] = useState(() => (defaultValues?.soulMd as string | undefined) || "");
+  const [skillScope, setSkillScope] = useState<"ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS">(
     () =>
       (defaultValues?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
   );
@@ -171,7 +167,8 @@ export const PlanDialog = ({
     if (open) {
       setSoulMd((defaultValues?.soulMd as string | undefined) || "");
       setSkillScope(
-        (defaultValues?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
+        (defaultValues?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") ||
+          "ALL_SKILLS"
       );
       setAllowedSkillIds((defaultValues?.allowedSkillIds as string[] | undefined) || []);
     }
@@ -407,8 +404,7 @@ export const PlanDialog = ({
                 name: "Verxio",
                 soulMd: soulMd.trim(),
                 skillScope,
-                allowedSkillIds:
-                  skillScope === "SELECTED_SKILLS" ? allowedSkillIds : [],
+                allowedSkillIds: skillScope === "SELECTED_SKILLS" ? allowedSkillIds : [],
               }
             : undefined,
         }),
@@ -623,7 +619,8 @@ export const PlanDialog = ({
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="plan-message prose prose-sm dark:prose-invert max-w-none break-words
+                      <div
+                        className="plan-message prose prose-sm dark:prose-invert max-w-none break-words
                         [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p]:text-[15px] [&_p]:leading-[1.65]
                         [&_ul]:my-3 [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-[15px] [&_li]:leading-relaxed
                         [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:first:mt-0
@@ -635,7 +632,8 @@ export const PlanDialog = ({
                         [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
                         [&_hr]:my-4 [&_hr]:border-border
                         [&_table]:my-3 [&_table]:w-full [&_th]:text-left [&_th]:font-medium [&_th]:py-2 [&_th]:pr-3 [&_td]:py-2 [&_td]:pr-3
-                        [&_strong]:font-semibold">
+                        [&_strong]:font-semibold"
+                      >
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                       </div>
                     ) : (
@@ -835,8 +833,8 @@ export const PlanDialog = ({
                 <div className="space-y-2">
                   <Label>Personality (soul.md)</Label>
                   <p className="text-xs text-muted-foreground">
-                    Give your planning agent a unique personality. Display below, or update by pasting,
-                    uploading, or generating.
+                    Give your planning agent a unique personality. Display below, or update by
+                    pasting, uploading, or generating.
                   </p>
                   {soulMd && (
                     <div className="border rounded-lg p-3 bg-muted/30 max-h-32 overflow-y-auto">

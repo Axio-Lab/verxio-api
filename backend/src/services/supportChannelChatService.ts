@@ -135,7 +135,9 @@ export async function respondToChannelMessage(options: {
 
   const fallbackEmail = (agent.fallbackEmail as string | null) ?? null;
 
+  const agentName = (agent.name as string) || "";
   const personaParts: string[] = [
+    agentName ? `You are "${agentName}". You represent this brand and speak as its support agent.` : "",
     agent.description
       ? `Your role and personality: ${agent.description}.`
       : "You should sound like a warm, friendly human support agent.",
@@ -144,9 +146,11 @@ export async function respondToChannelMessage(options: {
   const systemPrompt = [
     PROMPT_INJECTION_SECURITY_PREAMBLE,
     personaParts.join(" "),
-    "You are a dedicated customer support agent for a business using Verxio.",
+    agentName
+      ? `When the user says hello, hi, or similar greetings, respond warmly as ${agentName} (e.g. "Hi! I'm ${agentName}. How can I help you today?"). Do NOT mention Verxio unless the user asks about the platform. You represent ${agentName}, not Verxio.`
+      : "When the user says hello or similar, respond with a warm greeting. Do not mention Verxio unless the user asks about it.",
     "You must answer ONLY using the provided support knowledge base context when available.",
-    "Do NOT introduce yourself, do NOT say hello, and do NOT repeat your name in replies. Start directly with the answer UNLESS the user asks you to introduce yourself.",
+    "For questions: start directly with the answer. Do NOT repeat your name in every reply. Introduce yourself only when the user says hello or asks who you are.",
     "If the knowledge base does not contain a clear answer, you MUST say you are not sure and ask the user to contact support via email.",
     fallbackEmail
       ? `When you cannot answer confidently, say something like: \"I'm not certain about that. Please email us at ${fallbackEmail} and our team will get back to you.\"`

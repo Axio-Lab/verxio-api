@@ -7,10 +7,17 @@ import { MarkdownDialog, MarkdownFormValues } from "./dialog";
 import { useReactFlow } from "@xyflow/react";
 import { useNodeStatus } from "@/app/app-components/features/executions/hooks/use-node-status";
 import { useWorkflowOutputs } from "@/app/app-components/features/editor/workflow-outputs-store";
-import { Download, Copy } from "lucide-react";
+import { Copy, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 type MarkdownNodeData = {
   variables?: string;
@@ -72,21 +79,60 @@ export const MarkdownNode = memo((props: NodeProps) => {
     );
   };
 
-  const handleDownload = useCallback(() => {
+  const baseFilename = nodeData.outputFilename || `markdown-${Date.now()}`;
+
+  const handleDownloadMd = useCallback(() => {
     if (!resolvedText) return;
-    const filename = nodeData.outputFilename
-      ? `${nodeData.outputFilename}.md`
-      : `markdown-${Date.now()}.md`;
     const blob = new Blob([resolvedText], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename;
+    link.download = `${baseFilename}.md`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [resolvedText, nodeData.outputFilename]);
+    toast.success("Downloaded as Markdown");
+  }, [resolvedText, baseFilename]);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!resolvedText) return;
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { marked } = await import("marked");
+      const div = document.createElement("div");
+      div.style.cssText =
+        "position:absolute;left:-9999px;top:0;width:800px;padding:24px;font-family:Georgia,serif;font-size:12px;line-height:1.6;color:#333;";
+      div.innerHTML = marked.parse(resolvedText) as string;
+      document.body.appendChild(div);
+      const pdf = new jsPDF({ format: "a4", unit: "mm" });
+      await pdf.html(div, {
+        margin: [15, 15, 15, 15],
+        windowWidth: 800,
+        callback: () => {
+          document.body.removeChild(div);
+          pdf.save(`${baseFilename}.pdf`);
+          toast.success("Downloaded as PDF");
+        },
+      });
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      toast.error("Failed to export PDF");
+    }
+  }, [resolvedText, baseFilename]);
+
+  const handleDownloadDocx = useCallback(async () => {
+    if (!resolvedText) return;
+    try {
+      const { convertMarkdownToDocx, downloadDocx } = await import("@mohtasham/md-to-docx");
+      const blob = await convertMarkdownToDocx(resolvedText);
+      downloadDocx(blob, `${baseFilename}.docx`);
+      toast.success("Downloaded as DOCX");
+    } catch (err) {
+      console.error("DOCX export failed:", err);
+      toast.error("Failed to export DOCX");
+    }
+  }, [resolvedText, baseFilename]);
 
   const handleCopy = useCallback(async () => {
     if (!resolvedText) return;
@@ -136,15 +182,23 @@ export const MarkdownNode = memo((props: NodeProps) => {
                 <Copy className="h-3.5 w-3.5" />
                 Copy
               </button>
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium bg-neutral-700 hover:bg-neutral-600 text-neutral-200 transition-colors"
-                title="Download as .md"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download .md
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 rounded px-2 py-1 text-xs font-medium bg-neutral-700 hover:bg-neutral-600 text-neutral-200 border-0"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                    Download
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[140px]">
+                  <DropdownMenuItem onClick={handleDownloadMd}>Markdown (.md)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPdf}>PDF (.pdf)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadDocx}>Word (.docx)</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}

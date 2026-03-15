@@ -136,11 +136,12 @@ supportPublicChatRouter.get(
         return res.status(400).json({ success: false, message: "publicId is required" });
       }
       const agent = await getSupportAgentByPublicId(publicId);
-      if (!agent || agent.status !== "active") {
+      if (!agent) {
         return res.status(404).json({ success: false, message: "Support agent not found" });
       }
       return res.status(200).json({
-        success: true,
+        success: agent.status === "active",
+        active: agent.status === "active",
         name: agent.name,
         description: agent.description ?? null,
         greeting: agent.greeting,
@@ -264,8 +265,16 @@ supportPublicChatRouter.post(
       }
 
       const agent = await getSupportAgentByPublicId(publicId);
-      if (!agent || agent.status !== "active") {
+      if (!agent) {
         return res.status(404).json({ success: false, message: "Support agent not found" });
+      }
+      if (agent.status !== "active") {
+        return res.status(200).json({
+          success: false,
+          code: "agentDisabled",
+          agentName: agent.name,
+          message: `${agent.name} is disabled. Enable in your Verxio dashboard support agent section.`,
+        });
       }
 
       const { id: supportChatSessionId } = await getOrCreateSupportChatSession(agent.id, sessionId);
@@ -296,7 +305,7 @@ supportPublicChatRouter.post(
       const fallbackEmail = agent.fallbackEmail;
 
       const personaParts = [
-        agent.name ? `Your name is "${agent.name}".` : "",
+        agent.name ? `You are "${agent.name}". You represent this brand and speak as its support agent.` : "",
         agent.description
           ? `Your role and personality: ${agent.description}.`
           : "You should sound like a warm, friendly human support agent.",
@@ -305,9 +314,11 @@ supportPublicChatRouter.post(
       const systemPrompt = [
         PROMPT_INJECTION_SECURITY_PREAMBLE,
         personaParts.join(" "),
-        "You are a dedicated customer support agent for a business using Verxio.",
+        agent.name
+          ? `When the user says hello, hi, or similar greetings, respond warmly as ${agent.name} (e.g. "Hi! I'm ${agent.name}. How can I help you today?"). Do NOT mention Verxio unless the user asks about the platform. You represent ${agent.name}, not Verxio.`
+          : "When the user says hello or similar, respond with a warm greeting. Do not mention Verxio unless the user asks about it.",
         "You must answer ONLY using the provided support knowledge base context when available.",
-        "Do NOT introduce yourself, do NOT say hello, and do NOT repeat your name in replies. Start directly with the answer UNLESS the user asks you to introduce yourself.",
+        "For questions: start directly with the answer. Do NOT repeat your name in every reply. Introduce yourself only when the user says hello or asks who you are.",
         "If the knowledge base does not contain a clear answer, you MUST say you are not sure and ask the user to contact support via email.",
         fallbackEmail
           ? `When you cannot answer confidently, say something like: "I'm not certain about that. Please email us at ${fallbackEmail} and our team will get back to you."`

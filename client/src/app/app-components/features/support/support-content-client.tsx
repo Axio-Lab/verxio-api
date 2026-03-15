@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +115,8 @@ type SupportContactListResult = {
   limit: number;
   totalPages: number;
 };
+
+const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const;
 
 const supportAgentSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -781,7 +784,7 @@ export function SupportContent() {
         setPage(1);
       }}
       onNew={openCreateDialog}
-      disabled={createMutation.isPending || updateMutation.isPending}
+      disabled={createMutation.isPending}
       isCreating={createMutation.isPending}
     >
       <div className="min-w-0 w-full max-w-full overflow-hidden space-y-3">
@@ -810,6 +813,32 @@ export function SupportContent() {
                       <p className="text-xs text-muted-foreground">
                         {agent.description || "Support agent using your knowledge bases"}
                       </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2" title={agent.status === SUPPORT_AGENT_STATUS.ACTIVE ? "Agent answers messages from connected channels" : "Agent disabled — messages from channels will not be answered"}>
+                      <Label
+                        htmlFor={`status-${agent.id}`}
+                        className="text-xs font-medium whitespace-nowrap cursor-pointer"
+                      >
+                        {agent.status === SUPPORT_AGENT_STATUS.ACTIVE ? "Active" : "Disabled"}
+                      </Label>
+                      <Switch
+                        id={`status-${agent.id}`}
+                        checked={agent.status === SUPPORT_AGENT_STATUS.ACTIVE}
+                        disabled={
+                          updateMutation.isPending &&
+                          (updateMutation.variables as { id: string } | undefined)?.id === agent.id
+                        }
+                        onCheckedChange={(checked) => {
+                          updateMutation.mutate({
+                            id: agent.id,
+                            data: {
+                              status: checked
+                                ? SUPPORT_AGENT_STATUS.ACTIVE
+                                : SUPPORT_AGENT_STATUS.DISABLED,
+                            },
+                          });
+                        }}
+                      />
                     </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground break-words">
@@ -1477,8 +1506,8 @@ export function SupportContent() {
             ) : contactsStats ? (
               <>
                 <p className="text-xs text-muted-foreground">
-                  People who messaged this agent via WhatsApp or Telegram. Export to add them to your
-                  address book.
+                  People who messaged this agent via WhatsApp or Telegram. Export to add them to
+                  your address book.
                 </p>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
                   <DropdownMenu>
