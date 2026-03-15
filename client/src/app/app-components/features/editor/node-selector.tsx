@@ -389,7 +389,7 @@ const executionNodes: NodeTypeOption[] = [
     type: NodeType.MARKDOWN,
     label: "Markdown",
     description:
-      "Display a node's text output as markdown. Connect from Gemini, Claude, or any text node; download as .md file.",
+      "Display a node's text output as markdown. Connect from Gemini, Claude, or any text node; download as .md, PDF, or .docx.",
     icon: FileText,
   },
   {
