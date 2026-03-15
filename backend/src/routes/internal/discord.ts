@@ -69,6 +69,12 @@ router.post("/incoming", async (req: Request, res: Response) => {
       supportChannel.platform === "DISCORD" &&
       supportChannel.status === "connected"
     ) {
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } })
+        .supportAgent?.status;
+      if (agentStatus === "disabled") {
+        return res.json({ ok: true, skipped: "agent_disabled" });
+      }
+
       const replyChannelId = threadId || channelId;
       const replyToMessageId = body.messageId;
       const isServerChannel = !!guildId;

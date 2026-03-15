@@ -64,9 +64,14 @@ export function useUpdateSupportAgent() {
   const queryClient = useQueryClient();
   return useProtectedMutation<SupportAgent, Error, { id: string; data: UpdateSupportAgentData }>({
     mutationFn: ({ id, data }) => authenticatedPut<SupportAgent>(`/api/support-agents/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["support-agents"] });
-      toast.success("Support agent updated");
+      if (variables.data?.status !== undefined) {
+        const statusLabel = variables.data.status === "active" ? "active" : "disabled";
+        toast.success(`${data.name} is now ${statusLabel}`);
+      } else {
+        toast.success("Support agent updated");
+      }
     },
   });
 }

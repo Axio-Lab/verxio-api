@@ -39,6 +39,11 @@ router.post("/support/:channelId/events", async (req: Request, res: Response) =>
     return res.status(400).json({ error: "Slack credentials not configured" });
   }
 
+  const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
+  if (agentStatus === "disabled") {
+    return res.status(200).json({ ok: true, skipped: "agent_disabled" });
+  }
+
   const slackTimestamp = req.headers["x-slack-request-timestamp"] as string;
   const slackSignature = req.headers["x-slack-signature"] as string;
   const rawBody = ((req as any).rawBody as string | undefined) || JSON.stringify(req.body);

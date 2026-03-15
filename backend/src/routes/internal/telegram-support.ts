@@ -35,6 +35,11 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Telegram bot token not configured" });
   }
 
+  const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
+  if (agentStatus === "disabled") {
+    return res.status(200).json({ ok: true, skipped: "agent_disabled" });
+  }
+
   const secretHeader = req.headers["x-telegram-bot-api-secret-token"] as string | undefined;
   if (secretHeader !== channel.id) {
     return res.status(401).json({ error: "Invalid Telegram webhook secret" });

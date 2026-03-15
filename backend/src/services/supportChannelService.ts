@@ -68,8 +68,11 @@ export async function getSupportChannelById(userId: string, id: string) {
 }
 
 export async function getSupportChannelByIdInternal(id: string) {
-  const channel = await prisma.supportChannel.findUnique({ where: { id } });
-  return (channel || null) as SupportChannel | null;
+  const channel = await prisma.supportChannel.findUnique({
+    where: { id },
+    include: { supportAgent: { select: { status: true } } },
+  });
+  return (channel || null) as (SupportChannel & { supportAgent?: { status: string } }) | null;
 }
 
 export async function getSupportChannelByWhatsAppSession(sessionId: string) {
@@ -79,8 +82,9 @@ export async function getSupportChannelByWhatsAppSession(sessionId: string) {
       whatsappSessionId: sessionId,
       status: { in: ["connected", "pending"] },
     },
+    include: { supportAgent: { select: { status: true } } },
   });
-  return (channel || null) as SupportChannel | null;
+  return (channel || null) as (SupportChannel & { supportAgent?: { status: string } }) | null;
 }
 
 export async function attachWhatsAppSessionToChannel(options: {

@@ -28,6 +28,7 @@ type SupportChatMessage = {
 
 type SupportAgentInfo = {
   success: boolean;
+  active?: boolean;
   name?: string;
   description?: string | null;
   greeting?: string;
@@ -239,6 +240,18 @@ export default function PublicSupportChatPage() {
             },
           ]);
         }
+      } else if (data.code === "agentDisabled") {
+        const disabledMessage =
+          data.message ||
+          `${data.agentName || "This support agent"} is disabled. Enable in your Verxio dashboard support agent section.`;
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: disabledMessage,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
       } else {
         setMessages((prev) => [
           ...prev,
@@ -296,7 +309,7 @@ export default function PublicSupportChatPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-sm font-medium truncate">
-                {agentInfo?.success && agentInfo.name ? agentInfo.name : "Verxio Support"}
+                {agentInfo?.name || "Verxio Support"}
               </h1>
               <p className="text-[11px] leading-none text-muted-foreground">
                 24/7 Customer Support

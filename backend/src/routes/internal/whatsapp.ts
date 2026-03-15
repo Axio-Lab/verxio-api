@@ -238,6 +238,11 @@ router.post("/incoming", async (req: Request, res: Response) => {
   if (body.sessionId && !body.integrationId) {
     const supportChannel = await getSupportChannelByWhatsAppSession(body.sessionId);
     if (supportChannel) {
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent?.status;
+      if (agentStatus === "disabled") {
+        return res.json({ ok: true, skipped: "agent_disabled" });
+      }
+
       // Save contact when someone messages the support agent (normalize JID to prevent duplicates)
       try {
         const normalizedJid = fromJid.replace(/:.*@/, "@");
