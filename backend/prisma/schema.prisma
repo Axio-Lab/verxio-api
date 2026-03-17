@@ -937,6 +937,21 @@ model SupportAgent {
   status          String   @default("active")
   conversations   Int      @default(0)
 
+  // SDR mode: support (default) | sdr
+  mode            String   @default("support")
+
+  // Attached skills (for support + SDR)
+  skillIds        String[] @default([])
+
+  // Optional personality for SDR
+  soulMd          String?  @db.Text
+
+  // Campaign/post content (paste)
+  campaignContext String?  @db.Text
+
+  // User-defined funnel triggers and behaviors
+  funnelRules     Json?
+
   chatSessions    SupportChatSession[]
   channels        SupportChannel[]
   supportContacts SupportContact[]
