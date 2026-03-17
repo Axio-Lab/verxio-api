@@ -5,6 +5,7 @@ import multer from "multer";
 import { createId } from "@paralleldrive/cuid2";
 import { PROMPT_INJECTION_SECURITY_PREAMBLE } from "@/services/agent/promptInjectionDefense";
 import { getSupportAgentByPublicId } from "@/services/supportAgentService";
+import { respondToSdrMessage } from "@/services/sdrChannelService";
 import {
   getOrCreateSupportChatSession,
   getSupportChatMessages,
@@ -277,10 +278,6 @@ supportPublicChatRouter.post(
         });
       }
 
-      const { id: supportChatSessionId } = await getOrCreateSupportChatSession(agent.id, sessionId);
-      const dbMessages = await getSupportChatMessages(agent.id, sessionId, 30);
-      const history = dbMessages.map((m) => ({ role: m.role, content: m.content }));
-
       const attachmentList = Array.isArray(attachments)
         ? (attachments as Array<{ type?: string; url?: string }>).filter(
             (a) => a && typeof a.type === "string" && typeof a.url === "string"
@@ -294,6 +291,32 @@ supportPublicChatRouter.post(
         }
       }
       const fullUserText = message + (pdfText ? `\n\n[Attached PDF content]:\n${pdfText}` : "");
+
+      if (agent.mode === "sdr") {
+        const reply = await respondToSdrMessage({
+          supportAgentId: agent.id,
+          sessionIdentifier: sessionId,
+          message: fullUserText,
+        });
+        const updatedMessages = await getSupportChatMessages(agent.id, sessionId);
+        const responseMessages = updatedMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          attachmentUrls: m.attachmentUrls ?? undefined,
+          timestamp: m.createdAt.toISOString(),
+        }));
+        const feedback = await getSessionFeedback(agent.id, sessionId);
+        return res.status(200).json({
+          success: true,
+          reply,
+          messages: responseMessages,
+          suggestShowRating: feedback.suggestRating,
+        });
+      }
+
+      const { id: supportChatSessionId } = await getOrCreateSupportChatSession(agent.id, sessionId);
+      const dbMessages = await getSupportChatMessages(agent.id, sessionId, 30);
+      const history = dbMessages.map((m) => ({ role: m.role, content: m.content }));
 
       // Build KB context
       const kbContext = await buildKnowledgeContext(

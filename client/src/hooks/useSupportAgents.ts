@@ -20,6 +20,11 @@ export interface SupportAgent {
   position: string;
   status: string;
   conversations: number;
+  mode?: string;
+  skillIds?: string[];
+  soulMd?: string | null;
+  campaignContext?: string | null;
+  funnelRules?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -36,6 +41,11 @@ export interface CreateSupportAgentData {
   greeting?: string;
   brandColor?: string;
   position?: string;
+  mode?: string;
+  skillIds?: string[];
+  soulMd?: string | null;
+  campaignContext?: string | null;
+  funnelRules?: Record<string, unknown> | null;
 }
 
 export type UpdateSupportAgentData = Partial<CreateSupportAgentData> & {

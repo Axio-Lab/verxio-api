@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import {
   Form,
@@ -17,9 +17,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,11 +62,13 @@ export function SkillForm({ initialData }: SkillFormProps) {
   const updateSkill = useUpdateSkill(initialData?.id || "");
 
   const isEdit = !!initialData?.id;
-  const [inputMethod, setInputMethod] = useState<"url" | "manual">(
+  const [inputMethod, setInputMethod] = useState<"url" | "manual" | "upload">(
     initialData?.url ? "url" : "manual"
   );
   const [isFetching, setIsFetching] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -109,27 +112,7 @@ export function SkillForm({ initialData }: SkillFormProps) {
         return;
       }
 
-      // Parse name from content (first # heading or frontmatter)
-      const headingMatch = content.match(/^#\s+(.+)$/m);
-      const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
-      let parsedName = "";
-      let parsedDescription = "";
-
-      if (frontmatterMatch) {
-        const frontmatter = frontmatterMatch[1];
-        const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
-        const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
-        if (nameMatch) {
-          parsedName = nameMatch[1].trim();
-        }
-        if (descMatch) {
-          parsedDescription = descMatch[1].trim();
-        }
-      }
-
-      if (!parsedName && headingMatch) {
-        parsedName = headingMatch[1].trim();
-      }
+      const { parsedName, parsedDescription } = parseMetadataFromContent(content);
 
       if (parsedName && !form.getValues("name")) {
         form.setValue("name", parsedName);
@@ -154,6 +137,65 @@ export function SkillForm({ initialData }: SkillFormProps) {
     } finally {
       setIsFetching(false);
     }
+  };
+
+  const parseMetadataFromContent = (content: string) => {
+    const headingMatch = content.match(/^#\s+(.+)$/m);
+    const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
+    let parsedName = "";
+    let parsedDescription = "";
+
+    if (frontmatterMatch) {
+      const frontmatter = frontmatterMatch[1];
+      const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+      const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+      if (nameMatch) parsedName = nameMatch[1].trim();
+      if (descMatch) parsedDescription = descMatch[1].trim();
+    }
+    if (!parsedName && headingMatch) parsedName = headingMatch[1].trim();
+    return { parsedName, parsedDescription };
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const isMd = file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown");
+    if (!isMd) {
+      toast.error("Please upload a .md or .markdown file");
+      return;
+    }
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || "").trim();
+      if (!content) {
+        toast.error("File is empty");
+        setIsUploading(false);
+        return;
+      }
+
+      const { parsedName, parsedDescription } = parseMetadataFromContent(content);
+      if (parsedName && !form.getValues("name")) {
+        form.setValue("name", parsedName);
+      }
+      if (parsedDescription && !form.getValues("description")) {
+        form.setValue("description", parsedDescription.slice(0, 50));
+      }
+
+      form.setValue("content", content);
+      setPreviewContent(content);
+      setInputMethod("manual");
+      toast.success(`Loaded "${file.name}". Switch to Manual to edit, or Create to add the skill.`);
+      setIsUploading(false);
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read file");
+      setIsUploading(false);
+    };
+    reader.readAsText(file);
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -245,10 +287,11 @@ export function SkillForm({ initialData }: SkillFormProps) {
             {!isEdit && (
               <Tabs
                 value={inputMethod}
-                onValueChange={(v) => setInputMethod(v as "url" | "manual")}
+                onValueChange={(v) => setInputMethod(v as "url" | "manual" | "upload")}
               >
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="url">Fetch from URL</TabsTrigger>
+                  <TabsTrigger value="upload">Upload File</TabsTrigger>
                   <TabsTrigger value="manual">Manual Input</TabsTrigger>
                 </TabsList>
                 <TabsContent value="url" className="space-y-4">
@@ -286,6 +329,56 @@ export function SkillForm({ initialData }: SkillFormProps) {
                       </FormItem>
                     )}
                   />
+                </TabsContent>
+                <TabsContent value="upload" className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="skill-file-upload">Skill file (.md)</Label>
+                    <input
+                      id="skill-file-upload"
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".md,.markdown"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file && (file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown"))) {
+                          const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                          handleFileUpload(fakeEvent);
+                        } else if (file) {
+                          toast.error("Please upload a .md or .markdown file");
+                        }
+                      }}
+                      className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 px-6 py-10 transition-colors hover:border-muted-foreground/50 hover:bg-muted/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {isUploading ? (
+                        <Loader2Icon className="h-10 w-10 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Upload className="h-10 w-10 text-muted-foreground" />
+                      )}
+                      <p className="text-sm font-medium">
+                        {isUploading ? "Loading..." : "Click or drag to upload"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        .md or .markdown files only. Name and description are auto-filled from the file.
+                      </p>
+                    </div>
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      Upload a SKILL.md file. Content, name, and description will be extracted automatically.
+                    </p>
+                  </div>
                 </TabsContent>
                 <TabsContent value="manual" className="space-y-4">
                   <FormField

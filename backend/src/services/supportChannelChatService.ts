@@ -1,5 +1,6 @@
 import { PROMPT_INJECTION_SECURITY_PREAMBLE } from "./agent/promptInjectionDefense";
 import { getSupportAgent } from "./supportAgentService";
+import { respondToSdrMessage } from "./sdrChannelService";
 import {
   appendSupportChatMessages,
   getOrCreateSupportChatSession,
@@ -80,6 +81,14 @@ export async function respondToChannelMessage(options: {
   const agent = await getSupportAgent(supportAgentId);
   if (!agent || agent.status !== "active") {
     throw new Error("Support agent not found or inactive");
+  }
+
+  if (agent.mode === "sdr") {
+    return respondToSdrMessage({
+      supportAgentId,
+      sessionIdentifier: externalId,
+      message,
+    });
   }
 
   const userId = agent.userId as string;

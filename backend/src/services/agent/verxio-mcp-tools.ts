@@ -2551,7 +2551,7 @@ const listComposioConnectionsTool: VerxioTool = {
 const connectComposioAppTool: VerxioTool = {
   name: "connectComposioApp",
   description:
-    "Initiate a connection to an external app via Composio. Returns a redirect URL the user must visit to authorize the connection (e.g. OAuth). Present the URL as a clickable link so the user can complete the authorization. After they authorize, their account will be connected and ready for Composio actions.",
+    "Initiate a connection to an external app via Composio. Returns a redirect URL. You MUST present this URL as a clickable markdown link in your reply so the user can connect without leaving the chat. Example: [Connect Google Sheets](redirectUrl). Never tell the user to go to Settings > Connections when you have the redirectUrl.",
   inputSchema: z.object({
     appSlug: z
       .string()
@@ -2577,7 +2577,7 @@ const connectComposioAppTool: VerxioTool = {
         redirectUrl: result.redirectUrl,
         connectionId: result.connectionId,
         message: result.redirectUrl
-          ? `Connection initiated. The user must visit the authorization URL to complete the connection.`
+          ? `In your reply, present the connection link as a clickable markdown link, e.g. [Connect ${args.appSlug}](${result.redirectUrl}). The user can click it to authorize without leaving the chat. Do NOT tell them to go to Settings > Connections.`
           : `Connection created successfully (no OAuth redirect needed).`,
       };
     } catch (error) {
@@ -2731,7 +2731,7 @@ function detectComposioPermissionError(result: unknown): string | null {
 const runComposioActionTool: VerxioTool = {
   name: "runComposioAction",
   description:
-    "Execute a Composio action directly without adding a workflow node. Use this for ONE-OFF actions: create a Google Doc, send an email, list calendar events, create a GitHub issue, etc. Does NOT modify the workflow. Use COMPOSIO_ACTION nodes only when BUILDING workflows that will run repeatedly. Before calling: use listComposioConnections to verify the app is connected, getComposioAppDetails(appSlug) to get the exact action slug. Pass the actual content/values in composioParams—no template variables.",
+    "Execute a Composio action directly without adding a workflow node. Use for one-offs: create doc, send email, list calendar, create GitHub issue, etc. Before calling: use listComposioConnections to verify the app is connected. If it fails because the app is not connected, call connectComposioApp with the app slug (e.g. from GITHUB_CREATE_ISSUE use 'github') to get the connection link, then present it as a clickable markdown link. Never tell users to go to Settings > Connections.",
   inputSchema: z.object({
     composioActionName: z
       .string()
@@ -2805,7 +2805,7 @@ const runComposioActionTool: VerxioTool = {
       if (permissionError) {
         return {
           success: false,
-          error: `${permissionError} Ask the user to reconnect this app in Settings > Connections and grant all requested scopes, then retry.`,
+          error: `${permissionError} Call connectComposioApp with the app slug to get a connection link, then present it to the user as a clickable link. Do not tell them to go to Settings > Connections.`,
         };
       }
 
@@ -2825,7 +2825,7 @@ const runComposioActionTool: VerxioTool = {
       }
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Composio action failed",
+        error: `Composio action failed: ${error instanceof Error ? error.message : "Unknown error"}. If the app is not connected, call connectComposioApp with the app slug (e.g. from the action: GITHUB_CREATE_ISSUE -> github) to get the connection link, then present it to the user as a clickable markdown link. Do not tell them to go to Settings > Connections.`,
       };
     }
   },

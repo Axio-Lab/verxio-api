@@ -27,7 +27,9 @@ import {
   Link as LinkIcon,
   Loader2,
   Mail,
+  Plus,
   PlugIcon,
+  Trash2,
   Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -55,6 +57,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSkills } from "@/hooks/useSkills";
+import NextLink from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,6 +123,13 @@ type SupportContactListResult = {
 
 const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const;
 
+type FunnelRule = {
+  triggers: string[];
+  summary: string;
+  assetUrl?: string;
+  assetLabel?: string;
+};
+
 const supportAgentSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
@@ -126,6 +138,11 @@ const supportAgentSchema = z.object({
   brandColor: z.string().optional(),
   position: z.string().optional(),
   knowledgeBaseIds: z.array(z.string()).optional(),
+  mode: z.enum(["support", "sdr"]).optional(),
+  skillIds: z.array(z.string()).optional(),
+  soulMd: z.string().optional().nullable(),
+  campaignContext: z.string().optional().nullable(),
+  funnelRules: z.record(z.unknown()).optional().nullable(),
 });
 
 type SupportAgentFormValues = z.infer<typeof supportAgentSchema>;
@@ -150,6 +167,11 @@ export function SupportContent() {
       brandColor: "#6366f1",
       position: "bottom-right",
       knowledgeBaseIds: [],
+      mode: "support",
+      skillIds: [],
+      soulMd: null,
+      campaignContext: null,
+      funnelRules: { rules: [] },
     },
   });
 
@@ -183,6 +205,9 @@ export function SupportContent() {
   const [telegramWebhookUrl, setTelegramWebhookUrl] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const selectedKnowledgeBaseIds = form.watch("knowledgeBaseIds") || [];
+  const formMode = form.watch("mode") || "support";
+  const funnelRulesForm = form.watch("funnelRules") as { rules: FunnelRule[] } | undefined;
+  const { data: skillsData } = useSkills(1, 100);
   const [contactsAgent, setContactsAgent] = useState<SupportAgent | null>(null);
   const [contactsStats, setContactsStats] = useState<SupportContactStats | null>(null);
   const [contactsList, setContactsList] = useState<SupportContactListResult | null>(null);
@@ -357,6 +382,22 @@ export function SupportContent() {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
 
+  const parseFunnelRules = (raw: unknown): { rules: FunnelRule[] } => {
+    if (!raw || typeof raw !== "object") return { rules: [] };
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.rules)) {
+      return {
+        rules: (obj.rules as Array<Record<string, unknown>>).map((r) => ({
+          triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
+          summary: (r.summary as string) || "",
+          assetUrl: (r.assetUrl as string) || undefined,
+          assetLabel: (r.assetLabel as string) || undefined,
+        })),
+      };
+    }
+    return { rules: [] };
+  };
+
   const openCreateDialog = () => {
     setEditing(null);
     form.reset({
@@ -367,6 +408,11 @@ export function SupportContent() {
       brandColor: "#6366f1",
       position: "bottom-right",
       knowledgeBaseIds: [],
+      mode: "support",
+      skillIds: [],
+      soulMd: null,
+      campaignContext: null,
+      funnelRules: { rules: [] },
     });
     setDialogOpen(true);
   };
@@ -381,6 +427,11 @@ export function SupportContent() {
       brandColor: agent.brandColor ?? "#6366f1",
       position: agent.position ?? "bottom-right",
       knowledgeBaseIds: agent.knowledgeBaseIds ?? [],
+      mode: (agent.mode as "support" | "sdr") || "support",
+      skillIds: agent.skillIds ?? [],
+      soulMd: agent.soulMd ?? null,
+      campaignContext: agent.campaignContext ?? null,
+      funnelRules: parseFunnelRules(agent.funnelRules),
     });
     setDialogOpen(true);
   };
@@ -605,9 +656,21 @@ export function SupportContent() {
   const slackChannel = channels.find((c) => c.platform === "SLACK" && c.status !== "disabled");
   const discordChannel = channels.find((c) => c.platform === "DISCORD" && c.status !== "disabled");
 
+  const rules = funnelRulesForm?.rules ?? [];
+  const addFunnelRule = () => {
+    form.setValue("funnelRules", { rules: [...rules, { triggers: [], summary: "", assetUrl: "", assetLabel: "" }] }, { shouldDirty: true });
+  };
+  const removeFunnelRule = (index: number) => {
+    form.setValue("funnelRules", { rules: rules.filter((_, i) => i !== index) }, { shouldDirty: true });
+  };
+  const updateFunnelRule = (index: number, field: keyof FunnelRule, value: string | string[]) => {
+    const next = rules.map((r, i) => (i === index ? { ...r, [field]: field === "triggers" && typeof value === "string" ? value.split(",").map((s) => s.trim()).filter(Boolean) : value } : r));
+    form.setValue("funnelRules", { rules: next }, { shouldDirty: true });
+  };
+
   const dialog = (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit Support Agent" : "New Support Agent"}</DialogTitle>
         </DialogHeader>
@@ -616,6 +679,21 @@ export function SupportContent() {
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" {...form.register("name")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Mode</Label>
+              <Tabs
+                value={formMode}
+                onValueChange={(v) => form.setValue("mode", v as "support" | "sdr", { shouldDirty: true })}
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="support">Support</TabsTrigger>
+                  <TabsTrigger value="sdr">SDR</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="text-xs text-muted-foreground">
+                Support: KB-based answers with Gemini. SDR: Claude-based funnel automation with user-defined triggers.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -671,6 +749,115 @@ export function SupportContent() {
                 The support agent will answer only from the selected knowledge bases.
               </p>
             </div>
+            <div className="space-y-2">
+              <Label>Skills</Label>
+              {(skillsData?.skills ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  You have no skills yet. <NextLink href="/skills" className="text-primary underline">Create a skill</NextLink> to attach knowledge for nuanced replies.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
+                  {(skillsData?.skills ?? []).map((skill) => {
+                    const selectedSkillIds = form.watch("skillIds") || [];
+                    const checked = selectedSkillIds.includes(skill.id);
+                    return (
+                      <label key={skill.id} className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = form.getValues("skillIds") || [];
+                            if (e.target.checked) {
+                              form.setValue("skillIds", [...current, skill.id], { shouldDirty: true });
+                            } else {
+                              form.setValue("skillIds", current.filter((id) => id !== skill.id), { shouldDirty: true });
+                            }
+                          }}
+                        />
+                        <span className="truncate">{skill.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Attach skills for objection handling and qualification (especially useful for SDR mode).
+              </p>
+            </div>
+            {formMode === "sdr" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="campaignContext">Campaign context</Label>
+                  <Textarea
+                    id="campaignContext"
+                    rows={4}
+                    placeholder="Paste your post, ad copy, or campaign content here. Used for personalization and when the user is vague."
+                    value={form.watch("campaignContext") ?? ""}
+                    onChange={(e) => form.setValue("campaignContext", e.target.value || null, { shouldDirty: true })}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Funnel rules</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When the user message matches a trigger phrase, respond with the defined summary and link. No follow-up questions.
+                  </p>
+                  <div className="space-y-3 max-h-48 overflow-y-auto rounded-md border p-3">
+                    {rules.map((rule, idx) => (
+                      <div key={idx} className="rounded border bg-muted/20 p-3 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium">Rule {idx + 1}</span>
+                          <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeFunnelRule(idx)}>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                        <Input
+                          placeholder="Trigger phrases (comma-separated, e.g. Template, Reach)"
+                          value={rule.triggers?.join(", ") ?? ""}
+                          onChange={(e) => updateFunnelRule(idx, "triggers", e.target.value)}
+                        />
+                        <Textarea
+                          placeholder="Summary or response text"
+                          rows={2}
+                          value={rule.summary ?? ""}
+                          onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
+                        />
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input
+                            placeholder="Asset URL (optional)"
+                            value={rule.assetUrl ?? ""}
+                            onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
+                            className="flex-1 min-w-0"
+                          />
+                          <Input
+                            placeholder="Link label (optional)"
+                            value={rule.assetLabel ?? ""}
+                            onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                            className="sm:w-36 flex-shrink-0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={addFunnelRule} className="w-full">
+                      <Plus className="mr-2 h-3.5 w-3.5" />
+                      Add rule
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="soulMd">Personality / soul (optional)</Label>
+                  <Textarea
+                    id="soulMd"
+                    rows={3}
+                    placeholder="Optional: Define how the SDR should speak and behave (tone, style, boundaries)."
+                    value={form.watch("soulMd") ?? ""}
+                    onChange={(e) => form.setValue("soulMd", e.target.value || null, { shouldDirty: true })}
+                    className="resize-none"
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label htmlFor="fallbackEmail">Fallback email</Label>
               <div className="flex items-center gap-2">
@@ -809,9 +996,16 @@ export function SupportContent() {
                       style={{ borderColor: agent.brandColor || "#6366f1" }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">{agent.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold">{agent.name}</p>
+                        {agent.mode === "sdr" && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                            SDR
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        {agent.description || "Support agent using your knowledge bases"}
+                        {agent.description || (agent.mode === "sdr" ? "SDR agent with funnel rules" : "Support agent using your knowledge bases")}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2" title={agent.status === SUPPORT_AGENT_STATUS.ACTIVE ? "Agent answers messages from connected channels" : "Agent disabled — messages from channels will not be answered"}>

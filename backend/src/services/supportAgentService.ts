@@ -13,6 +13,11 @@ export interface SupportAgentCreateInput {
   avatarUrl?: string;
   allowedDomains?: string[];
   status?: string;
+  mode?: string;
+  skillIds?: string[];
+  soulMd?: string | null;
+  campaignContext?: string | null;
+  funnelRules?: Record<string, unknown> | null;
 }
 
 export interface SupportAgentUpdateInput extends Partial<SupportAgentCreateInput> {}
@@ -31,6 +36,11 @@ export async function createSupportAgent(userId: string, data: SupportAgentCreat
       avatarUrl: data.avatarUrl ?? null,
       allowedDomains: data.allowedDomains ?? [],
       status: data.status ?? "active",
+      mode: data.mode ?? "support",
+      skillIds: data.skillIds ?? [],
+      soulMd: data.soulMd ?? null,
+      campaignContext: data.campaignContext ?? null,
+      funnelRules: data.funnelRules ?? null,
     },
   });
 }
@@ -63,9 +73,14 @@ export async function updateSupportAgent(
     where: { id },
     data: {
       ...data,
-      // Ensure arrays are not set to undefined
+      // Ensure arrays and optional fields are not set to undefined
       ...(data.knowledgeBaseIds ? { knowledgeBaseIds: data.knowledgeBaseIds } : {}),
       ...(data.allowedDomains ? { allowedDomains: data.allowedDomains } : {}),
+      ...(data.skillIds !== undefined ? { skillIds: data.skillIds } : {}),
+      ...(data.mode !== undefined ? { mode: data.mode } : {}),
+      ...(data.soulMd !== undefined ? { soulMd: data.soulMd } : {}),
+      ...(data.campaignContext !== undefined ? { campaignContext: data.campaignContext } : {}),
+      ...(data.funnelRules !== undefined ? { funnelRules: data.funnelRules } : {}),
     },
   });
 }
