@@ -67,6 +67,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
+import { useProtectedQuery } from "@/hooks/useProtectedQuery";
+import { useProtectedMutation } from "@/hooks/useProtectedMutation";
 
 type KnowledgeBaseSummary = {
   id: string;
@@ -120,6 +123,8 @@ type SupportContactListResult = {
   limit: number;
   totalPages: number;
 };
+
+type NewOutboundMessagePlatform = "WHATSAPP";
 
 const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const;
 
@@ -209,13 +214,86 @@ export function SupportContent() {
   const funnelRulesForm = form.watch("funnelRules") as { rules: FunnelRule[] } | undefined;
   const { data: skillsData } = useSkills(1, 100);
   const [contactsAgent, setContactsAgent] = useState<SupportAgent | null>(null);
-  const [contactsStats, setContactsStats] = useState<SupportContactStats | null>(null);
-  const [contactsList, setContactsList] = useState<SupportContactListResult | null>(null);
-  const [contactsLoading, setContactsLoading] = useState(false);
-  const [contactsListLoading, setContactsListLoading] = useState(false);
   const [contactsPage, setContactsPage] = useState(1);
   const [exportingVcf, setExportingVcf] = useState(false);
+  const [contactsPlatform, setContactsPlatform] = useState<"ALL" | "WHATSAPP" | "TELEGRAM">("ALL");
+  const [contactsQuery, setContactsQuery] = useState("");
+  const [messageContact, setMessageContact] = useState<SupportContact | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [newMessagePlatform] = useState<NewOutboundMessagePlatform>("WHATSAPP");
+  const [newMessageName, setNewMessageName] = useState("");
+  const [newMessagePhone, setNewMessagePhone] = useState("");
+  const [newMessageSave, setNewMessageSave] = useState(true);
+  const [newMessageText, setNewMessageText] = useState("");
+  const queryClient = useQueryClient();
 
+  const messageContactMutation = useProtectedMutation<
+    { ok: boolean; platform: string },
+    Error,
+    { agentId: string; contactId: string; text: string }
+  >({
+    mutationFn: async (vars) => {
+      return authenticatedPost(
+        `/api/support-agents/${vars.agentId}/contacts/${vars.contactId}/message`,
+        { text: vars.text }
+      );
+    },
+    onSuccess: () => {
+      toast.success("Message sent");
+      setMessageText("");
+      setMessageContact(null);
+    },
+    onError: (err) => {
+      const msg =
+        (err && typeof (err as any).message === "string" && (err as any).message.trim()) ||
+        "Failed to send message";
+      toast.error(msg);
+    },
+  });
+
+  const newOutboundMessageMutation = useProtectedMutation<
+    { ok: boolean; platform: string },
+    Error,
+    {
+      agentId: string;
+      platform: NewOutboundMessagePlatform;
+      text: string;
+      saveToContacts: boolean;
+      name?: string;
+      phone?: string;
+    }
+  >({
+    mutationFn: async (vars) => {
+      return authenticatedPost(`/api/support-agents/${vars.agentId}/contacts/message`, {
+        platform: vars.platform,
+        text: vars.text,
+        saveToContacts: vars.saveToContacts,
+        name: vars.name || undefined,
+        phone: vars.phone || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Message sent");
+      setNewMessageText("");
+      setNewMessagePhone("");
+      setNewMessageName("");
+      setNewMessageSave(true);
+      setNewMessageOpen(false);
+      if (contactsAgent?.id) {
+        await queryClient.invalidateQueries({ queryKey: ["support-agent-contacts", contactsAgent.id] });
+        await queryClient.invalidateQueries({
+          queryKey: ["support-agent-contacts-stats", contactsAgent.id],
+        });
+      }
+    },
+    onError: (err) => {
+      const msg =
+        (err && typeof (err as any).message === "string" && (err as any).message.trim()) ||
+        "Failed to send message";
+      toast.error(msg);
+    },
+  });
   useEffect(() => {
     const fetchKnowledgeBases = async () => {
       try {
@@ -311,57 +389,51 @@ export function SupportContent() {
     };
   }, [channelsAgent]);
 
-  useEffect(() => {
-    if (!contactsAgent) {
-      setContactsStats(null);
-      setContactsList(null);
-      return;
-    }
-    let cancelled = false;
-    setContactsLoading(true);
-    setContactsStats(null);
-    setContactsList(null);
-    const load = async () => {
-      try {
-        const [stats, list] = await Promise.all([
-          authenticatedGet<SupportContactStats>(
-            `/api/support-agents/${contactsAgent.id}/contacts/stats`
-          ),
-          authenticatedGet<SupportContactListResult>(
-            `/api/support-agents/${contactsAgent.id}/contacts?page=1&limit=10`
-          ),
-        ]);
-        if (!cancelled) {
-          setContactsStats(stats);
-          setContactsList(list);
-          setContactsPage(1);
-        }
-      } catch {
-        if (!cancelled) toast.error("Failed to load contacts");
-      } finally {
-        if (!cancelled) setContactsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [contactsAgent]);
+  const contactsStatsQuery = useProtectedQuery<SupportContactStats>({
+    queryKey: ["support-agent-contacts-stats", contactsAgent?.id],
+    queryFn: () =>
+      authenticatedGet<SupportContactStats>(
+        `/api/support-agents/${contactsAgent?.id}/contacts/stats`
+      ),
+    enabled: !!contactsAgent?.id,
+    redirectToLogin: true,
+  });
 
-  const loadContactsPage = async (agentId: string, page: number) => {
-    setContactsListLoading(true);
-    try {
-      const list = await authenticatedGet<SupportContactListResult>(
-        `/api/support-agents/${agentId}/contacts?page=${page}&limit=10`
+  const contactsListQuery = useProtectedQuery<SupportContactListResult>({
+    queryKey: ["support-agent-contacts", contactsAgent?.id, contactsPlatform, contactsPage],
+    queryFn: () => {
+      const agentId = contactsAgent?.id;
+      const platformParam = contactsPlatform !== "ALL" ? `&platform=${contactsPlatform}` : "";
+      return authenticatedGet<SupportContactListResult>(
+        `/api/support-agents/${agentId}/contacts?page=${contactsPage}&limit=10${platformParam}`
       );
-      setContactsList(list);
-      setContactsPage(page);
-    } catch {
-      toast.error("Failed to load contacts");
-    } finally {
-      setContactsListLoading(false);
-    }
-  };
+    },
+    enabled: !!contactsAgent?.id,
+    redirectToLogin: true,
+    placeholderData: (prev) => prev,
+  });
+
+  useEffect(() => {
+    if (!contactsAgent?.id) return;
+    // Prefetch platform lists so switching tabs feels instant.
+    const agentId = contactsAgent.id;
+    const prefetch = (platform: "WHATSAPP" | "TELEGRAM") => {
+      return queryClient.prefetchQuery({
+        queryKey: ["support-agent-contacts", agentId, platform, 1],
+        queryFn: () =>
+          authenticatedGet<SupportContactListResult>(
+            `/api/support-agents/${agentId}/contacts?page=1&limit=10&platform=${platform}`
+          ),
+      });
+    };
+    void prefetch("WHATSAPP").catch(() => undefined);
+    void prefetch("TELEGRAM").catch(() => undefined);
+  }, [contactsAgent?.id, queryClient]);
+
+  useEffect(() => {
+    // Reset pagination when switching platform.
+    setContactsPage(1);
+  }, [contactsPlatform]);
 
   const agents = data?.agents ?? [];
 
@@ -479,20 +551,29 @@ export function SupportContent() {
       );
       setChannels(channelsRes.channels || []);
 
-      // QR can be generated shortly after the session starts. Poll briefly so it appears automatically.
-      if (!res.qr && res.status !== "connected") {
-        for (let i = 0; i < 10; i++) {
-          await new Promise((r) => setTimeout(r, 1500));
-          const statusRes = await authenticatedGet<{
-            success: boolean;
-            status: string;
-            qr: string | null;
-          }>(`/api/support/agents/${channelsAgent.id}/channels/whatsapp/status`);
-          setWhatsappStatus({
-            status: statusRes.status,
-            qr: statusRes.status === "connected" ? null : statusRes.qr,
-          });
-          if (statusRes.qr || statusRes.status === "connected") break;
+      // Poll until QR appears, then keep polling until connected (user scans QR).
+      if (res.status !== "connected") {
+        const agentId = channelsAgent.id;
+        for (let i = 0; i < 60; i++) {
+          await new Promise((r) => setTimeout(r, 2500));
+          try {
+            const statusRes = await authenticatedGet<{
+              success: boolean;
+              status: string;
+              qr: string | null;
+            }>(`/api/support/agents/${agentId}/channels/whatsapp/status`);
+            setWhatsappStatus({
+              status: statusRes.status,
+              qr: statusRes.status === "connected" ? null : statusRes.qr,
+            });
+            if (statusRes.status === "connected") {
+              toast.success("WhatsApp connected successfully!");
+              void refreshChannels(agentId).catch(() => undefined);
+              break;
+            }
+          } catch {
+            break;
+          }
         }
       }
     } catch (error) {
@@ -658,13 +739,34 @@ export function SupportContent() {
 
   const rules = funnelRulesForm?.rules ?? [];
   const addFunnelRule = () => {
-    form.setValue("funnelRules", { rules: [...rules, { triggers: [], summary: "", assetUrl: "", assetLabel: "" }] }, { shouldDirty: true });
+    form.setValue(
+      "funnelRules",
+      { rules: [...rules, { triggers: [], summary: "", assetUrl: "", assetLabel: "" }] },
+      { shouldDirty: true }
+    );
   };
   const removeFunnelRule = (index: number) => {
-    form.setValue("funnelRules", { rules: rules.filter((_, i) => i !== index) }, { shouldDirty: true });
+    form.setValue(
+      "funnelRules",
+      { rules: rules.filter((_, i) => i !== index) },
+      { shouldDirty: true }
+    );
   };
   const updateFunnelRule = (index: number, field: keyof FunnelRule, value: string | string[]) => {
-    const next = rules.map((r, i) => (i === index ? { ...r, [field]: field === "triggers" && typeof value === "string" ? value.split(",").map((s) => s.trim()).filter(Boolean) : value } : r));
+    const next = rules.map((r, i) =>
+      i === index
+        ? {
+            ...r,
+            [field]:
+              field === "triggers" && typeof value === "string"
+                ? value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : value,
+          }
+        : r
+    );
     form.setValue("funnelRules", { rules: next }, { shouldDirty: true });
   };
 
@@ -684,7 +786,9 @@ export function SupportContent() {
               <Label>Mode</Label>
               <Tabs
                 value={formMode}
-                onValueChange={(v) => form.setValue("mode", v as "support" | "sdr", { shouldDirty: true })}
+                onValueChange={(v) =>
+                  form.setValue("mode", v as "support" | "sdr", { shouldDirty: true })
+                }
               >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="support">Support</TabsTrigger>
@@ -692,7 +796,8 @@ export function SupportContent() {
                 </TabsList>
               </Tabs>
               <p className="text-xs text-muted-foreground">
-                Support: KB-based answers with Gemini. SDR: Claude-based funnel automation with user-defined triggers.
+                Support: Knowledge Based answers with agent. SDR: Agentic funnel automation with
+                user-defined triggers.
               </p>
             </div>
             <div className="space-y-2">
@@ -753,7 +858,11 @@ export function SupportContent() {
               <Label>Skills</Label>
               {(skillsData?.skills ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  You have no skills yet. <NextLink href="/skills" className="text-primary underline">Create a skill</NextLink> to attach knowledge for nuanced replies.
+                  You have no skills yet.{" "}
+                  <NextLink href="/skills" className="text-primary underline">
+                    Create a skill
+                  </NextLink>{" "}
+                  to attach knowledge for nuanced replies.
                 </p>
               ) : (
                 <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
@@ -769,9 +878,15 @@ export function SupportContent() {
                           onChange={(e) => {
                             const current = form.getValues("skillIds") || [];
                             if (e.target.checked) {
-                              form.setValue("skillIds", [...current, skill.id], { shouldDirty: true });
+                              form.setValue("skillIds", [...current, skill.id], {
+                                shouldDirty: true,
+                              });
                             } else {
-                              form.setValue("skillIds", current.filter((id) => id !== skill.id), { shouldDirty: true });
+                              form.setValue(
+                                "skillIds",
+                                current.filter((id) => id !== skill.id),
+                                { shouldDirty: true }
+                              );
                             }
                           }}
                         />
@@ -782,7 +897,8 @@ export function SupportContent() {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Attach skills for objection handling and qualification (especially useful for SDR mode).
+                Attach skills for objection handling and qualification (especially useful for SDR
+                mode).
               </p>
             </div>
             {formMode === "sdr" && (
@@ -794,21 +910,32 @@ export function SupportContent() {
                     rows={4}
                     placeholder="Paste your post, ad copy, or campaign content here. Used for personalization and when the user is vague."
                     value={form.watch("campaignContext") ?? ""}
-                    onChange={(e) => form.setValue("campaignContext", e.target.value || null, { shouldDirty: true })}
+                    onChange={(e) =>
+                      form.setValue("campaignContext", e.target.value || null, {
+                        shouldDirty: true,
+                      })
+                    }
                     className="resize-none"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Funnel rules</Label>
                   <p className="text-xs text-muted-foreground">
-                    When the user message matches a trigger phrase, respond with the defined summary and link. No follow-up questions.
+                    When the user message matches a trigger phrase, respond with the defined summary
+                    and link. No follow-up questions.
                   </p>
                   <div className="space-y-3 max-h-48 overflow-y-auto rounded-md border p-3">
                     {rules.map((rule, idx) => (
                       <div key={idx} className="rounded border bg-muted/20 p-3 space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-medium">Rule {idx + 1}</span>
-                          <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeFunnelRule(idx)}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => removeFunnelRule(idx)}
+                          >
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                           </Button>
                         </div>
@@ -839,7 +966,13 @@ export function SupportContent() {
                         </div>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={addFunnelRule} className="w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addFunnelRule}
+                      className="w-full"
+                    >
                       <Plus className="mr-2 h-3.5 w-3.5" />
                       Add rule
                     </Button>
@@ -852,7 +985,9 @@ export function SupportContent() {
                     rows={3}
                     placeholder="Optional: Define how the SDR should speak and behave (tone, style, boundaries)."
                     value={form.watch("soulMd") ?? ""}
-                    onChange={(e) => form.setValue("soulMd", e.target.value || null, { shouldDirty: true })}
+                    onChange={(e) =>
+                      form.setValue("soulMd", e.target.value || null, { shouldDirty: true })
+                    }
                     className="resize-none"
                   />
                 </div>
@@ -999,16 +1134,29 @@ export function SupportContent() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold">{agent.name}</p>
                         {agent.mode === "sdr" && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 font-medium"
+                          >
                             SDR
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {agent.description || (agent.mode === "sdr" ? "SDR agent with funnel rules" : "Support agent using your knowledge bases")}
+                        {agent.description ||
+                          (agent.mode === "sdr"
+                            ? "SDR agent with funnel rules"
+                            : "Support agent using your knowledge bases")}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2" title={agent.status === SUPPORT_AGENT_STATUS.ACTIVE ? "Agent answers messages from connected channels" : "Agent disabled — messages from channels will not be answered"}>
+                    <div
+                      className="flex shrink-0 items-center gap-2"
+                      title={
+                        agent.status === SUPPORT_AGENT_STATUS.ACTIVE
+                          ? "Agent answers messages from connected channels"
+                          : "Agent disabled — messages from channels will not be answered"
+                      }
+                    >
                       <Label
                         htmlFor={`status-${agent.id}`}
                         className="text-xs font-medium whitespace-nowrap cursor-pointer"
@@ -1684,32 +1832,57 @@ export function SupportContent() {
       </Dialog>
 
       {/* Contacts dialog */}
-      <Dialog open={!!contactsAgent} onOpenChange={(open) => !open && setContactsAgent(null)}>
-        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <Dialog
+        open={!!contactsAgent}
+        onOpenChange={(open) => {
+          if (!open) {
+            setContactsAgent(null);
+            setContactsPlatform("ALL");
+            setContactsQuery("");
+            setContactsPage(1);
+            setMessageContact(null);
+            setMessageText("");
+            setNewMessageOpen(false);
+            setNewMessageText("");
+            setNewMessagePhone("");
+            setNewMessageName("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl h-[82vh] max-h-[82vh] min-h-[560px] flex flex-col">
           <DialogHeader>
             <DialogTitle className="pr-8">
               {contactsAgent?.name ?? "Support agent"} — Contacts
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 -mr-1 min-h-0">
-            {contactsLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
+            {contactsStatsQuery.isLoading || contactsListQuery.isLoading ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Loading contacts</p>
               </div>
-            ) : contactsStats ? (
+            ) : contactsStatsQuery.data ? (
               <>
                 <p className="text-xs text-muted-foreground">
                   People who messaged this agent via WhatsApp or Telegram. Export to add them to
                   your address book.
                 </p>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => setNewMessageOpen(true)}
+                  >
+                    <Mail className="mr-2 h-3.5 w-3.5" />
+                    Send WhatsApp message
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={contactsStats.total === 0 || exportingVcf}
+                        disabled={contactsStatsQuery.data.total === 0 || exportingVcf}
                       >
                         {exportingVcf ? (
                           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -1721,9 +1894,9 @@ export function SupportContent() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
                       <DropdownMenuItem
-                        disabled={contactsStats.total === 0 || exportingVcf}
+                        disabled={contactsStatsQuery.data.total === 0 || exportingVcf}
                         onClick={async () => {
-                          if (!contactsAgent || contactsStats.total === 0) return;
+                          if (!contactsAgent || contactsStatsQuery.data.total === 0) return;
                           setExportingVcf(true);
                           try {
                             const res = await authenticatedFetch(
@@ -1745,10 +1918,12 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export all ({contactsStats.total})
+                        Export all ({contactsStatsQuery.data.total})
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={(contactsStats.byPlatform?.WHATSAPP ?? 0) === 0 || exportingVcf}
+                        disabled={
+                          (contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0) === 0 || exportingVcf
+                        }
                         onClick={async () => {
                           if (!contactsAgent) return;
                           setExportingVcf(true);
@@ -1772,10 +1947,12 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export WhatsApp only ({contactsStats.byPlatform?.WHATSAPP ?? 0})
+                        Export WhatsApp only ({contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0})
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={(contactsStats.byPlatform?.TELEGRAM ?? 0) === 0 || exportingVcf}
+                        disabled={
+                          (contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0) === 0 || exportingVcf
+                        }
                         onClick={async () => {
                           if (!contactsAgent) return;
                           setExportingVcf(true);
@@ -1799,7 +1976,7 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export Telegram only ({contactsStats.byPlatform?.TELEGRAM ?? 0})
+                        Export Telegram only ({contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0})
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1807,14 +1984,14 @@ export function SupportContent() {
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                   <Card>
                     <CardContent className="pt-4">
-                      <p className="text-2xl font-bold">{contactsStats.total}</p>
+                      <p className="text-2xl font-bold">{contactsStatsQuery.data.total}</p>
                       <p className="text-xs text-muted-foreground">Total contacts</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-4">
                       <p className="text-2xl font-bold">
-                        {contactsStats.byPlatform?.WHATSAPP ?? 0}
+                        {contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0}
                       </p>
                       <p className="text-xs text-muted-foreground">WhatsApp</p>
                     </CardContent>
@@ -1822,55 +1999,135 @@ export function SupportContent() {
                   <Card>
                     <CardContent className="pt-4">
                       <p className="text-2xl font-bold">
-                        {contactsStats.byPlatform?.TELEGRAM ?? 0}
+                        {contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0}
                       </p>
                       <p className="text-xs text-muted-foreground">Telegram</p>
                     </CardContent>
                   </Card>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Contact list</h4>
-                  {contactsListLoading && !contactsList ? (
-                    <div className="flex items-center justify-center py-8">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-2">
+                    {/* <div className="space-y-1">
+                      <h4 className="text-sm font-medium">Contact List</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Filter by platform or search by name or phone
+                      </p>
+                    </div> */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <Tabs
+                        value={contactsPlatform}
+                        onValueChange={(v) => {
+                          const next = (v as "ALL" | "WHATSAPP" | "TELEGRAM") || "ALL";
+                          setContactsPlatform(next);
+                          setContactsPage(1);
+                        }}
+                      >
+                        <TabsList className="h-9">
+                          <TabsTrigger value="ALL" className="text-xs">
+                            All
+                          </TabsTrigger>
+                          <TabsTrigger value="WHATSAPP" className="text-xs">
+                            WhatsApp
+                          </TabsTrigger>
+                          <TabsTrigger value="TELEGRAM" className="text-xs">
+                            Telegram
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      <Input
+                        value={contactsQuery}
+                        onChange={(e) => setContactsQuery(e.target.value)}
+                        placeholder="Search by name or phone"
+                        className="h-9 w-full sm:w-[220px]"
+                      />
+                    </div>
+                  </div>
+                  {contactsListQuery.isFetching && !contactsListQuery.data ? (
+                    <div className="flex items-center justify-center py-16">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : !contactsList?.contacts?.length ? (
-                    <p className="text-sm text-muted-foreground py-4 rounded-md border bg-muted/30 px-3">
-                      No contacts yet. Contacts are saved when users message this agent via WhatsApp
-                      or Telegram.
-                    </p>
+                  ) : !contactsListQuery.data?.contacts?.length ? (
+                    <div className="rounded-md border bg-muted/30 px-3 py-10">
+                      <p className="text-sm text-muted-foreground">
+                        No contacts yet. Contacts are saved when users message this agent via
+                        WhatsApp or Telegram.
+                      </p>
+                    </div>
                   ) : (
                     <>
-                      <ul className="rounded-md border divide-y max-h-48 overflow-y-auto">
-                        {contactsList.contacts.map((c) => (
-                          <li
-                            key={c.id}
-                            className="px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
-                          >
-                            <div className="min-w-0">
-                              <span className="font-medium truncate block">
-                                {c.externalName || c.phone || `Contact (${c.platform})`}
-                              </span>
-                              {c.phone && c.externalName && (
-                                <span className="text-xs text-muted-foreground truncate block">
-                                  {c.phone}
-                                </span>
-                              )}
-                            </div>
-                            <Badge variant="outline" className="w-fit text-xs shrink-0">
-                              {c.platform}
-                            </Badge>
-                          </li>
-                        ))}
-                      </ul>
-                      {contactsList.totalPages > 1 && (
-                        <div className="mt-3 flex justify-center">
+                      <div className="rounded-md border overflow-hidden">
+                        <div className="grid grid-cols-12 gap-3 px-3 py-2 bg-muted/30 text-[11px] font-medium text-muted-foreground">
+                          <div className="col-span-5">Contact</div>
+                          <div className="col-span-2">Platform</div>
+                          <div className="col-span-3 text-right">Last seen</div>
+                          <div className="col-span-2 text-right">Actions</div>
+                        </div>
+                        <div className="divide-y">
+                          {contactsListQuery.data.contacts
+                            .filter((c) => {
+                              const q = contactsQuery.trim().toLowerCase();
+                              if (!q) return true;
+                              return (
+                                (c.externalName || "").toLowerCase().includes(q) ||
+                                (c.phone || "").toLowerCase().includes(q) ||
+                                (c.externalId || "").toLowerCase().includes(q)
+                              );
+                            })
+                            .map((c) => {
+                              const displayName = c.externalName || c.phone || "Unknown contact";
+                              const lastSeen = c.lastContactAt
+                                ? new Date(c.lastContactAt).toLocaleString([], {
+                                    month: "short",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—";
+                              return (
+                                <div
+                                  key={c.id}
+                                  className="grid grid-cols-12 gap-3 px-3 py-2.5 text-sm items-center"
+                                >
+                                  <div className="col-span-5 min-w-0">
+                                    <div className="font-medium truncate">{displayName}</div>
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {c.phone || c.externalId}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 flex items-center">
+                                    <Badge variant="outline" className="text-[11px]">
+                                      {c.platform}
+                                    </Badge>
+                                  </div>
+                                  <div className="col-span-3 text-right text-xs text-muted-foreground flex items-center justify-end">
+                                    <span>{lastSeen}</span>
+                                  </div>
+                                  <div className="col-span-2 flex justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2"
+                                      onClick={() => {
+                                        setMessageContact(c);
+                                        setMessageText("");
+                                      }}
+                                    >
+                                      <Mail className="h-3.5 w-3.5 mr-1" />
+                                      Message
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                      {contactsListQuery.data.totalPages > 1 && (
+                        <div className="mt-6 flex justify-center">
                           <EntityPagination
                             currentPage={contactsPage}
-                            totalPages={contactsList.totalPages}
-                            onPageChange={(p) =>
-                              contactsAgent && loadContactsPage(contactsAgent.id, p)
-                            }
+                            totalPages={contactsListQuery.data.totalPages}
+                            onPageChange={(p) => setContactsPage(p)}
                           />
                         </div>
                       )}
@@ -1880,6 +2137,169 @@ export function SupportContent() {
               </>
             ) : null}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New outbound message dialog */}
+      <Dialog
+        open={newMessageOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNewMessageOpen(false);
+            setNewMessageText("");
+          } else {
+            setNewMessageOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send WhatsApp message</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Name (optional)</Label>
+                <Input
+                  value={newMessageName}
+                  onChange={(e) => setNewMessageName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>WhatsApp number</Label>
+                <Input
+                  value={newMessagePhone}
+                  onChange={(e) => setNewMessagePhone(e.target.value)}
+                  placeholder="e.g. +49123456789"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                value={newMessageText}
+                onChange={(e) => setNewMessageText(e.target.value)}
+                placeholder="Type your message..."
+                className="min-h-[120px]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Save to contacts</p>
+                <p className="text-xs text-muted-foreground">
+                  Adds this recipient to your contact list for future messaging and broadcasts.
+                </p>
+              </div>
+              <Switch checked={newMessageSave} onCheckedChange={(v) => setNewMessageSave(Boolean(v))} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setNewMessageOpen(false);
+                setNewMessageText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !contactsAgent?.id ||
+                !newMessageText.trim() ||
+                newOutboundMessageMutation.isPending ||
+                !newMessagePhone.trim()
+              }
+              onClick={() => {
+                if (!contactsAgent?.id) return;
+                newOutboundMessageMutation.mutate({
+                  agentId: contactsAgent.id,
+                  platform: "WHATSAPP",
+                  text: newMessageText.trim(),
+                  saveToContacts: newMessageSave,
+                  name: newMessageName.trim() || undefined,
+                  phone: newMessagePhone.trim(),
+                });
+              }}
+            >
+              {newOutboundMessageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Message contact dialog */}
+      <Dialog
+        open={!!messageContact}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMessageContact(null);
+            setMessageText("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Message{" "}
+              {messageContact?.externalName ||
+                messageContact?.phone ||
+                `Contact (${messageContact?.platform || ""})`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Message</Label>
+            <Textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder="Type your message..."
+              className="min-h-[120px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setMessageContact(null);
+                setMessageText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !contactsAgent?.id ||
+                !messageContact?.id ||
+                !messageText.trim() ||
+                messageContactMutation.isPending
+              }
+              onClick={() => {
+                if (!contactsAgent?.id || !messageContact?.id) return;
+                messageContactMutation.mutate({
+                  agentId: contactsAgent.id,
+                  contactId: messageContact.id,
+                  text: messageText.trim(),
+                });
+              }}
+            >
+              {messageContactMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Send
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </SupportContainer>

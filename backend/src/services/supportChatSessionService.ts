@@ -24,11 +24,24 @@ export async function getOrCreateSupportChatSession(
   if (existing) {
     return { id: existing.id, isNew: false };
   }
-  const created = await prisma.supportChatSession.create({
-    data: { supportAgentId, publicSessionId },
-  });
-  await incrementSupportAgentConversations(supportAgentId);
-  return { id: created.id, isNew: true };
+  try {
+    const created = await prisma.supportChatSession.create({
+      data: { supportAgentId, publicSessionId },
+    });
+    await incrementSupportAgentConversations(supportAgentId);
+    return { id: created.id, isNew: true };
+  } catch (err: any) {
+    // Handle race condition: another concurrent request may have created it
+    if (err?.code === "P2002") {
+      const retry = await prisma.supportChatSession.findUnique({
+        where: {
+          supportAgentId_publicSessionId: { supportAgentId, publicSessionId },
+        },
+      });
+      if (retry) return { id: retry.id, isNew: false };
+    }
+    throw err;
+  }
 }
 
 export async function getSupportChatMessages(

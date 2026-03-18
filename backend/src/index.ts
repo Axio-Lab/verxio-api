@@ -51,8 +51,10 @@ import { migrationRouter } from "./routes/migration";
 import { swaggerSpec } from "./config/swagger";
 import { inngest } from "./inngest";
 import { functions } from "./inngest/functions";
-import { initializeCronScheduler } from "./services/cron-scheduler";
+import { initializeCronScheduler, shutdownCronScheduler } from "./services/cron-scheduler";
 import path from "path";
+import { prisma } from "./lib/prisma";
+import type { Server } from "http";
 
 const app: express.Application = express();
 
@@ -378,11 +380,44 @@ app.use(errorHandler);
 
 // Start server
 
-app.listen(serverPort, async () => {
+const server: Server = app.listen(serverPort, async () => {
   console.log(`🚀 Verxio API Server running on port ${serverPort}`);
 
   // Initialize cron scheduler for timed triggers
   await initializeCronScheduler();
+});
+
+let isShuttingDown = false;
+async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  try {
+    shutdownCronScheduler();
+  } catch {
+    // ignore
+  }
+
+  await new Promise<void>((resolve) => {
+    try {
+      server.close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // ignore
+  }
+}
+
+process.on("SIGINT", () => {
+  void shutdown("SIGINT").finally(() => process.exit(0));
+});
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM").finally(() => process.exit(0));
 });
 
 export default app;

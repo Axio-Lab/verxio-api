@@ -328,7 +328,9 @@ supportPublicChatRouter.post(
       const fallbackEmail = agent.fallbackEmail;
 
       const personaParts = [
-        agent.name ? `You are "${agent.name}". You represent this brand and speak as its support agent.` : "",
+        agent.name
+          ? `You are "${agent.name}". You represent this brand and speak as its support agent.`
+          : "",
         agent.description
           ? `Your role and personality: ${agent.description}.`
           : "You should sound like a warm, friendly human support agent.",

@@ -70,6 +70,8 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         try {
           const externalName =
             [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || null;
+          const metadata: Record<string, unknown> = { telegramChatId: chatId };
+          if (from.username) metadata.username = from.username;
           await upsertSupportContact({
             supportAgentId: channel.supportAgentId,
             supportChannelId: channel.id,
@@ -77,7 +79,7 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
             externalId: senderId,
             externalName: externalName || null,
             phone: null,
-            metadata: from.username ? { username: from.username } : undefined,
+            metadata,
           });
         } catch (contactErr) {
           console.warn("[Support Telegram] upsert support contact failed:", contactErr);

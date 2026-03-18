@@ -94,7 +94,10 @@ async function loadSkillsContent(userId: string, skillIds: string[]): Promise<st
   if (!skills.length) return "";
 
   const combined = skills
-    .map((s: { name: string; content: string | null }) => `### ${s.name}\n${(s.content || "").slice(0, 8000)}`)
+    .map(
+      (s: { name: string; content: string | null }) =>
+        `### ${s.name}\n${(s.content || "").slice(0, 8000)}`
+    )
     .join("\n\n---\n\n");
 
   return `\n\n[Skills - use for nuanced replies, objections, qualification]\n${combined}\n\n[End of Skills]\n`;
@@ -120,16 +123,29 @@ function buildFunnelRulesSection(funnelRules: unknown): string {
   if (Array.isArray(raw)) {
     for (const rule of raw as Array<Record<string, unknown>>) {
       const triggers = (rule.triggers as string[]) || [];
-      addRule(triggers, (rule.summary as string) || "", (rule.assetUrl as string) || undefined, (rule.assetLabel as string) || undefined);
+      addRule(
+        triggers,
+        (rule.summary as string) || "",
+        (rule.assetUrl as string) || undefined,
+        (rule.assetLabel as string) || undefined
+      );
     }
   } else if (Array.isArray(raw.rules)) {
     for (const rule of raw.rules as Array<Record<string, unknown>>) {
       const triggers = (rule.triggers as string[]) || [];
-      addRule(triggers, (rule.summary as string) || "", (rule.assetUrl as string) || undefined, (rule.assetLabel as string) || undefined);
+      addRule(
+        triggers,
+        (rule.summary as string) || "",
+        (rule.assetUrl as string) || undefined,
+        (rule.assetLabel as string) || undefined
+      );
     }
   } else if (raw.triggers && raw.responses && typeof raw.responses === "object") {
     const triggers = raw.triggers as string[];
-    const responses = raw.responses as Record<string, { summary?: string; assetUrl?: string; assetLabel?: string }>;
+    const responses = raw.responses as Record<
+      string,
+      { summary?: string; assetUrl?: string; assetLabel?: string }
+    >;
     for (const key of triggers) {
       const resp = responses[key];
       if (resp?.summary) {
@@ -207,9 +223,7 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
   const history = await getSupportChatMessages(agent.id, sessionIdentifier, 20);
   const conversationText =
     history.length > 0
-      ? history
-          .map((m) => `${m.role === "user" ? "User" : "Support"}: ${m.content}`)
-          .join("\n\n")
+      ? history.map((m) => `${m.role === "user" ? "User" : "Support"}: ${m.content}`).join("\n\n")
       : "";
 
   const kbContext = await buildKnowledgeContext(userId, agent.knowledgeBaseIds, message);
@@ -226,9 +240,11 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
   const systemParts = [
     PROMPT_INJECTION_SECURITY_PREAMBLE,
     "Never use em dashes. Use commas, periods, or semicolons instead.",
-    `You are "${agentName}". You represent this brand as an AI SDR (Sales Development Representative).`,
+    `You are "${agentName}". You represent this brand as an SDR (Sales Development Representative).`,
     description ? `Your role: ${description}.` : "",
     soulMd ? `\n## Your Personality\n${soulMd}\n` : "",
+    'Avoid "AI-like" filler. Do not start with phrases like "Great question", "Absolutely", "Sure!", or "I\'d be happy to help". Start directly with the substance.',
+    "Never say or imply you are an AI, a model, or an assistant. You are a human SDR representing the brand.",
     campaignContext
       ? `\n## Campaign / Post Context\n${campaignContext}\n\nUse this to personalize responses and when the user is vague, give a summary advice/tip from this context.`
       : "",
@@ -243,7 +259,8 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
     : `User: ${message}\n\nSupport:`;
 
   const contextWithKb = kbContext ? `\n\n${kbContext}` : "";
-  const fullSystemPrompt = systemPrompt + contextWithKb + (skillsContent ? `\n\n${skillsContent}` : "");
+  const fullSystemPrompt =
+    systemPrompt + contextWithKb + (skillsContent ? `\n\n${skillsContent}` : "");
 
   const { text } = await generateTextWithSystemPrompt({
     systemPrompt: fullSystemPrompt,
