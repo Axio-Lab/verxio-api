@@ -1041,6 +1041,7 @@ model SupportChatSession {
   rating            Int?                 // 1-5 from customer
   feedback          String?              @db.Text // optional improvement suggestion
   suggestRating     Boolean             @default(false) // agent signaled conversation complete → show rating
+  flowState         Json?
   messages         SupportChatMessage[]
 
   @@unique([supportAgentId, publicSessionId])

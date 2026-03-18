@@ -130,9 +130,24 @@ const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const
 
 type FunnelRule = {
   triggers: string[];
+  questionsEnabled?: boolean;
+  autoWriteDeliveryMessage?: boolean;
+  question1?: string;
+  question2?: string;
   summary: string;
   assetUrl?: string;
   assetLabel?: string;
+  maxAgentReplies?: number;
+  answerOptionsQ1?: string[];
+  answerOptionsQ2?: string[];
+  derailMessage?: string;
+  followUpEnabled?: boolean;
+  followUps?: Array<{
+    message: string;
+    delayMinutes?: number;
+    sendAt?: string;
+    ctaUrl?: string;
+  }>;
 };
 
 const supportAgentSchema = z.object({
@@ -226,6 +241,7 @@ export function SupportContent() {
   const [newMessagePhone, setNewMessagePhone] = useState("");
   const [newMessageSave, setNewMessageSave] = useState(true);
   const [newMessageText, setNewMessageText] = useState("");
+  const [questionEditorsOpen, setQuestionEditorsOpen] = useState<Record<number, boolean>>({});
   const queryClient = useQueryClient();
 
   const messageContactMutation = useProtectedMutation<
@@ -339,6 +355,12 @@ export function SupportContent() {
       cancelled = true;
     };
   }, [insightsAgent]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      setQuestionEditorsOpen({});
+    }
+  }, [dialogOpen]);
 
   useEffect(() => {
     if (!channelsAgent) {
@@ -461,9 +483,45 @@ export function SupportContent() {
       return {
         rules: (obj.rules as Array<Record<string, unknown>>).map((r) => ({
           triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
+          questionsEnabled:
+            r.questionsEnabled === true ||
+            !!(r.question1 as string) ||
+            !!(r.question2 as string),
+          autoWriteDeliveryMessage: r.autoWriteDeliveryMessage === true,
+          question1: (r.question1 as string) || "",
+          question2: (r.question2 as string) || "",
           summary: (r.summary as string) || "",
           assetUrl: (r.assetUrl as string) || undefined,
           assetLabel: (r.assetLabel as string) || undefined,
+          maxAgentReplies:
+            typeof r.maxAgentReplies === "number" ? (r.maxAgentReplies as number) : 3,
+          answerOptionsQ1: Array.isArray(r.answerOptionsQ1) ? (r.answerOptionsQ1 as string[]) : [],
+          answerOptionsQ2: Array.isArray(r.answerOptionsQ2) ? (r.answerOptionsQ2 as string[]) : [],
+          derailMessage: (r.derailMessage as string) || "",
+          followUpEnabled: r.followUpEnabled === true,
+          followUps: Array.isArray(r.followUps)
+            ? (r.followUps as Array<Record<string, unknown>>)
+              .map((f) => ({
+                message: (f.message as string) || "",
+                delayMinutes:
+                  typeof f.delayMinutes === "number" ? (f.delayMinutes as number) : 30,
+                sendAt: (f.sendAt as string) || "",
+                ctaUrl: (f.ctaUrl as string) || "",
+              }))
+              .filter((f) => !!f.message)
+            : (r.followUpMessage as string)
+              ? [
+                {
+                  message: (r.followUpMessage as string) || "",
+                  delayMinutes:
+                    typeof r.followUpDelayMinutes === "number"
+                      ? (r.followUpDelayMinutes as number)
+                      : 30,
+                  sendAt: "",
+                  ctaUrl: "",
+                },
+              ]
+              : [],
         })),
       };
     }
@@ -472,6 +530,7 @@ export function SupportContent() {
 
   const openCreateDialog = () => {
     setEditing(null);
+    setQuestionEditorsOpen({});
     form.reset({
       name: "",
       description: "",
@@ -491,6 +550,7 @@ export function SupportContent() {
 
   const openEditDialog = (agent: SupportAgent) => {
     setEditing(agent);
+    setQuestionEditorsOpen({});
     form.reset({
       name: agent.name,
       description: agent.description ?? "",
@@ -741,9 +801,30 @@ export function SupportContent() {
   const addFunnelRule = () => {
     form.setValue(
       "funnelRules",
-      { rules: [...rules, { triggers: [], summary: "", assetUrl: "", assetLabel: "" }] },
+      {
+        rules: [
+          ...rules,
+          {
+            triggers: [],
+            questionsEnabled: false,
+            autoWriteDeliveryMessage: false,
+            question1: "",
+            question2: "",
+            summary: "",
+            assetUrl: "",
+            assetLabel: "",
+            maxAgentReplies: 3,
+            answerOptionsQ1: [],
+            answerOptionsQ2: [],
+            derailMessage: "",
+            followUpEnabled: false,
+            followUps: [],
+          },
+        ],
+      },
       { shouldDirty: true }
     );
+    setQuestionEditorsOpen({});
   };
   const removeFunnelRule = (index: number) => {
     form.setValue(
@@ -751,23 +832,85 @@ export function SupportContent() {
       { rules: rules.filter((_, i) => i !== index) },
       { shouldDirty: true }
     );
+    setQuestionEditorsOpen({});
   };
-  const updateFunnelRule = (index: number, field: keyof FunnelRule, value: string | string[]) => {
+  const updateFunnelRule = (
+    index: number,
+    field: keyof FunnelRule,
+    value:
+      | string
+      | string[]
+      | boolean
+      | number
+      | Array<{ message: string; delayMinutes?: number; ctaUrl?: string }>
+  ) => {
     const next = rules.map((r, i) =>
       i === index
         ? {
-            ...r,
-            [field]:
-              field === "triggers" && typeof value === "string"
+          ...r,
+          [field]:
+            field === "triggers" && typeof value === "string"
+              ? value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+              : (field === "answerOptionsQ1" || field === "answerOptionsQ2") &&
+                typeof value === "string"
                 ? value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
                 : value,
-          }
+        }
         : r
     );
     form.setValue("funnelRules", { rules: next }, { shouldDirty: true });
+  };
+  const addFollowUp = (ruleIndex: number) => {
+    const current = rules[ruleIndex]?.followUps ?? [];
+    updateFunnelRule(ruleIndex, "followUps", [
+      ...current,
+      { message: "", delayMinutes: 30, sendAt: "", ctaUrl: "" },
+    ]);
+  };
+  const removeFollowUp = (ruleIndex: number, followUpIndex: number) => {
+    const current = rules[ruleIndex]?.followUps ?? [];
+    updateFunnelRule(
+      ruleIndex,
+      "followUps",
+      current.filter((_, idx) => idx !== followUpIndex)
+    );
+  };
+  const updateFollowUp = (
+    ruleIndex: number,
+    followUpIndex: number,
+    field: "message" | "ctaUrl",
+    value: string
+  ) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = { ...current[followUpIndex], [field]: value };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpDelay = (ruleIndex: number, followUpIndex: number, delayMinutes: number) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      delayMinutes: Math.max(1, Math.floor(delayMinutes || 30)),
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpSendAt = (ruleIndex: number, followUpIndex: number, sendAt: string) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = { ...current[followUpIndex], sendAt: sendAt || "" };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const isQuestionEditorOpen = (rule: FunnelRule, index: number): boolean => {
+    const hasSavedQuestionContent =
+      (rule.question1 ?? "").trim().length > 0 || (rule.question2 ?? "").trim().length > 0;
+    return questionEditorsOpen[index] === true || hasSavedQuestionContent;
   };
 
   const dialog = (
@@ -921,8 +1064,8 @@ export function SupportContent() {
                 <div className="space-y-2">
                   <Label>Funnel rules</Label>
                   <p className="text-xs text-muted-foreground">
-                    When the user message matches a trigger phrase, respond with the defined summary
-                    and link. No follow-up questions.
+                    Trigger-based flow with flexible paths: direct trigger to CTA, Q1 only, or Q1 +
+                    Q2. Use {"{{answer1}}"} and {"{{answer2}}"} in later steps to personalize.
                   </p>
                   <div className="space-y-3 max-h-48 overflow-y-auto rounded-md border p-3">
                     {rules.map((rule, idx) => (
@@ -944,12 +1087,6 @@ export function SupportContent() {
                           value={rule.triggers?.join(", ") ?? ""}
                           onChange={(e) => updateFunnelRule(idx, "triggers", e.target.value)}
                         />
-                        <Textarea
-                          placeholder="Summary or response text"
-                          rows={2}
-                          value={rule.summary ?? ""}
-                          onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
-                        />
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Input
                             placeholder="Asset URL (optional)"
@@ -963,6 +1100,244 @@ export function SupportContent() {
                             onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
                             className="sm:w-36 flex-shrink-0"
                           />
+                        </div>
+                        {!isQuestionEditorOpen(rule, idx) && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={rule.autoWriteDeliveryMessage === true}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "autoWriteDeliveryMessage", e.target.checked)
+                              }
+                            />
+                            <span>Auto-write delivery message (keyword-only)</span>
+                          </label>
+                        )}
+                        {!isQuestionEditorOpen(rule, idx) ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              updateFunnelRule(idx, "questionsEnabled", true);
+                              setQuestionEditorsOpen((prev) => ({ ...prev, [idx]: true }));
+                            }}
+                          >
+                            Add question 1
+                          </Button>
+                        ) : (
+                          <>
+                            <Textarea
+                              placeholder="Question 1"
+                              rows={2}
+                              value={rule.question1 ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "question1", e.target.value)}
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  updateFunnelRule(idx, "questionsEnabled", false);
+                                  updateFunnelRule(idx, "question1", "");
+                                  updateFunnelRule(idx, "question2", "");
+                                  updateFunnelRule(idx, "answerOptionsQ1", []);
+                                  updateFunnelRule(idx, "answerOptionsQ2", []);
+                                  updateFunnelRule(idx, "derailMessage", "");
+                                  setQuestionEditorsOpen((prev) => ({ ...prev, [idx]: false }));
+                                }}
+                              >
+                                Disable questions
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && !rule.question2 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              updateFunnelRule(idx, "question2", "Follow-up question using {{answer1}}")
+                            }
+                          >
+                            Add question 2
+                          </Button>
+                        ) : null}
+                        {isQuestionEditorOpen(rule, idx) && !!rule.question2 && (
+                          <>
+                            <Textarea
+                              placeholder="Question 2 (you can use {{answer1}})"
+                              rows={2}
+                              value={rule.question2 ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "question2", e.target.value)}
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  updateFunnelRule(idx, "question2", "");
+                                  updateFunnelRule(idx, "answerOptionsQ2", []);
+                                }}
+                              >
+                                Remove question 2
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <Textarea
+                            placeholder="Final CTA message (optional, you can use {{answer1}} and {{answer2}})"
+                            rows={2}
+                            value={rule.summary ?? ""}
+                            onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
+                          />
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder="Max funnel replies (default 3)"
+                                value={rule.maxAgentReplies ?? 3}
+                                onChange={(e) =>
+                                  updateFunnelRule(
+                                    idx,
+                                    "maxAgentReplies",
+                                    Number(e.target.value || 3)
+                                  )
+                                }
+                              />
+                              <p className="text-[11px] text-muted-foreground">
+                                Safety cap. Limits how many messages this funnel can send before it
+                                stops.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <Input
+                            placeholder="Allowed answers for Q1 (optional, comma-separated)"
+                            value={(rule.answerOptionsQ1 ?? []).join(", ")}
+                            onChange={(e) =>
+                              updateFunnelRule(idx, "answerOptionsQ1", e.target.value)
+                            }
+                          />
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && !!rule.question2 && (
+                          <Input
+                            placeholder="Allowed answers for Q2 (optional, comma-separated)"
+                            value={(rule.answerOptionsQ2 ?? []).join(", ")}
+                            onChange={(e) =>
+                              updateFunnelRule(idx, "answerOptionsQ2", e.target.value)
+                            }
+                          />
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <Textarea
+                            placeholder="Derail recovery message (optional)"
+                            rows={2}
+                            value={rule.derailMessage ?? ""}
+                            onChange={(e) => updateFunnelRule(idx, "derailMessage", e.target.value)}
+                          />
+                        )}
+                        <div className="space-y-2 rounded border bg-muted/20 p-2">
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={rule.followUpEnabled === true}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "followUpEnabled", e.target.checked)
+                              }
+                            />
+                            <span>Enable delayed follow-up</span>
+                          </label>
+                          {rule.followUpEnabled === true && (
+                            <div className="space-y-2">
+                              <p className="text-[11px] text-muted-foreground">
+                                Set delay per follow-up message. Example: 30 means send that follow-up
+                                30 minutes after the previous step.
+                              </p>
+
+                              <div className="space-y-2">
+                                {(rule.followUps ?? []).map((fu, fuIdx) => (
+                                  <div key={`${idx}-followup-${fuIdx}`} className="rounded border p-2 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-medium">
+                                        Follow-up message {fuIdx + 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => removeFollowUp(idx, fuIdx)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                    <Textarea
+                                      rows={3}
+                                      placeholder="Follow-up message text"
+                                      value={fu.message ?? ""}
+                                      onChange={(e) =>
+                                        updateFollowUp(idx, fuIdx, "message", e.target.value)
+                                      }
+                                    />
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] text-muted-foreground">
+                                        When to send this follow-up
+                                      </Label>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          placeholder="After minutes"
+                                          value={fu.delayMinutes ?? 30}
+                                          onChange={(e) => {
+                                            updateFollowUpSendAt(idx, fuIdx, "");
+                                            updateFollowUpDelay(idx, fuIdx, Number(e.target.value || 30));
+                                          }}
+                                        />
+                                        <Input
+                                          type="datetime-local"
+                                          value={fu.sendAt ?? ""}
+                                          onChange={(e) => updateFollowUpSendAt(idx, fuIdx, e.target.value)}
+                                        />
+                                      </div>
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Set either minutes or a specific date and time.
+                                      </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <Input
+                                        className="sm:col-span-2"
+                                        placeholder="Optional follow-up CTA URL"
+                                        value={fu.ctaUrl ?? ""}
+                                        onChange={(e) =>
+                                          updateFollowUp(idx, fuIdx, "ctaUrl", e.target.value)
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addFollowUp(idx)}
+                                  className="w-full"
+                                >
+                                  <Plus className="mr-2 h-3.5 w-3.5" />
+                                  Add follow-up message
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1302,7 +1677,7 @@ export function SupportContent() {
                   variant="outline"
                   className={
                     channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                    whatsappStatus?.status === "connected"
+                      whatsappStatus?.status === "connected"
                       ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   }
@@ -1310,7 +1685,7 @@ export function SupportContent() {
                   {channelsLoading || refreshingWhatsApp
                     ? "Loading…"
                     : channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                        whatsappStatus?.status === "connected"
+                      whatsappStatus?.status === "connected"
                       ? "Connected"
                       : "Disconnected"}
                 </Badge>
@@ -1319,7 +1694,7 @@ export function SupportContent() {
                 Scan the QR to link your number; the support agent replies to chats on this number.
               </p>
               {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-              whatsappStatus?.status === "connected" ? (
+                whatsappStatus?.status === "connected" ? (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -2077,11 +2452,11 @@ export function SupportContent() {
                               const displayName = c.externalName || c.phone || "Unknown contact";
                               const lastSeen = c.lastContactAt
                                 ? new Date(c.lastContactAt).toLocaleString([], {
-                                    month: "short",
-                                    day: "2-digit",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
                                 : "—";
                               return (
                                 <div
