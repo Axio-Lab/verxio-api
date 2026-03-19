@@ -656,31 +656,45 @@ export interface ChatIntegrationResponse {
   data?: Record<string, unknown>;
 }
 
+/** Escape text for Telegram HTML mode (entities only). */
+function escapeTelegramHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Apply inline markdown to already-HTML-escaped line(s). */
+function applyTelegramInlineMarkdown(escaped: string): string {
+  let output = escaped;
+  output = output.replace(/`([^`]+)`/g, "<code>$1</code>");
+  output = output.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  output = output.replace(/__([^_]+)__/g, "<b>$1</b>");
+  output = output.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>");
+  output = output.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<i>$2</i>");
+  output = output.replace(/^\s*-\s+/gm, "• ");
+  return output;
+}
+
 /**
  * Convert simple Markdown-like text to Telegram-safe HTML.
  * Telegram HTML supports: <b>, <i>, <code>, <pre>, <a>.
+ * ATX headings (# .. ######) become bold lines; horizontal rules become a blank line.
  */
 export function formatTelegramMessage(text: string): string {
   if (!text) return "";
 
-  // Escape HTML special chars first
-  let output = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const lines = text.split("\n");
+  const mapped = lines.map((line) => {
+    const trimmed = line.trim();
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      return "";
+    }
+    const hm = line.match(/^#{1,6}\s+(.+)$/);
+    if (hm) {
+      return `<b>${applyTelegramInlineMarkdown(escapeTelegramHtml(hm[1]))}</b>`;
+    }
+    return applyTelegramInlineMarkdown(escapeTelegramHtml(line));
+  });
 
-  // Inline code
-  output = output.replace(/`([^`]+)`/g, "<code>$1</code>");
-
-  // Bold (**text** or __text__)
-  output = output.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
-  output = output.replace(/__([^_]+)__/g, "<b>$1</b>");
-
-  // Italic (*text* or _text_) - avoid bold markers already converted
-  output = output.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>");
-  output = output.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<i>$2</i>");
-
-  // Bullet lists: "- item" -> "• item"
-  output = output.replace(/^\s*-\s+/gm, "• ");
-
-  return output;
+  return mapped.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
 /**
@@ -691,6 +705,11 @@ export function formatTelegramMessage(text: string): string {
 export function formatWhatsAppMessage(text: string): string {
   if (!text) return "";
   let out = text;
+
+  // ATX markdown headings → WhatsApp bold (whole line)
+  out = out.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+  // Horizontal rules (---, ***, ___) → line break only
+  out = out.replace(/^[-*_]{3,}\s*$/gm, "");
 
   // Remove narrow no-break space and similar that break display
   out = out.replace(/\u202f/g, " ").replace(/\u00a0/g, " ");
@@ -721,6 +740,11 @@ export function formatSlackMessage(text: string): string {
   if (!text) return "";
   let out = text;
 
+  // ATX headings → Slack mrkdwn bold
+  out = out.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+  // Horizontal rules
+  out = out.replace(/^[-*_]{3,}\s*$/gm, "");
+
   // Bold: **text** or __text__ -> *text*
   out = out.replace(/\*\*([^*]+)\*\*/g, "*$1*");
   out = out.replace(/__([^_]+)__/g, "*$1*");
@@ -743,8 +767,9 @@ export function formatSlackMessage(text: string): string {
  */
 export function formatDiscordMessage(text: string): string {
   if (!text) return "";
-  // Discord supports standard markdown natively, minimal conversion needed
-  let out = text;
+  // Discord user messages don't reliably render ATX headings; use bold section titles
+  let out = text.replace(/^#{1,6}\s+(.+)$/gm, "**$1**");
+  out = out.replace(/^[-*_]{3,}\s*$/gm, "");
   // Bullet lists: "• item" -> "- item" (Discord renders - as bullet)
   out = out.replace(/^\s*•\s+/gm, "- ");
   return out.trim();

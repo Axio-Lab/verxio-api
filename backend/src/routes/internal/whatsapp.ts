@@ -282,10 +282,11 @@ router.post("/incoming", async (req: Request, res: Response) => {
           if (!replyText || !replyText.trim()) return;
 
           const withPrefix = groupPrefix + replyText;
-          const sendResult = await sendWhatsAppMessage({
+          const formatted = chatIntegrationService.formatWhatsAppMessage(withPrefix);
+          await sendWhatsAppMessage({
             sessionRef: body.sessionId!,
             toJid: replyToJid,
-            text: withPrefix,
+            text: formatted,
           });
         } catch (err) {
           try {

@@ -5,16 +5,19 @@ import {
 } from "@/services/supportChannelService";
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { upsertSupportContact } from "@/services/supportContactService";
+import { formatTelegramMessage } from "@/services/chatIntegrationService";
 
 const router = Router();
 
 async function sendTelegramMessage(botToken: string, chatId: string, text: string) {
+  const formatted = formatTelegramMessage(text);
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: formatted,
+      parse_mode: "HTML",
     }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -103,11 +106,7 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
     } catch (error) {
       console.error("[Support Telegram webhook] Error:", error);
       try {
-        await sendTelegramMessage(
-          channel.telegramBotToken!,
-          chatId,
-          "Something went wrong. Please try again."
-        );
+        await sendTelegramMessage(channel.telegramBotToken!, chatId, "Something went wrong. Please try again.");
       } catch (_) {}
     }
   })();

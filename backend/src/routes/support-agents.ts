@@ -21,16 +21,19 @@ import { upsertSupportContact } from "../services/supportContactService";
 import { basePrismaClient } from "../lib/prisma";
 import { getOrCreateWhatsAppSessionForSupportChannel } from "../services/supportChannelService";
 import { sendWhatsAppMessage } from "../services/whatsappConnectorClient";
+import { formatTelegramMessage, formatWhatsAppMessage } from "../services/chatIntegrationService";
 
 const prisma = basePrismaClient as any;
 
 async function sendTelegramMessage(botToken: string, chatId: string, text: string) {
+  const formatted = formatTelegramMessage(text);
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: formatted,
+      parse_mode: "HTML",
     }),
   });
 }
@@ -333,7 +336,7 @@ supportAgentsRouter.post(
         const result = await sendWhatsAppMessage({
           sessionRef: session.id,
           toJid,
-          text,
+          text: formatWhatsAppMessage(text),
         });
         if (!result.success) {
           throw new AppError(result.error || "Failed to send WhatsApp message", 500);

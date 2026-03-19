@@ -2043,11 +2043,11 @@ export function SupportContent() {
                   </div>
                 </>
               )}
-              {telegramWebhookUrl && (
+              {/* {telegramWebhookUrl && (
                 <p className="text-[11px] text-muted-foreground break-all">
                   Webhook URL: {telegramWebhookUrl}
                 </p>
-              )}
+              )} */}
             </div>
 
             <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">

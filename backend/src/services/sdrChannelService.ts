@@ -25,6 +25,7 @@ import {
 import { basePrismaClient } from "../lib/prisma";
 import { getOrCreateWhatsAppSessionForSupportChannel } from "./supportChannelService";
 import { sendWhatsAppMessage } from "./whatsappConnectorClient";
+import { formatTelegramMessage, formatWhatsAppMessage } from "./chatIntegrationService";
 
 const prisma = basePrismaClient as any;
 
@@ -65,6 +66,8 @@ type FlowStep = "idle" | "questioning" | "completed";
 type SdrFlowState = {
   activeRuleKey?: string | null;
   step?: FlowStep;
+  /** All rule keys whose funnel sequence has been fully completed in this session. */
+  completedRuleKeys?: string[];
   /** Collected answers indexed by question position (answers[0] = Q1, etc.). */
   answers?: string[];
   /** Which question we asked last (0-based); user's next message is the answer to this index. */
@@ -222,6 +225,7 @@ function normalizeFlowState(raw: unknown): SdrFlowState {
     return {
       activeRuleKey: null,
       step: "idle",
+      completedRuleKeys: [],
       answers: [],
       currentQuestionIndex: 0,
       repliesSent: 0,
@@ -264,10 +268,15 @@ function normalizeFlowState(raw: unknown): SdrFlowState {
     if (a2 !== null) answers.push(a2);
   }
 
+  const completedRuleKeys: string[] = Array.isArray(s.completedRuleKeys)
+    ? (s.completedRuleKeys as unknown[]).filter((k): k is string => typeof k === "string" && !!k.trim())
+    : [];
+
   return {
     activeRuleKey:
       typeof s.activeRuleKey === "string" && s.activeRuleKey.trim() ? s.activeRuleKey : null,
     step,
+    completedRuleKeys,
     answers,
     currentQuestionIndex,
     repliesSent:
@@ -621,12 +630,14 @@ function keywordMatched(message: string, triggers: string[]): boolean {
 }
 
 async function sendTelegramMessage(botToken: string, chatId: string, text: string): Promise<void> {
+  const formatted = formatTelegramMessage(text);
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: formatted,
+      parse_mode: "HTML",
     }),
   });
 }
@@ -668,7 +679,7 @@ async function dispatchFollowUpToChannel(
     const sent = await sendWhatsAppMessage({
       sessionRef: waSession.id,
       toJid,
-      text,
+      text: formatWhatsAppMessage(text),
     });
     return sent.success === true;
   }
@@ -1119,9 +1130,11 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
       if ((flowState.repliesSent || 0) >= cap) {
         // Cap hit mid-funnel: mark as completed, then fall through to the LLM
         // fallback so the user can still get support answers and their message is stored.
+        const ruleKey = activeRule.key;
         flowState = {
           ...flowState,
           step: "completed",
+          completedRuleKeys: [...new Set([...(flowState.completedRuleKeys ?? []), ruleKey])],
           updatedAt: new Date().toISOString(),
         };
         await updateSessionFlowStateById(sessionId, flowState as Record<string, unknown>);
@@ -1256,6 +1269,7 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
             ...flowState,
             answers: updatedAnswers,
             step: "completed",
+            completedRuleKeys: [...new Set([...(flowState.completedRuleKeys ?? []), activeRule.key])],
             matchedBranchIndex: branchIndex >= 0 ? branchIndex : null,
             repliesSent: (flowState.repliesSent || 0) + 1,
             updatedAt: new Date().toISOString(),
@@ -1283,10 +1297,12 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
 
     const matchedRule = deterministicRules.find((rule) => keywordMatched(message, rule.triggers));
     if (matchedRule) {
-      // Don't re-trigger the same funnel rule if it's already in progress or completed.
-      // A funnel should only start fresh from a keyword hit on a new/idle session.
+      // Don't re-trigger a funnel rule that is currently active OR has already been completed
+      // in this session. Each rule fires exactly once per session regardless of how many
+      // other rules exist or have fired.
       const isSameRuleAlreadyEngaged =
-        flowState.activeRuleKey === matchedRule.key && flowState.step !== "idle";
+        (flowState.activeRuleKey === matchedRule.key && flowState.step !== "idle") ||
+        (flowState.completedRuleKeys ?? []).includes(matchedRule.key);
 
       if (!isSameRuleAlreadyEngaged) {
         const firstQuestion = normalizeReplyText((matchedRule.questions?.[0] || "").trim());
@@ -1312,6 +1328,7 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
               ...flowState,
               activeRuleKey: matchedRule.key,
               step: "completed",
+              completedRuleKeys: [...new Set([...(flowState.completedRuleKeys ?? []), matchedRule.key])],
               answers: [],
               currentQuestionIndex: 0,
               repliesSent: 1,
@@ -1426,6 +1443,17 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
   const sessionIsIdle = flowState.step === "idle" && !flowState.activeRuleKey;
   const funnelSection = sessionIsIdle ? buildFunnelRulesSection(funnelRules) : "";
 
+  // If any funnel has already run, tell the agent so it doesn't re-greet or re-introduce itself.
+  const funnelAlreadyCompleted = (flowState.completedRuleKeys ?? []).length > 0;
+  // Also detect if the user is re-sending a trigger keyword whose funnel already completed.
+  const isRepeatKeyword =
+    funnelAlreadyCompleted &&
+    deterministicRules.some(
+      (r) =>
+        keywordMatched(message, r.triggers) &&
+        (flowState.completedRuleKeys ?? []).includes(r.key)
+    );
+
   const systemParts = [
     PROMPT_INJECTION_SECURITY_PREAMBLE,
     `You are "${agentName}". You are a senior Sales Development Representative with years of experience. You handle support and customer questions directly.`,
@@ -1447,6 +1475,12 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
     "Be direct. Short punchy sentences. Sound like a real person, not a chatbot.",
     `GREETINGS: When the user greets you, respond warmly with your name and a single natural line that opens the conversation. Do NOT say "What's going on?" or "How can I help?". Do NOT repeat your role title robotically after your name. Sound like a real person saying hello, not a chatbot reciting a script.`,
     `Example greeting: "Hey! I'm ${agentName}. Good to have you here. What's on your mind?"`,
+    funnelAlreadyCompleted
+      ? "IMPORTANT: You already spoke with this person and delivered content to them earlier in this conversation. Do NOT re-introduce yourself. Do NOT say hello as if this is the first message. Just respond naturally to what they said."
+      : "",
+    isRepeatKeyword
+      ? "The user sent a word that looks like a campaign keyword, but you have already completed the funnel sequence with them. Treat it as a regular message. Do not re-run any funnel or re-deliver any asset. Just acknowledge and ask if there is anything else you can help with."
+      : "",
     "",
     "FORMATTING:",
     "Each sentence or idea gets its own line. Put a blank line between separate points.",
