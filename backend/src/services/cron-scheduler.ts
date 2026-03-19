@@ -14,6 +14,33 @@ const prisma = basePrismaClient as any;
 
 const activeCronJobs = new Map<string, cron.ScheduledTask>();
 
+let imageCleanupJob: cron.ScheduledTask | null = null;
+let videoCleanupJob: cron.ScheduledTask | null = null;
+let chatUploadsCleanupJob: cron.ScheduledTask | null = null;
+
+export function shutdownCronScheduler(): void {
+  for (const job of activeCronJobs.values()) {
+    try {
+      job.stop();
+    } catch {
+      // ignore
+    }
+  }
+  activeCronJobs.clear();
+
+  for (const job of [imageCleanupJob, videoCleanupJob, chatUploadsCleanupJob]) {
+    if (!job) continue;
+    try {
+      job.stop();
+    } catch {
+      // ignore
+    }
+  }
+  imageCleanupJob = null;
+  videoCleanupJob = null;
+  chatUploadsCleanupJob = null;
+}
+
 /**
  * Convert schedule configuration to a cron expression
  */
@@ -243,7 +270,8 @@ export function getCronSchedulerStats(): {
  */
 function scheduleImageCleanup(): void {
   // Cron expression: "*/30 * * * *" = every 30 minutes
-  cron.schedule("*/30 * * * *", async () => {
+  imageCleanupJob?.stop();
+  imageCleanupJob = cron.schedule("*/30 * * * *", async () => {
     try {
       const deletedCount = cleanupOldImages(24); // Clean up images older than 24 hours
       if (deletedCount > 0) {
@@ -263,7 +291,8 @@ function scheduleImageCleanup(): void {
  */
 function scheduleVideoCleanup(): void {
   // Cron expression: "*/30 * * * *" = every 30 minutes
-  cron.schedule("*/30 * * * *", async () => {
+  videoCleanupJob?.stop();
+  videoCleanupJob = cron.schedule("*/30 * * * *", async () => {
     try {
       const deletedCount = cleanupOldVideos(24); // Clean up videos older than 24 hours
       if (deletedCount > 0) {
@@ -328,7 +357,8 @@ function cleanupOldChatUploads(maxAgeHours: number = 24): number {
  */
 function scheduleChatUploadsCleanup(): void {
   // Cron expression: "*/30 * * * *" = every 30 minutes
-  cron.schedule("*/30 * * * *", async () => {
+  chatUploadsCleanupJob?.stop();
+  chatUploadsCleanupJob = cron.schedule("*/30 * * * *", async () => {
     try {
       const deletedCount = cleanupOldChatUploads(24); // Clean up files older than 24 hours
       if (deletedCount > 0) {

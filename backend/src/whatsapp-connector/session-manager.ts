@@ -153,9 +153,7 @@ export async function startSession(
           data: { status: "disconnected", workerId: null },
         });
         setTimeout(() => {
-          startSession(sessionId, onIncoming).catch((err) =>
-            console.error("[WhatsApp Connector] auto-reconnect after 515 failed:", err)
-          );
+          startSession(sessionId, onIncoming).catch((err) => undefined);
         }, 2500);
       } else {
         await (prisma as any).whatsAppSession.update({
@@ -204,7 +202,8 @@ export async function startSession(
             payload,
           });
         } catch (err) {
-          console.error("[WhatsApp Connector] onIncoming error:", err);
+          // Intentionally no console output
+          undefined;
         }
       }
       return;
@@ -226,7 +225,8 @@ export async function startSession(
             botJid: ownerJid || undefined,
           });
         } catch (err) {
-          console.error("[WhatsApp Connector] onIncoming error:", err);
+          // Intentionally no console output
+          undefined;
         }
       }
       return;
@@ -264,7 +264,8 @@ export async function startSession(
           botJid: ownerJid || undefined, // pass the connected account's JID for group mention detection
         });
       } catch (err) {
-        console.error("[WhatsApp Connector] onIncoming error:", err);
+        // Intentionally no console output
+        undefined;
       }
     }
   });

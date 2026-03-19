@@ -48,6 +48,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
       participant?: string;
       mentionedJid?: string[];
       groupJid?: string;
+      /** Raw Baileys remoteJid — use for replies so JID matches exactly. */
+      remoteJid?: string;
       attachments?: Array<{
         type: "image" | "file" | "document";
         url?: string;
@@ -67,6 +69,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
   const isGroup = payload.isGroup === true;
   const groupJid = payload.groupJid;
   const botJid = body.botJid;
+  // Use raw Baileys remoteJid for replies — preserves exact JID format (@s.whatsapp.net, @lid, etc.)
+  const rawRemoteJid = payload.remoteJid;
 
   // For group messages: only process if the bot was mentioned
   if (isGroup) {
@@ -89,8 +93,10 @@ router.post("/incoming", async (req: Request, res: Response) => {
     }
   }
 
-  // For replies: use groupJid for group messages, fromJid for 1:1 messages
-  const replyToJid = isGroup && groupJid ? groupJid : fromJid;
+  // For replies: use raw remoteJid (preserves exact Baileys JID format).
+  // For groups: remoteJid IS the group JID. For 1:1: remoteJid IS the sender JID.
+  // Fallback to groupJid/fromJid for backwards compat with older connector payloads.
+  const replyToJid = rawRemoteJid || (isGroup && groupJid ? groupJid : fromJid);
 
   const integrationId = body.integrationId;
   if (integrationId) {
@@ -186,12 +192,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
             text: formatted,
             quotedKey,
           });
-          if (!sendResult.success) {
-            console.error("[WhatsApp incoming] send reply failed:", sendResult.error);
-          }
         }
       } catch (err) {
-        console.error("[WhatsApp incoming] processMessage error:", err);
         try {
           await sendWhatsAppMessage({
             sessionRef: integrationId,
@@ -227,9 +229,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
           });
         }
       }
-    } catch (triggerErr) {
-      console.error("[WhatsApp incoming] workflow trigger by integrationId failed:", triggerErr);
-    }
+    } catch (triggerErr) {}
 
     return res.json({ ok: true });
   }
@@ -238,26 +238,32 @@ router.post("/incoming", async (req: Request, res: Response) => {
   if (body.sessionId && !body.integrationId) {
     const supportChannel = await getSupportChannelByWhatsAppSession(body.sessionId);
     if (supportChannel) {
-      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent?.status;
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
+        ?.status;
       if (agentStatus === "disabled") {
         return res.json({ ok: true, skipped: "agent_disabled" });
       }
 
       // Save contact when someone messages the support agent (normalize JID to prevent duplicates)
       try {
-        const normalizedJid = fromJid.replace(/:.*@/, "@");
-        const phoneMatch = normalizedJid.match(/^(\d+)@/);
+        // For WhatsApp we must preserve the real remote JID (often @lid). Digits-only IDs can collide.
+        const normalizedRemoteJid =
+          typeof rawRemoteJid === "string" && rawRemoteJid
+            ? rawRemoteJid.replace(/:.*@/, "@")
+            : "";
+        const externalIdForContact =
+          normalizedRemoteJid || (typeof fromJid === "string" && fromJid ? `${fromJid}@s.whatsapp.net` : "");
+        const phoneMatch = fromJid.match(/^(\d{7,})$/);
         await upsertSupportContact({
           supportAgentId: supportChannel.supportAgentId,
           supportChannelId: supportChannel.id,
           platform: "WHATSAPP",
-          externalId: normalizedJid,
+          externalId: externalIdForContact,
           externalName: payload.pushName ?? null,
           phone: phoneMatch ? `+${phoneMatch[1]}` : null,
+          metadata: normalizedRemoteJid ? { whatsappRemoteJid: normalizedRemoteJid } : undefined,
         });
-      } catch (contactErr) {
-        console.warn("[WhatsApp incoming] upsert support contact failed:", contactErr);
-      }
+      } catch (contactErr) {}
 
       // For now, always route messages to the bound support agent
       const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
@@ -266,26 +272,23 @@ router.post("/incoming", async (req: Request, res: Response) => {
         try {
           const replyText = await respondToChannelMessage({
             supportAgentId: supportChannel.supportAgentId,
-            externalId: fromJid,
+            // Session should be keyed by the real JID for correct 1:1 + future group support
+            externalId:
+              (typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "") ||
+              fromJid,
             message: payload.body,
           });
 
           if (!replyText || !replyText.trim()) return;
 
           const withPrefix = groupPrefix + replyText;
-          const sendResult = await sendWhatsAppMessage({
+          const formatted = chatIntegrationService.formatWhatsAppMessage(withPrefix);
+          await sendWhatsAppMessage({
             sessionRef: body.sessionId!,
             toJid: replyToJid,
-            text: withPrefix,
+            text: formatted,
           });
-          if (!sendResult.success) {
-            console.error(
-              "[WhatsApp incoming] support channel send reply failed:",
-              sendResult.error
-            );
-          }
         } catch (err) {
-          console.error("[WhatsApp incoming] support channel error:", err);
           try {
             await sendWhatsAppMessage({
               sessionRef: body.sessionId!,

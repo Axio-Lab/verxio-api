@@ -4,12 +4,14 @@ import type { WhatsAppPayload } from "./types";
 /** JIDs we never process (status/stories, etc.). */
 const IGNORED_JIDS = ["status@broadcast"];
 
-/** Extract phone number only from a JID (strip @s.whatsapp.net, @g.us, @lid, etc.). */
+/** Extract phone number only from a JID (strip @s.whatsapp.net, device suffix, etc.). */
 function jidToNumber(jid: string): string {
   if (!jid) return jid;
   const at = jid.indexOf("@");
-  if (at === -1) return jid.replace(/\D/g, "") || jid;
-  return jid.slice(0, at).replace(/\D/g, "") || jid;
+  const local = at === -1 ? jid : jid.slice(0, at);
+  // Strip device suffix (e.g. "49134493028426:0" → "49134493028426")
+  const withoutDevice = local.includes(":") ? local.slice(0, local.indexOf(":")) : local;
+  return withoutDevice.replace(/\D/g, "") || jid;
 }
 
 /**
@@ -95,6 +97,7 @@ export function normalizeMessage(msg: WAMessage, allowGroups = false): WhatsAppP
     pushName: msg.pushName ?? undefined,
     participant: key.participant ?? undefined,
     mentionedJid: mentionedJid.length > 0 ? mentionedJid : undefined,
-    groupJid: isGroup ? to : undefined, // raw group JID (e.g. "123456@g.us")
+    groupJid: isGroup ? to : undefined,
+    remoteJid: key.remoteJid ?? undefined,
   };
 }

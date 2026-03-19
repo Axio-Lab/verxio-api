@@ -9,10 +9,12 @@ import { getSessionsToRun, startSession } from "./session-manager";
 import type { IncomingWhatsAppEvent } from "./types";
 
 process.on("uncaughtException", (err) => {
-  console.error("[WhatsApp Connector] Uncaught exception:", err.message);
+  // Intentionally no console output
+  undefined;
 });
 process.on("unhandledRejection", (reason, p) => {
-  console.error("[WhatsApp Connector] Unhandled rejection:", reason);
+  // Intentionally no console output
+  undefined;
 });
 
 const API_URL = process.env.API_URL;
@@ -20,7 +22,6 @@ const PORT = parseInt(process.env.WHATSAPP_CONNECTOR_PORT || process.env.PORT ||
 const INCOMING_SECRET = process.env.WHATSAPP_INCOMING_SECRET || "";
 
 if (!API_URL) {
-  console.error("[WhatsApp Connector] API_URL or BACKEND_URL is required");
   process.exit(1);
 }
 
@@ -47,18 +48,18 @@ async function main() {
   for (const s of sessions) {
     try {
       await startSession(s.id, onIncoming);
-      console.log(`[WhatsApp Connector] Started session ${s.id}`);
     } catch (err) {
-      console.error(`[WhatsApp Connector] Failed to start session ${s.id}:`, err);
+      // Intentionally no console output
+      undefined;
     }
   }
 
   app.listen(PORT, () => {
-    console.log(`[WhatsApp Connector] HTTP server listening on port ${PORT}`);
+    // Intentionally no console output
+    undefined;
   });
 }
 
 main().catch((err) => {
-  console.error("[WhatsApp Connector] Fatal:", err);
   process.exit(1);
 });

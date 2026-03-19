@@ -161,7 +161,8 @@ export function SkillForm({ initialData }: SkillFormProps) {
     e.target.value = "";
     if (!file) return;
 
-    const isMd = file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown");
+    const isMd =
+      file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown");
     if (!isMd) {
       toast.error("Please upload a .md or .markdown file");
       return;
@@ -354,8 +355,14 @@ export function SkillForm({ initialData }: SkillFormProps) {
                         e.preventDefault();
                         e.stopPropagation();
                         const file = e.dataTransfer.files?.[0];
-                        if (file && (file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown"))) {
-                          const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                        if (
+                          file &&
+                          (file.name.toLowerCase().endsWith(".md") ||
+                            file.name.toLowerCase().endsWith(".markdown"))
+                        ) {
+                          const fakeEvent = {
+                            target: { files: [file] },
+                          } as unknown as React.ChangeEvent<HTMLInputElement>;
                           handleFileUpload(fakeEvent);
                         } else if (file) {
                           toast.error("Please upload a .md or .markdown file");
@@ -372,11 +379,13 @@ export function SkillForm({ initialData }: SkillFormProps) {
                         {isUploading ? "Loading..." : "Click or drag to upload"}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        .md or .markdown files only. Name and description are auto-filled from the file.
+                        .md or .markdown files only. Name and description are auto-filled from the
+                        file.
                       </p>
                     </div>
                     <p className="text-[0.8rem] text-muted-foreground">
-                      Upload a SKILL.md file. Content, name, and description will be extracted automatically.
+                      Upload a SKILL.md file. Content, name, and description will be extracted
+                      automatically.
                     </p>
                   </div>
                 </TabsContent>

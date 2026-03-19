@@ -22,6 +22,8 @@ export interface WhatsAppPayload {
   participant?: string; // For group messages, the sender JID
   mentionedJid?: string[]; // JIDs mentioned via @ in the message
   groupJid?: string; // Raw group JID (e.g. "123456@g.us") when isGroup=true
+  /** Raw Baileys remoteJid — use this for replies so the JID matches exactly. */
+  remoteJid?: string;
 }
 
 export interface IncomingWhatsAppEvent {

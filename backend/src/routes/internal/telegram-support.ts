@@ -5,19 +5,27 @@ import {
 } from "@/services/supportChannelService";
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { upsertSupportContact } from "@/services/supportContactService";
+import { formatTelegramMessage } from "@/services/chatIntegrationService";
 
 const router = Router();
 
 async function sendTelegramMessage(botToken: string, chatId: string, text: string) {
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  const formatted = formatTelegramMessage(text);
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: formatted,
       parse_mode: "HTML",
     }),
   });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(
+      `Telegram sendMessage failed: ${payload?.description || response.statusText || "Unknown error"}`
+    );
+  }
 }
 
 /**
@@ -70,6 +78,8 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         try {
           const externalName =
             [from.first_name, from.last_name].filter(Boolean).join(" ") || from.username || null;
+          const metadata: Record<string, unknown> = { telegramChatId: chatId };
+          if (from.username) metadata.username = from.username;
           await upsertSupportContact({
             supportAgentId: channel.supportAgentId,
             supportChannelId: channel.id,
@@ -77,7 +87,7 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
             externalId: senderId,
             externalName: externalName || null,
             phone: null,
-            metadata: from.username ? { username: from.username } : undefined,
+            metadata,
           });
         } catch (contactErr) {
           console.warn("[Support Telegram] upsert support contact failed:", contactErr);
@@ -89,15 +99,14 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         externalId: senderId || chatId,
         message: text,
       });
-      await sendTelegramMessage(channel.telegramBotToken!, chatId, reply);
+      // SDR funnels can intentionally return empty text (silence mode); do not send empty Telegram messages.
+      if (reply && reply.trim()) {
+        await sendTelegramMessage(channel.telegramBotToken!, chatId, reply);
+      }
     } catch (error) {
       console.error("[Support Telegram webhook] Error:", error);
       try {
-        await sendTelegramMessage(
-          channel.telegramBotToken!,
-          chatId,
-          "Something went wrong. Please try again."
-        );
+        await sendTelegramMessage(channel.telegramBotToken!, chatId, "Something went wrong. Please try again.");
       } catch (_) {}
     }
   })();

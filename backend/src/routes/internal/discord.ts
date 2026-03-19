@@ -69,8 +69,8 @@ router.post("/incoming", async (req: Request, res: Response) => {
       supportChannel.platform === "DISCORD" &&
       supportChannel.status === "connected"
     ) {
-      const agentStatus = (supportChannel as { supportAgent?: { status: string } })
-        .supportAgent?.status;
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
+        ?.status;
       if (agentStatus === "disabled") {
         return res.json({ ok: true, skipped: "agent_disabled" });
       }

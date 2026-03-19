@@ -12,6 +12,8 @@ type SupportChatMessageRow = {
   createdAt: Date;
 };
 
+export type SessionFlowState = Record<string, unknown> | null;
+
 export async function getOrCreateSupportChatSession(
   supportAgentId: string,
   publicSessionId: string
@@ -24,11 +26,24 @@ export async function getOrCreateSupportChatSession(
   if (existing) {
     return { id: existing.id, isNew: false };
   }
-  const created = await prisma.supportChatSession.create({
-    data: { supportAgentId, publicSessionId },
-  });
-  await incrementSupportAgentConversations(supportAgentId);
-  return { id: created.id, isNew: true };
+  try {
+    const created = await prisma.supportChatSession.create({
+      data: { supportAgentId, publicSessionId },
+    });
+    await incrementSupportAgentConversations(supportAgentId);
+    return { id: created.id, isNew: true };
+  } catch (err: any) {
+    // Handle race condition: another concurrent request may have created it
+    if (err?.code === "P2002") {
+      const retry = await prisma.supportChatSession.findUnique({
+        where: {
+          supportAgentId_publicSessionId: { supportAgentId, publicSessionId },
+        },
+      });
+      if (retry) return { id: retry.id, isNew: false };
+    }
+    throw err;
+  }
 }
 
 export async function getSupportChatMessages(
@@ -89,6 +104,25 @@ export async function appendSupportChatMessages(
         hadFallbackReply: assistantMessage.hadFallbackReply,
       },
     ],
+  });
+
+  await prisma.supportChatSession.update({
+    where: { id: supportChatSessionId },
+    data: { lastMessageAt: new Date() },
+  });
+}
+
+export async function appendSupportAssistantMessage(
+  supportChatSessionId: string,
+  assistantMessage: { content: string; hadFallbackReply: boolean }
+): Promise<void> {
+  await prisma.supportChatMessage.create({
+    data: {
+      supportChatSessionId,
+      role: "assistant",
+      content: assistantMessage.content,
+      hadFallbackReply: assistantMessage.hadFallbackReply,
+    },
   });
 
   await prisma.supportChatSession.update({
@@ -159,4 +193,25 @@ export async function getSessionFeedback(
     feedback: session.feedback ?? null,
     suggestRating: session.suggestRating === true,
   };
+}
+
+export async function getSessionFlowStateById(
+  supportChatSessionId: string
+): Promise<SessionFlowState> {
+  const session = await prisma.supportChatSession.findUnique({
+    where: { id: supportChatSessionId },
+    select: { flowState: true },
+  });
+  if (!session || !session.flowState || typeof session.flowState !== "object") return null;
+  return session.flowState as Record<string, unknown>;
+}
+
+export async function updateSessionFlowStateById(
+  supportChatSessionId: string,
+  flowState: SessionFlowState
+): Promise<void> {
+  await prisma.supportChatSession.update({
+    where: { id: supportChatSessionId },
+    data: { flowState: (flowState ?? null) as any, lastMessageAt: new Date() },
+  });
 }

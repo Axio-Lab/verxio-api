@@ -88,6 +88,7 @@ export async function respondToChannelMessage(options: {
       supportAgentId,
       sessionIdentifier: externalId,
       message,
+      sessionType: "channel",
     });
   }
 
@@ -146,7 +147,9 @@ export async function respondToChannelMessage(options: {
 
   const agentName = (agent.name as string) || "";
   const personaParts: string[] = [
-    agentName ? `You are "${agentName}". You represent this brand and speak as its support agent.` : "",
+    agentName
+      ? `You are "${agentName}". You represent this brand and speak as its support agent.`
+      : "",
     agent.description
       ? `Your role and personality: ${agent.description}.`
       : "You should sound like a warm, friendly human support agent.",
@@ -158,6 +161,9 @@ export async function respondToChannelMessage(options: {
     agentName
       ? `When the user says hello, hi, or similar greetings, respond warmly as ${agentName} (e.g. "Hi! I'm ${agentName}. How can I help you today?"). Do NOT mention Verxio unless the user asks about the platform. You represent ${agentName}, not Verxio.`
       : "When the user says hello or similar, respond with a warm greeting. Do not mention Verxio unless the user asks about it.",
+    "Never use em dashes. Use commas, periods, or semicolons instead.",
+    'Avoid "AI-like" filler. Do not start with phrases like "Great question", "Absolutely", "Sure!", or "I\'d be happy to help". Start directly with the answer.',
+    "Never say or imply you are an AI, a model, or an assistant. You are a human support representative for this brand.",
     "You must answer ONLY using the provided support knowledge base context when available.",
     "For questions: start directly with the answer. Do NOT repeat your name in every reply. Introduce yourself only when the user says hello or asks who you are.",
     "If the knowledge base does not contain a clear answer, you MUST say you are not sure and ask the user to contact support via email.",

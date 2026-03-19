@@ -218,9 +218,11 @@ export default function PublicSupportChatPage() {
       });
       const data = await res.json();
 
-      if (data.success && data.reply) {
+      if (data.success && data.reply != null) {
         if (data.suggestShowRating === true) setAgentSuggestsRating(true);
         else if (data.suggestShowRating === false) setAgentSuggestsRating(false);
+        // Empty reply means the agent is intentionally silent (e.g. safety cap, closing).
+        // Refresh the message list if available but don't append a blank bubble.
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           setMessages(
             data.messages.map((m: SupportChatMessage) => ({
@@ -230,7 +232,7 @@ export default function PublicSupportChatPage() {
               ...(m.attachmentUrls && { attachmentUrls: m.attachmentUrls }),
             }))
           );
-        } else {
+        } else if (data.reply) {
           setMessages((prev) => [
             ...prev,
             {
@@ -354,11 +356,25 @@ export default function PublicSupportChatPage() {
                   "max-w-[85%]",
                   msg.role === "user"
                     ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
-                    : "flex-1 min-w-0"
+                    : "flex-1 min-w-0 rounded-2xl rounded-bl-md bg-muted/40 dark:bg-muted/20 px-4 py-3.5"
                 )}
               >
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:text-xs [&_code]:text-xs [&_p]:text-sm [&_li]:text-sm">
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none break-words
+                    [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p]:text-[15px] [&_p]:leading-[1.65]
+                    [&_ul]:my-3 [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-[15px] [&_li]:leading-relaxed
+                    [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:first:mt-0
+                    [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2
+                    [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5
+                    [&_pre]:my-3 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:bg-background/80 [&_pre]:border [&_pre]:overflow-x-auto [&_pre]:text-[13px]
+                    [&_code]:text-[13px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-background/80 [&_code]:font-mono
+                    [&_pre_code]:p-0 [&_pre_code]:bg-transparent
+                    [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+                    [&_hr]:my-4 [&_hr]:border-border
+                    [&_table]:my-3 [&_table]:w-full [&_th]:text-left [&_th]:font-medium [&_th]:py-2 [&_th]:pr-3 [&_td]:py-2 [&_td]:pr-3
+                    [&_strong]:font-semibold"
+                  >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                 ) : (

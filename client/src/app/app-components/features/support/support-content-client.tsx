@@ -67,6 +67,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
+import { useProtectedQuery } from "@/hooks/useProtectedQuery";
+import { useProtectedMutation } from "@/hooks/useProtectedMutation";
 
 type KnowledgeBaseSummary = {
   id: string;
@@ -121,13 +124,38 @@ type SupportContactListResult = {
   totalPages: number;
 };
 
+type NewOutboundMessagePlatform = "WHATSAPP";
+
 const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const;
+
+type FunnelBranch = {
+  matchKeywords: string[];
+  summary?: string;
+  assetUrl?: string;
+  assetLabel?: string;
+};
 
 type FunnelRule = {
   triggers: string[];
+  questionsEnabled?: boolean;
+  autoWriteDeliveryMessage?: boolean;
+  /** Ordered list of questions. */
+  questions?: string[];
   summary: string;
   assetUrl?: string;
   assetLabel?: string;
+  maxAgentReplies?: number;
+  branches?: FunnelBranch[];
+  followUpEnabled?: boolean;
+  followUps?: Array<{
+    message: string;
+    /** true = send verbatim; false = AI generates contextual nudge from message as topic */
+    useCustomMessage?: boolean;
+    scheduleType?: "delay" | "datetime";
+    delayMinutes?: number;
+    sendAt?: string;
+    ctaUrl?: string;
+  }>;
 };
 
 const supportAgentSchema = z.object({
@@ -209,13 +237,96 @@ export function SupportContent() {
   const funnelRulesForm = form.watch("funnelRules") as { rules: FunnelRule[] } | undefined;
   const { data: skillsData } = useSkills(1, 100);
   const [contactsAgent, setContactsAgent] = useState<SupportAgent | null>(null);
-  const [contactsStats, setContactsStats] = useState<SupportContactStats | null>(null);
-  const [contactsList, setContactsList] = useState<SupportContactListResult | null>(null);
-  const [contactsLoading, setContactsLoading] = useState(false);
-  const [contactsListLoading, setContactsListLoading] = useState(false);
   const [contactsPage, setContactsPage] = useState(1);
   const [exportingVcf, setExportingVcf] = useState(false);
+  const [contactsPlatform, setContactsPlatform] = useState<"ALL" | "WHATSAPP" | "TELEGRAM">("ALL");
+  const [contactsQuery, setContactsQuery] = useState("");
+  const [messageContact, setMessageContact] = useState<SupportContact | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [newMessagePlatform] = useState<NewOutboundMessagePlatform>("WHATSAPP");
+  const [newMessageName, setNewMessageName] = useState("");
+  const [newMessagePhone, setNewMessagePhone] = useState("");
+  const [newMessageSave, setNewMessageSave] = useState(true);
+  const [newMessageText, setNewMessageText] = useState("");
+  const [questionEditorsOpen, setQuestionEditorsOpen] = useState<Record<number, boolean>>({});
+  const [branchEditorsOpen, setBranchEditorsOpen] = useState<Record<number, boolean>>({});
+  const queryClient = useQueryClient();
 
+  // Keep question editor UI state in sync with the rules list.
+  // Index-keyed state can drift when rules are added/removed, or when re-opening the dialog.
+  const rulesLength = (funnelRulesForm?.rules ?? []).length;
+  useEffect(() => {
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
+  }, [rulesLength, dialogOpen]);
+
+  const messageContactMutation = useProtectedMutation<
+    { ok: boolean; platform: string },
+    Error,
+    { agentId: string; contactId: string; text: string }
+  >({
+    mutationFn: async (vars) => {
+      return authenticatedPost(
+        `/api/support-agents/${vars.agentId}/contacts/${vars.contactId}/message`,
+        { text: vars.text }
+      );
+    },
+    onSuccess: () => {
+      toast.success("Message sent");
+      setMessageText("");
+      setMessageContact(null);
+    },
+    onError: (err) => {
+      const msg =
+        (err && typeof (err as any).message === "string" && (err as any).message.trim()) ||
+        "Failed to send message";
+      toast.error(msg);
+    },
+  });
+
+  const newOutboundMessageMutation = useProtectedMutation<
+    { ok: boolean; platform: string },
+    Error,
+    {
+      agentId: string;
+      platform: NewOutboundMessagePlatform;
+      text: string;
+      saveToContacts: boolean;
+      name?: string;
+      phone?: string;
+    }
+  >({
+    mutationFn: async (vars) => {
+      return authenticatedPost(`/api/support-agents/${vars.agentId}/contacts/message`, {
+        platform: vars.platform,
+        text: vars.text,
+        saveToContacts: vars.saveToContacts,
+        name: vars.name || undefined,
+        phone: vars.phone || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Message sent");
+      setNewMessageText("");
+      setNewMessagePhone("");
+      setNewMessageName("");
+      setNewMessageSave(true);
+      setNewMessageOpen(false);
+      if (contactsAgent?.id) {
+        await queryClient.invalidateQueries({ queryKey: ["support-agent-contacts", contactsAgent.id] });
+        await queryClient.invalidateQueries({
+          queryKey: ["support-agent-contacts-stats", contactsAgent.id],
+        });
+      }
+    },
+    onError: (err) => {
+      const msg =
+        (err && typeof (err as any).message === "string" && (err as any).message.trim()) ||
+        "Failed to send message";
+      toast.error(msg);
+    },
+  });
   useEffect(() => {
     const fetchKnowledgeBases = async () => {
       try {
@@ -261,6 +372,13 @@ export function SupportContent() {
       cancelled = true;
     };
   }, [insightsAgent]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      setQuestionEditorsOpen({});
+      setBranchEditorsOpen({});
+    }
+  }, [dialogOpen]);
 
   useEffect(() => {
     if (!channelsAgent) {
@@ -311,57 +429,51 @@ export function SupportContent() {
     };
   }, [channelsAgent]);
 
-  useEffect(() => {
-    if (!contactsAgent) {
-      setContactsStats(null);
-      setContactsList(null);
-      return;
-    }
-    let cancelled = false;
-    setContactsLoading(true);
-    setContactsStats(null);
-    setContactsList(null);
-    const load = async () => {
-      try {
-        const [stats, list] = await Promise.all([
-          authenticatedGet<SupportContactStats>(
-            `/api/support-agents/${contactsAgent.id}/contacts/stats`
-          ),
-          authenticatedGet<SupportContactListResult>(
-            `/api/support-agents/${contactsAgent.id}/contacts?page=1&limit=10`
-          ),
-        ]);
-        if (!cancelled) {
-          setContactsStats(stats);
-          setContactsList(list);
-          setContactsPage(1);
-        }
-      } catch {
-        if (!cancelled) toast.error("Failed to load contacts");
-      } finally {
-        if (!cancelled) setContactsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [contactsAgent]);
+  const contactsStatsQuery = useProtectedQuery<SupportContactStats>({
+    queryKey: ["support-agent-contacts-stats", contactsAgent?.id],
+    queryFn: () =>
+      authenticatedGet<SupportContactStats>(
+        `/api/support-agents/${contactsAgent?.id}/contacts/stats`
+      ),
+    enabled: !!contactsAgent?.id,
+    redirectToLogin: true,
+  });
 
-  const loadContactsPage = async (agentId: string, page: number) => {
-    setContactsListLoading(true);
-    try {
-      const list = await authenticatedGet<SupportContactListResult>(
-        `/api/support-agents/${agentId}/contacts?page=${page}&limit=10`
+  const contactsListQuery = useProtectedQuery<SupportContactListResult>({
+    queryKey: ["support-agent-contacts", contactsAgent?.id, contactsPlatform, contactsPage],
+    queryFn: () => {
+      const agentId = contactsAgent?.id;
+      const platformParam = contactsPlatform !== "ALL" ? `&platform=${contactsPlatform}` : "";
+      return authenticatedGet<SupportContactListResult>(
+        `/api/support-agents/${agentId}/contacts?page=${contactsPage}&limit=10${platformParam}`
       );
-      setContactsList(list);
-      setContactsPage(page);
-    } catch {
-      toast.error("Failed to load contacts");
-    } finally {
-      setContactsListLoading(false);
-    }
-  };
+    },
+    enabled: !!contactsAgent?.id,
+    redirectToLogin: true,
+    placeholderData: (prev) => prev,
+  });
+
+  useEffect(() => {
+    if (!contactsAgent?.id) return;
+    // Prefetch platform lists so switching tabs feels instant.
+    const agentId = contactsAgent.id;
+    const prefetch = (platform: "WHATSAPP" | "TELEGRAM") => {
+      return queryClient.prefetchQuery({
+        queryKey: ["support-agent-contacts", agentId, platform, 1],
+        queryFn: () =>
+          authenticatedGet<SupportContactListResult>(
+            `/api/support-agents/${agentId}/contacts?page=1&limit=10&platform=${platform}`
+          ),
+      });
+    };
+    void prefetch("WHATSAPP").catch(() => undefined);
+    void prefetch("TELEGRAM").catch(() => undefined);
+  }, [contactsAgent?.id, queryClient]);
+
+  useEffect(() => {
+    // Reset pagination when switching platform.
+    setContactsPage(1);
+  }, [contactsPlatform]);
 
   const agents = data?.agents ?? [];
 
@@ -387,12 +499,60 @@ export function SupportContent() {
     const obj = raw as Record<string, unknown>;
     if (Array.isArray(obj.rules)) {
       return {
-        rules: (obj.rules as Array<Record<string, unknown>>).map((r) => ({
-          triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
-          summary: (r.summary as string) || "",
-          assetUrl: (r.assetUrl as string) || undefined,
-          assetLabel: (r.assetLabel as string) || undefined,
-        })),
+        rules: (obj.rules as Array<Record<string, unknown>>).map((r) => {
+          // Normalize questions: new format is questions[], legacy is question1/question2.
+          const q1Legacy = (r.question1 as string) || "";
+          const q2Legacy = (r.question2 as string) || "";
+          const questions: string[] = Array.isArray(r.questions)
+            ? (r.questions as string[])
+            : [q1Legacy, q2Legacy].filter(Boolean);
+
+          return {
+            triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
+            questionsEnabled: r.questionsEnabled === true || questions.length > 0,
+            autoWriteDeliveryMessage: r.autoWriteDeliveryMessage === true,
+            questions,
+            summary: (r.summary as string) || "",
+            assetUrl: (r.assetUrl as string) || undefined,
+            assetLabel: (r.assetLabel as string) || undefined,
+            maxAgentReplies:
+              typeof r.maxAgentReplies === "number" ? (r.maxAgentReplies as number) : 3,
+            branches: Array.isArray(r.branches)
+              ? (r.branches as Array<Record<string, unknown>>).map((b) => ({
+                  matchKeywords: Array.isArray(b.matchKeywords) ? (b.matchKeywords as string[]) : [],
+                  summary: (b.summary as string) || "",
+                  assetUrl: (b.assetUrl as string) || "",
+                  assetLabel: (b.assetLabel as string) || "",
+                }))
+              : [],
+            followUpEnabled: r.followUpEnabled === true,
+            followUps: Array.isArray(r.followUps)
+              ? (r.followUps as Array<Record<string, unknown>>)
+                  .map((f) => ({
+                    message: (f.message as string) || "",
+                    useCustomMessage: f.useCustomMessage === true,
+                    scheduleType: ((f.scheduleType as string) || "delay") as "delay" | "datetime",
+                    delayMinutes:
+                      typeof f.delayMinutes === "number" ? (f.delayMinutes as number) : 30,
+                    sendAt: (f.sendAt as string) || "",
+                    ctaUrl: (f.ctaUrl as string) || "",
+                  }))
+                  .filter((f) => !!f.message)
+              : (r.followUpMessage as string)
+                ? [
+                    {
+                      message: (r.followUpMessage as string) || "",
+                      delayMinutes:
+                        typeof r.followUpDelayMinutes === "number"
+                          ? (r.followUpDelayMinutes as number)
+                          : 30,
+                      sendAt: "",
+                      ctaUrl: "",
+                    },
+                  ]
+                : [],
+          };
+        }),
       };
     }
     return { rules: [] };
@@ -400,6 +560,8 @@ export function SupportContent() {
 
   const openCreateDialog = () => {
     setEditing(null);
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
     form.reset({
       name: "",
       description: "",
@@ -419,6 +581,8 @@ export function SupportContent() {
 
   const openEditDialog = (agent: SupportAgent) => {
     setEditing(agent);
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
     form.reset({
       name: agent.name,
       description: agent.description ?? "",
@@ -479,20 +643,29 @@ export function SupportContent() {
       );
       setChannels(channelsRes.channels || []);
 
-      // QR can be generated shortly after the session starts. Poll briefly so it appears automatically.
-      if (!res.qr && res.status !== "connected") {
-        for (let i = 0; i < 10; i++) {
-          await new Promise((r) => setTimeout(r, 1500));
-          const statusRes = await authenticatedGet<{
-            success: boolean;
-            status: string;
-            qr: string | null;
-          }>(`/api/support/agents/${channelsAgent.id}/channels/whatsapp/status`);
-          setWhatsappStatus({
-            status: statusRes.status,
-            qr: statusRes.status === "connected" ? null : statusRes.qr,
-          });
-          if (statusRes.qr || statusRes.status === "connected") break;
+      // Poll until QR appears, then keep polling until connected (user scans QR).
+      if (res.status !== "connected") {
+        const agentId = channelsAgent.id;
+        for (let i = 0; i < 60; i++) {
+          await new Promise((r) => setTimeout(r, 2500));
+          try {
+            const statusRes = await authenticatedGet<{
+              success: boolean;
+              status: string;
+              qr: string | null;
+            }>(`/api/support/agents/${agentId}/channels/whatsapp/status`);
+            setWhatsappStatus({
+              status: statusRes.status,
+              qr: statusRes.status === "connected" ? null : statusRes.qr,
+            });
+            if (statusRes.status === "connected") {
+              toast.success("WhatsApp connected successfully!");
+              void refreshChannels(agentId).catch(() => undefined);
+              break;
+            }
+          } catch {
+            break;
+          }
         }
       }
     } catch (error) {
@@ -658,14 +831,223 @@ export function SupportContent() {
 
   const rules = funnelRulesForm?.rules ?? [];
   const addFunnelRule = () => {
-    form.setValue("funnelRules", { rules: [...rules, { triggers: [], summary: "", assetUrl: "", assetLabel: "" }] }, { shouldDirty: true });
+    form.setValue(
+      "funnelRules",
+      {
+        rules: [
+          ...rules,
+          {
+            triggers: [],
+            questionsEnabled: false,
+            autoWriteDeliveryMessage: false,
+            questions: [],
+            summary: "",
+            assetUrl: "",
+            assetLabel: "",
+            maxAgentReplies: 3,
+            branches: [],
+            followUpEnabled: false,
+            followUps: [],
+          },
+        ],
+      },
+      { shouldDirty: true }
+    );
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
   };
   const removeFunnelRule = (index: number) => {
-    form.setValue("funnelRules", { rules: rules.filter((_, i) => i !== index) }, { shouldDirty: true });
+    form.setValue(
+      "funnelRules",
+      { rules: rules.filter((_, i) => i !== index) },
+      { shouldDirty: true }
+    );
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
   };
-  const updateFunnelRule = (index: number, field: keyof FunnelRule, value: string | string[]) => {
-    const next = rules.map((r, i) => (i === index ? { ...r, [field]: field === "triggers" && typeof value === "string" ? value.split(",").map((s) => s.trim()).filter(Boolean) : value } : r));
+  const updateFunnelRule = (
+    index: number,
+    field: keyof FunnelRule,
+    value:
+      | string
+      | string[]
+      | boolean
+      | number
+      | FunnelBranch[]
+      | Array<{
+          message: string;
+          scheduleType?: "delay" | "datetime";
+          delayMinutes?: number;
+          sendAt?: string;
+          ctaUrl?: string;
+        }>
+  ) => {
+    const next = rules.map((r, i) =>
+      i === index
+        ? {
+          ...r,
+          [field]:
+            field === "triggers" && typeof value === "string"
+              ? value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : value,
+        }
+        : r
+    );
     form.setValue("funnelRules", { rules: next }, { shouldDirty: true });
+  };
+  const addFollowUp = (ruleIndex: number) => {
+    const current = rules[ruleIndex]?.followUps ?? [];
+    updateFunnelRule(ruleIndex, "followUps", [
+      ...current,
+      { message: "", useCustomMessage: false, scheduleType: "delay", delayMinutes: 30, sendAt: "", ctaUrl: "" },
+    ]);
+  };
+  const removeFollowUp = (ruleIndex: number, followUpIndex: number) => {
+    const current = rules[ruleIndex]?.followUps ?? [];
+    updateFunnelRule(
+      ruleIndex,
+      "followUps",
+      current.filter((_, idx) => idx !== followUpIndex)
+    );
+  };
+  const updateFollowUp = (
+    ruleIndex: number,
+    followUpIndex: number,
+    field: "message" | "ctaUrl",
+    value: string
+  ) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = { ...current[followUpIndex], [field]: value };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const toggleFollowUpCustomMessage = (ruleIndex: number, followUpIndex: number) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      useCustomMessage: !current[followUpIndex].useCustomMessage,
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpDelay = (ruleIndex: number, followUpIndex: number, delayMinutes: number) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      scheduleType: "delay",
+      sendAt: "",
+      delayMinutes: Math.min(60, Math.max(1, Math.floor(delayMinutes || 30))),
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpSendAt = (ruleIndex: number, followUpIndex: number, sendAt: string) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      scheduleType: "datetime",
+      delayMinutes: 30,
+      sendAt: sendAt || "",
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpScheduleType = (
+    ruleIndex: number,
+    followUpIndex: number,
+    scheduleType: "delay" | "datetime"
+  ) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    if (scheduleType === "delay") {
+      current[followUpIndex] = {
+        ...current[followUpIndex],
+        scheduleType: "delay",
+        sendAt: "",
+        delayMinutes: Math.min(60, Math.max(1, Math.floor(current[followUpIndex].delayMinutes || 30))),
+      };
+    } else {
+      current[followUpIndex] = {
+        ...current[followUpIndex],
+        scheduleType: "datetime",
+        delayMinutes: 30,
+        sendAt: current[followUpIndex].sendAt || "",
+      };
+    }
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const isQuestionEditorOpen = (rule: FunnelRule, index: number): boolean => {
+    const hasSavedQuestions = (rule.questions ?? []).some((q) => q.trim().length > 0);
+    return questionEditorsOpen[index] === true || hasSavedQuestions;
+  };
+
+  const isBranchEditorOpen = (rule: FunnelRule, index: number): boolean => {
+    const hasSavedBranches = (rule.branches ?? []).length > 0;
+    return branchEditorsOpen[index] === true || hasSavedBranches;
+  };
+
+  const addBranch = (ruleIndex: number) => {
+    const current = rules[ruleIndex]?.branches ?? [];
+    updateFunnelRule(ruleIndex, "branches", [
+      ...current,
+      { matchKeywords: [], summary: "", assetUrl: "", assetLabel: "" },
+    ]);
+  };
+
+  const removeBranch = (ruleIndex: number, branchIndex: number) => {
+    const current = rules[ruleIndex]?.branches ?? [];
+    const next = current.filter((_, i) => i !== branchIndex);
+    updateFunnelRule(ruleIndex, "branches", next);
+    if (next.length === 0) {
+      setBranchEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+    }
+  };
+
+  const updateBranch = (
+    ruleIndex: number,
+    branchIndex: number,
+    field: keyof FunnelBranch,
+    value: string
+  ) => {
+    const current = [...(rules[ruleIndex]?.branches ?? [])];
+    if (!current[branchIndex]) return;
+    const parsed =
+      field === "matchKeywords"
+        ? value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : value;
+    current[branchIndex] = { ...current[branchIndex], [field]: parsed };
+    updateFunnelRule(ruleIndex, "branches", current);
+  };
+
+  const addQuestion = (ruleIndex: number) => {
+    const current = [...(rules[ruleIndex]?.questions ?? [])];
+    updateFunnelRule(ruleIndex, "questions", [...current, ""]);
+    updateFunnelRule(ruleIndex, "questionsEnabled", true);
+    setQuestionEditorsOpen((prev) => ({ ...prev, [ruleIndex]: true }));
+  };
+
+  const removeQuestion = (ruleIndex: number, qIndex: number) => {
+    const next = (rules[ruleIndex]?.questions ?? []).filter((_, i) => i !== qIndex);
+    updateFunnelRule(ruleIndex, "questions", next);
+    if (next.length === 0) {
+      updateFunnelRule(ruleIndex, "questionsEnabled", false);
+      updateFunnelRule(ruleIndex, "summary", "");
+      updateFunnelRule(ruleIndex, "branches", []);
+      setQuestionEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+      setBranchEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+    }
+  };
+
+  const updateQuestion = (ruleIndex: number, qIndex: number, text: string) => {
+    const current = [...(rules[ruleIndex]?.questions ?? [])];
+    current[qIndex] = text;
+    updateFunnelRule(ruleIndex, "questions", current);
   };
 
   const dialog = (
@@ -684,7 +1066,9 @@ export function SupportContent() {
               <Label>Mode</Label>
               <Tabs
                 value={formMode}
-                onValueChange={(v) => form.setValue("mode", v as "support" | "sdr", { shouldDirty: true })}
+                onValueChange={(v) =>
+                  form.setValue("mode", v as "support" | "sdr", { shouldDirty: true })
+                }
               >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="support">Support</TabsTrigger>
@@ -692,7 +1076,9 @@ export function SupportContent() {
                 </TabsList>
               </Tabs>
               <p className="text-xs text-muted-foreground">
-                Support: KB-based answers with Gemini. SDR: Claude-based funnel automation with user-defined triggers.
+                {formMode === "support"
+                  ? "Knowledge Based answers with agent"
+                  : "Agentic funnel automation with user-defined triggers"}
               </p>
             </div>
             <div className="space-y-2">
@@ -753,7 +1139,11 @@ export function SupportContent() {
               <Label>Skills</Label>
               {(skillsData?.skills ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  You have no skills yet. <NextLink href="/skills" className="text-primary underline">Create a skill</NextLink> to attach knowledge for nuanced replies.
+                  You have no skills yet.{" "}
+                  <NextLink href="/skills" className="text-primary underline">
+                    Create a skill
+                  </NextLink>{" "}
+                  to attach knowledge for nuanced replies.
                 </p>
               ) : (
                 <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
@@ -769,9 +1159,15 @@ export function SupportContent() {
                           onChange={(e) => {
                             const current = form.getValues("skillIds") || [];
                             if (e.target.checked) {
-                              form.setValue("skillIds", [...current, skill.id], { shouldDirty: true });
+                              form.setValue("skillIds", [...current, skill.id], {
+                                shouldDirty: true,
+                              });
                             } else {
-                              form.setValue("skillIds", current.filter((id) => id !== skill.id), { shouldDirty: true });
+                              form.setValue(
+                                "skillIds",
+                                current.filter((id) => id !== skill.id),
+                                { shouldDirty: true }
+                              );
                             }
                           }}
                         />
@@ -782,7 +1178,8 @@ export function SupportContent() {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Attach skills for objection handling and qualification (especially useful for SDR mode).
+                Attach skills for objection handling and qualification (especially useful for SDR
+                mode).
               </p>
             </div>
             {formMode === "sdr" && (
@@ -794,21 +1191,32 @@ export function SupportContent() {
                     rows={4}
                     placeholder="Paste your post, ad copy, or campaign content here. Used for personalization and when the user is vague."
                     value={form.watch("campaignContext") ?? ""}
-                    onChange={(e) => form.setValue("campaignContext", e.target.value || null, { shouldDirty: true })}
+                    onChange={(e) =>
+                      form.setValue("campaignContext", e.target.value || null, {
+                        shouldDirty: true,
+                      })
+                    }
                     className="resize-none"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Funnel rules</Label>
                   <p className="text-xs text-muted-foreground">
-                    When the user message matches a trigger phrase, respond with the defined summary and link. No follow-up questions.
+                    Trigger-based flow with flexible paths: direct trigger to CTA, Q1 only, or Q1 +
+                    Q2. Use {"{{answer1}}"} and {"{{answer2}}"} in later steps to personalize.
                   </p>
                   <div className="space-y-3 max-h-48 overflow-y-auto rounded-md border p-3">
                     {rules.map((rule, idx) => (
                       <div key={idx} className="rounded border bg-muted/20 p-3 space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-medium">Rule {idx + 1}</span>
-                          <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeFunnelRule(idx)}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => removeFunnelRule(idx)}
+                          >
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                           </Button>
                         </div>
@@ -817,29 +1225,374 @@ export function SupportContent() {
                           value={rule.triggers?.join(", ") ?? ""}
                           onChange={(e) => updateFunnelRule(idx, "triggers", e.target.value)}
                         />
-                        <Textarea
-                          placeholder="Summary or response text"
-                          rows={2}
-                          value={rule.summary ?? ""}
-                          onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
-                        />
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <Input
-                            placeholder="Asset URL (optional)"
-                            value={rule.assetUrl ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
-                            className="flex-1 min-w-0"
-                          />
-                          <Input
-                            placeholder="Link label (optional)"
-                            value={rule.assetLabel ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
-                            className="sm:w-36 flex-shrink-0"
-                          />
+                        {!isQuestionEditorOpen(rule, idx) && (
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Input
+                              placeholder="Asset URL (optional)"
+                              value={rule.assetUrl ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
+                              className="flex-1 min-w-0"
+                            />
+                            <Input
+                              placeholder="Link label (optional)"
+                              value={rule.assetLabel ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                              className="sm:w-36 flex-shrink-0"
+                            />
+                          </div>
+                        )}
+                        {!isQuestionEditorOpen(rule, idx) && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={rule.autoWriteDeliveryMessage === true}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "autoWriteDeliveryMessage", e.target.checked)
+                              }
+                            />
+                            <span>Auto-write delivery message (keyword-only)</span>
+                          </label>
+                        )}
+                        {/* Dynamic question list */}
+                        {(rule.questions ?? []).map((q, qIdx) => (
+                          <div key={`${idx}-q-${qIdx}`} className="rounded border bg-muted/10 p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Question {qIdx + 1}
+                                {qIdx > 0 && (
+                                  <span className="ml-1 text-[10px] text-muted-foreground/60">
+                                    (use {`{{answer${qIdx}}}`} to ref previous answer)
+                                  </span>
+                                )}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => removeQuestion(idx, qIdx)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            </div>
+                            <Textarea
+                              rows={2}
+                              placeholder={qIdx === 0 ? "Question 1" : `Question ${qIdx + 1} (optional: use {{answer${qIdx}}})`}
+                              value={q}
+                              onChange={(e) => updateQuestion(idx, qIdx, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                        {/* Add question / enter question mode */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addQuestion(idx)}
+                        >
+                          <Plus className="mr-1.5 h-3.5 w-3.5" />
+                          {(rule.questions ?? []).length === 0 ? "Add question" : "Add another question"}
+                        </Button>
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <div className="space-y-2">
+                            <Textarea
+                              placeholder={`Final CTA message (optional, use {{answer1}}${(rule.questions ?? []).length > 1 ? ", {{answer2}}, ..." : ""})`}
+                              rows={2}
+                              value={rule.summary ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
+                            />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Input
+                                placeholder="CTA URL (optional)"
+                                value={rule.assetUrl ?? ""}
+                                onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
+                                className="flex-1 min-w-0"
+                              />
+                              <Input
+                                placeholder="Link label (optional)"
+                                value={rule.assetLabel ?? ""}
+                                onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                                className="sm:w-36 flex-shrink-0"
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              CTA link is sent after all questions are answered. For keyword-only rules it is sent immediately.
+                            </p>
+                          </div>
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              min={1}
+                              placeholder="Max funnel replies (default 3)"
+                              value={rule.maxAgentReplies ?? 3}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "maxAgentReplies", Number(e.target.value || 3))
+                              }
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Safety cap. Limits total messages this funnel sends before it stops.
+                            </p>
+                          </div>
+                        )}
+                        {isQuestionEditorOpen(rule, idx) && (
+                          <div className="space-y-2">
+                            {!isBranchEditorOpen(rule, idx) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setBranchEditorsOpen((prev) => ({ ...prev, [idx]: true }));
+                                  addBranch(idx);
+                                }}
+                              >
+                                Add answer branches (optional)
+                              </Button>
+                            ) : (
+                              <div className="space-y-2 rounded border bg-muted/30 p-2">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium">Answer branches</p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 text-xs px-2"
+                                    onClick={() => {
+                                      updateFunnelRule(idx, "branches", []);
+                                      setBranchEditorsOpen((prev) => ({ ...prev, [idx]: false }));
+                                    }}
+                                  >
+                                    Remove all branches
+                                  </Button>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Branches route to a specific CTA based on the user&apos;s final answer.
+                                  If their last answer contains a branch keyword, that branch&apos;s asset is delivered.
+                                  If no branch matches, the default CTA below is used.
+                                  Use {"{{answer1}}"}, {"{{answer2}}"} etc. in the summary.
+                                </p>
+                                {(rule.branches ?? []).map((branch, branchIdx) => (
+                                  <div
+                                    key={`${idx}-branch-${branchIdx}`}
+                                    className="rounded border bg-background p-2 space-y-2"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-medium text-muted-foreground">
+                                        Branch {branchIdx + 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => removeBranch(idx, branchIdx)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      placeholder="Match keywords (comma-separated, e.g. Reach, reach)"
+                                      value={(branch.matchKeywords ?? []).join(", ")}
+                                      onChange={(e) =>
+                                        updateBranch(idx, branchIdx, "matchKeywords", e.target.value)
+                                      }
+                                    />
+                                    <Textarea
+                                      rows={2}
+                                      placeholder="Branch CTA summary (optional, use {{answer1}})"
+                                      value={branch.summary ?? ""}
+                                      onChange={(e) =>
+                                        updateBranch(idx, branchIdx, "summary", e.target.value)
+                                      }
+                                    />
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                      <Input
+                                        placeholder="Branch asset URL (optional)"
+                                        value={branch.assetUrl ?? ""}
+                                        onChange={(e) =>
+                                          updateBranch(idx, branchIdx, "assetUrl", e.target.value)
+                                        }
+                                        className="flex-1 min-w-0"
+                                      />
+                                      <Input
+                                        placeholder="Link label"
+                                        value={branch.assetLabel ?? ""}
+                                        onChange={(e) =>
+                                          updateBranch(idx, branchIdx, "assetLabel", e.target.value)
+                                        }
+                                        className="sm:w-32 flex-shrink-0"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addBranch(idx)}
+                                  className="w-full"
+                                >
+                                  <Plus className="mr-2 h-3.5 w-3.5" />
+                                  Add branch
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="space-y-2 rounded border bg-muted/20 p-2">
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={rule.followUpEnabled === true}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "followUpEnabled", e.target.checked)
+                              }
+                            />
+                            <span>Enable delayed follow-up</span>
+                          </label>
+                          {rule.followUpEnabled === true && (
+                            <div className="space-y-2">
+                              <p className="text-[11px] text-muted-foreground">
+                                Choose how each follow-up is scheduled. “After minutes” is measured from the last
+                                message the agent sent in this funnel (for example: the asset link in keyword-only
+                                rules, or the final CTA in question-based funnels).
+                              </p>
+
+                              <div className="space-y-2">
+                                {(rule.followUps ?? []).map((fu, fuIdx) => (
+                                  <div key={`${idx}-followup-${fuIdx}`} className="rounded border p-2 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-medium">
+                                        Follow-up message {fuIdx + 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => removeFollowUp(idx, fuIdx)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                    {/* Custom message toggle */}
+                                    <div className="flex items-center justify-between rounded border px-2.5 py-1.5 bg-muted/40">
+                                      <div className="space-y-0.5">
+                                        <p className="text-xs font-medium leading-none">
+                                          Use custom message
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-snug">
+                                          {fu.useCustomMessage
+                                            ? "Sending verbatim — exactly what you write below."
+                                            : "Agent generates a contextual nudge using your text as a topic."}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={!!fu.useCustomMessage}
+                                        onClick={() => toggleFollowUpCustomMessage(idx, fuIdx)}
+                                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${fu.useCustomMessage ? "bg-primary" : "bg-input"}`}
+                                      >
+                                        <span
+                                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${fu.useCustomMessage ? "translate-x-4" : "translate-x-0"}`}
+                                        />
+                                      </button>
+                                    </div>
+                                    <Textarea
+                                      rows={3}
+                                      placeholder={
+                                        fu.useCustomMessage
+                                          ? "Write the exact message to send…"
+                                          : "Topic or summary for the agent to expand on…"
+                                      }
+                                      value={fu.message ?? ""}
+                                      onChange={(e) =>
+                                        updateFollowUp(idx, fuIdx, "message", e.target.value)
+                                      }
+                                    />
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] text-muted-foreground">
+                                        When to send this follow-up
+                                      </Label>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          variant={((fu.scheduleType ?? "delay") === "delay") ? "secondary" : "outline"}
+                                          size="sm"
+                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "delay")}
+                                        >
+                                          After minutes
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant={((fu.scheduleType ?? "delay") === "datetime") ? "secondary" : "outline"}
+                                          size="sm"
+                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "datetime")}
+                                        >
+                                          Specific date/time
+                                        </Button>
+                                      </div>
+                                      {(fu.scheduleType ?? "delay") === "delay" ? (
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={60}
+                                          placeholder="Minutes (max 60)"
+                                          value={fu.delayMinutes ?? 30}
+                                          onChange={(e) =>
+                                            updateFollowUpDelay(idx, fuIdx, Number(e.target.value || 30))
+                                          }
+                                        />
+                                      ) : (
+                                        <Input
+                                          type="datetime-local"
+                                          value={fu.sendAt ?? ""}
+                                          onChange={(e) => updateFollowUpSendAt(idx, fuIdx, e.target.value)}
+                                        />
+                                      )}
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Pick one option. Use minutes for relative follow-ups (up to 60 minutes), or
+                                        choose a specific date/time for a fixed schedule.
+                                      </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <Input
+                                        className="sm:col-span-2"
+                                        placeholder="Optional follow-up CTA URL"
+                                        value={fu.ctaUrl ?? ""}
+                                        onChange={(e) =>
+                                          updateFollowUp(idx, fuIdx, "ctaUrl", e.target.value)
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addFollowUp(idx)}
+                                  className="w-full"
+                                >
+                                  <Plus className="mr-2 h-3.5 w-3.5" />
+                                  Add follow-up message
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={addFunnelRule} className="w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addFunnelRule}
+                      className="w-full"
+                    >
                       <Plus className="mr-2 h-3.5 w-3.5" />
                       Add rule
                     </Button>
@@ -852,7 +1605,9 @@ export function SupportContent() {
                     rows={3}
                     placeholder="Optional: Define how the SDR should speak and behave (tone, style, boundaries)."
                     value={form.watch("soulMd") ?? ""}
-                    onChange={(e) => form.setValue("soulMd", e.target.value || null, { shouldDirty: true })}
+                    onChange={(e) =>
+                      form.setValue("soulMd", e.target.value || null, { shouldDirty: true })
+                    }
                     className="resize-none"
                   />
                 </div>
@@ -999,16 +1754,29 @@ export function SupportContent() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold">{agent.name}</p>
                         {agent.mode === "sdr" && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 font-medium"
+                          >
                             SDR
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {agent.description || (agent.mode === "sdr" ? "SDR agent with funnel rules" : "Support agent using your knowledge bases")}
+                        {agent.description ||
+                          (agent.mode === "sdr"
+                            ? "SDR agent with funnel rules"
+                            : "Support agent using your knowledge bases")}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2" title={agent.status === SUPPORT_AGENT_STATUS.ACTIVE ? "Agent answers messages from connected channels" : "Agent disabled — messages from channels will not be answered"}>
+                    <div
+                      className="flex shrink-0 items-center gap-2"
+                      title={
+                        agent.status === SUPPORT_AGENT_STATUS.ACTIVE
+                          ? "Agent answers messages from connected channels"
+                          : "Agent disabled — messages from channels will not be answered"
+                      }
+                    >
                       <Label
                         htmlFor={`status-${agent.id}`}
                         className="text-xs font-medium whitespace-nowrap cursor-pointer"
@@ -1154,7 +1922,7 @@ export function SupportContent() {
                   variant="outline"
                   className={
                     channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                    whatsappStatus?.status === "connected"
+                      whatsappStatus?.status === "connected"
                       ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   }
@@ -1162,7 +1930,7 @@ export function SupportContent() {
                   {channelsLoading || refreshingWhatsApp
                     ? "Loading…"
                     : channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                        whatsappStatus?.status === "connected"
+                      whatsappStatus?.status === "connected"
                       ? "Connected"
                       : "Disconnected"}
                 </Badge>
@@ -1171,7 +1939,7 @@ export function SupportContent() {
                 Scan the QR to link your number; the support agent replies to chats on this number.
               </p>
               {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-              whatsappStatus?.status === "connected" ? (
+                whatsappStatus?.status === "connected" ? (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -1275,11 +2043,11 @@ export function SupportContent() {
                   </div>
                 </>
               )}
-              {telegramWebhookUrl && (
+              {/* {telegramWebhookUrl && (
                 <p className="text-[11px] text-muted-foreground break-all">
                   Webhook URL: {telegramWebhookUrl}
                 </p>
-              )}
+              )} */}
             </div>
 
             <div className="space-y-3 rounded-lg border bg-card/40 px-4 py-3">
@@ -1684,32 +2452,57 @@ export function SupportContent() {
       </Dialog>
 
       {/* Contacts dialog */}
-      <Dialog open={!!contactsAgent} onOpenChange={(open) => !open && setContactsAgent(null)}>
-        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <Dialog
+        open={!!contactsAgent}
+        onOpenChange={(open) => {
+          if (!open) {
+            setContactsAgent(null);
+            setContactsPlatform("ALL");
+            setContactsQuery("");
+            setContactsPage(1);
+            setMessageContact(null);
+            setMessageText("");
+            setNewMessageOpen(false);
+            setNewMessageText("");
+            setNewMessagePhone("");
+            setNewMessageName("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl h-[82vh] max-h-[82vh] min-h-[560px] flex flex-col">
           <DialogHeader>
             <DialogTitle className="pr-8">
               {contactsAgent?.name ?? "Support agent"} — Contacts
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 -mr-1 min-h-0">
-            {contactsLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
+            {contactsStatsQuery.isLoading || contactsListQuery.isLoading ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Loading contacts</p>
               </div>
-            ) : contactsStats ? (
+            ) : contactsStatsQuery.data ? (
               <>
                 <p className="text-xs text-muted-foreground">
                   People who messaged this agent via WhatsApp or Telegram. Export to add them to
                   your address book.
                 </p>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => setNewMessageOpen(true)}
+                  >
+                    <Mail className="mr-2 h-3.5 w-3.5" />
+                    Send WhatsApp message
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={contactsStats.total === 0 || exportingVcf}
+                        disabled={contactsStatsQuery.data.total === 0 || exportingVcf}
                       >
                         {exportingVcf ? (
                           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -1721,9 +2514,9 @@ export function SupportContent() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
                       <DropdownMenuItem
-                        disabled={contactsStats.total === 0 || exportingVcf}
+                        disabled={contactsStatsQuery.data.total === 0 || exportingVcf}
                         onClick={async () => {
-                          if (!contactsAgent || contactsStats.total === 0) return;
+                          if (!contactsAgent || contactsStatsQuery.data.total === 0) return;
                           setExportingVcf(true);
                           try {
                             const res = await authenticatedFetch(
@@ -1745,10 +2538,12 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export all ({contactsStats.total})
+                        Export all ({contactsStatsQuery.data.total})
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={(contactsStats.byPlatform?.WHATSAPP ?? 0) === 0 || exportingVcf}
+                        disabled={
+                          (contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0) === 0 || exportingVcf
+                        }
                         onClick={async () => {
                           if (!contactsAgent) return;
                           setExportingVcf(true);
@@ -1772,10 +2567,12 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export WhatsApp only ({contactsStats.byPlatform?.WHATSAPP ?? 0})
+                        Export WhatsApp only ({contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0})
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={(contactsStats.byPlatform?.TELEGRAM ?? 0) === 0 || exportingVcf}
+                        disabled={
+                          (contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0) === 0 || exportingVcf
+                        }
                         onClick={async () => {
                           if (!contactsAgent) return;
                           setExportingVcf(true);
@@ -1799,7 +2596,7 @@ export function SupportContent() {
                           }
                         }}
                       >
-                        Export Telegram only ({contactsStats.byPlatform?.TELEGRAM ?? 0})
+                        Export Telegram only ({contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0})
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1807,14 +2604,14 @@ export function SupportContent() {
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                   <Card>
                     <CardContent className="pt-4">
-                      <p className="text-2xl font-bold">{contactsStats.total}</p>
+                      <p className="text-2xl font-bold">{contactsStatsQuery.data.total}</p>
                       <p className="text-xs text-muted-foreground">Total contacts</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-4">
                       <p className="text-2xl font-bold">
-                        {contactsStats.byPlatform?.WHATSAPP ?? 0}
+                        {contactsStatsQuery.data.byPlatform?.WHATSAPP ?? 0}
                       </p>
                       <p className="text-xs text-muted-foreground">WhatsApp</p>
                     </CardContent>
@@ -1822,55 +2619,135 @@ export function SupportContent() {
                   <Card>
                     <CardContent className="pt-4">
                       <p className="text-2xl font-bold">
-                        {contactsStats.byPlatform?.TELEGRAM ?? 0}
+                        {contactsStatsQuery.data.byPlatform?.TELEGRAM ?? 0}
                       </p>
                       <p className="text-xs text-muted-foreground">Telegram</p>
                     </CardContent>
                   </Card>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Contact list</h4>
-                  {contactsListLoading && !contactsList ? (
-                    <div className="flex items-center justify-center py-8">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-2">
+                    {/* <div className="space-y-1">
+                      <h4 className="text-sm font-medium">Contact List</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Filter by platform or search by name or phone
+                      </p>
+                    </div> */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <Tabs
+                        value={contactsPlatform}
+                        onValueChange={(v) => {
+                          const next = (v as "ALL" | "WHATSAPP" | "TELEGRAM") || "ALL";
+                          setContactsPlatform(next);
+                          setContactsPage(1);
+                        }}
+                      >
+                        <TabsList className="h-9">
+                          <TabsTrigger value="ALL" className="text-xs">
+                            All
+                          </TabsTrigger>
+                          <TabsTrigger value="WHATSAPP" className="text-xs">
+                            WhatsApp
+                          </TabsTrigger>
+                          <TabsTrigger value="TELEGRAM" className="text-xs">
+                            Telegram
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      <Input
+                        value={contactsQuery}
+                        onChange={(e) => setContactsQuery(e.target.value)}
+                        placeholder="Search by name or phone"
+                        className="h-9 w-full sm:w-[220px]"
+                      />
+                    </div>
+                  </div>
+                  {contactsListQuery.isFetching && !contactsListQuery.data ? (
+                    <div className="flex items-center justify-center py-16">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : !contactsList?.contacts?.length ? (
-                    <p className="text-sm text-muted-foreground py-4 rounded-md border bg-muted/30 px-3">
-                      No contacts yet. Contacts are saved when users message this agent via WhatsApp
-                      or Telegram.
-                    </p>
+                  ) : !contactsListQuery.data?.contacts?.length ? (
+                    <div className="rounded-md border bg-muted/30 px-3 py-10">
+                      <p className="text-sm text-muted-foreground">
+                        No contacts yet. Contacts are saved when users message this agent via
+                        WhatsApp or Telegram.
+                      </p>
+                    </div>
                   ) : (
                     <>
-                      <ul className="rounded-md border divide-y max-h-48 overflow-y-auto">
-                        {contactsList.contacts.map((c) => (
-                          <li
-                            key={c.id}
-                            className="px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
-                          >
-                            <div className="min-w-0">
-                              <span className="font-medium truncate block">
-                                {c.externalName || c.phone || `Contact (${c.platform})`}
-                              </span>
-                              {c.phone && c.externalName && (
-                                <span className="text-xs text-muted-foreground truncate block">
-                                  {c.phone}
-                                </span>
-                              )}
-                            </div>
-                            <Badge variant="outline" className="w-fit text-xs shrink-0">
-                              {c.platform}
-                            </Badge>
-                          </li>
-                        ))}
-                      </ul>
-                      {contactsList.totalPages > 1 && (
-                        <div className="mt-3 flex justify-center">
+                      <div className="rounded-md border overflow-hidden">
+                        <div className="grid grid-cols-12 gap-3 px-3 py-2 bg-muted/30 text-[11px] font-medium text-muted-foreground">
+                          <div className="col-span-5">Contact</div>
+                          <div className="col-span-2">Platform</div>
+                          <div className="col-span-3 text-right">Last seen</div>
+                          <div className="col-span-2 text-right">Actions</div>
+                        </div>
+                        <div className="divide-y">
+                          {contactsListQuery.data.contacts
+                            .filter((c) => {
+                              const q = contactsQuery.trim().toLowerCase();
+                              if (!q) return true;
+                              return (
+                                (c.externalName || "").toLowerCase().includes(q) ||
+                                (c.phone || "").toLowerCase().includes(q) ||
+                                (c.externalId || "").toLowerCase().includes(q)
+                              );
+                            })
+                            .map((c) => {
+                              const displayName = c.externalName || c.phone || "Unknown contact";
+                              const lastSeen = c.lastContactAt
+                                ? new Date(c.lastContactAt).toLocaleString([], {
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                                : "—";
+                              return (
+                                <div
+                                  key={c.id}
+                                  className="grid grid-cols-12 gap-3 px-3 py-2.5 text-sm items-center"
+                                >
+                                  <div className="col-span-5 min-w-0">
+                                    <div className="font-medium truncate">{displayName}</div>
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {c.phone || c.externalId}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 flex items-center">
+                                    <Badge variant="outline" className="text-[11px]">
+                                      {c.platform}
+                                    </Badge>
+                                  </div>
+                                  <div className="col-span-3 text-right text-xs text-muted-foreground flex items-center justify-end">
+                                    <span>{lastSeen}</span>
+                                  </div>
+                                  <div className="col-span-2 flex justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2"
+                                      onClick={() => {
+                                        setMessageContact(c);
+                                        setMessageText("");
+                                      }}
+                                    >
+                                      <Mail className="h-3.5 w-3.5 mr-1" />
+                                      Message
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                      {contactsListQuery.data.totalPages > 1 && (
+                        <div className="mt-6 flex justify-center">
                           <EntityPagination
                             currentPage={contactsPage}
-                            totalPages={contactsList.totalPages}
-                            onPageChange={(p) =>
-                              contactsAgent && loadContactsPage(contactsAgent.id, p)
-                            }
+                            totalPages={contactsListQuery.data.totalPages}
+                            onPageChange={(p) => setContactsPage(p)}
                           />
                         </div>
                       )}
@@ -1880,6 +2757,169 @@ export function SupportContent() {
               </>
             ) : null}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New outbound message dialog */}
+      <Dialog
+        open={newMessageOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNewMessageOpen(false);
+            setNewMessageText("");
+          } else {
+            setNewMessageOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send WhatsApp message</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Name (optional)</Label>
+                <Input
+                  value={newMessageName}
+                  onChange={(e) => setNewMessageName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>WhatsApp number</Label>
+                <Input
+                  value={newMessagePhone}
+                  onChange={(e) => setNewMessagePhone(e.target.value)}
+                  placeholder="e.g. +49123456789"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                value={newMessageText}
+                onChange={(e) => setNewMessageText(e.target.value)}
+                placeholder="Type your message..."
+                className="min-h-[120px]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Save to contacts</p>
+                <p className="text-xs text-muted-foreground">
+                  Adds this recipient to your contact list for future messaging and broadcasts.
+                </p>
+              </div>
+              <Switch checked={newMessageSave} onCheckedChange={(v) => setNewMessageSave(Boolean(v))} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setNewMessageOpen(false);
+                setNewMessageText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !contactsAgent?.id ||
+                !newMessageText.trim() ||
+                newOutboundMessageMutation.isPending ||
+                !newMessagePhone.trim()
+              }
+              onClick={() => {
+                if (!contactsAgent?.id) return;
+                newOutboundMessageMutation.mutate({
+                  agentId: contactsAgent.id,
+                  platform: "WHATSAPP",
+                  text: newMessageText.trim(),
+                  saveToContacts: newMessageSave,
+                  name: newMessageName.trim() || undefined,
+                  phone: newMessagePhone.trim(),
+                });
+              }}
+            >
+              {newOutboundMessageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Message contact dialog */}
+      <Dialog
+        open={!!messageContact}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMessageContact(null);
+            setMessageText("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Message{" "}
+              {messageContact?.externalName ||
+                messageContact?.phone ||
+                `Contact (${messageContact?.platform || ""})`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Message</Label>
+            <Textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder="Type your message..."
+              className="min-h-[120px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setMessageContact(null);
+                setMessageText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !contactsAgent?.id ||
+                !messageContact?.id ||
+                !messageText.trim() ||
+                messageContactMutation.isPending
+              }
+              onClick={() => {
+                if (!contactsAgent?.id || !messageContact?.id) return;
+                messageContactMutation.mutate({
+                  agentId: contactsAgent.id,
+                  contactId: messageContact.id,
+                  text: messageText.trim(),
+                });
+              }}
+            >
+              {messageContactMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Send
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </SupportContainer>
