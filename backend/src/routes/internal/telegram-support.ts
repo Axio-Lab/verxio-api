@@ -9,15 +9,20 @@ import { upsertSupportContact } from "@/services/supportContactService";
 const router = Router();
 
 async function sendTelegramMessage(botToken: string, chatId: string, text: string) {
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      parse_mode: "HTML",
     }),
   });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(
+      `Telegram sendMessage failed: ${payload?.description || response.statusText || "Unknown error"}`
+    );
+  }
 }
 
 /**
@@ -91,7 +96,10 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         externalId: senderId || chatId,
         message: text,
       });
-      await sendTelegramMessage(channel.telegramBotToken!, chatId, reply);
+      // SDR funnels can intentionally return empty text (silence mode); do not send empty Telegram messages.
+      if (reply && reply.trim()) {
+        await sendTelegramMessage(channel.telegramBotToken!, chatId, reply);
+      }
     } catch (error) {
       console.error("[Support Telegram webhook] Error:", error);
       try {

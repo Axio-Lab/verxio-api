@@ -218,9 +218,11 @@ export default function PublicSupportChatPage() {
       });
       const data = await res.json();
 
-      if (data.success && data.reply) {
+      if (data.success && data.reply != null) {
         if (data.suggestShowRating === true) setAgentSuggestsRating(true);
         else if (data.suggestShowRating === false) setAgentSuggestsRating(false);
+        // Empty reply means the agent is intentionally silent (e.g. safety cap, closing).
+        // Refresh the message list if available but don't append a blank bubble.
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           setMessages(
             data.messages.map((m: SupportChatMessage) => ({
@@ -230,7 +232,7 @@ export default function PublicSupportChatPage() {
               ...(m.attachmentUrls && { attachmentUrls: m.attachmentUrls }),
             }))
           );
-        } else {
+        } else if (data.reply) {
           setMessages((prev) => [
             ...prev,
             {

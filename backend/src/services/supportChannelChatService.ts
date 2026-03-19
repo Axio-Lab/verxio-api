@@ -88,6 +88,7 @@ export async function respondToChannelMessage(options: {
       supportAgentId,
       sessionIdentifier: externalId,
       message,
+      sessionType: "channel",
     });
   }
 

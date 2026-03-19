@@ -385,6 +385,10 @@ const server: Server = app.listen(serverPort, async () => {
 
   // Initialize cron scheduler for timed triggers
   await initializeCronScheduler();
+
+  // Recover any SDR follow-ups that were lost to server restart
+  const { startFollowUpRecovery } = await import("./services/sdrChannelService");
+  startFollowUpRecovery();
 });
 
 let isShuttingDown = false;

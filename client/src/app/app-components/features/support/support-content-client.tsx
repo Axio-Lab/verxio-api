@@ -128,22 +128,30 @@ type NewOutboundMessagePlatform = "WHATSAPP";
 
 const SUPPORT_AGENT_STATUS = { ACTIVE: "active", DISABLED: "disabled" } as const;
 
+type FunnelBranch = {
+  matchKeywords: string[];
+  summary?: string;
+  assetUrl?: string;
+  assetLabel?: string;
+};
+
 type FunnelRule = {
   triggers: string[];
   questionsEnabled?: boolean;
   autoWriteDeliveryMessage?: boolean;
-  question1?: string;
-  question2?: string;
+  /** Ordered list of questions. */
+  questions?: string[];
   summary: string;
   assetUrl?: string;
   assetLabel?: string;
   maxAgentReplies?: number;
-  answerOptionsQ1?: string[];
-  answerOptionsQ2?: string[];
-  derailMessage?: string;
+  branches?: FunnelBranch[];
   followUpEnabled?: boolean;
   followUps?: Array<{
     message: string;
+    /** true = send verbatim; false = AI generates contextual nudge from message as topic */
+    useCustomMessage?: boolean;
+    scheduleType?: "delay" | "datetime";
     delayMinutes?: number;
     sendAt?: string;
     ctaUrl?: string;
@@ -242,7 +250,16 @@ export function SupportContent() {
   const [newMessageSave, setNewMessageSave] = useState(true);
   const [newMessageText, setNewMessageText] = useState("");
   const [questionEditorsOpen, setQuestionEditorsOpen] = useState<Record<number, boolean>>({});
+  const [branchEditorsOpen, setBranchEditorsOpen] = useState<Record<number, boolean>>({});
   const queryClient = useQueryClient();
+
+  // Keep question editor UI state in sync with the rules list.
+  // Index-keyed state can drift when rules are added/removed, or when re-opening the dialog.
+  const rulesLength = (funnelRulesForm?.rules ?? []).length;
+  useEffect(() => {
+    setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
+  }, [rulesLength, dialogOpen]);
 
   const messageContactMutation = useProtectedMutation<
     { ok: boolean; platform: string },
@@ -359,6 +376,7 @@ export function SupportContent() {
   useEffect(() => {
     if (!dialogOpen) {
       setQuestionEditorsOpen({});
+      setBranchEditorsOpen({});
     }
   }, [dialogOpen]);
 
@@ -481,48 +499,60 @@ export function SupportContent() {
     const obj = raw as Record<string, unknown>;
     if (Array.isArray(obj.rules)) {
       return {
-        rules: (obj.rules as Array<Record<string, unknown>>).map((r) => ({
-          triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
-          questionsEnabled:
-            r.questionsEnabled === true ||
-            !!(r.question1 as string) ||
-            !!(r.question2 as string),
-          autoWriteDeliveryMessage: r.autoWriteDeliveryMessage === true,
-          question1: (r.question1 as string) || "",
-          question2: (r.question2 as string) || "",
-          summary: (r.summary as string) || "",
-          assetUrl: (r.assetUrl as string) || undefined,
-          assetLabel: (r.assetLabel as string) || undefined,
-          maxAgentReplies:
-            typeof r.maxAgentReplies === "number" ? (r.maxAgentReplies as number) : 3,
-          answerOptionsQ1: Array.isArray(r.answerOptionsQ1) ? (r.answerOptionsQ1 as string[]) : [],
-          answerOptionsQ2: Array.isArray(r.answerOptionsQ2) ? (r.answerOptionsQ2 as string[]) : [],
-          derailMessage: (r.derailMessage as string) || "",
-          followUpEnabled: r.followUpEnabled === true,
-          followUps: Array.isArray(r.followUps)
-            ? (r.followUps as Array<Record<string, unknown>>)
-              .map((f) => ({
-                message: (f.message as string) || "",
-                delayMinutes:
-                  typeof f.delayMinutes === "number" ? (f.delayMinutes as number) : 30,
-                sendAt: (f.sendAt as string) || "",
-                ctaUrl: (f.ctaUrl as string) || "",
-              }))
-              .filter((f) => !!f.message)
-            : (r.followUpMessage as string)
-              ? [
-                {
-                  message: (r.followUpMessage as string) || "",
-                  delayMinutes:
-                    typeof r.followUpDelayMinutes === "number"
-                      ? (r.followUpDelayMinutes as number)
-                      : 30,
-                  sendAt: "",
-                  ctaUrl: "",
-                },
-              ]
+        rules: (obj.rules as Array<Record<string, unknown>>).map((r) => {
+          // Normalize questions: new format is questions[], legacy is question1/question2.
+          const q1Legacy = (r.question1 as string) || "";
+          const q2Legacy = (r.question2 as string) || "";
+          const questions: string[] = Array.isArray(r.questions)
+            ? (r.questions as string[])
+            : [q1Legacy, q2Legacy].filter(Boolean);
+
+          return {
+            triggers: Array.isArray(r.triggers) ? (r.triggers as string[]) : [],
+            questionsEnabled: r.questionsEnabled === true || questions.length > 0,
+            autoWriteDeliveryMessage: r.autoWriteDeliveryMessage === true,
+            questions,
+            summary: (r.summary as string) || "",
+            assetUrl: (r.assetUrl as string) || undefined,
+            assetLabel: (r.assetLabel as string) || undefined,
+            maxAgentReplies:
+              typeof r.maxAgentReplies === "number" ? (r.maxAgentReplies as number) : 3,
+            branches: Array.isArray(r.branches)
+              ? (r.branches as Array<Record<string, unknown>>).map((b) => ({
+                  matchKeywords: Array.isArray(b.matchKeywords) ? (b.matchKeywords as string[]) : [],
+                  summary: (b.summary as string) || "",
+                  assetUrl: (b.assetUrl as string) || "",
+                  assetLabel: (b.assetLabel as string) || "",
+                }))
               : [],
-        })),
+            followUpEnabled: r.followUpEnabled === true,
+            followUps: Array.isArray(r.followUps)
+              ? (r.followUps as Array<Record<string, unknown>>)
+                  .map((f) => ({
+                    message: (f.message as string) || "",
+                    useCustomMessage: f.useCustomMessage === true,
+                    scheduleType: ((f.scheduleType as string) || "delay") as "delay" | "datetime",
+                    delayMinutes:
+                      typeof f.delayMinutes === "number" ? (f.delayMinutes as number) : 30,
+                    sendAt: (f.sendAt as string) || "",
+                    ctaUrl: (f.ctaUrl as string) || "",
+                  }))
+                  .filter((f) => !!f.message)
+              : (r.followUpMessage as string)
+                ? [
+                    {
+                      message: (r.followUpMessage as string) || "",
+                      delayMinutes:
+                        typeof r.followUpDelayMinutes === "number"
+                          ? (r.followUpDelayMinutes as number)
+                          : 30,
+                      sendAt: "",
+                      ctaUrl: "",
+                    },
+                  ]
+                : [],
+          };
+        }),
       };
     }
     return { rules: [] };
@@ -531,6 +561,7 @@ export function SupportContent() {
   const openCreateDialog = () => {
     setEditing(null);
     setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
     form.reset({
       name: "",
       description: "",
@@ -551,6 +582,7 @@ export function SupportContent() {
   const openEditDialog = (agent: SupportAgent) => {
     setEditing(agent);
     setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
     form.reset({
       name: agent.name,
       description: agent.description ?? "",
@@ -808,15 +840,12 @@ export function SupportContent() {
             triggers: [],
             questionsEnabled: false,
             autoWriteDeliveryMessage: false,
-            question1: "",
-            question2: "",
+            questions: [],
             summary: "",
             assetUrl: "",
             assetLabel: "",
             maxAgentReplies: 3,
-            answerOptionsQ1: [],
-            answerOptionsQ2: [],
-            derailMessage: "",
+            branches: [],
             followUpEnabled: false,
             followUps: [],
           },
@@ -825,6 +854,7 @@ export function SupportContent() {
       { shouldDirty: true }
     );
     setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
   };
   const removeFunnelRule = (index: number) => {
     form.setValue(
@@ -833,6 +863,7 @@ export function SupportContent() {
       { shouldDirty: true }
     );
     setQuestionEditorsOpen({});
+    setBranchEditorsOpen({});
   };
   const updateFunnelRule = (
     index: number,
@@ -842,7 +873,14 @@ export function SupportContent() {
       | string[]
       | boolean
       | number
-      | Array<{ message: string; delayMinutes?: number; ctaUrl?: string }>
+      | FunnelBranch[]
+      | Array<{
+          message: string;
+          scheduleType?: "delay" | "datetime";
+          delayMinutes?: number;
+          sendAt?: string;
+          ctaUrl?: string;
+        }>
   ) => {
     const next = rules.map((r, i) =>
       i === index
@@ -851,16 +889,10 @@ export function SupportContent() {
           [field]:
             field === "triggers" && typeof value === "string"
               ? value
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
-              : (field === "answerOptionsQ1" || field === "answerOptionsQ2") &&
-                typeof value === "string"
-                ? value
                   .split(",")
                   .map((s) => s.trim())
                   .filter(Boolean)
-                : value,
+              : value,
         }
         : r
     );
@@ -870,7 +902,7 @@ export function SupportContent() {
     const current = rules[ruleIndex]?.followUps ?? [];
     updateFunnelRule(ruleIndex, "followUps", [
       ...current,
-      { message: "", delayMinutes: 30, sendAt: "", ctaUrl: "" },
+      { message: "", useCustomMessage: false, scheduleType: "delay", delayMinutes: 30, sendAt: "", ctaUrl: "" },
     ]);
   };
   const removeFollowUp = (ruleIndex: number, followUpIndex: number) => {
@@ -892,25 +924,130 @@ export function SupportContent() {
     current[followUpIndex] = { ...current[followUpIndex], [field]: value };
     updateFunnelRule(ruleIndex, "followUps", current);
   };
+  const toggleFollowUpCustomMessage = (ruleIndex: number, followUpIndex: number) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      useCustomMessage: !current[followUpIndex].useCustomMessage,
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
   const updateFollowUpDelay = (ruleIndex: number, followUpIndex: number, delayMinutes: number) => {
     const current = [...(rules[ruleIndex]?.followUps ?? [])];
     if (!current[followUpIndex]) return;
     current[followUpIndex] = {
       ...current[followUpIndex],
-      delayMinutes: Math.max(1, Math.floor(delayMinutes || 30)),
+      scheduleType: "delay",
+      sendAt: "",
+      delayMinutes: Math.min(60, Math.max(1, Math.floor(delayMinutes || 30))),
     };
     updateFunnelRule(ruleIndex, "followUps", current);
   };
   const updateFollowUpSendAt = (ruleIndex: number, followUpIndex: number, sendAt: string) => {
     const current = [...(rules[ruleIndex]?.followUps ?? [])];
     if (!current[followUpIndex]) return;
-    current[followUpIndex] = { ...current[followUpIndex], sendAt: sendAt || "" };
+    current[followUpIndex] = {
+      ...current[followUpIndex],
+      scheduleType: "datetime",
+      delayMinutes: 30,
+      sendAt: sendAt || "",
+    };
+    updateFunnelRule(ruleIndex, "followUps", current);
+  };
+  const updateFollowUpScheduleType = (
+    ruleIndex: number,
+    followUpIndex: number,
+    scheduleType: "delay" | "datetime"
+  ) => {
+    const current = [...(rules[ruleIndex]?.followUps ?? [])];
+    if (!current[followUpIndex]) return;
+    if (scheduleType === "delay") {
+      current[followUpIndex] = {
+        ...current[followUpIndex],
+        scheduleType: "delay",
+        sendAt: "",
+        delayMinutes: Math.min(60, Math.max(1, Math.floor(current[followUpIndex].delayMinutes || 30))),
+      };
+    } else {
+      current[followUpIndex] = {
+        ...current[followUpIndex],
+        scheduleType: "datetime",
+        delayMinutes: 30,
+        sendAt: current[followUpIndex].sendAt || "",
+      };
+    }
     updateFunnelRule(ruleIndex, "followUps", current);
   };
   const isQuestionEditorOpen = (rule: FunnelRule, index: number): boolean => {
-    const hasSavedQuestionContent =
-      (rule.question1 ?? "").trim().length > 0 || (rule.question2 ?? "").trim().length > 0;
-    return questionEditorsOpen[index] === true || hasSavedQuestionContent;
+    const hasSavedQuestions = (rule.questions ?? []).some((q) => q.trim().length > 0);
+    return questionEditorsOpen[index] === true || hasSavedQuestions;
+  };
+
+  const isBranchEditorOpen = (rule: FunnelRule, index: number): boolean => {
+    const hasSavedBranches = (rule.branches ?? []).length > 0;
+    return branchEditorsOpen[index] === true || hasSavedBranches;
+  };
+
+  const addBranch = (ruleIndex: number) => {
+    const current = rules[ruleIndex]?.branches ?? [];
+    updateFunnelRule(ruleIndex, "branches", [
+      ...current,
+      { matchKeywords: [], summary: "", assetUrl: "", assetLabel: "" },
+    ]);
+  };
+
+  const removeBranch = (ruleIndex: number, branchIndex: number) => {
+    const current = rules[ruleIndex]?.branches ?? [];
+    const next = current.filter((_, i) => i !== branchIndex);
+    updateFunnelRule(ruleIndex, "branches", next);
+    if (next.length === 0) {
+      setBranchEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+    }
+  };
+
+  const updateBranch = (
+    ruleIndex: number,
+    branchIndex: number,
+    field: keyof FunnelBranch,
+    value: string
+  ) => {
+    const current = [...(rules[ruleIndex]?.branches ?? [])];
+    if (!current[branchIndex]) return;
+    const parsed =
+      field === "matchKeywords"
+        ? value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : value;
+    current[branchIndex] = { ...current[branchIndex], [field]: parsed };
+    updateFunnelRule(ruleIndex, "branches", current);
+  };
+
+  const addQuestion = (ruleIndex: number) => {
+    const current = [...(rules[ruleIndex]?.questions ?? [])];
+    updateFunnelRule(ruleIndex, "questions", [...current, ""]);
+    updateFunnelRule(ruleIndex, "questionsEnabled", true);
+    setQuestionEditorsOpen((prev) => ({ ...prev, [ruleIndex]: true }));
+  };
+
+  const removeQuestion = (ruleIndex: number, qIndex: number) => {
+    const next = (rules[ruleIndex]?.questions ?? []).filter((_, i) => i !== qIndex);
+    updateFunnelRule(ruleIndex, "questions", next);
+    if (next.length === 0) {
+      updateFunnelRule(ruleIndex, "questionsEnabled", false);
+      updateFunnelRule(ruleIndex, "summary", "");
+      updateFunnelRule(ruleIndex, "branches", []);
+      setQuestionEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+      setBranchEditorsOpen((prev) => ({ ...prev, [ruleIndex]: false }));
+    }
+  };
+
+  const updateQuestion = (ruleIndex: number, qIndex: number, text: string) => {
+    const current = [...(rules[ruleIndex]?.questions ?? [])];
+    current[qIndex] = text;
+    updateFunnelRule(ruleIndex, "questions", current);
   };
 
   const dialog = (
@@ -939,8 +1076,9 @@ export function SupportContent() {
                 </TabsList>
               </Tabs>
               <p className="text-xs text-muted-foreground">
-                Support: Knowledge Based answers with agent. SDR: Agentic funnel automation with
-                user-defined triggers.
+                {formMode === "support"
+                  ? "Knowledge Based answers with agent"
+                  : "Agentic funnel automation with user-defined triggers"}
               </p>
             </div>
             <div className="space-y-2">
@@ -1087,20 +1225,22 @@ export function SupportContent() {
                           value={rule.triggers?.join(", ") ?? ""}
                           onChange={(e) => updateFunnelRule(idx, "triggers", e.target.value)}
                         />
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <Input
-                            placeholder="Asset URL (optional)"
-                            value={rule.assetUrl ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
-                            className="flex-1 min-w-0"
-                          />
-                          <Input
-                            placeholder="Link label (optional)"
-                            value={rule.assetLabel ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
-                            className="sm:w-36 flex-shrink-0"
-                          />
-                        </div>
+                        {!isQuestionEditorOpen(rule, idx) && (
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Input
+                              placeholder="Asset URL (optional)"
+                              value={rule.assetUrl ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
+                              className="flex-1 min-w-0"
+                            />
+                            <Input
+                              placeholder="Link label (optional)"
+                              value={rule.assetLabel ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                              className="sm:w-36 flex-shrink-0"
+                            />
+                          </div>
+                        )}
                         {!isQuestionEditorOpen(rule, idx) && (
                           <label className="flex items-center gap-2 text-xs">
                             <input
@@ -1113,137 +1253,193 @@ export function SupportContent() {
                             <span>Auto-write delivery message (keyword-only)</span>
                           </label>
                         )}
-                        {!isQuestionEditorOpen(rule, idx) ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              updateFunnelRule(idx, "questionsEnabled", true);
-                              setQuestionEditorsOpen((prev) => ({ ...prev, [idx]: true }));
-                            }}
-                          >
-                            Add question 1
-                          </Button>
-                        ) : (
-                          <>
-                            <Textarea
-                              placeholder="Question 1"
-                              rows={2}
-                              value={rule.question1 ?? ""}
-                              onChange={(e) => updateFunnelRule(idx, "question1", e.target.value)}
-                            />
-                            <div className="flex justify-end">
+                        {/* Dynamic question list */}
+                        {(rule.questions ?? []).map((q, qIdx) => (
+                          <div key={`${idx}-q-${qIdx}`} className="rounded border bg-muted/10 p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Question {qIdx + 1}
+                                {qIdx > 0 && (
+                                  <span className="ml-1 text-[10px] text-muted-foreground/60">
+                                    (use {`{{answer${qIdx}}}`} to ref previous answer)
+                                  </span>
+                                )}
+                              </span>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  updateFunnelRule(idx, "questionsEnabled", false);
-                                  updateFunnelRule(idx, "question1", "");
-                                  updateFunnelRule(idx, "question2", "");
-                                  updateFunnelRule(idx, "answerOptionsQ1", []);
-                                  updateFunnelRule(idx, "answerOptionsQ2", []);
-                                  updateFunnelRule(idx, "derailMessage", "");
-                                  setQuestionEditorsOpen((prev) => ({ ...prev, [idx]: false }));
-                                }}
+                                className="h-6 w-6 p-0"
+                                onClick={() => removeQuestion(idx, qIdx)}
                               >
-                                Disable questions
+                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                               </Button>
                             </div>
-                          </>
-                        )}
-                        {isQuestionEditorOpen(rule, idx) && !rule.question2 ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              updateFunnelRule(idx, "question2", "Follow-up question using {{answer1}}")
-                            }
-                          >
-                            Add question 2
-                          </Button>
-                        ) : null}
-                        {isQuestionEditorOpen(rule, idx) && !!rule.question2 && (
-                          <>
                             <Textarea
-                              placeholder="Question 2 (you can use {{answer1}})"
                               rows={2}
-                              value={rule.question2 ?? ""}
-                              onChange={(e) => updateFunnelRule(idx, "question2", e.target.value)}
+                              placeholder={qIdx === 0 ? "Question 1" : `Question ${qIdx + 1} (optional: use {{answer${qIdx}}})`}
+                              value={q}
+                              onChange={(e) => updateQuestion(idx, qIdx, e.target.value)}
                             />
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  updateFunnelRule(idx, "question2", "");
-                                  updateFunnelRule(idx, "answerOptionsQ2", []);
-                                }}
-                              >
-                                Remove question 2
-                              </Button>
-                            </div>
-                          </>
-                        )}
+                          </div>
+                        ))}
+                        {/* Add question / enter question mode */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addQuestion(idx)}
+                        >
+                          <Plus className="mr-1.5 h-3.5 w-3.5" />
+                          {(rule.questions ?? []).length === 0 ? "Add question" : "Add another question"}
+                        </Button>
                         {isQuestionEditorOpen(rule, idx) && (
-                          <Textarea
-                            placeholder="Final CTA message (optional, you can use {{answer1}} and {{answer2}})"
-                            rows={2}
-                            value={rule.summary ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
-                          />
-                        )}
-                        {isQuestionEditorOpen(rule, idx) && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div className="space-y-1">
+                          <div className="space-y-2">
+                            <Textarea
+                              placeholder={`Final CTA message (optional, use {{answer1}}${(rule.questions ?? []).length > 1 ? ", {{answer2}}, ..." : ""})`}
+                              rows={2}
+                              value={rule.summary ?? ""}
+                              onChange={(e) => updateFunnelRule(idx, "summary", e.target.value)}
+                            />
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <Input
-                                type="number"
-                                min={1}
-                                placeholder="Max funnel replies (default 3)"
-                                value={rule.maxAgentReplies ?? 3}
-                                onChange={(e) =>
-                                  updateFunnelRule(
-                                    idx,
-                                    "maxAgentReplies",
-                                    Number(e.target.value || 3)
-                                  )
-                                }
+                                placeholder="CTA URL (optional)"
+                                value={rule.assetUrl ?? ""}
+                                onChange={(e) => updateFunnelRule(idx, "assetUrl", e.target.value)}
+                                className="flex-1 min-w-0"
                               />
-                              <p className="text-[11px] text-muted-foreground">
-                                Safety cap. Limits how many messages this funnel can send before it
-                                stops.
-                              </p>
+                              <Input
+                                placeholder="Link label (optional)"
+                                value={rule.assetLabel ?? ""}
+                                onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                                className="sm:w-36 flex-shrink-0"
+                              />
                             </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              CTA link is sent after all questions are answered. For keyword-only rules it is sent immediately.
+                            </p>
                           </div>
                         )}
                         {isQuestionEditorOpen(rule, idx) && (
-                          <Input
-                            placeholder="Allowed answers for Q1 (optional, comma-separated)"
-                            value={(rule.answerOptionsQ1 ?? []).join(", ")}
-                            onChange={(e) =>
-                              updateFunnelRule(idx, "answerOptionsQ1", e.target.value)
-                            }
-                          />
-                        )}
-                        {isQuestionEditorOpen(rule, idx) && !!rule.question2 && (
-                          <Input
-                            placeholder="Allowed answers for Q2 (optional, comma-separated)"
-                            value={(rule.answerOptionsQ2 ?? []).join(", ")}
-                            onChange={(e) =>
-                              updateFunnelRule(idx, "answerOptionsQ2", e.target.value)
-                            }
-                          />
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              min={1}
+                              placeholder="Max funnel replies (default 3)"
+                              value={rule.maxAgentReplies ?? 3}
+                              onChange={(e) =>
+                                updateFunnelRule(idx, "maxAgentReplies", Number(e.target.value || 3))
+                              }
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Safety cap. Limits total messages this funnel sends before it stops.
+                            </p>
+                          </div>
                         )}
                         {isQuestionEditorOpen(rule, idx) && (
-                          <Textarea
-                            placeholder="Derail recovery message (optional)"
-                            rows={2}
-                            value={rule.derailMessage ?? ""}
-                            onChange={(e) => updateFunnelRule(idx, "derailMessage", e.target.value)}
-                          />
+                          <div className="space-y-2">
+                            {!isBranchEditorOpen(rule, idx) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setBranchEditorsOpen((prev) => ({ ...prev, [idx]: true }));
+                                  addBranch(idx);
+                                }}
+                              >
+                                Add answer branches (optional)
+                              </Button>
+                            ) : (
+                              <div className="space-y-2 rounded border bg-muted/30 p-2">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium">Answer branches</p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 text-xs px-2"
+                                    onClick={() => {
+                                      updateFunnelRule(idx, "branches", []);
+                                      setBranchEditorsOpen((prev) => ({ ...prev, [idx]: false }));
+                                    }}
+                                  >
+                                    Remove all branches
+                                  </Button>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Branches route to a specific CTA based on the user&apos;s final answer.
+                                  If their last answer contains a branch keyword, that branch&apos;s asset is delivered.
+                                  If no branch matches, the default CTA below is used.
+                                  Use {"{{answer1}}"}, {"{{answer2}}"} etc. in the summary.
+                                </p>
+                                {(rule.branches ?? []).map((branch, branchIdx) => (
+                                  <div
+                                    key={`${idx}-branch-${branchIdx}`}
+                                    className="rounded border bg-background p-2 space-y-2"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-medium text-muted-foreground">
+                                        Branch {branchIdx + 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => removeBranch(idx, branchIdx)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      placeholder="Match keywords (comma-separated, e.g. Reach, reach)"
+                                      value={(branch.matchKeywords ?? []).join(", ")}
+                                      onChange={(e) =>
+                                        updateBranch(idx, branchIdx, "matchKeywords", e.target.value)
+                                      }
+                                    />
+                                    <Textarea
+                                      rows={2}
+                                      placeholder="Branch CTA summary (optional, use {{answer1}})"
+                                      value={branch.summary ?? ""}
+                                      onChange={(e) =>
+                                        updateBranch(idx, branchIdx, "summary", e.target.value)
+                                      }
+                                    />
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                      <Input
+                                        placeholder="Branch asset URL (optional)"
+                                        value={branch.assetUrl ?? ""}
+                                        onChange={(e) =>
+                                          updateBranch(idx, branchIdx, "assetUrl", e.target.value)
+                                        }
+                                        className="flex-1 min-w-0"
+                                      />
+                                      <Input
+                                        placeholder="Link label"
+                                        value={branch.assetLabel ?? ""}
+                                        onChange={(e) =>
+                                          updateBranch(idx, branchIdx, "assetLabel", e.target.value)
+                                        }
+                                        className="sm:w-32 flex-shrink-0"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addBranch(idx)}
+                                  className="w-full"
+                                >
+                                  <Plus className="mr-2 h-3.5 w-3.5" />
+                                  Add branch
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         )}
                         <div className="space-y-2 rounded border bg-muted/20 p-2">
                           <label className="flex items-center gap-2 text-xs">
@@ -1259,8 +1455,9 @@ export function SupportContent() {
                           {rule.followUpEnabled === true && (
                             <div className="space-y-2">
                               <p className="text-[11px] text-muted-foreground">
-                                Set delay per follow-up message. Example: 30 means send that follow-up
-                                30 minutes after the previous step.
+                                Choose how each follow-up is scheduled. “After minutes” is measured from the last
+                                message the agent sent in this funnel (for example: the asset link in keyword-only
+                                rules, or the final CTA in question-based funnels).
                               </p>
 
                               <div className="space-y-2">
@@ -1280,9 +1477,37 @@ export function SupportContent() {
                                         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                                       </Button>
                                     </div>
+                                    {/* Custom message toggle */}
+                                    <div className="flex items-center justify-between rounded border px-2.5 py-1.5 bg-muted/40">
+                                      <div className="space-y-0.5">
+                                        <p className="text-xs font-medium leading-none">
+                                          Use custom message
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground leading-snug">
+                                          {fu.useCustomMessage
+                                            ? "Sending verbatim — exactly what you write below."
+                                            : "Agent generates a contextual nudge using your text as a topic."}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={!!fu.useCustomMessage}
+                                        onClick={() => toggleFollowUpCustomMessage(idx, fuIdx)}
+                                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${fu.useCustomMessage ? "bg-primary" : "bg-input"}`}
+                                      >
+                                        <span
+                                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${fu.useCustomMessage ? "translate-x-4" : "translate-x-0"}`}
+                                        />
+                                      </button>
+                                    </div>
                                     <Textarea
                                       rows={3}
-                                      placeholder="Follow-up message text"
+                                      placeholder={
+                                        fu.useCustomMessage
+                                          ? "Write the exact message to send…"
+                                          : "Topic or summary for the agent to expand on…"
+                                      }
                                       value={fu.message ?? ""}
                                       onChange={(e) =>
                                         updateFollowUp(idx, fuIdx, "message", e.target.value)
@@ -1292,25 +1517,45 @@ export function SupportContent() {
                                       <Label className="text-[11px] text-muted-foreground">
                                         When to send this follow-up
                                       </Label>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          variant={((fu.scheduleType ?? "delay") === "delay") ? "secondary" : "outline"}
+                                          size="sm"
+                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "delay")}
+                                        >
+                                          After minutes
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant={((fu.scheduleType ?? "delay") === "datetime") ? "secondary" : "outline"}
+                                          size="sm"
+                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "datetime")}
+                                        >
+                                          Specific date/time
+                                        </Button>
+                                      </div>
+                                      {(fu.scheduleType ?? "delay") === "delay" ? (
                                         <Input
                                           type="number"
                                           min={1}
-                                          placeholder="After minutes"
+                                          max={60}
+                                          placeholder="Minutes (max 60)"
                                           value={fu.delayMinutes ?? 30}
-                                          onChange={(e) => {
-                                            updateFollowUpSendAt(idx, fuIdx, "");
-                                            updateFollowUpDelay(idx, fuIdx, Number(e.target.value || 30));
-                                          }}
+                                          onChange={(e) =>
+                                            updateFollowUpDelay(idx, fuIdx, Number(e.target.value || 30))
+                                          }
                                         />
+                                      ) : (
                                         <Input
                                           type="datetime-local"
                                           value={fu.sendAt ?? ""}
                                           onChange={(e) => updateFollowUpSendAt(idx, fuIdx, e.target.value)}
                                         />
-                                      </div>
+                                      )}
                                       <p className="text-[11px] text-muted-foreground">
-                                        Set either minutes or a specific date and time.
+                                        Pick one option. Use minutes for relative follow-ups (up to 60 minutes), or
+                                        choose a specific date/time for a fixed schedule.
                                       </p>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
