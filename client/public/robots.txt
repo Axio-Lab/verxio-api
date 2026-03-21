@@ -10,6 +10,9 @@ Disallow: /sites/
 Disallow: /templates/
 Disallow: /vibe/
 Disallow: /chat/
+Disallow: /support/
+Disallow: /tasks/
+Disallow: /goals/
 
 Sitemap: https://www.verxio.xyz/sitemap.xml
 
