@@ -10,6 +10,9 @@ import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadAndSaveImage } from "@/services/taskImageService";
+import { getWorkerByExternalId } from "@/services/humanWorkerService";
 
 const router = Router();
 
@@ -264,6 +267,48 @@ router.post("/incoming", async (req: Request, res: Response) => {
           metadata: normalizedRemoteJid ? { whatsappRemoteJid: normalizedRemoteJid } : undefined,
         });
       } catch (contactErr) {}
+
+      // Check if sender is a task worker before routing to support agent
+      const normalizedJidForWorker =
+        typeof rawRemoteJid === "string" && rawRemoteJid
+          ? rawRemoteJid.replace(/:.*@/, "@")
+          : "";
+      if (normalizedJidForWorker) {
+        try {
+          const worker = await getWorkerByExternalId("WHATSAPP", normalizedJidForWorker);
+          if (worker) {
+            let imageUrl: string | undefined;
+            const attachments = payload.attachments as any[] | undefined;
+            if (attachments && attachments.length > 0) {
+              const imgAttachment = attachments.find(
+                (a: any) => a.mimetype?.startsWith("image/") && a.url
+              );
+              if (imgAttachment?.url) {
+                imageUrl = await downloadAndSaveImage(imgAttachment.url);
+              }
+            }
+            const result = await handleIncomingSubmission(
+              "WHATSAPP",
+              normalizedJidForWorker,
+              payload.body,
+              imageUrl
+            );
+            if (result.handled && result.feedback) {
+              const formatted = chatIntegrationService.formatWhatsAppMessage(result.feedback);
+              await sendWhatsAppMessage({
+                sessionRef: body.sessionId!,
+                toJid: replyToJid,
+                text: formatted,
+              });
+            }
+            if (result.handled) {
+              return res.json({ ok: true, taskSubmission: true });
+            }
+          }
+        } catch (workerErr) {
+          console.warn("[WhatsApp] Worker routing check failed:", workerErr);
+        }
+      }
 
       // For now, always route messages to the bound support agent
       const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";

@@ -284,6 +284,10 @@ model User {
   knowledgeBases        KnowledgeBase[]
   supportAgents         SupportAgent[]
   supportChannels       SupportChannel[]
+  agentGoals            AgentGoal[]
+  agentMemories         AgentMemory[]
+  agentWatches          AgentWatch[]
+  humanTasks            HumanTask[]
 
   @@map("user")
 }
@@ -382,6 +386,7 @@ model Workflow {
   plans            WorkflowPlan[]  // One per workflow; scoped by chatIntegrationId for chat channels
   executionHistory ExecutionHistory[]
   templates        WorkflowTemplate[]
+  agentWatches     AgentWatch[]     @relation("WatchActionWorkflow")
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -489,6 +494,11 @@ enum NodeType {
   VALYU_CONTENTS
   VALYU_ANSWER
   VALYU_DEEP_RESEARCH
+  ORCHESTRATOR
+  REFLECT
+  APPROVAL_GATE
+  REPORT
+  AGENT_WATCH
 }
 
 model ComposioWebhookSubscription {
@@ -955,6 +965,7 @@ model SupportAgent {
   chatSessions    SupportChatSession[]
   channels        SupportChannel[]
   supportContacts SupportContact[]
+  humanTasks      HumanTask[]      @relation("TaskSupportAgent")
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -995,6 +1006,9 @@ model SupportChannel {
   discordChannelId String?
 
   supportContacts SupportContact[]
+  goalReporting   AgentGoal[]     @relation("GoalReportingChannel")
+  taskReporting   HumanTask[]     @relation("TaskReportChannel")
+  humanWorkers    HumanWorker[]   @relation("WorkerSupportChannel")
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1117,4 +1131,279 @@ model KnowledgeChunk {
   @@index([knowledgeBaseId])
   @@index([knowledgeBaseId, chunkIndex])
   @@map("knowledge_chunks")
+}
+
+// ============================================
+// Pillar 1: AI-to-AI Orchestration
+// ============================================
+
+enum GoalStatus {
+  PLANNING
+  EXECUTING
+  AWAITING_APPROVAL
+  REVIEWING
+  COMPLETE
+  FAILED
+}
+
+enum AgentTaskStatus {
+  PENDING
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETE
+  FAILED
+  SKIPPED
+}
+
+enum MemoryScope {
+  GLOBAL
+  GOAL
+  CONTACT
+}
+
+enum WatchTriggerType {
+  CRON
+  THRESHOLD
+  WEBHOOK_EVENT
+}
+
+model AgentGoal {
+  id                 String     @id @default(cuid())
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  objective          String
+  status             GoalStatus @default(PLANNING)
+  decomposedAt       DateTime?
+  completedAt        DateTime?
+  reportingChannelId String?
+  reportingChannel   SupportChannel? @relation("GoalReportingChannel", fields: [reportingChannelId], references: [id], onDelete: SetNull)
+  deliveryConfig     Json?
+  maxRetries         Int        @default(3)
+  currentRetries     Int        @default(0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  tasks    AgentTask[]
+  memories AgentMemory[]
+  watches  AgentWatch[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("agent_goals")
+}
+
+model AgentTask {
+  id            String          @id @default(cuid())
+  goalId        String
+  goal          AgentGoal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  status        AgentTaskStatus @default(PENDING)
+  assignedAgent String?
+  tool          String?
+  input         Json?
+  output        Json?
+  blockerReason String?
+  dependsOn     String[]
+  startedAt     DateTime?
+  completedAt   DateTime?
+  retries       Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([goalId])
+  @@index([status])
+  @@map("agent_tasks")
+}
+
+model AgentMemory {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId         String?
+  goal           AgentGoal?  @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  scope          MemoryScope @default(GLOBAL)
+  key            String
+  value          String
+  confidence     Float       @default(1.0)
+  expiresAt      DateTime?
+  lastAccessedAt DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([userId, scope, key])
+  @@index([userId])
+  @@index([goalId])
+  @@map("agent_memories")
+}
+
+model AgentWatch {
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId             String?
+  goal               AgentGoal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  name               String
+  description        String?
+  triggerType        WatchTriggerType
+  cronExpression     String?
+  thresholdCondition Json?
+  actionWorkflowId   String?
+  actionWorkflow     Workflow?        @relation("WatchActionWorkflow", fields: [actionWorkflowId], references: [id], onDelete: SetNull)
+  status             String           @default("ACTIVE")
+  lastFiredAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([goalId])
+  @@map("agent_watches")
+}
+
+// ============================================
+// Pillar 2: AI-Supervised Human Task Compliance
+// ============================================
+
+enum TaskStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum TaskRecurrence {
+  ONCE
+  INTERVAL
+  DAILY
+  WEEKLY
+}
+
+enum TaskEvidenceType {
+  PHOTO
+  TEXT
+  PHOTO_AND_TEXT
+  DOCUMENT
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  VETTING
+  PASSED
+  FAILED
+  MISSED
+  RESUBMITTED
+}
+
+enum WorkerStatus {
+  ACTIVE
+  INACTIVE
+  ONBOARDING
+}
+
+model HumanTask {
+  id                  String           @id @default(cuid())
+  userId              String
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supportAgentId      String?
+  supportAgent        SupportAgent?    @relation("TaskSupportAgent", fields: [supportAgentId], references: [id], onDelete: SetNull)
+  name                String
+  description         String?
+  evidenceType        TaskEvidenceType @default(PHOTO)
+  recurrenceType      TaskRecurrence   @default(DAILY)
+  recurrenceInterval  Int?
+  scheduledTimes      Json             @default("[]")
+  timezone            String           @default("UTC")
+  acceptanceRules     Json             @default("[]")
+  scoringEnabled      Boolean          @default(true)
+  passingScore        Int              @default(70)
+  graceMinutes        Int              @default(15)
+  resubmissionAllowed Boolean          @default(true)
+  reportTime          String           @default("18:00")
+  reportChannelId     String?
+  reportChannel       SupportChannel?  @relation("TaskReportChannel", fields: [reportChannelId], references: [id], onDelete: SetNull)
+  deliveryConfig      Json?
+  status              TaskStatus       @default(ACTIVE)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  workers     HumanWorker[]
+  submissions TaskSubmission[]
+  reports     TaskComplianceReport[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("human_tasks")
+}
+
+model HumanWorker {
+  id               String       @id @default(cuid())
+  humanTaskId      String
+  humanTask        HumanTask    @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
+  name             String
+  phone            String?
+  platform         ChatPlatform
+  externalId       String
+  supportChannelId String?
+  supportChannel   SupportChannel? @relation("WorkerSupportChannel", fields: [supportChannelId], references: [id], onDelete: SetNull)
+  role             String?
+  status           WorkerStatus @default(ONBOARDING)
+  onboardedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  submissions TaskSubmission[]
+
+  @@unique([humanTaskId, platform, externalId])
+  @@index([humanTaskId])
+  @@index([platform, externalId])
+  @@map("human_workers")
+}
+
+model TaskSubmission {
+  id               String           @id @default(cuid())
+  humanTaskId      String
+  humanTask        HumanTask        @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
+  workerId         String
+  worker           HumanWorker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  dueAt            DateTime
+  submittedAt      DateTime?
+  latenessSeconds  Int?
+  imageUrl         String?
+  rawMessage       String?
+  aiScore          Int?
+  aiFindings       String?
+  aiFeedback       String?
+  status           SubmissionStatus @default(PENDING)
+  vetAttempts      Int              @default(0)
+  reportIncluded   Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([humanTaskId])
+  @@index([workerId])
+  @@index([status])
+  @@index([dueAt])
+  @@map("task_submissions")
+}
+
+model TaskComplianceReport {
+  id               String    @id @default(cuid())
+  humanTaskId      String
+  humanTask        HumanTask @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
+  periodStart      DateTime
+  periodEnd        DateTime
+  summaryMarkdown  String
+  totalSubmissions Int       @default(0)
+  missedCount      Int       @default(0)
+  avgScore         Float?
+  passRate         Float?
+  flaggedWorkerIds String[]
+  deliveredAt      DateTime?
+  deliveredTo      Json?
+  createdAt        DateTime  @default(now())
+
+  @@index([humanTaskId])
+  @@index([periodStart])
+  @@map("task_compliance_reports")
 }

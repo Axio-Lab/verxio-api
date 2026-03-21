@@ -8,6 +8,9 @@ import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadDiscordAttachment } from "@/services/taskImageService";
+import { getWorkerByExternalId } from "@/services/humanWorkerService";
 
 const router = Router();
 
@@ -79,6 +82,38 @@ router.post("/incoming", async (req: Request, res: Response) => {
       const replyToMessageId = body.messageId;
       const isServerChannel = !!guildId;
       const groupPrefix = isServerChannel && authorId ? `<@${authorId}> ` : "";
+
+      // Check if sender is a task worker before routing to support agent
+      if (authorId) {
+        try {
+          const worker = await getWorkerByExternalId("DISCORD", authorId);
+          if (worker) {
+            let imageUrl: string | undefined;
+            if (body.attachments?.length) {
+              const imgAttachment = body.attachments.find(
+                (a) => a.type === "image" && a.url
+              );
+              if (imgAttachment?.url) {
+                imageUrl = await downloadDiscordAttachment(imgAttachment.url);
+              }
+            }
+            const result = await handleIncomingSubmission("DISCORD", authorId, messageText, imageUrl);
+            if (result.handled && result.feedback) {
+              const formatted = chatIntegrationService.formatDiscordMessage(result.feedback);
+              await sendDiscordMessage({
+                integrationId: supportChannel.id,
+                channelId: replyChannelId,
+                text: formatted,
+              });
+            }
+            if (result.handled) {
+              return res.json({ ok: true, taskSubmission: true });
+            }
+          }
+        } catch (workerErr) {
+          console.warn("[Discord] Worker routing check failed:", workerErr);
+        }
+      }
 
       void (async () => {
         try {

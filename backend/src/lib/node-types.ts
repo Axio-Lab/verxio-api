@@ -60,6 +60,11 @@ export const NodeType = {
   VALYU_CONTENTS: "VALYU_CONTENTS",
   VALYU_ANSWER: "VALYU_ANSWER",
   VALYU_DEEP_RESEARCH: "VALYU_DEEP_RESEARCH",
+  ORCHESTRATOR: "ORCHESTRATOR",
+  REFLECT: "REFLECT",
+  APPROVAL_GATE: "APPROVAL_GATE",
+  REPORT: "REPORT",
+  AGENT_WATCH: "AGENT_WATCH",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

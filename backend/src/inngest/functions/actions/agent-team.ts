@@ -16,6 +16,7 @@ interface AgentTeamData {
   objective: string;
   strategy: "sequential" | "parallel" | "supervisor";
   agents: AgentConfig[];
+  subAgents?: AgentConfig[];
   maxRounds?: number;
 }
 
@@ -151,10 +152,13 @@ export const agentTeamExecutor: NodeExecutor = async ({ data, nodeId, context, s
   const teamData = data as unknown as AgentTeamData;
 
   if (!teamData.objective) throw new NonRetriableError("AGENT_TEAM: objective is required");
-  if (!teamData.agents || teamData.agents.length === 0)
+
+  // Support both 'agents' and 'subAgents' for backward compatibility
+  const agentList = teamData.subAgents?.length ? teamData.subAgents : teamData.agents;
+  if (!agentList || agentList.length === 0)
     throw new NonRetriableError("AGENT_TEAM: at least one agent is required");
 
-  const strategy = teamData.strategy || "sequential";
+  const strategy = teamData.subAgents?.length ? "parallel" : (teamData.strategy || "sequential");
   const maxRounds = teamData.maxRounds || 5;
   const variableName = teamData.variables || "agentTeam";
 
@@ -167,19 +171,19 @@ export const agentTeamExecutor: NodeExecutor = async ({ data, nodeId, context, s
   const result = await step.run(`agent-team-${nodeId}`, async () => {
     switch (strategy) {
       case "sequential":
-        return executeSequential(teamData.agents, teamData.objective, userId!, initialContext);
+        return executeSequential(agentList, teamData.objective, userId!, initialContext);
       case "parallel":
-        return executeParallel(teamData.agents, teamData.objective, userId!, initialContext);
+        return executeParallel(agentList, teamData.objective, userId!, initialContext);
       case "supervisor":
         return executeSupervisor(
-          teamData.agents,
+          agentList,
           teamData.objective,
           userId!,
           initialContext,
           maxRounds
         );
       default:
-        return executeSequential(teamData.agents, teamData.objective, userId!, initialContext);
+        return executeSequential(agentList, teamData.objective, userId!, initialContext);
     }
   });
 
@@ -188,7 +192,7 @@ export const agentTeamExecutor: NodeExecutor = async ({ data, nodeId, context, s
     [variableName]: {
       result,
       strategy,
-      agentCount: teamData.agents.length,
+      agentCount: agentList.length,
       objective: teamData.objective,
     },
   };

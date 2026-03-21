@@ -6,6 +6,9 @@ import {
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { upsertSupportContact } from "@/services/supportContactService";
 import { formatTelegramMessage } from "@/services/chatIntegrationService";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadTelegramFile } from "@/services/taskImageService";
+import { getWorkerByExternalId } from "@/services/humanWorkerService";
 
 const router = Router();
 
@@ -92,6 +95,31 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         } catch (contactErr) {
           console.warn("[Support Telegram] upsert support contact failed:", contactErr);
         }
+      }
+
+      // Check if sender is a task worker before routing to support agent
+      try {
+        const worker = await getWorkerByExternalId("TELEGRAM", senderId || chatId);
+        if (worker) {
+          let imageUrl: string | undefined;
+          const photos = message?.photo;
+          if (photos && photos.length > 0 && channel.telegramBotToken) {
+            const largestPhoto = photos[photos.length - 1];
+            imageUrl = await downloadTelegramFile(channel.telegramBotToken, largestPhoto.file_id);
+          }
+          const result = await handleIncomingSubmission(
+            "TELEGRAM",
+            senderId || chatId,
+            text,
+            imageUrl
+          );
+          if (result.handled && result.feedback) {
+            await sendTelegramMessage(channel.telegramBotToken!, chatId, result.feedback);
+          }
+          if (result.handled) return;
+        }
+      } catch (workerErr) {
+        console.warn("[Support Telegram] Worker routing check failed:", workerErr);
       }
 
       const reply = await respondToChannelMessage({

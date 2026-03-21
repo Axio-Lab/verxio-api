@@ -53,6 +53,11 @@ import { markdownExecutor } from "./actions/markdown";
 import { seedanceExecutor } from "./actions/seedance";
 import { seedreamExecutor } from "./actions/seedream";
 import { agentTeamExecutor } from "./actions/agent-team";
+import { orchestratorExecutor } from "./actions/orchestrator";
+import { reflectExecutor } from "./actions/reflect";
+import { approvalGateExecutor } from "./actions/approval-gate";
+import { reportExecutor } from "./actions/report";
+import { agentWatchExecutor } from "./actions/agent-watch";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -131,6 +136,11 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.VALYU_CONTENTS]: valyuContentsExecutor as NodeExecutor,
   [NodeType.VALYU_ANSWER]: valyuAnswerExecutor as NodeExecutor,
   [NodeType.VALYU_DEEP_RESEARCH]: valyuDeepResearchExecutor as NodeExecutor,
+  [NodeType.ORCHESTRATOR]: orchestratorExecutor as NodeExecutor,
+  [NodeType.REFLECT]: reflectExecutor as NodeExecutor,
+  [NodeType.APPROVAL_GATE]: approvalGateExecutor as NodeExecutor,
+  [NodeType.REPORT]: reportExecutor as NodeExecutor,
+  [NodeType.AGENT_WATCH]: agentWatchExecutor as NodeExecutor,
 };
 
 /**

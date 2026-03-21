@@ -2831,6 +2831,340 @@ const runComposioActionTool: VerxioTool = {
   },
 };
 
+// ============================================
+// Agentic Operations Tools
+// ============================================
+
+const createGoalTool: VerxioTool = {
+  name: "create_goal",
+  description: "Create a high-level AI goal that will be automatically decomposed into sub-tasks",
+  inputSchema: z.object({
+    name: z.string().describe("Short name for the goal"),
+    objective: z.string().describe("Detailed description of what the goal should achieve"),
+    reportingChannelId: z.string().optional().describe("Support channel ID for progress reports"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { createGoal } = await import("../goalService");
+    const goal = await createGoal(context.userId, {
+      name: args.name,
+      objective: args.objective,
+      reportingChannelId: args.reportingChannelId,
+    });
+    return { success: true, goalId: goal.id, status: goal.status };
+  },
+};
+
+const decomposeGoalTool: VerxioTool = {
+  name: "decompose_goal",
+  description: "Trigger decomposition of an existing goal into sub-tasks",
+  inputSchema: z.object({
+    goalId: z.string().describe("ID of the goal to decompose"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    await inngest.send({
+      name: "verxio/goal.decompose",
+      data: { goalId: args.goalId, userId: context.userId },
+    });
+    return { success: true, message: "Goal decomposition triggered" };
+  },
+};
+
+const rememberFactTool: VerxioTool = {
+  name: "remember_fact",
+  description: "Store a fact in agent memory for future recall across sessions",
+  inputSchema: z.object({
+    key: z.string().describe("Unique key for the fact"),
+    value: z.string().describe("The fact value to remember"),
+    scope: z.enum(["GLOBAL", "GOAL", "CONTACT"]).optional().describe("Memory scope"),
+    goalId: z.string().optional().describe("Goal ID if scope is GOAL"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { rememberFact } = await import("../agentMemoryService");
+    const memory = await rememberFact(context.userId, {
+      key: args.key,
+      value: args.value,
+      scope: args.scope || "GLOBAL",
+      goalId: args.goalId,
+    });
+    return { success: true, memoryId: memory.id };
+  },
+};
+
+const recallFactsTool: VerxioTool = {
+  name: "recall_facts",
+  description: "Retrieve stored facts from agent memory",
+  inputSchema: z.object({
+    scope: z.enum(["GLOBAL", "GOAL", "CONTACT"]).optional().describe("Filter by scope"),
+    goalId: z.string().optional().describe("Filter by goal ID"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { recallFacts } = await import("../agentMemoryService");
+    const memories = await recallFacts(context.userId, args.scope, args.goalId);
+    return {
+      facts: memories.map((m: any) => ({
+        key: m.key,
+        value: m.value,
+        scope: m.scope,
+        confidence: m.confidence,
+      })),
+    };
+  },
+};
+
+const requestApprovalTool: VerxioTool = {
+  name: "request_approval",
+  description: "Request human approval before proceeding with a high-risk action",
+  inputSchema: z.object({
+    goalId: z.string().describe("Goal requiring approval"),
+    taskId: z.string().optional().describe("Specific task requiring approval"),
+    action_description: z.string().describe("Description of the action needing approval"),
+    risk_level: z.enum(["low", "medium", "high", "critical"]).describe("Risk level assessment"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    await inngest.send({
+      name: "verxio/goal.approval-requested",
+      data: {
+        goalId: args.goalId,
+        taskId: args.taskId,
+        actionDescription: args.action_description,
+        riskLevel: args.risk_level,
+        userId: context.userId,
+      },
+    });
+    return { success: true, message: "Approval request sent. Waiting for owner response." };
+  },
+};
+
+const reflectOnOutputTool: VerxioTool = {
+  name: "reflect_on_output",
+  description: "Evaluate a task output against success criteria and decide whether to accept, retry, or escalate",
+  inputSchema: z.object({
+    taskId: z.string().describe("Task ID to reflect on"),
+    output: z.any().describe("The task output to evaluate"),
+    success_criteria: z.string().describe("Criteria the output must meet"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const task = await prisma.agentTask.findUnique({ where: { id: args.taskId } });
+    if (!task) return { error: "Task not found" };
+    await inngest.send({
+      name: "verxio/goal.reflect",
+      data: {
+        goalId: task.goalId,
+        taskId: args.taskId,
+        output: args.output,
+        successCriteria: args.success_criteria,
+        userId: context.userId,
+      },
+    });
+    return { success: true, message: "Reflection triggered" };
+  },
+};
+
+const createWatchTool: VerxioTool = {
+  name: "create_watch",
+  description: "Create a proactive watch that fires a workflow when a condition is met",
+  inputSchema: z.object({
+    name: z.string().describe("Watch name"),
+    triggerType: z.enum(["CRON", "THRESHOLD", "WEBHOOK_EVENT"]).describe("Type of trigger"),
+    cronExpression: z.string().optional().describe("Cron expression for CRON type"),
+    thresholdCondition: z.any().optional().describe("Threshold condition for THRESHOLD type"),
+    actionWorkflowId: z.string().optional().describe("Workflow to trigger when watch fires"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { createWatch } = await import("../agentWatchService");
+    const watch = await createWatch(context.userId, {
+      name: args.name,
+      triggerType: args.triggerType,
+      cronExpression: args.cronExpression,
+      thresholdCondition: args.thresholdCondition,
+      actionWorkflowId: args.actionWorkflowId,
+    });
+    return { success: true, watchId: watch.id };
+  },
+};
+
+const deliverReportToGoogleDocsTool: VerxioTool = {
+  name: "deliver_report_to_google_docs",
+  description:
+    "Create a Google Doc with report content via Composio. Requires user to have Google Docs connected through Composio. Use for goal progress reports, compliance reports, or any structured document delivery.",
+  inputSchema: z.object({
+    title: z.string().describe("Document title"),
+    content: z.string().describe("Markdown content for the document body"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { executeDeliveryActions } = await import(
+      "../composioReportDeliveryService"
+    );
+    const results = await executeDeliveryActions(
+      context.userId,
+      {
+        composioActions: [
+          { action: "GOOGLEDOCS_CREATE_DOCUMENT", label: "Google Docs" },
+        ],
+      },
+      args.title,
+      args.content
+    );
+    return results[0] || { delivered: false, error: "No result" };
+  },
+};
+
+const generateGoalReportTool: VerxioTool = {
+  name: "generate_goal_report",
+  description:
+    "Generate a progress report for an AI goal and optionally deliver it to all configured channels including Google Docs",
+  inputSchema: z.object({
+    goalId: z.string().describe("Goal ID to generate the report for"),
+    deliverToChannels: z
+      .boolean()
+      .optional()
+      .describe("Whether to also deliver to messaging channels (default: true)"),
+  }),
+  execute: async (args: any, _context: ToolContext) => {
+    const { generateProgressReport, deliverReport } = await import(
+      "../goalReportService"
+    );
+    const report = await generateProgressReport(args.goalId);
+    let delivery;
+    if (args.deliverToChannels !== false) {
+      delivery = await deliverReport(args.goalId);
+    }
+    return { report, delivery };
+  },
+};
+
+const createHumanTaskTool: VerxioTool = {
+  name: "create_human_task",
+  description:
+    "Create a managed human task with AI-powered compliance scoring. The task defines work that human workers must complete on a schedule, with evidence submission and AI vetting.",
+  inputSchema: z.object({
+    name: z.string().describe("Short name for the task, e.g. 'Toilet Cleaning'"),
+    description: z.string().optional().describe("Detailed description of what the task entails"),
+    evidenceType: z
+      .enum(["PHOTO", "TEXT", "PHOTO_AND_TEXT", "DOCUMENT"])
+      .optional()
+      .describe("Type of evidence workers must submit. DOCUMENT is for PDFs, reports, or memos. Default: PHOTO"),
+    recurrenceType: z
+      .enum(["ONCE", "INTERVAL", "DAILY", "WEEKLY"])
+      .optional()
+      .describe("How often the task recurs. Default: DAILY"),
+    recurrenceInterval: z
+      .number()
+      .optional()
+      .describe("Interval in minutes for INTERVAL recurrence type"),
+    scheduledTimes: z
+      .array(z.string())
+      .optional()
+      .describe("Times of day the task is due, e.g. ['09:00', '14:00']"),
+    timezone: z.string().optional().describe("Timezone for scheduling, e.g. 'America/New_York'. Default: UTC"),
+    acceptanceRules: z
+      .array(z.string())
+      .optional()
+      .describe("Rules the AI uses to vet submitted evidence, e.g. ['Floor must be dry and clean', 'All surfaces wiped']"),
+    scoringEnabled: z.boolean().optional().describe("Whether AI scoring is enabled. Default: true"),
+    passingScore: z.number().optional().describe("Minimum score (0-100) to pass. Default: 70"),
+    graceMinutes: z.number().optional().describe("Grace period in minutes after scheduled time. Default: 15"),
+    resubmissionAllowed: z.boolean().optional().describe("Whether workers can resubmit on failure. Default: true"),
+    reportTime: z.string().optional().describe("Time of day to generate daily report, e.g. '18:00'. Default: 18:00"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { createHumanTask } = await import("../humanTaskService");
+    const task = await createHumanTask(context.userId, {
+      name: args.name,
+      description: args.description,
+      evidenceType: args.evidenceType,
+      recurrenceType: args.recurrenceType,
+      recurrenceInterval: args.recurrenceInterval,
+      scheduledTimes: args.scheduledTimes,
+      timezone: args.timezone,
+      acceptanceRules: args.acceptanceRules,
+      scoringEnabled: args.scoringEnabled,
+      passingScore: args.passingScore,
+      graceMinutes: args.graceMinutes,
+      resubmissionAllowed: args.resubmissionAllowed,
+      reportTime: args.reportTime,
+    });
+    return {
+      success: true,
+      taskId: task.id,
+      name: task.name,
+      status: task.status,
+      message: `Task "${task.name}" created. Add workers to assign people to this task.`,
+    };
+  },
+};
+
+const addWorkerToTaskTool: VerxioTool = {
+  name: "add_worker_to_task",
+  description: "Add a human worker to an existing task so they receive reminders and can submit evidence",
+  inputSchema: z.object({
+    taskId: z.string().describe("ID of the human task to add the worker to"),
+    name: z.string().describe("Worker's name"),
+    platform: z
+      .enum(["WHATSAPP", "TELEGRAM", "SLACK", "DISCORD"])
+      .describe("Communication platform for reminders"),
+    externalId: z
+      .string()
+      .describe("Platform-specific ID (phone number for WhatsApp, user/chat ID for Telegram, user ID for Slack/Discord)"),
+    role: z.string().optional().describe("Worker's role, e.g. 'Cleaner', 'Security Guard'"),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { addWorker } = await import("../humanWorkerService");
+    const worker = await addWorker(context.userId, args.taskId, {
+      name: args.name,
+      platform: args.platform,
+      externalId: args.externalId,
+      role: args.role,
+    });
+    return {
+      success: true,
+      workerId: worker.id,
+      message: `Worker "${worker.name}" added to the task on ${args.platform}.`,
+    };
+  },
+};
+
+const listHumanTasksTool: VerxioTool = {
+  name: "list_human_tasks",
+  description: "List all human tasks for the current user with worker and submission counts",
+  inputSchema: z.object({}),
+  execute: async (_args: any, context: ToolContext) => {
+    const { listHumanTasks } = await import("../humanTaskService");
+    const tasks = await listHumanTasks(context.userId);
+    return {
+      tasks: tasks.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        status: t.status,
+        recurrenceType: t.recurrenceType,
+        evidenceType: t.evidenceType,
+        workerCount: t._count?.workers ?? 0,
+        submissionCount: t._count?.submissions ?? 0,
+      })),
+    };
+  },
+};
+
+const generateTaskComplianceReportTool: VerxioTool = {
+  name: "generate_task_compliance_report",
+  description:
+    "Generate a daily compliance report for a human task, including AI scores, worker breakdown, and delivery to messaging channels and Google Docs",
+  inputSchema: z.object({
+    taskId: z.string().describe("Human task ID to generate compliance report for"),
+  }),
+  execute: async (args: any, _context: ToolContext) => {
+    const { generateDailyReport } = await import("../taskReportService");
+    const report = await generateDailyReport(args.taskId);
+    return {
+      reportId: report.id,
+      totalSubmissions: report.totalSubmissions,
+      missedCount: report.missedCount,
+      avgScore: report.avgScore,
+      passRate: report.passRate,
+    };
+  },
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -2865,6 +3199,19 @@ export const verxioTools: VerxioTool[] = [
   searchComposioAppsTool,
   getComposioAppDetailsTool,
   runComposioActionTool,
+  createGoalTool,
+  decomposeGoalTool,
+  rememberFactTool,
+  recallFactsTool,
+  requestApprovalTool,
+  reflectOnOutputTool,
+  createWatchTool,
+  deliverReportToGoogleDocsTool,
+  generateGoalReportTool,
+  generateTaskComplianceReportTool,
+  createHumanTaskTool,
+  addWorkerToTaskTool,
+  listHumanTasksTool,
 ];
 
 export default verxioTools;

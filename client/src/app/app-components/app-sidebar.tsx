@@ -18,6 +18,8 @@ import {
   Brain,
   Gift,
   X,
+  Target,
+  ClipboardCheck,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -50,6 +52,8 @@ const menuItems = [
   { title: "Connections", url: "/connections", icon: <PlugIcon /> },
   { title: "Integrations", url: "/integrations", icon: <Cable /> },
   { title: "Support Agent", url: "/support", icon: <Headset /> },
+  { title: "Task Manager", url: "/tasks", icon: <ClipboardCheck /> },
+  { title: "AI Goals", url: "/goals", icon: <Target /> },
   { title: "Agent Knowledge", url: "/knowledge", icon: <Brain /> },
   { title: "Agentic Skills", url: "/skills", icon: <BookOpen /> },
   { title: "Analytics", url: "/analytics", icon: <BarChart3 /> },

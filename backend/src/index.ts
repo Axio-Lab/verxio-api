@@ -26,6 +26,8 @@ import { composioConnectionRouter } from "./routes/composio-connections";
 import { publicChatRouter } from "./routes/public-chat";
 import { supportPublicChatRouter } from "./routes/support-public-chat";
 import { supportAgentsRouter } from "./routes/support-agents";
+import { agentGoalsRouter } from "./routes/agent-goals";
+import { humanTasksRouter } from "./routes/human-tasks";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
@@ -179,6 +181,9 @@ app.use("/chat-uploads", express.static(path.join(process.cwd(), "public", "chat
 // Serve support chat uploads (images, PDFs) as URLs
 app.use("/support-uploads", express.static(path.join(process.cwd(), "public", "support-uploads")));
 
+// Serve task submission images
+app.use("/task-submissions", express.static(path.join(process.cwd(), "public", "task-submissions")));
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
@@ -211,6 +216,8 @@ app.use("/api/composio/connections", composioConnectionRouter);
 app.use("/api/public/chat", publicChatRouter);
 app.use("/api/public/support-chat", supportPublicChatRouter);
 app.use("/api/support-agents", supportAgentsRouter);
+app.use("/api/agent-goals", agentGoalsRouter);
+app.use("/api/human-tasks", humanTasksRouter);
 
 // API routes
 // app.use('/health', healthRouter);

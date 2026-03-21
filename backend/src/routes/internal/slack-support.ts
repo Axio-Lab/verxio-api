@@ -6,6 +6,9 @@ import {
   updateSupportChannelConfigInternal,
 } from "@/services/supportChannelService";
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadSlackFile } from "@/services/taskImageService";
+import { getWorkerByExternalId } from "@/services/humanWorkerService";
 
 const router = Router();
 
@@ -100,6 +103,30 @@ router.post("/support/:channelId/events", async (req: Request, res: Response) =>
           slackTeamId: payload?.team_id || channel.slackTeamId || null,
         });
       }
+      // Check if sender is a task worker before routing to support agent
+      try {
+        const worker = await getWorkerByExternalId("SLACK", senderId);
+        if (worker) {
+          let imageUrl: string | undefined;
+          if (event.files?.length > 0 && channel.slackBotToken) {
+            const imgFile = event.files.find(
+              (f: any) => f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
+            );
+            if (imgFile) {
+              const fileUrl = imgFile.url_private_download || imgFile.url_private;
+              imageUrl = await downloadSlackFile(channel.slackBotToken, fileUrl);
+            }
+          }
+          const result = await handleIncomingSubmission("SLACK", senderId, text, imageUrl);
+          if (result.handled && result.feedback) {
+            await sendSlackMessage(channel.slackBotToken!, sourceChannel, result.feedback, threadTs);
+          }
+          if (result.handled) return;
+        }
+      } catch (workerErr) {
+        console.warn("[Support Slack] Worker routing check failed:", workerErr);
+      }
+
       const reply = await respondToChannelMessage({
         supportAgentId: channel.supportAgentId,
         externalId: senderId,

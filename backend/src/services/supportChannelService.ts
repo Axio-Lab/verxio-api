@@ -34,6 +34,47 @@ export async function listSupportChannelsForAgent(userId: string, supportAgentId
   }) as Promise<SupportChannel[]>;
 }
 
+export async function listAllActiveChannels(userId: string) {
+  const [supportChannels, chatIntegrations] = await Promise.all([
+    prisma.supportChannel.findMany({
+      where: { userId, status: { not: "disabled" } },
+      include: { supportAgent: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.chatIntegration.findMany({
+      where: { userId, isActive: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const results: Array<{
+    id: string;
+    platform: string;
+    label: string;
+    source: "support" | "integration";
+  }> = [];
+
+  for (const sc of supportChannels) {
+    results.push({
+      id: sc.id,
+      platform: sc.platform,
+      label: `${sc.platform} (${sc.supportAgent?.name || "Support Agent"})`,
+      source: "support",
+    });
+  }
+
+  for (const ci of chatIntegrations as any[]) {
+    results.push({
+      id: ci.id,
+      platform: ci.platform,
+      label: `${ci.platform} (${ci.label || "Chat Integration"})`,
+      source: "integration",
+    });
+  }
+
+  return results;
+}
+
 export async function createSupportChannel(options: {
   userId: string;
   supportAgentId: string;
