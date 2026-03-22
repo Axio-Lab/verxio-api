@@ -36,3 +36,7 @@ lerna-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Prisma
+prisma/migrations/
+
