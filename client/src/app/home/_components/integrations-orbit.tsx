@@ -29,7 +29,9 @@ export function IntegrationsOrbit() {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
       { threshold: 0.2 }
     );
     if (containerRef.current) observer.observe(containerRef.current);
@@ -74,7 +76,9 @@ export function IntegrationsOrbit() {
           {/* Outer glow ring */}
           <div
             className={`absolute inset-0 rounded-full transition-opacity duration-1000 ${isVisible ? "opacity-100" : "opacity-0"}`}
-            style={{ boxShadow: "inset 0 0 60px rgba(0,163,240,0.04), 0 0 80px rgba(0,163,240,0.03)" }}
+            style={{
+              boxShadow: "inset 0 0 60px rgba(0,163,240,0.04), 0 0 80px rgba(0,163,240,0.03)",
+            }}
           />
 
           {/* Center hub */}
@@ -126,7 +130,10 @@ export function IntegrationsOrbit() {
                 <g key={i}>
                   {/* Base dashed line */}
                   <line
-                    x1={CX} y1={CY} x2={x} y2={y}
+                    x1={CX}
+                    y1={CY}
+                    x2={x}
+                    y2={y}
                     stroke="url(#primary-line-grad)"
                     strokeWidth={isActive ? "2" : "1"}
                     strokeDasharray="8 4"
@@ -140,7 +147,10 @@ export function IntegrationsOrbit() {
                   {/* Active highlight line */}
                   {isActive && isVisible && (
                     <line
-                      x1={CX} y1={CY} x2={x} y2={y}
+                      x1={CX}
+                      y1={CY}
+                      x2={x}
+                      y2={y}
                       stroke="url(#active-line-grad)"
                       strokeWidth="2"
                       filter="url(#glow)"
@@ -209,9 +219,13 @@ export function IntegrationsOrbit() {
                     style={{ transitionDelay: `${600 + i * 120}ms` }}
                   />
                   {/* Tooltip */}
-                  <span className={`absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs whitespace-nowrap transition-opacity duration-300 ${
-                    isActive ? "opacity-100 text-primary font-semibold" : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                  }`}>
+                  <span
+                    className={`absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs whitespace-nowrap transition-opacity duration-300 ${
+                      isActive
+                        ? "opacity-100 text-primary font-semibold"
+                        : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
                     {app.name}
                   </span>
                   {/* Active ring */}
@@ -227,28 +241,62 @@ export function IntegrationsOrbit() {
 
       <style jsx>{`
         @keyframes dash-flow {
-          to { stroke-dashoffset: -24; }
+          to {
+            stroke-dashoffset: -24;
+          }
         }
         @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-6px);
+          }
         }
         @keyframes hub-ping {
-          0% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.15); opacity: 0; }
-          100% { transform: scale(1); opacity: 0; }
+          0% {
+            transform: scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: scale(1.15);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0;
+          }
         }
         @keyframes packet-travel {
-          0% { offset-distance: 0%; opacity: 0; }
-          10% { opacity: 1; }
-          50% { opacity: 1; }
-          90% { opacity: 0.6; }
-          100% { offset-distance: 100%; opacity: 0; }
+          0% {
+            offset-distance: 0%;
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 0.6;
+          }
+          100% {
+            offset-distance: 100%;
+            opacity: 0;
+          }
         }
         @keyframes line-flash {
-          0% { opacity: 0; }
-          30% { opacity: 1; }
-          100% { opacity: 0.7; }
+          0% {
+            opacity: 0;
+          }
+          30% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0.7;
+          }
         }
       `}</style>
     </section>

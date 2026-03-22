@@ -10,8 +10,8 @@ export function CTA() {
           Ready to automate your operations?
         </h2>
         <p className="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
-          Set goals, assign tasks, deploy support agents, run loyalty programs, and let AI manage compliance and reporting.
-          Start in minutes.
+          Set goals, assign tasks, deploy support agents, run loyalty programs, and let AI manage
+          compliance and reporting. Start in minutes.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link

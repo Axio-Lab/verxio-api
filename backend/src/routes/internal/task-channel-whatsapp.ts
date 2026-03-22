@@ -82,17 +82,29 @@ export async function processTaskChannelWhatsAppIncoming(
   if (!text.trim() && !payload.attachments?.length) return;
 
   try {
-    // Connector sets payload.from to digits-only; Baileys peer identity is in remoteJid (@s.whatsapp.net or @lid).
-    // We must pass full JID variants or worker lookup fails (phone in DB vs LID in chat, device suffixes, etc.).
     const rawRemote =
-      typeof payload.remoteJid === "string" && payload.remoteJid && !payload.remoteJid.endsWith("@g.us")
+      typeof payload.remoteJid === "string" &&
+      payload.remoteJid &&
+      !payload.remoteJid.endsWith("@g.us")
         ? payload.remoteJid
         : "";
+    const lidDigits = rawRemote.endsWith("@lid")
+      ? rawRemote.replace(/@lid$/, "").replace(/\D/g, "")
+      : "";
     const peerJidNorm = rawRemote ? rawRemote.replace(/:.*@/, "@") : "";
-    const normalizedFromDigits =
-      typeof fromJid === "string" ? fromJid.replace(/:.*@/, "@") : "";
-    const lookupId = peerJidNorm || normalizedFromDigits || fromJid;
+    const normalizedFromDigits = typeof fromJid === "string" ? fromJid.replace(/:.*@/, "@") : "";
+
+    // Connector resolves LID→phone via Baileys contacts; prefer phone-based lookupId when available.
+    const resolvedPhone =
+      typeof payload.resolvedPhone === "string" && payload.resolvedPhone
+        ? payload.resolvedPhone
+        : "";
+    const resolvedDigits = resolvedPhone.replace(/\D/g, "");
+    // Guard against false mapping where Baileys LID digits are incorrectly converted to @s JID.
+    const safeResolvedPhone = lidDigits && resolvedDigits === lidDigits ? "" : resolvedPhone;
+    const lookupId = safeResolvedPhone || peerJidNorm || normalizedFromDigits || fromJid;
     const additionalExternalIds = [
+      safeResolvedPhone,
       rawRemote,
       peerJidNorm,
       fromJid,
@@ -103,30 +115,23 @@ export async function processTaskChannelWhatsAppIncoming(
     let imageUrl: string | undefined;
     if (payload.attachments?.length) {
       const imgAttachment = payload.attachments.find(
-        (a: any) =>
-          (a.mimeType?.startsWith("image/") || a.mimetype?.startsWith("image/")) && a.url
+        (a: any) => (a.mimeType?.startsWith("image/") || a.mimetype?.startsWith("image/")) && a.url
       );
       if (imgAttachment?.url) {
         imageUrl = await downloadAndSaveImage(imgAttachment.url);
       }
     }
 
-    const result = await handleIncomingSubmission(
-      "WHATSAPP",
-      lookupId,
-      text,
-      imageUrl,
-      { taskChannelId: channel.id, additionalExternalIds }
-    );
+    const result = await handleIncomingSubmission("WHATSAPP", lookupId, text, imageUrl, {
+      taskChannelId: channel.id,
+      additionalExternalIds,
+      senderName: typeof payload.pushName === "string" ? payload.pushName : "",
+    });
 
     if (result.handled && result.feedback) {
       await deliverTaskWorkerFeedbackWhatsApp(sessionId, replyToJid, result.feedback);
     } else if (!result.handled) {
-      await sendWhatsAppMessage({
-        sessionRef: sessionId,
-        toJid: replyToJid,
-        text: "Hi! This channel is used for task management. If you were added to a task, your manager will send you an onboarding message. Reply HELP for more info.",
-      });
+      // Task channels are worker-only: if no worker matched, do not send generic help/public hints.
     }
   } catch (error) {
     console.error("[TaskChannel WhatsApp] Error:", error);
@@ -136,7 +141,7 @@ export async function processTaskChannelWhatsAppIncoming(
         toJid: replyToJid,
         text: "Something went wrong. Please try again.",
       });
-    } catch { }
+    } catch {}
   }
 }
 

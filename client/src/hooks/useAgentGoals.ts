@@ -107,7 +107,12 @@ export function useCreateGoal() {
   return useProtectedMutation<
     { goal: AgentGoal },
     Error,
-    { name: string; objective: string; reportingChannelId?: string; deliveryConfig?: DeliveryConfig }
+    {
+      name: string;
+      objective: string;
+      reportingChannelId?: string;
+      deliveryConfig?: DeliveryConfig;
+    }
   >({
     mutationFn: (data) => authenticatedPost<{ goal: AgentGoal }>("/api/agent-goals", data),
     onSuccess: () => {
@@ -121,7 +126,9 @@ export function useDeliveryActions() {
   return useProtectedQuery<{ actions: DeliveryAction[] }>({
     queryKey: ["delivery-actions"],
     queryFn: () =>
-      authenticatedGet<{ actions: DeliveryAction[] }>("/api/agent-goals/delivery-actions/available"),
+      authenticatedGet<{ actions: DeliveryAction[] }>(
+        "/api/agent-goals/delivery-actions/available"
+      ),
   });
 }
 
@@ -147,7 +154,8 @@ export function useGoalTasks(goalId: string) {
 export function useGoalMemories(goalId: string) {
   return useProtectedQuery<{ memories: AgentMemory[] }>({
     queryKey: ["agent-goals", goalId, "memories"],
-    queryFn: () => authenticatedGet<{ memories: AgentMemory[] }>(`/api/agent-goals/${goalId}/memories`),
+    queryFn: () =>
+      authenticatedGet<{ memories: AgentMemory[] }>(`/api/agent-goals/${goalId}/memories`),
     enabled: !!goalId,
   });
 }
@@ -173,8 +181,19 @@ export function useAgentWatches() {
 
 export function useCreateWatch() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<{ watch: AgentWatch }, Error, { name: string; triggerType: string; cronExpression?: string; thresholdCondition?: Record<string, unknown>; actionWorkflowId?: string }>({
-    mutationFn: (data) => authenticatedPost<{ watch: AgentWatch }>("/api/agent-goals/watches", data),
+  return useProtectedMutation<
+    { watch: AgentWatch },
+    Error,
+    {
+      name: string;
+      triggerType: string;
+      cronExpression?: string;
+      thresholdCondition?: Record<string, unknown>;
+      actionWorkflowId?: string;
+    }
+  >({
+    mutationFn: (data) =>
+      authenticatedPost<{ watch: AgentWatch }>("/api/agent-goals/watches", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent-watches"] });
       toast.success("Watch created");

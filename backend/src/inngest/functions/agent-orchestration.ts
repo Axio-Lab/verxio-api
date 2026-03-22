@@ -197,7 +197,12 @@ export const approvalGate = inngest.createFunction(
     if (!approval || approval.data.decision === "reject") {
       await step.run("handle-rejection", async () => {
         if (taskId) {
-          await taskService.updateTaskStatus(taskId, "FAILED", undefined, "Approval rejected or timed out");
+          await taskService.updateTaskStatus(
+            taskId,
+            "FAILED",
+            undefined,
+            "Approval rejected or timed out"
+          );
         }
         await goalService.updateGoalStatus(goalId, "FAILED");
       });
@@ -250,7 +255,10 @@ Return JSON: { "decision": "accept" | "retry" | "escalate", "reasoning": "..." }
     await step.run("act-on-decision", async () => {
       switch (decision.decision) {
         case "accept":
-          await taskService.updateTaskStatus(taskId, "COMPLETE", { ...output, reflectionAccepted: true });
+          await taskService.updateTaskStatus(taskId, "COMPLETE", {
+            ...output,
+            reflectionAccepted: true,
+          });
           await inngest.send({ name: "verxio/goal.execute-next", data: { goalId, userId } });
           break;
         case "retry": {
@@ -259,13 +267,23 @@ Return JSON: { "decision": "accept" | "retry" | "escalate", "reasoning": "..." }
             await taskService.retryTask(taskId, goal?.maxRetries ?? 3);
             await inngest.send({ name: "verxio/goal.execute-next", data: { goalId, userId } });
           } catch {
-            await taskService.updateTaskStatus(taskId, "FAILED", undefined, "Max retries exceeded after reflection");
+            await taskService.updateTaskStatus(
+              taskId,
+              "FAILED",
+              undefined,
+              "Max retries exceeded after reflection"
+            );
             await goalService.updateGoalStatus(goalId, "FAILED");
           }
           break;
         }
         case "escalate":
-          await taskService.updateTaskStatus(taskId, "FAILED", undefined, `Escalated: ${decision.reasoning}`);
+          await taskService.updateTaskStatus(
+            taskId,
+            "FAILED",
+            undefined,
+            `Escalated: ${decision.reasoning}`
+          );
           break;
       }
     });

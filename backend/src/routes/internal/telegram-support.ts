@@ -53,8 +53,7 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
 
   const update = req.body;
   const message = update?.message || update?.edited_message || update?.callback_query?.message;
-  const text =
-    message?.text || message?.caption || update?.callback_query?.data || "";
+  const text = message?.text || message?.caption || update?.callback_query?.data || "";
   const chatId = message?.chat?.id ? String(message.chat.id) : "";
   const senderId = message?.from?.id ? String(message.from.id) : chatId;
   const hasPhoto = !!(message?.photo && message.photo.length > 0);
@@ -98,9 +97,6 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
       try {
         const lookupId = senderId || chatId;
         const extras = [senderId, chatId].filter(Boolean);
-        console.log(
-          `[Support Telegram] Worker check: id=${lookupId} extras=[${extras}] channelId=${channel.id} text="${text.slice(0, 40)}"`
-        );
 
         let imageUrl: string | undefined;
         const photos = message?.photo;
@@ -108,18 +104,16 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
           const largestPhoto = photos[photos.length - 1];
           imageUrl = await downloadTelegramFile(channel.telegramBotToken, largestPhoto.file_id);
         }
-        const result = await handleIncomingSubmission(
-          "TELEGRAM",
-          lookupId,
-          text,
-          imageUrl,
-          { supportChannelId: channel.id, additionalExternalIds: extras }
-        );
-        console.log(
-          `[Support Telegram] Result: handled=${result.handled} hasFeedback=${!!result.feedback}`
-        );
+        const result = await handleIncomingSubmission("TELEGRAM", lookupId, text, imageUrl, {
+          supportChannelId: channel.id,
+          additionalExternalIds: extras,
+        });
         if (result.handled && result.feedback) {
-          await deliverTaskWorkerFeedbackTelegram(channel.telegramBotToken!, chatId, result.feedback);
+          await deliverTaskWorkerFeedbackTelegram(
+            channel.telegramBotToken!,
+            chatId,
+            result.feedback
+          );
         }
         if (result.handled) return;
       } catch (workerErr) {
@@ -142,7 +136,11 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
     } catch (error) {
       console.error("[Support Telegram webhook] Error:", error);
       try {
-        await sendTelegramMessage(channel.telegramBotToken!, chatId, "Something went wrong. Please try again.");
+        await sendTelegramMessage(
+          channel.telegramBotToken!,
+          chatId,
+          "Something went wrong. Please try again."
+        );
       } catch (_) {}
     }
   })();

@@ -255,12 +255,7 @@ export const EntityPagination = ({
   };
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-center gap-2 mt-6",
-        className
-      )}
-    >
+    <div className={cn("flex items-center justify-center gap-2 mt-6", className)}>
       <button
         type="button"
         onClick={() => {

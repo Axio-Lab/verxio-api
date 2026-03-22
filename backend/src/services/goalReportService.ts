@@ -106,18 +106,15 @@ async function sendToMessagingChannel(markdown: string, channel: any, channelId:
     case "TELEGRAM": {
       const formatted = formatTelegramMessage(markdown);
       if (channel.telegramBotToken && channel.telegramChatId) {
-        await fetch(
-          `https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channel.telegramChatId,
-              text: formatted,
-              parse_mode: "HTML",
-            }),
-          }
-        );
+        await fetch(`https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel.telegramChatId,
+            text: formatted,
+            parse_mode: "HTML",
+          }),
+        });
       }
       break;
     }

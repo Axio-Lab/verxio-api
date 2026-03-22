@@ -176,7 +176,9 @@ function toDeterministicRules(funnelRules: unknown): DeterministicFunnelRule[] {
             ? Math.max(1, Math.floor(r.maxAgentReplies))
             : undefined,
         branches: (() => {
-          const raw = Array.isArray(r.branches) ? (r.branches as Array<Record<string, unknown>>) : [];
+          const raw = Array.isArray(r.branches)
+            ? (r.branches as Array<Record<string, unknown>>)
+            : [];
           return raw
             .map((b) => ({
               matchKeywords: Array.isArray(b.matchKeywords)
@@ -190,7 +192,9 @@ function toDeterministicRules(funnelRules: unknown): DeterministicFunnelRule[] {
         })(),
         followUpEnabled: r.followUpEnabled === true,
         followUps: (() => {
-          const items = Array.isArray(r.followUps) ? (r.followUps as Array<Record<string, unknown>>) : [];
+          const items = Array.isArray(r.followUps)
+            ? (r.followUps as Array<Record<string, unknown>>)
+            : [];
           const normalized = items
             .map((f) => ({
               message: typeof f.message === "string" ? f.message.trim() : "",
@@ -217,7 +221,11 @@ function toDeterministicRules(funnelRules: unknown): DeterministicFunnelRule[] {
         })(),
       };
     })
-    .filter((r) => r.triggers.length > 0 && (!!r.summary || !!r.assetUrl || (r.branches ?? []).some((b) => !!b.assetUrl || !!b.summary)));
+    .filter(
+      (r) =>
+        r.triggers.length > 0 &&
+        (!!r.summary || !!r.assetUrl || (r.branches ?? []).some((b) => !!b.assetUrl || !!b.summary))
+    );
 }
 
 function normalizeFlowState(raw: unknown): SdrFlowState {
@@ -269,7 +277,9 @@ function normalizeFlowState(raw: unknown): SdrFlowState {
   }
 
   const completedRuleKeys: string[] = Array.isArray(s.completedRuleKeys)
-    ? (s.completedRuleKeys as unknown[]).filter((k): k is string => typeof k === "string" && !!k.trim())
+    ? (s.completedRuleKeys as unknown[]).filter(
+        (k): k is string => typeof k === "string" && !!k.trim()
+      )
     : [];
 
   return {
@@ -305,7 +315,10 @@ function normalizeFlowState(raw: unknown): SdrFlowState {
 }
 
 /** Build template variable map from an answers array: answer1, answer2, answer3 ... */
-function buildTemplateVars(answers: string[], extraVars?: Record<string, string>): Record<string, string> {
+function buildTemplateVars(
+  answers: string[],
+  extraVars?: Record<string, string>
+): Record<string, string> {
   const vars: Record<string, string> = {};
   answers.forEach((a, i) => {
     vars[`answer${i + 1}`] = a;
@@ -366,7 +379,7 @@ async function agentizeResponse(params: {
     "- No emojis. No em dashes (use commas or periods instead). No bullet points. No numbered lists.",
     '- NEVER start with "Got it", "Great", "Interesting", "That makes sense", "Here\'s what", "I see", "Understood", "So basically", "Sounds like", or any acknowledgment filler.',
     "- NEVER over-explain or analyze what the user said back to them. They know what they said.",
-    "- NEVER use phrases like \"here's what that usually means\", \"what I'm hearing is\", \"in my experience\", \"let me break that down\".",
+    '- NEVER use phrases like "here\'s what that usually means", "what I\'m hearing is", "in my experience", "let me break that down".',
     "- Short, punchy sentences. Like a message from someone who's done this 1000 times.",
     "- Do not mention being an AI, model, or assistant. You are a human.",
     "- If you have skills/expertise, weave specific knowledge in naturally. Do not lecture.",
@@ -612,9 +625,7 @@ function cancelFollowUpTimer(conversationKey: string): void {
   }
 }
 
-function buildFollowUpText(
-  followUp: { message: string; ctaUrl?: string }
-): string {
+function buildFollowUpText(followUp: { message: string; ctaUrl?: string }): string {
   const message = followUp.message.trim();
   const ctaUrl = (followUp.ctaUrl || "").trim();
   const withCta = ctaUrl ? `${message}\n\nView details: ${ctaUrl}` : message;
@@ -703,7 +714,10 @@ function computeFollowUpFireTime(followUp: { delayMinutes?: number; sendAt?: str
   if (rawSendAt) {
     const target = new Date(rawSendAt);
     if (!isNaN(target.getTime())) {
-      const clampedMs = Math.min(Math.max(1000, target.getTime() - Date.now()), 7 * 24 * 60 * 60 * 1000);
+      const clampedMs = Math.min(
+        Math.max(1000, target.getTime() - Date.now()),
+        7 * 24 * 60 * 60 * 1000
+      );
       return new Date(Date.now() + clampedMs);
     }
   }
@@ -719,7 +733,13 @@ async function executeFollowUp(params: {
   expectedVersion: number;
   expectedRuleKey: string;
 }): Promise<void> {
-  const { supportAgentId, sessionIdentifier, supportChatSessionId, expectedVersion, expectedRuleKey } = params;
+  const {
+    supportAgentId,
+    sessionIdentifier,
+    supportChatSessionId,
+    expectedVersion,
+    expectedRuleKey,
+  } = params;
 
   const persistedRaw = await getSessionFlowStateById(supportChatSessionId);
   const persisted = normalizeFlowState(persistedRaw);
@@ -768,7 +788,7 @@ async function executeFollowUp(params: {
   if (!sent) {
     console.error(
       `[SDR follow-up] dispatch failed for session ${supportChatSessionId} (identifier: ${sessionIdentifier}). ` +
-      `Check that the contact exists and the channel is still connected.`
+        `Check that the contact exists and the channel is still connected.`
     );
     return;
   }
@@ -818,7 +838,15 @@ function scheduleFollowUpTimer(params: {
   expectedRuleKey: string;
   fireAt: Date;
 }): void {
-  const { conversationKey, supportAgentId, sessionIdentifier, supportChatSessionId, expectedVersion, expectedRuleKey, fireAt } = params;
+  const {
+    conversationKey,
+    supportAgentId,
+    sessionIdentifier,
+    supportChatSessionId,
+    expectedVersion,
+    expectedRuleKey,
+    fireAt,
+  } = params;
   const delayMs = Math.max(1000, fireAt.getTime() - Date.now());
 
   cancelFollowUpTimer(conversationKey);
@@ -1146,7 +1174,10 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
       if (flowState.step === "questioning") {
         const qi = flowState.currentQuestionIndex ?? 0;
         const allQuestions = activeRule.questions ?? [];
-        const currentQ = renderTemplate(allQuestions[qi] || "", buildTemplateVars(flowState.answers ?? []));
+        const currentQ = renderTemplate(
+          allQuestions[qi] || "",
+          buildTemplateVars(flowState.answers ?? [])
+        );
 
         // Check if the message is relevant to the current question.
         // If it's completely off-topic, gently re-ask without advancing.
@@ -1253,7 +1284,8 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
         const ctaDirective = renderTemplate(resolvedCta.summary || "", ctaVars);
         const finalReply = normalizeReplyText(
           await agentizeResponse({
-            directive: ctaDirective || "Based on everything shared, deliver the most relevant resource.",
+            directive:
+              ctaDirective || "Based on everything shared, deliver the most relevant resource.",
             agentName: agName,
             campaignContext: agCampaign,
             skillsContent,
@@ -1269,7 +1301,9 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
             ...flowState,
             answers: updatedAnswers,
             step: "completed",
-            completedRuleKeys: [...new Set([...(flowState.completedRuleKeys ?? []), activeRule.key])],
+            completedRuleKeys: [
+              ...new Set([...(flowState.completedRuleKeys ?? []), activeRule.key]),
+            ],
             matchedBranchIndex: branchIndex >= 0 ? branchIndex : null,
             repliesSent: (flowState.repliesSent || 0) + 1,
             updatedAt: new Date().toISOString(),
@@ -1328,7 +1362,9 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
               ...flowState,
               activeRuleKey: matchedRule.key,
               step: "completed",
-              completedRuleKeys: [...new Set([...(flowState.completedRuleKeys ?? []), matchedRule.key])],
+              completedRuleKeys: [
+                ...new Set([...(flowState.completedRuleKeys ?? []), matchedRule.key]),
+              ],
               answers: [],
               currentQuestionIndex: 0,
               repliesSent: 1,
@@ -1411,16 +1447,13 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
       };
       await updateSessionFlowStateById(sessionId, flowState as Record<string, unknown>);
     } else if (deterministicRules.length === 0) {
-      await updateSessionFlowStateById(
-        sessionId,
-        {
-          ...flowState,
-          activeRuleKey: null,
-          step: "idle",
-          answers: [],
-          currentQuestionIndex: 0,
-        } as Record<string, unknown>
-      );
+      await updateSessionFlowStateById(sessionId, {
+        ...flowState,
+        activeRuleKey: null,
+        step: "idle",
+        answers: [],
+        currentQuestionIndex: 0,
+      } as Record<string, unknown>);
     }
   } // end if (!capStillActive)
 
@@ -1450,8 +1483,7 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
     funnelAlreadyCompleted &&
     deterministicRules.some(
       (r) =>
-        keywordMatched(message, r.triggers) &&
-        (flowState.completedRuleKeys ?? []).includes(r.key)
+        keywordMatched(message, r.triggers) && (flowState.completedRuleKeys ?? []).includes(r.key)
     );
 
   const systemParts = [
@@ -1469,7 +1501,7 @@ export async function respondToSdrMessage(options: RespondToSdrMessageOptions): 
       : "When the knowledge base does not have the answer, let the user know you are not sure and suggest they reach out to the team directly for a more accurate answer.",
     "",
     "TONE:",
-    'Never use em dashes. Use commas, periods, or semicolons instead.',
+    "Never use em dashes. Use commas, periods, or semicolons instead.",
     'Never use AI-like filler: "Great question", "Absolutely", "Sure!", "I\'d be happy to help", "That makes sense", "Got it". Start directly with substance.',
     "Never say or imply you are an AI, model, or assistant. You are a human.",
     "Be direct. Short punchy sentences. Sound like a real person, not a chatbot.",

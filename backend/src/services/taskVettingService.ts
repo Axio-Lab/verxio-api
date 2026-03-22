@@ -18,9 +18,10 @@ export async function vetSubmission(submissionId: string): Promise<string> {
   const rules = Array.isArray(submission.humanTask.acceptanceRules)
     ? submission.humanTask.acceptanceRules
     : [];
-  const rulesText = rules.length > 0
-    ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
-    : "No specific rules defined. Evaluate general quality and completeness.";
+  const rulesText =
+    rules.length > 0
+      ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
+      : "No specific rules defined. Evaluate general quality and completeness.";
 
   const sampleUrl = submission.humanTask.sampleEvidenceUrl;
 
@@ -46,7 +47,12 @@ export async function vetSubmission(submissionId: string): Promise<string> {
   });
 
   const text = agentResult.result || "";
-  let result = { score: 50, passed: false, findings: ["Unable to parse evaluation"], summary: "Evaluation completed" };
+  let result = {
+    score: 50,
+    passed: false,
+    findings: ["Unable to parse evaluation"],
+    summary: "Evaluation completed",
+  };
   try {
     const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)![0]);
     result = parsed;
@@ -92,9 +98,10 @@ export async function vetTextSubmission(submissionId: string): Promise<string> {
   const rules = Array.isArray(submission.humanTask.acceptanceRules)
     ? submission.humanTask.acceptanceRules
     : [];
-  const rulesText = rules.length > 0
-    ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
-    : "Confirm task completion.";
+  const rulesText =
+    rules.length > 0
+      ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
+      : "Confirm task completion.";
 
   const agentResult = await simpleAgentQuery({
     prompt: `You are a task compliance checker. Evaluate this text submission for task completion.
@@ -110,7 +117,12 @@ Return JSON: { "score": 0-100, "passed": true/false, "findings": ["..."], "summa
   });
 
   const text = agentResult.result || "";
-  let result = { score: 75, passed: true, findings: ["Text submission received"], summary: "Submission noted" };
+  let result = {
+    score: 75,
+    passed: true,
+    findings: ["Text submission received"],
+    summary: "Submission noted",
+  };
   try {
     result = JSON.parse(text.match(/\{[\s\S]*\}/)![0]);
   } catch {

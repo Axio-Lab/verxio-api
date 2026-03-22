@@ -26,12 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,12 +49,30 @@ import {
 import { cn } from "@/lib/utils";
 
 const GOAL_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  PLANNING: { label: "Planning", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" },
-  EXECUTING: { label: "Executing", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-  AWAITING_APPROVAL: { label: "Awaiting Approval", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-  REVIEWING: { label: "Reviewing", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" },
-  COMPLETE: { label: "Complete", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-  FAILED: { label: "Failed", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  PLANNING: {
+    label: "Planning",
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  },
+  EXECUTING: {
+    label: "Executing",
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  },
+  AWAITING_APPROVAL: {
+    label: "Awaiting Approval",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  REVIEWING: {
+    label: "Reviewing",
+    color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  },
+  COMPLETE: {
+    label: "Complete",
+    color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  },
+  FAILED: {
+    label: "Failed",
+    color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  },
 };
 
 const tabs = [
@@ -91,12 +104,14 @@ export function GoalsContentClient() {
       g.objective?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const newButtonLabel = activeTab === "watches" ? "New Watch" : activeTab === "goals" ? "New Goal" : undefined;
-  const handleNew = activeTab === "goals"
-    ? () => setShowCreateGoal(true)
-    : activeTab === "watches"
-    ? () => setShowCreateWatch(true)
-    : undefined;
+  const newButtonLabel =
+    activeTab === "watches" ? "New Watch" : activeTab === "goals" ? "New Goal" : undefined;
+  const handleNew =
+    activeTab === "goals"
+      ? () => setShowCreateGoal(true)
+      : activeTab === "watches"
+        ? () => setShowCreateWatch(true)
+        : undefined;
 
   return (
     <EntityContainer
@@ -112,11 +127,7 @@ export function GoalsContentClient() {
       }
       search={
         activeTab === "goals" && !goalsLoading && goals.length > 0 ? (
-          <EntitySearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Search goals"
-          />
+          <EntitySearch value={search} onChange={setSearch} placeholder="Search goals" />
         ) : undefined
       }
     >
@@ -160,7 +171,10 @@ export function GoalsContentClient() {
                 const taskStatuses = goal.tasks || [];
                 const completed = taskStatuses.filter((t: any) => t.status === "COMPLETE").length;
                 const total = taskStatuses.length;
-                const statusConfig = GOAL_STATUS_CONFIG[goal.status] || { label: goal.status, color: "bg-gray-100 text-gray-700" };
+                const statusConfig = GOAL_STATUS_CONFIG[goal.status] || {
+                  label: goal.status,
+                  color: "bg-gray-100 text-gray-700",
+                };
 
                 return (
                   <Card key={goal.id} className="shadow-none hover:shadow transition-shadow">
@@ -171,16 +185,23 @@ export function GoalsContentClient() {
                             <span className="font-medium text-sm truncate">{goal.name}</span>
                             <Badge
                               variant="secondary"
-                              className={cn("text-xs font-medium whitespace-nowrap", statusConfig.color)}
+                              className={cn(
+                                "text-xs font-medium whitespace-nowrap",
+                                statusConfig.color
+                              )}
                             >
                               {statusConfig.label}
                             </Badge>
                           </div>
                           {goal.objective && (
-                            <p className="text-xs text-muted-foreground truncate">{goal.objective}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {goal.objective}
+                            </p>
                           )}
                           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                            <span>{total > 0 ? `${completed}/${total} tasks` : "Pending decomposition"}</span>
+                            <span>
+                              {total > 0 ? `${completed}/${total} tasks` : "Pending decomposition"}
+                            </span>
                             <span>{new Date(goal.createdAt).toLocaleDateString()}</span>
                           </div>
                           {total > 0 && (
@@ -235,10 +256,7 @@ export function GoalsContentClient() {
           ) : (
             <div className="flex flex-col gap-y-3">
               {watches.map((watch) => (
-                <WatchCard
-                  key={watch.id}
-                  watch={watch}
-                />
+                <WatchCard key={watch.id} watch={watch} />
               ))}
             </div>
           )}
@@ -249,7 +267,9 @@ export function GoalsContentClient() {
       {activeTab === "memories" && (
         <div className="flex flex-1 flex-col items-center justify-center text-center py-12 text-muted-foreground">
           <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Global agent memories appear here. Open a specific goal to see its memories.</p>
+          <p className="text-sm">
+            Global agent memories appear here. Open a specific goal to see its memories.
+          </p>
         </div>
       )}
 
@@ -291,7 +311,9 @@ function WatchCard({ watch }: { watch: any }) {
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm">{watch.name}</p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs">{watch.triggerType}</Badge>
+            <Badge variant="outline" className="text-xs">
+              {watch.triggerType}
+            </Badge>
             {watch.cronExpression && (
               <span className="text-xs text-muted-foreground">Cron: {watch.cronExpression}</span>
             )}
@@ -336,7 +358,12 @@ function WatchCard({ watch }: { watch: any }) {
   );
 }
 
-function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
+function CreateGoalDialog({
+  open,
+  onClose,
+  onCreate,
+  isPending,
+}: {
   open: boolean;
   onClose: () => void;
   onCreate: (data: any) => void;
@@ -361,7 +388,10 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) { onClose(); reset(); }
+        if (!o) {
+          onClose();
+          reset();
+        }
       }}
     >
       <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[90vh] flex flex-col">
@@ -381,12 +411,15 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
                 <Sparkles className="h-4 w-4" />
                 Create with AI
               </span>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", showAiFill && "rotate-180")} />
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform", showAiFill && "rotate-180")}
+              />
             </button>
             {showAiFill && (
               <div className="px-4 py-3 space-y-3 border-t">
                 <p className="text-xs text-muted-foreground">
-                  Describe what you want to achieve and the AI will generate the goal name and objective.
+                  Describe what you want to achieve and the AI will generate the goal name and
+                  objective.
                 </p>
                 <textarea
                   className="w-full px-3 py-2 rounded-md border bg-background text-sm min-h-[140px] resize-y"
@@ -398,22 +431,31 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
                   size="sm"
                   onClick={() => {
                     if (!aiPrompt.trim()) return;
-                    aiFillGoal.mutate({ prompt: aiPrompt }, {
-                      onSuccess: (data) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          name: data.fields.name || prev.name,
-                          objective: data.fields.objective || prev.objective,
-                        }));
-                      },
-                    });
+                    aiFillGoal.mutate(
+                      { prompt: aiPrompt },
+                      {
+                        onSuccess: (data) => {
+                          setForm((prev) => ({
+                            ...prev,
+                            name: data.fields.name || prev.name,
+                            objective: data.fields.objective || prev.objective,
+                          }));
+                        },
+                      }
+                    );
                   }}
                   disabled={!aiPrompt.trim() || aiFillGoal.isPending}
                 >
                   {aiFillGoal.isPending ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Generating...</>
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Generating...
+                    </>
                   ) : (
-                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate Goal</>
+                    <>
+                      <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                      Generate Goal
+                    </>
                   )}
                 </Button>
               </div>
@@ -446,10 +488,14 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
 
           {/* Reporting */}
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reporting</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Reporting
+            </h3>
             <div>
               <label className="text-sm font-medium">Chat Channel</label>
-              <p className="text-xs text-muted-foreground mb-1">Send reports via a connected chat integration</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Send reports via a connected chat integration
+              </p>
               <select
                 className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
                 value={form.reportingChannelId}
@@ -457,18 +503,27 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
               >
                 <option value="">None</option>
                 {(channelsData?.channels || []).map((ch) => (
-                  <option key={ch.id} value={ch.id}>{ch.label}</option>
+                  <option key={ch.id} value={ch.id}>
+                    {ch.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="text-sm font-medium">Additional Destinations</label>
-              <p className="text-xs text-muted-foreground mb-2">Deliver reports to external apps via Composio</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Deliver reports to external apps via Composio
+              </p>
               <div className="space-y-2">
                 {(deliveryActionsData?.actions || []).map((action) => {
-                  const isSelected = selectedDeliveryActions.some((a) => a.action === action.action);
+                  const isSelected = selectedDeliveryActions.some(
+                    (a) => a.action === action.action
+                  );
                   return (
-                    <label key={action.action} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <label
+                      key={action.action}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -490,7 +545,15 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => { onClose(); reset(); }}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose();
+                reset();
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               onClick={() => {
                 const hasComposio = selectedDeliveryActions.length > 0;
@@ -515,18 +578,37 @@ function CreateGoalDialog({ open, onClose, onCreate, isPending }: {
   );
 }
 
-function CreateWatchDialog({ open, onClose, onCreate, isPending }: {
+function CreateWatchDialog({
+  open,
+  onClose,
+  onCreate,
+  isPending,
+}: {
   open: boolean;
   onClose: () => void;
   onCreate: (data: any) => void;
   isPending: boolean;
 }) {
-  const [form, setForm] = useState({ name: "", triggerType: "CRON", cronExpression: "", actionWorkflowId: "" });
+  const [form, setForm] = useState({
+    name: "",
+    triggerType: "CRON",
+    cronExpression: "",
+    actionWorkflowId: "",
+  });
 
-  const reset = () => setForm({ name: "", triggerType: "CRON", cronExpression: "", actionWorkflowId: "" });
+  const reset = () =>
+    setForm({ name: "", triggerType: "CRON", cronExpression: "", actionWorkflowId: "" });
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); reset(); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          onClose();
+          reset();
+        }
+      }}
+    >
       <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Watch</DialogTitle>
@@ -566,11 +648,16 @@ function CreateWatchDialog({ open, onClose, onCreate, isPending }: {
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => { onClose(); reset(); }}>Cancel</Button>
             <Button
-              onClick={() => onCreate(form)}
-              disabled={!form.name || isPending}
+              variant="outline"
+              onClick={() => {
+                onClose();
+                reset();
+              }}
             >
+              Cancel
+            </Button>
+            <Button onClick={() => onCreate(form)} disabled={!form.name || isPending}>
               {isPending ? "Creating..." : "Create Watch"}
             </Button>
           </div>
@@ -579,4 +666,3 @@ function CreateWatchDialog({ open, onClose, onCreate, isPending }: {
     </Dialog>
   );
 }
-

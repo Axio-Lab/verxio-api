@@ -59,7 +59,10 @@ taskChannelsRouter.patch(
     try {
       const userId = (req as any).userId as string;
       const { label, status } = req.body as { label?: string; status?: string };
-      const channel = await taskChannelService.updateTaskChannel(userId, req.params.id, { label, status });
+      const channel = await taskChannelService.updateTaskChannel(userId, req.params.id, {
+        label,
+        status,
+      });
       res.json({ success: true, channel });
     } catch (error) {
       next(error);
@@ -116,7 +119,11 @@ taskChannelsRouter.post(
       if (!botToken || typeof botToken !== "string") {
         return res.status(400).json({ success: false, message: "botToken is required" });
       }
-      const channel = await taskChannelService.connectTelegram(userId, req.params.id, botToken.trim());
+      const channel = await taskChannelService.connectTelegram(
+        userId,
+        req.params.id,
+        botToken.trim()
+      );
       res.json({ success: true, channel });
     } catch (error) {
       next(error);

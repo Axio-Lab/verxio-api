@@ -293,7 +293,9 @@ export function ChatIntegrationsSetup({
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2 md:col-span-2">
               <Label>Integration label *</Label>
-              <p className="text-xs text-muted-foreground">Must be unique among your chat integrations.</p>
+              <p className="text-xs text-muted-foreground">
+                Must be unique among your chat integrations.
+              </p>
               <Input
                 placeholder="e.g. Support Bot"
                 value={newLabel}
@@ -404,7 +406,9 @@ export function ChatIntegrationsSetup({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Label *</Label>
-            <p className="text-xs text-muted-foreground">Must be unique among your chat integrations.</p>
+            <p className="text-xs text-muted-foreground">
+              Must be unique among your chat integrations.
+            </p>
             <Input
               placeholder="e.g. Marketing Bot"
               value={newLabel}
@@ -696,7 +700,9 @@ export function ChatIntegrationsSetup({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-2 md:col-span-2">
                 <Label>New integration label *</Label>
-                <p className="text-xs text-muted-foreground">Must be unique among your chat integrations.</p>
+                <p className="text-xs text-muted-foreground">
+                  Must be unique among your chat integrations.
+                </p>
                 <Input
                   placeholder="e.g. Support Bot"
                   value={newLabel}
@@ -1772,7 +1778,9 @@ export function ChatIntegrationsSetup({
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label>Label *</Label>
-            <p className="text-xs text-muted-foreground">Must be unique among your chat integrations.</p>
+            <p className="text-xs text-muted-foreground">
+              Must be unique among your chat integrations.
+            </p>
             <div className="flex flex-col gap-2 md:flex-row">
               <Input value={labelDraft} onChange={(e) => setLabelDraft(e.target.value)} />
               <Button

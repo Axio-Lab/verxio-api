@@ -71,9 +71,7 @@ export async function getNextPendingTasks(goalId: string) {
 
   const completedIds = new Set(
     allTasks
-      .filter((t: { status: string; id: string }) =>
-        ["COMPLETE", "SKIPPED"].includes(t.status)
-      )
+      .filter((t: { status: string; id: string }) => ["COMPLETE", "SKIPPED"].includes(t.status))
       .map((t: { id: string }) => t.id)
   );
 

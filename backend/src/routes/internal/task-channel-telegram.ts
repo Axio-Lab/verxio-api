@@ -71,9 +71,6 @@ router.post("/telegram/:channelId", async (req: Request, res: Response) => {
     try {
       const lookupId = senderId || chatId;
       const extras = [senderId, chatId].filter(Boolean);
-      console.log(
-        `[TaskChannel Telegram] Worker check: id=${lookupId} channelId=${channel.id} text="${text.slice(0, 40)}"`
-      );
 
       let imageUrl: string | undefined;
       if (hasPhoto && channel.telegramBotToken) {
@@ -82,17 +79,10 @@ router.post("/telegram/:channelId", async (req: Request, res: Response) => {
         imageUrl = await downloadTelegramFile(channel.telegramBotToken, largest.file_id);
       }
 
-      const result = await handleIncomingSubmission(
-        "TELEGRAM",
-        lookupId,
-        text,
-        imageUrl,
-        { taskChannelId: channel.id, additionalExternalIds: extras }
-      );
-
-      console.log(
-        `[TaskChannel Telegram] Result: handled=${result.handled} hasFeedback=${!!result.feedback}`
-      );
+      const result = await handleIncomingSubmission("TELEGRAM", lookupId, text, imageUrl, {
+        taskChannelId: channel.id,
+        additionalExternalIds: extras,
+      });
 
       if (result.handled && result.feedback) {
         await deliverTaskWorkerFeedbackTelegram(channel.telegramBotToken!, chatId, result.feedback);

@@ -277,11 +277,10 @@ router.post("/incoming", async (req: Request, res: Response) => {
       try {
         // For WhatsApp we must preserve the real remote JID (often @lid). Digits-only IDs can collide.
         const normalizedRemoteJid =
-          typeof rawRemoteJid === "string" && rawRemoteJid
-            ? rawRemoteJid.replace(/:.*@/, "@")
-            : "";
+          typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "";
         const externalIdForContact =
-          normalizedRemoteJid || (typeof fromJid === "string" && fromJid ? `${fromJid}@s.whatsapp.net` : "");
+          normalizedRemoteJid ||
+          (typeof fromJid === "string" && fromJid ? `${fromJid}@s.whatsapp.net` : "");
         const phoneMatch = fromJid.match(/^(\d{7,})$/);
         await upsertSupportContact({
           supportAgentId: supportChannel.supportAgentId,
@@ -296,12 +295,13 @@ router.post("/incoming", async (req: Request, res: Response) => {
 
       // Human task workers: match stored phone / JID to incoming Baileys id (scoped to this channel)
       const normalizedJidForWorker =
-        typeof rawRemoteJid === "string" && rawRemoteJid
-          ? rawRemoteJid.replace(/:.*@/, "@")
-          : "";
+        typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "";
       const normalizedFromJid =
         typeof fromJid === "string" && fromJid ? fromJid.replace(/:.*@/, "@") : "";
-      const workerLookupId = normalizedJidForWorker || normalizedFromJid;
+      // Prefer connector-resolved phone (LID→phone) when available
+      const resolvedPhone =
+        typeof (payload as any).resolvedPhone === "string" ? (payload as any).resolvedPhone : "";
+      const workerLookupId = resolvedPhone || normalizedJidForWorker || normalizedFromJid;
       if (workerLookupId) {
         try {
           let imageUrl: string | undefined;
@@ -314,12 +314,22 @@ router.post("/incoming", async (req: Request, res: Response) => {
               imageUrl = await downloadAndSaveImage(imgAttachment.url);
             }
           }
+          const additionalIds = [
+            resolvedPhone,
+            normalizedJidForWorker,
+            normalizedFromJid,
+            fromJid,
+          ].filter(Boolean);
           const result = await handleIncomingSubmission(
             "WHATSAPP",
             workerLookupId,
             payload.body,
             imageUrl,
-            { supportChannelId: supportChannel.id }
+            {
+              supportChannelId: supportChannel.id,
+              additionalExternalIds: additionalIds,
+              senderName: typeof payload.pushName === "string" ? payload.pushName : "",
+            }
           );
           if (result.handled && result.feedback) {
             await deliverTaskWorkerFeedbackWhatsApp(body.sessionId!, replyToJid, result.feedback);
@@ -347,8 +357,9 @@ router.post("/incoming", async (req: Request, res: Response) => {
             supportAgentId: supportChannel.supportAgentId,
             // Session should be keyed by the real JID for correct 1:1 + future group support
             externalId:
-              (typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "") ||
-              fromJid,
+              (typeof rawRemoteJid === "string" && rawRemoteJid
+                ? rawRemoteJid.replace(/:.*@/, "@")
+                : "") || fromJid,
             message: payload.body,
           });
 

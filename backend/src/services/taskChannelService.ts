@@ -182,7 +182,9 @@ export async function connectTelegram(userId: string, channelId: string, botToke
 
   const webhookUrl = `${getApiBaseUrl()}/api/internal/task-channels/telegram/${ch.id}`;
   if (!webhookUrl.startsWith("https://")) {
-    throw new Error("Telegram requires an HTTPS webhook URL. Set API_URL to a public HTTPS address.");
+    throw new Error(
+      "Telegram requires an HTTPS webhook URL. Set API_URL to a public HTTPS address."
+    );
   }
 
   const secret = ch.sharedSecret || crypto.randomUUID();

@@ -67,13 +67,9 @@ router.post("/discord/:channelId", async (req: Request, res: Response) => {
         }
       }
 
-      const result = await handleIncomingSubmission(
-        "DISCORD",
-        authorId,
-        messageText,
-        imageUrl,
-        { taskChannelId: channel.id }
-      );
+      const result = await handleIncomingSubmission("DISCORD", authorId, messageText, imageUrl, {
+        taskChannelId: channel.id,
+      });
 
       if (result.handled && result.feedback) {
         await deliverTaskWorkerFeedbackDiscord({

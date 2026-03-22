@@ -158,7 +158,7 @@ export const agentTeamExecutor: NodeExecutor = async ({ data, nodeId, context, s
   if (!agentList || agentList.length === 0)
     throw new NonRetriableError("AGENT_TEAM: at least one agent is required");
 
-  const strategy = teamData.subAgents?.length ? "parallel" : (teamData.strategy || "sequential");
+  const strategy = teamData.subAgents?.length ? "parallel" : teamData.strategy || "sequential";
   const maxRounds = teamData.maxRounds || 5;
   const variableName = teamData.variables || "agentTeam";
 
@@ -175,13 +175,7 @@ export const agentTeamExecutor: NodeExecutor = async ({ data, nodeId, context, s
       case "parallel":
         return executeParallel(agentList, teamData.objective, userId!, initialContext);
       case "supervisor":
-        return executeSupervisor(
-          agentList,
-          teamData.objective,
-          userId!,
-          initialContext,
-          maxRounds
-        );
+        return executeSupervisor(agentList, teamData.objective, userId!, initialContext, maxRounds);
       default:
         return executeSequential(agentList, teamData.objective, userId!, initialContext);
     }

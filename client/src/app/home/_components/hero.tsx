@@ -138,7 +138,8 @@ export function Hero() {
             </h1>
 
             <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
-              Orchestrate AI goals, supervise human tasks, automate workflows, customer support, and manage loyalty programs.
+              Orchestrate AI goals, supervise human tasks, automate workflows, customer support, and
+              manage loyalty programs.
             </p>
 
             <div className="flex flex-wrap gap-4">

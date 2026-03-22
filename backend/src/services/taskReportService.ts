@@ -32,16 +32,24 @@ export async function generateDailyReport(taskId: string) {
   const submissions = await getSubmissionsForReport(taskId, periodStart, periodEnd);
 
   const totalDue = submissions.length;
-  const submitted = submissions.filter((s: any) => s.status !== "PENDING" && s.status !== "MISSED").length;
+  const submitted = submissions.filter(
+    (s: any) => s.status !== "PENDING" && s.status !== "MISSED"
+  ).length;
   const missed = submissions.filter((s: any) => s.status === "MISSED").length;
   const scores = submissions
     .filter((s: any) => s.aiScore != null)
     .map((s: any) => s.aiScore as number);
-  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : null;
+  const avgScore =
+    scores.length > 0
+      ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
+      : null;
   const passed = submissions.filter((s: any) => s.status === "PASSED").length;
   const passRate = totalDue > 0 ? Math.round((passed / totalDue) * 100) : null;
 
-  const workerMap: Record<string, { name: string; due: number; submitted: number; missed: number; scores: number[] }> = {};
+  const workerMap: Record<
+    string,
+    { name: string; due: number; submitted: number; missed: number; scores: number[] }
+  > = {};
   for (const sub of submissions) {
     const w = (sub as any).worker;
     if (!w) continue;
@@ -56,7 +64,10 @@ export async function generateDailyReport(taskId: string) {
 
   const flaggedWorkerIds: string[] = [];
   const workerBreakdown = Object.entries(workerMap).map(([id, w]) => {
-    const wAvg = w.scores.length > 0 ? Math.round(w.scores.reduce((a, b) => a + b, 0) / w.scores.length) : null;
+    const wAvg =
+      w.scores.length > 0
+        ? Math.round(w.scores.reduce((a, b) => a + b, 0) / w.scores.length)
+        : null;
     if (w.missed >= 2 || (wAvg !== null && wAvg < (task.passingScore || 70))) {
       flaggedWorkerIds.push(id);
     }
@@ -66,7 +77,8 @@ export async function generateDailyReport(taskId: string) {
   const dataForClaude = `Task: ${task.name}\nDate: ${periodStart.toISOString().split("T")[0]}\nTotal Due: ${totalDue}\nSubmitted: ${submitted}\nMissed: ${missed}\nAvg Score: ${avgScore ?? "N/A"}\nPass Rate: ${passRate ?? "N/A"}%\n\nWorker Breakdown:\n${workerBreakdown.join("\n")}\n\nFlagged Workers: ${flaggedWorkerIds.length > 0 ? flaggedWorkerIds.join(", ") : "None"}`;
 
   const { text: summaryMarkdown } = await generateTextWithSystemPrompt({
-    systemPrompt: "You are a compliance report writer. Generate a clear, professional daily task compliance report in markdown format. Include a summary, worker breakdown, and any flags or recommendations.",
+    systemPrompt:
+      "You are a compliance report writer. Generate a clear, professional daily task compliance report in markdown format. Include a summary, worker breakdown, and any flags or recommendations.",
     userPrompt: dataForClaude,
   });
 
@@ -98,7 +110,10 @@ export async function generateDailyReport(taskId: string) {
   // Deliver to messaging channel if enabled (default: true)
   if (shouldSendToMessaging && task.reportChannel) {
     await deliverTaskReport(summaryMarkdown, task.reportChannel);
-    deliveredTo.messagingChannel = { channelId: task.reportChannelId, platform: task.reportChannel.platform };
+    deliveredTo.messagingChannel = {
+      channelId: task.reportChannelId,
+      platform: task.reportChannel.platform,
+    };
   }
 
   // Execute user-configured Composio delivery actions
@@ -144,18 +159,15 @@ async function deliverTaskReport(markdown: string, channel: any) {
     case "TELEGRAM": {
       const formatted = formatTelegramMessage(markdown);
       if (channel.telegramBotToken && channel.telegramChatId) {
-        await fetch(
-          `https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channel.telegramChatId,
-              text: formatted,
-              parse_mode: "HTML",
-            }),
-          }
-        );
+        await fetch(`https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel.telegramChatId,
+            text: formatted,
+            parse_mode: "HTML",
+          }),
+        });
       }
       break;
     }

@@ -159,10 +159,8 @@ export async function updateHumanTask(userId: string, taskId: string, data: Huma
   const prismaData: Record<string, unknown> = { ...rest };
 
   if (reportChannelId !== undefined || incomingTaskChannelId !== undefined) {
-    const channelId =
-      incomingTaskChannelId !== undefined ? incomingTaskChannelId : reportChannelId;
-    const trimmed =
-      channelId != null && String(channelId).trim() ? String(channelId).trim() : null;
+    const channelId = incomingTaskChannelId !== undefined ? incomingTaskChannelId : reportChannelId;
+    const trimmed = channelId != null && String(channelId).trim() ? String(channelId).trim() : null;
     prismaData.taskChannelId = trimmed;
     prismaData.reportChannelId = null;
   }

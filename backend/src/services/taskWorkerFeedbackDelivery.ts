@@ -90,7 +90,11 @@ function normalizeTelegramChatId(chatId: string): string | number {
 }
 
 /** One chunk: HTML parse mode with plain fallback (matches task-channel Telegram behavior). */
-async function sendTelegramChunkHtml(botToken: string, chatId: string, markdownChunk: string): Promise<void> {
+async function sendTelegramChunkHtml(
+  botToken: string,
+  chatId: string,
+  markdownChunk: string
+): Promise<void> {
   const formatted = formatTelegramMessage(markdownChunk);
   const cid = normalizeTelegramChatId(chatId);
   const payload: Record<string, unknown> = {

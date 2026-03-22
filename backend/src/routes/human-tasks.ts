@@ -17,7 +17,8 @@ if (!fs.existsSync(sampleEvidenceDir)) fs.mkdirSync(sampleEvidenceDir, { recursi
 const sampleEvidenceUpload = multer({
   storage: multer.diskStorage({
     destination: (_, __, cb) => cb(null, sampleEvidenceDir),
-    filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`),
+    filename: (_, file, cb) =>
+      cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`),
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_, file, cb) => {
@@ -86,7 +87,10 @@ Be smart about inferring fields:
 
       let parsed;
       try {
-        const cleaned = result.text.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
+        const cleaned = result.text
+          .replace(/```json?\n?/g, "")
+          .replace(/```\n?/g, "")
+          .trim();
         parsed = JSON.parse(cleaned);
       } catch {
         return res.status(422).json({ error: "Failed to parse AI response", raw: result.text });
@@ -278,7 +282,12 @@ humanTasksRouter.put(
       if (status !== "ACTIVE" && status !== "INACTIVE") {
         return res.status(400).json({ error: "status must be ACTIVE or INACTIVE" });
       }
-      const result = await humanWorkerService.updateWorkerStatus(userId, req.params.taskId, req.params.workerId, status);
+      const result = await humanWorkerService.updateWorkerStatus(
+        userId,
+        req.params.taskId,
+        req.params.workerId,
+        status
+      );
       res.json({ success: true, workerName: result.workerName });
     } catch (error) {
       next(error);
@@ -311,10 +320,7 @@ humanTasksRouter.get(
         status: req.query.status as string | undefined,
         date: req.query.date as string | undefined,
       };
-      const submissions = await taskSubmissionService.listSubmissions(
-        req.params.taskId,
-        filters
-      );
+      const submissions = await taskSubmissionService.listSubmissions(req.params.taskId, filters);
       res.json({ submissions });
     } catch (error) {
       next(error);

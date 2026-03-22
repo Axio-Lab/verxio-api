@@ -90,8 +90,7 @@ export async function buildMemoryContext(userId: string, goalId?: string): Promi
   if (memories.length === 0) return "";
 
   const lines = memories.map(
-    (m: { key: string; value: string; scope: string }) =>
-      `[${m.scope}] ${m.key}: ${m.value}`
+    (m: { key: string; value: string; scope: string }) => `[${m.scope}] ${m.key}: ${m.value}`
   );
   return `## Agent Memory\n${lines.join("\n")}`;
 }

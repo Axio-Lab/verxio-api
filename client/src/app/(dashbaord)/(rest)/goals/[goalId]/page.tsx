@@ -9,7 +9,16 @@ import {
   useApproveGoal,
   useRejectGoal,
 } from "@/hooks/useAgentGoals";
-import { ArrowLeft, Brain, CheckCircle2, XCircle, Clock, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Brain,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -46,9 +55,7 @@ export default function GoalDetailPage() {
 
   const goal = goalData?.goal;
   if (!goal) {
-    return (
-      <div className="p-6 text-center text-muted-foreground">Goal not found</div>
-    );
+    return <div className="p-6 text-center text-muted-foreground">Goal not found</div>;
   }
 
   const tasks = tasksData?.tasks || goal.tasks || [];
@@ -57,7 +64,10 @@ export default function GoalDetailPage() {
   const totalTasks = tasks.length;
   const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   const hasApprovalPending = tasks.some((t) => t.status === "AWAITING_APPROVAL");
-  const statusConfig = STATUS_CONFIG[goal.status] || { label: goal.status, color: "bg-gray-100 text-gray-700" };
+  const statusConfig = STATUS_CONFIG[goal.status] || {
+    label: goal.status,
+    color: "bg-gray-100 text-gray-700",
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -71,7 +81,9 @@ export default function GoalDetailPage() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{goal.name}</h1>
-          <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", statusConfig.color)}>
+          <span
+            className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", statusConfig.color)}
+          >
             {statusConfig.label}
           </span>
         </div>
@@ -81,11 +93,16 @@ export default function GoalDetailPage() {
       {/* Progress bar */}
       <div className="space-y-1">
         <div className="flex justify-between text-sm">
-          <span>{completedTasks}/{totalTasks} tasks complete</span>
+          <span>
+            {completedTasks}/{totalTasks} tasks complete
+          </span>
           <span>{pct}%</span>
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+          <div
+            className="h-full bg-primary rounded-full transition-all"
+            style={{ width: `${pct}%` }}
+          />
         </div>
       </div>
 
@@ -117,19 +134,28 @@ export default function GoalDetailPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Task Breakdown</h2>
         {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tasks yet. Decomposition may still be running.</p>
+          <p className="text-sm text-muted-foreground">
+            No tasks yet. Decomposition may still be running.
+          </p>
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => {
-              const taskStatus = STATUS_CONFIG[task.status] || { label: task.status, color: "bg-gray-100 text-gray-700" };
+              const taskStatus = STATUS_CONFIG[task.status] || {
+                label: task.status,
+                color: "bg-gray-100 text-gray-700",
+              };
               return (
                 <div key={task.id} className="p-4 rounded-lg border bg-card">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        {task.status === "COMPLETE" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                        {task.status === "COMPLETE" && (
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        )}
                         {task.status === "FAILED" && <XCircle className="h-4 w-4 text-red-600" />}
-                        {task.status === "IN_PROGRESS" && <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />}
+                        {task.status === "IN_PROGRESS" && (
+                          <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                        )}
                         {task.status === "PENDING" && <Clock className="h-4 w-4 text-gray-400" />}
                         <span className="font-medium">{task.title}</span>
                       </div>
@@ -137,19 +163,28 @@ export default function GoalDetailPage() {
                         <p className="text-sm text-muted-foreground ml-6">{task.description}</p>
                       )}
                       {task.assignedAgent && (
-                        <p className="text-xs text-muted-foreground ml-6">Agent: {task.assignedAgent}</p>
+                        <p className="text-xs text-muted-foreground ml-6">
+                          Agent: {task.assignedAgent}
+                        </p>
                       )}
                       {task.blockerReason && (
                         <p className="text-xs text-red-600 ml-6">Blocker: {task.blockerReason}</p>
                       )}
                     </div>
-                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", taskStatus.color)}>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
+                        taskStatus.color
+                      )}
+                    >
                       {taskStatus.label}
                     </span>
                   </div>
                   {task.output && (
                     <details className="mt-2 ml-6">
-                      <summary className="text-xs text-muted-foreground cursor-pointer">View Output</summary>
+                      <summary className="text-xs text-muted-foreground cursor-pointer">
+                        View Output
+                      </summary>
                       <pre className="mt-1 p-2 rounded bg-muted text-xs overflow-auto max-h-40">
                         {JSON.stringify(task.output, null, 2)}
                       </pre>

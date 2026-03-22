@@ -187,7 +187,10 @@ app.use("/chat-uploads", express.static(path.join(process.cwd(), "public", "chat
 app.use("/support-uploads", express.static(path.join(process.cwd(), "public", "support-uploads")));
 
 // Serve task submission images
-app.use("/task-submissions", express.static(path.join(process.cwd(), "public", "task-submissions")));
+app.use(
+  "/task-submissions",
+  express.static(path.join(process.cwd(), "public", "task-submissions"))
+);
 
 // Serve sample evidence files
 app.use("/sample-evidence", express.static(path.join(process.cwd(), "public", "sample-evidence")));

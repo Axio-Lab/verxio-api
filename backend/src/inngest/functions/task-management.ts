@@ -40,18 +40,15 @@ async function sendMessageToWorker(worker: any, channel: any, message: string) {
     case "TELEGRAM": {
       const formatted = formatTelegramMessage(message);
       if (channel.telegramBotToken) {
-        await fetch(
-          `https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: worker.externalId,
-              text: formatted,
-              parse_mode: "HTML",
-            }),
-          }
-        );
+        await fetch(`https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: worker.externalId,
+            text: formatted,
+            parse_mode: "HTML",
+          }),
+        });
       }
       break;
     }
@@ -205,7 +202,12 @@ export const taskGraceCheck = inngest.createFunction(
   async ({ event, step }) => {
     const { submissionId } = event.data;
 
-    await step.sleep("wait-for-grace", event.data.checkAt ? `${Math.max(0, new Date(event.data.checkAt).getTime() - Date.now())}ms` : "15m");
+    await step.sleep(
+      "wait-for-grace",
+      event.data.checkAt
+        ? `${Math.max(0, new Date(event.data.checkAt).getTime() - Date.now())}ms`
+        : "15m"
+    );
 
     await step.run("check-submission", async () => {
       const submission = await prisma.taskSubmission.findUnique({

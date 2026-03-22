@@ -15,7 +15,10 @@ export const SCENARIOS: SimulationScenario[] = [
       { label: "Configuring AI", detail: "Vision scoring against reference image" },
       { label: "Scheduling", detail: "Daily compliance report to Slack" },
     ],
-    completion: { name: "Compliance system live", summary: "Recurring task, AI vetting, auto-reports" },
+    completion: {
+      name: "Compliance system live",
+      summary: "Recurring task, AI vetting, auto-reports",
+    },
   },
   {
     prompt:
@@ -28,7 +31,10 @@ export const SCENARIOS: SimulationScenario[] = [
       { label: "Assigning agent", detail: "GTM Execution Sub-Agent" },
       { label: "Setting watch", detail: "Progress alerts every 24h" },
     ],
-    completion: { name: "Goal orchestration active", summary: "3 sub-agents, daily progress alerts" },
+    completion: {
+      name: "Goal orchestration active",
+      summary: "3 sub-agents, daily progress alerts",
+    },
   },
   {
     prompt:
@@ -64,7 +70,10 @@ export const SCENARIOS: SimulationScenario[] = [
       { label: "Adding node", detail: "Post Summary to Slack" },
       { label: "Connecting", detail: "GitHub + Slack via Composio" },
     ],
-    completion: { name: "Review pipeline active", summary: "GitHub trigger, AI review, Slack output" },
+    completion: {
+      name: "Review pipeline active",
+      summary: "GitHub trigger, AI review, Slack output",
+    },
   },
   {
     prompt:
@@ -90,7 +99,10 @@ export const SCENARIOS: SimulationScenario[] = [
       { label: "Adding workers", detail: "Safety team via Discord" },
       { label: "Configuring AI", detail: "Compare submissions to reference" },
     ],
-    completion: { name: "Safety system active", summary: "Document vetting, reference comparison, Discord alerts" },
+    completion: {
+      name: "Safety system active",
+      summary: "Document vetting, reference comparison, Discord alerts",
+    },
   },
   {
     prompt: '"Launch a loyalty program for my e-commerce store with Bronze, Silver, Gold tiers"',
@@ -102,6 +114,9 @@ export const SCENARIOS: SimulationScenario[] = [
       { label: "Generating", detail: "500 bulk invite links" },
       { label: "Configuring AI", detail: "Auto-gift 50 pts per purchase" },
     ],
-    completion: { name: "Loyalty program live", summary: "3 tiers, digital passes, AI-automated gifting" },
+    completion: {
+      name: "Loyalty program live",
+      summary: "3 tiers, digital passes, AI-automated gifting",
+    },
   },
 ];

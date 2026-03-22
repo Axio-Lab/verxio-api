@@ -314,7 +314,9 @@ export function SupportContent() {
       setNewMessageSave(true);
       setNewMessageOpen(false);
       if (contactsAgent?.id) {
-        await queryClient.invalidateQueries({ queryKey: ["support-agent-contacts", contactsAgent.id] });
+        await queryClient.invalidateQueries({
+          queryKey: ["support-agent-contacts", contactsAgent.id],
+        });
         await queryClient.invalidateQueries({
           queryKey: ["support-agent-contacts-stats", contactsAgent.id],
         });
@@ -519,7 +521,9 @@ export function SupportContent() {
               typeof r.maxAgentReplies === "number" ? (r.maxAgentReplies as number) : 3,
             branches: Array.isArray(r.branches)
               ? (r.branches as Array<Record<string, unknown>>).map((b) => ({
-                  matchKeywords: Array.isArray(b.matchKeywords) ? (b.matchKeywords as string[]) : [],
+                  matchKeywords: Array.isArray(b.matchKeywords)
+                    ? (b.matchKeywords as string[])
+                    : [],
                   summary: (b.summary as string) || "",
                   assetUrl: (b.assetUrl as string) || "",
                   assetLabel: (b.assetLabel as string) || "",
@@ -885,15 +889,15 @@ export function SupportContent() {
     const next = rules.map((r, i) =>
       i === index
         ? {
-          ...r,
-          [field]:
-            field === "triggers" && typeof value === "string"
-              ? value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : value,
-        }
+            ...r,
+            [field]:
+              field === "triggers" && typeof value === "string"
+                ? value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : value,
+          }
         : r
     );
     form.setValue("funnelRules", { rules: next }, { shouldDirty: true });
@@ -902,7 +906,14 @@ export function SupportContent() {
     const current = rules[ruleIndex]?.followUps ?? [];
     updateFunnelRule(ruleIndex, "followUps", [
       ...current,
-      { message: "", useCustomMessage: false, scheduleType: "delay", delayMinutes: 30, sendAt: "", ctaUrl: "" },
+      {
+        message: "",
+        useCustomMessage: false,
+        scheduleType: "delay",
+        delayMinutes: 30,
+        sendAt: "",
+        ctaUrl: "",
+      },
     ]);
   };
   const removeFollowUp = (ruleIndex: number, followUpIndex: number) => {
@@ -967,7 +978,10 @@ export function SupportContent() {
         ...current[followUpIndex],
         scheduleType: "delay",
         sendAt: "",
-        delayMinutes: Math.min(60, Math.max(1, Math.floor(current[followUpIndex].delayMinutes || 30))),
+        delayMinutes: Math.min(
+          60,
+          Math.max(1, Math.floor(current[followUpIndex].delayMinutes || 30))
+        ),
       };
     } else {
       current[followUpIndex] = {
@@ -1060,7 +1074,9 @@ export function SupportContent() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-2">
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
-              <p className="text-xs text-muted-foreground">Must be unique among your support agents.</p>
+              <p className="text-xs text-muted-foreground">
+                Must be unique among your support agents.
+              </p>
               <Input id="name" {...form.register("name")} />
             </div>
             <div className="space-y-2">
@@ -1256,7 +1272,10 @@ export function SupportContent() {
                         )}
                         {/* Dynamic question list */}
                         {(rule.questions ?? []).map((q, qIdx) => (
-                          <div key={`${idx}-q-${qIdx}`} className="rounded border bg-muted/10 p-2 space-y-2">
+                          <div
+                            key={`${idx}-q-${qIdx}`}
+                            className="rounded border bg-muted/10 p-2 space-y-2"
+                          >
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-medium text-muted-foreground">
                                 Question {qIdx + 1}
@@ -1278,7 +1297,11 @@ export function SupportContent() {
                             </div>
                             <Textarea
                               rows={2}
-                              placeholder={qIdx === 0 ? "Question 1" : `Question ${qIdx + 1} (optional: use {{answer${qIdx}}})`}
+                              placeholder={
+                                qIdx === 0
+                                  ? "Question 1"
+                                  : `Question ${qIdx + 1} (optional: use {{answer${qIdx}}})`
+                              }
                               value={q}
                               onChange={(e) => updateQuestion(idx, qIdx, e.target.value)}
                             />
@@ -1292,7 +1315,9 @@ export function SupportContent() {
                           onClick={() => addQuestion(idx)}
                         >
                           <Plus className="mr-1.5 h-3.5 w-3.5" />
-                          {(rule.questions ?? []).length === 0 ? "Add question" : "Add another question"}
+                          {(rule.questions ?? []).length === 0
+                            ? "Add question"
+                            : "Add another question"}
                         </Button>
                         {isQuestionEditorOpen(rule, idx) && (
                           <div className="space-y-2">
@@ -1312,12 +1337,15 @@ export function SupportContent() {
                               <Input
                                 placeholder="Link label (optional)"
                                 value={rule.assetLabel ?? ""}
-                                onChange={(e) => updateFunnelRule(idx, "assetLabel", e.target.value)}
+                                onChange={(e) =>
+                                  updateFunnelRule(idx, "assetLabel", e.target.value)
+                                }
                                 className="sm:w-36 flex-shrink-0"
                               />
                             </div>
                             <p className="text-[11px] text-muted-foreground">
-                              CTA link is sent after all questions are answered. For keyword-only rules it is sent immediately.
+                              CTA link is sent after all questions are answered. For keyword-only
+                              rules it is sent immediately.
                             </p>
                           </div>
                         )}
@@ -1329,7 +1357,11 @@ export function SupportContent() {
                               placeholder="Max funnel replies (default 3)"
                               value={rule.maxAgentReplies ?? 3}
                               onChange={(e) =>
-                                updateFunnelRule(idx, "maxAgentReplies", Number(e.target.value || 3))
+                                updateFunnelRule(
+                                  idx,
+                                  "maxAgentReplies",
+                                  Number(e.target.value || 3)
+                                )
                               }
                             />
                             <p className="text-[11px] text-muted-foreground">
@@ -1369,10 +1401,11 @@ export function SupportContent() {
                                   </Button>
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
-                                  Branches route to a specific CTA based on the user&apos;s final answer.
-                                  If their last answer contains a branch keyword, that branch&apos;s asset is delivered.
-                                  If no branch matches, the default CTA below is used.
-                                  Use {"{{answer1}}"}, {"{{answer2}}"} etc. in the summary.
+                                  Branches route to a specific CTA based on the user&apos;s final
+                                  answer. If their last answer contains a branch keyword, that
+                                  branch&apos;s asset is delivered. If no branch matches, the
+                                  default CTA below is used. Use {"{{answer1}}"}, {"{{answer2}}"}{" "}
+                                  etc. in the summary.
                                 </p>
                                 {(rule.branches ?? []).map((branch, branchIdx) => (
                                   <div
@@ -1397,7 +1430,12 @@ export function SupportContent() {
                                       placeholder="Match keywords (comma-separated, e.g. Reach, reach)"
                                       value={(branch.matchKeywords ?? []).join(", ")}
                                       onChange={(e) =>
-                                        updateBranch(idx, branchIdx, "matchKeywords", e.target.value)
+                                        updateBranch(
+                                          idx,
+                                          branchIdx,
+                                          "matchKeywords",
+                                          e.target.value
+                                        )
                                       }
                                     />
                                     <Textarea
@@ -1456,14 +1494,18 @@ export function SupportContent() {
                           {rule.followUpEnabled === true && (
                             <div className="space-y-2">
                               <p className="text-[11px] text-muted-foreground">
-                                Choose how each follow-up is scheduled. “After minutes” is measured from the last
-                                message the agent sent in this funnel (for example: the asset link in keyword-only
-                                rules, or the final CTA in question-based funnels).
+                                Choose how each follow-up is scheduled. “After minutes” is measured
+                                from the last message the agent sent in this funnel (for example:
+                                the asset link in keyword-only rules, or the final CTA in
+                                question-based funnels).
                               </p>
 
                               <div className="space-y-2">
                                 {(rule.followUps ?? []).map((fu, fuIdx) => (
-                                  <div key={`${idx}-followup-${fuIdx}`} className="rounded border p-2 space-y-2">
+                                  <div
+                                    key={`${idx}-followup-${fuIdx}`}
+                                    className="rounded border p-2 space-y-2"
+                                  >
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs font-medium">
                                         Follow-up message {fuIdx + 1}
@@ -1521,17 +1563,29 @@ export function SupportContent() {
                                       <div className="flex items-center gap-2">
                                         <Button
                                           type="button"
-                                          variant={((fu.scheduleType ?? "delay") === "delay") ? "secondary" : "outline"}
+                                          variant={
+                                            (fu.scheduleType ?? "delay") === "delay"
+                                              ? "secondary"
+                                              : "outline"
+                                          }
                                           size="sm"
-                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "delay")}
+                                          onClick={() =>
+                                            updateFollowUpScheduleType(idx, fuIdx, "delay")
+                                          }
                                         >
                                           After minutes
                                         </Button>
                                         <Button
                                           type="button"
-                                          variant={((fu.scheduleType ?? "delay") === "datetime") ? "secondary" : "outline"}
+                                          variant={
+                                            (fu.scheduleType ?? "delay") === "datetime"
+                                              ? "secondary"
+                                              : "outline"
+                                          }
                                           size="sm"
-                                          onClick={() => updateFollowUpScheduleType(idx, fuIdx, "datetime")}
+                                          onClick={() =>
+                                            updateFollowUpScheduleType(idx, fuIdx, "datetime")
+                                          }
                                         >
                                           Specific date/time
                                         </Button>
@@ -1544,19 +1598,26 @@ export function SupportContent() {
                                           placeholder="Minutes (max 60)"
                                           value={fu.delayMinutes ?? 30}
                                           onChange={(e) =>
-                                            updateFollowUpDelay(idx, fuIdx, Number(e.target.value || 30))
+                                            updateFollowUpDelay(
+                                              idx,
+                                              fuIdx,
+                                              Number(e.target.value || 30)
+                                            )
                                           }
                                         />
                                       ) : (
                                         <Input
                                           type="datetime-local"
                                           value={fu.sendAt ?? ""}
-                                          onChange={(e) => updateFollowUpSendAt(idx, fuIdx, e.target.value)}
+                                          onChange={(e) =>
+                                            updateFollowUpSendAt(idx, fuIdx, e.target.value)
+                                          }
                                         />
                                       )}
                                       <p className="text-[11px] text-muted-foreground">
-                                        Pick one option. Use minutes for relative follow-ups (up to 60 minutes), or
-                                        choose a specific date/time for a fixed schedule.
+                                        Pick one option. Use minutes for relative follow-ups (up to
+                                        60 minutes), or choose a specific date/time for a fixed
+                                        schedule.
                                       </p>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1923,7 +1984,7 @@ export function SupportContent() {
                   variant="outline"
                   className={
                     channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                      whatsappStatus?.status === "connected"
+                    whatsappStatus?.status === "connected"
                       ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   }
@@ -1931,7 +1992,7 @@ export function SupportContent() {
                   {channelsLoading || refreshingWhatsApp
                     ? "Loading…"
                     : channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                      whatsappStatus?.status === "connected"
+                        whatsappStatus?.status === "connected"
                       ? "Connected"
                       : "Disconnected"}
                 </Badge>
@@ -1940,7 +2001,7 @@ export function SupportContent() {
                 Scan the QR to link your number; the support agent replies to chats on this number.
               </p>
               {channels.find((c) => c.platform === "WHATSAPP" && c.status !== "disabled") &&
-                whatsappStatus?.status === "connected" ? (
+              whatsappStatus?.status === "connected" ? (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -2698,11 +2759,11 @@ export function SupportContent() {
                               const displayName = c.externalName || c.phone || "Unknown contact";
                               const lastSeen = c.lastContactAt
                                 ? new Date(c.lastContactAt).toLocaleString([], {
-                                  month: "short",
-                                  day: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
+                                    month: "short",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
                                 : "—";
                               return (
                                 <div
@@ -2815,7 +2876,10 @@ export function SupportContent() {
                   Adds this recipient to your contact list for future messaging and broadcasts.
                 </p>
               </div>
-              <Switch checked={newMessageSave} onCheckedChange={(v) => setNewMessageSave(Boolean(v))} />
+              <Switch
+                checked={newMessageSave}
+                onCheckedChange={(v) => setNewMessageSave(Boolean(v))}
+              />
             </div>
           </div>
 

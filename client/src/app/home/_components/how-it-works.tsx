@@ -123,7 +123,11 @@ const TABS: TabContent[] = [
       type: "chat",
       items: [
         { label: "Customer", sublabel: "How do I reset my password?", status: "done" },
-        { label: "AI Agent", sublabel: "Go to Settings > Security > Reset Password. I can walk you through it.", status: "done" },
+        {
+          label: "AI Agent",
+          sublabel: "Go to Settings > Security > Reset Password. I can walk you through it.",
+          status: "done",
+        },
         { label: "Customer", sublabel: "That worked, thanks!", status: "done" },
         { label: "AI Agent", sublabel: "Glad I could help! Anything else?", status: "active" },
       ],
@@ -177,7 +181,13 @@ const TABS: TabContent[] = [
   },
 ];
 
-function FlowVisual({ items, animate }: { items: TabContent["visual"]["items"]; animate: boolean }) {
+function FlowVisual({
+  items,
+  animate,
+}: {
+  items: TabContent["visual"]["items"];
+  animate: boolean;
+}) {
   return (
     <div className="space-y-3">
       {items.map((item, i) => (
@@ -217,12 +227,21 @@ function FlowVisual({ items, animate }: { items: TabContent["visual"]["items"]; 
   );
 }
 
-function TimelineVisual({ items, animate }: { items: TabContent["visual"]["items"]; animate: boolean }) {
+function TimelineVisual({
+  items,
+  animate,
+}: {
+  items: TabContent["visual"]["items"];
+  animate: boolean;
+}) {
   return (
     <div className="relative">
       <div
         className="absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-gray-200 origin-top"
-        style={{ transform: animate ? "scaleY(1)" : "scaleY(0)", transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1)" }}
+        style={{
+          transform: animate ? "scaleY(1)" : "scaleY(0)",
+          transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1)",
+        }}
       />
       <div className="space-y-4">
         {items.map((item, i) => (
@@ -263,7 +282,13 @@ function TimelineVisual({ items, animate }: { items: TabContent["visual"]["items
   );
 }
 
-function ChatVisual({ items, animate }: { items: TabContent["visual"]["items"]; animate: boolean }) {
+function ChatVisual({
+  items,
+  animate,
+}: {
+  items: TabContent["visual"]["items"];
+  animate: boolean;
+}) {
   return (
     <div className="space-y-3">
       {items.map((item, i) => {
@@ -285,7 +310,9 @@ function ChatVisual({ items, animate }: { items: TabContent["visual"]["items"]; 
                   : "bg-gray-100 rounded-tr-sm"
               }`}
             >
-              <p className={`text-[10px] font-semibold mb-0.5 ${isAgent ? "text-primary" : "text-gray-400"}`}>
+              <p
+                className={`text-[10px] font-semibold mb-0.5 ${isAgent ? "text-primary" : "text-gray-400"}`}
+              >
                 {item.label}
               </p>
               <p className="text-sm text-gray-700 leading-relaxed">{item.sublabel}</p>
@@ -297,7 +324,13 @@ function ChatVisual({ items, animate }: { items: TabContent["visual"]["items"]; 
   );
 }
 
-function CardsVisual({ items, animate }: { items: TabContent["visual"]["items"]; animate: boolean }) {
+function CardsVisual({
+  items,
+  animate,
+}: {
+  items: TabContent["visual"]["items"];
+  animate: boolean;
+}) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {items.map((item, i) => (
@@ -337,10 +370,14 @@ function CardsVisual({ items, animate }: { items: TabContent["visual"]["items"];
 
 function VisualRenderer({ visual, animate }: { visual: TabContent["visual"]; animate: boolean }) {
   switch (visual.type) {
-    case "flow": return <FlowVisual items={visual.items} animate={animate} />;
-    case "timeline": return <TimelineVisual items={visual.items} animate={animate} />;
-    case "chat": return <ChatVisual items={visual.items} animate={animate} />;
-    case "cards": return <CardsVisual items={visual.items} animate={animate} />;
+    case "flow":
+      return <FlowVisual items={visual.items} animate={animate} />;
+    case "timeline":
+      return <TimelineVisual items={visual.items} animate={animate} />;
+    case "chat":
+      return <ChatVisual items={visual.items} animate={animate} />;
+    case "cards":
+      return <CardsVisual items={visual.items} animate={animate} />;
   }
 }
 
@@ -355,7 +392,9 @@ export function HowItWorks() {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
       { threshold: 0.15 }
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
@@ -414,8 +453,7 @@ export function HowItWorks() {
             How It Works
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
-            One platform,{" "}
-            <span className="text-primary">five operational pillars</span>
+            One platform, <span className="text-primary">five operational pillars</span>
           </h2>
           <p className="mt-4 text-lg text-gray-500">
             See how each capability works together to automate your operations end to end.
@@ -474,7 +512,10 @@ export function HowItWorks() {
               <div className="relative">
                 <div
                   className="absolute left-[19px] top-5 bottom-5 w-px bg-gradient-to-b from-primary/20 via-primary/10 to-transparent origin-top"
-                  style={{ transform: animate ? "scaleY(1)" : "scaleY(0)", transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s" }}
+                  style={{
+                    transform: animate ? "scaleY(1)" : "scaleY(0)",
+                    transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s",
+                  }}
                 />
                 <div className="space-y-5">
                   {tab.steps.map((step, i) => {
@@ -534,9 +575,7 @@ export function HowItWorks() {
                   <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
                   <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
                 </div>
-                <span className="text-xs text-gray-400 font-mono ml-2">
-                  verxio / {tab.id}
-                </span>
+                <span className="text-xs text-gray-400 font-mono ml-2">verxio / {tab.id}</span>
                 <div className="ml-auto flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-[10px] text-gray-400">Live</span>
@@ -555,7 +594,10 @@ export function HowItWorks() {
               key={i}
               onClick={() => handleTabClick(i)}
               className="relative h-1.5 rounded-full overflow-hidden transition-all duration-500"
-              style={{ width: activeTab === i ? 32 : 6, backgroundColor: activeTab === i ? "transparent" : "#d1d5db" }}
+              style={{
+                width: activeTab === i ? 32 : 6,
+                backgroundColor: activeTab === i ? "transparent" : "#d1d5db",
+              }}
               aria-label={`Go to tab ${i + 1}`}
             >
               {activeTab === i && (

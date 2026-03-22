@@ -103,7 +103,8 @@ router.post("/support/:channelId/events", async (req: Request, res: Response) =>
         let imageUrl: string | undefined;
         if (event.files?.length > 0 && channel.slackBotToken) {
           const imgFile = event.files.find(
-            (f: any) => f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
+            (f: any) =>
+              f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
           );
           if (imgFile) {
             const fileUrl = imgFile.url_private_download || imgFile.url_private;

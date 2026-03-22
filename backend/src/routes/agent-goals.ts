@@ -42,7 +42,10 @@ Be thorough in the objective field. Include:
 
       let parsed;
       try {
-        const cleaned = result.text.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
+        const cleaned = result.text
+          .replace(/```json?\n?/g, "")
+          .replace(/```\n?/g, "")
+          .trim();
         parsed = JSON.parse(cleaned);
       } catch {
         return res.status(422).json({ error: "Failed to parse AI response", raw: result.text });
@@ -292,4 +295,3 @@ agentGoalsRouter.post(
     }
   }
 );
-

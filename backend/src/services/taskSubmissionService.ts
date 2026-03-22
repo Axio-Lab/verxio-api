@@ -40,6 +40,47 @@ export function isHelpIntentMessage(message: string): boolean {
   return false;
 }
 
+function normalizeWaJid(jid: string): string {
+  return jid.replace(/:.*@/, "@");
+}
+
+function selectStableWhatsAppIdentity(primaryExternalId: string, extras?: string[]): string | null {
+  const raw = [primaryExternalId, ...(extras ?? [])]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean)
+    .map(normalizeWaJid);
+
+  // Prefer real chat identity JIDs first.
+  const lid = raw.find((v) => v.endsWith("@lid"));
+  if (lid) return lid;
+  const sJid = raw.find((v) => v.endsWith("@s.whatsapp.net"));
+  if (sJid) return sJid;
+  return null;
+}
+
+async function persistWorkerWhatsAppIdentityIfNeeded(
+  worker: any,
+  incomingExternalId: string,
+  lookupOptions?: WorkerLookupOptions
+): Promise<void> {
+  const stableId = selectStableWhatsAppIdentity(
+    incomingExternalId,
+    lookupOptions?.additionalExternalIds
+  );
+  if (!stableId || worker.externalId === stableId) return;
+
+  // Keep reminders/send reliability while making inbound identity matching deterministic.
+  try {
+    await prisma.humanWorker.update({
+      where: { id: worker.id },
+      data: { externalId: stableId },
+    });
+    worker.externalId = stableId;
+  } catch {
+    // If uniqueness conflicts or race conditions happen, ignore and continue normal handling.
+  }
+}
+
 function buildOnboardingCompleteMessage(worker: { name: string }, task: { name: string }): string {
   return (
     `Hi ${worker.name}! **Onboarding complete** — you've been successfully set up on "${task.name}".\n\n` +
@@ -80,7 +121,9 @@ async function buildWorkerHelpFeedback(worker: any, task: any): Promise<string> 
     }
   } else {
     lines.push("No open check-in right now.");
-    lines.push("We send a heads-up about 30 minutes before the next due time, then again when it is due.");
+    lines.push(
+      "We send a heads-up about 30 minutes before the next due time, then again when it is due."
+    );
   }
 
   return `${buildTaskWorkerHelpText(worker, task)}\n${lines.join("\n")}`;
@@ -106,14 +149,12 @@ export async function handleIncomingSubmission(
 ): Promise<{ handled: boolean; feedback?: string }> {
   const worker = await getWorkerByExternalId(platform, externalId, lookupOptions);
   if (!worker) {
-    console.log(
-      `[TaskSubmission] No worker found: platform=${platform} externalId=${externalId} channelScope=${lookupOptions?.supportChannelId ?? "none"}`
-    );
     return { handled: false };
   }
-  console.log(
-    `[TaskSubmission] Matched worker ${worker.id} (${worker.name}) status=${worker.status} task=${worker.humanTask?.name}`
-  );
+
+  if (platform === "WHATSAPP") {
+    await persistWorkerWhatsAppIdentityIfNeeded(worker, externalId, lookupOptions);
+  }
 
   const trimmed = (message || "").trim();
   const isHelpIntent = isHelpIntentMessage(trimmed);
@@ -225,14 +266,23 @@ export async function handleIncomingSubmission(
   }
   if (task.evidenceType === "PHOTO_AND_TEXT") {
     if (!imageUrl) {
-      return { handled: true, feedback: "This check-in requires a photo. Please send an image (you can add a caption)." };
+      return {
+        handled: true,
+        feedback: "This check-in requires a photo. Please send an image (you can add a caption).",
+      };
     }
     if (!trimmed) {
-      return { handled: true, feedback: "Please add a short text note (photo caption or a follow-up message)." };
+      return {
+        handled: true,
+        feedback: "Please add a short text note (photo caption or a follow-up message).",
+      };
     }
   }
   if (task.evidenceType === "DOCUMENT" && !imageUrl && !trimmed) {
-    return { handled: true, feedback: "This check-in needs a document or file. Please send a file or paste the content." };
+    return {
+      handled: true,
+      feedback: "This check-in needs a document or file. Please send a file or paste the content.",
+    };
   }
   if (task.evidenceType === "TEXT" && !trimmed && !imageUrl) {
     return { handled: true, feedback: "Please send your confirmation as a text message." };
@@ -277,11 +327,7 @@ export async function markMissed(submissionId: string) {
   });
 }
 
-export async function getSubmissionsForReport(
-  taskId: string,
-  periodStart: Date,
-  periodEnd: Date
-) {
+export async function getSubmissionsForReport(taskId: string, periodStart: Date, periodEnd: Date) {
   return prisma.taskSubmission.findMany({
     where: {
       humanTaskId: taskId,

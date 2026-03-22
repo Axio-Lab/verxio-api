@@ -1,7 +1,4 @@
-import {
-  executeComposioAction,
-  isComposioConfigured,
-} from "./composio/composioService";
+import { executeComposioAction, isComposioConfigured } from "./composio/composioService";
 
 export interface DeliveryAction {
   action: string;
@@ -44,7 +41,8 @@ export async function executeDeliveryActions(
       const result = await executeComposioAction(userId, action.action, params);
       const parsed = result as any;
 
-      const documentId = parsed?.documentId || parsed?.data?.documentId || parsed?.response_data?.documentId;
+      const documentId =
+        parsed?.documentId || parsed?.data?.documentId || parsed?.response_data?.documentId;
       const documentUrl = documentId
         ? `https://docs.google.com/document/d/${documentId}/edit`
         : parsed?.url || parsed?.data?.url;

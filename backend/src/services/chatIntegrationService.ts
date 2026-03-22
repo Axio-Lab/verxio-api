@@ -720,7 +720,10 @@ export function formatTelegramMessage(text: string): string {
     return applyTelegramInlineMarkdown(escapeTelegramHtml(line));
   });
 
-  return mapped.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return mapped
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 /**

@@ -36,9 +36,16 @@ export function useTaskChannels() {
 
 export function useCreateTaskChannel() {
   const qc = useQueryClient();
-  return useProtectedMutation<{ success: boolean; channel: TaskChannel }, Error, { platform: string; label: string }>({
+  return useProtectedMutation<
+    { success: boolean; channel: TaskChannel },
+    Error,
+    { platform: string; label: string }
+  >({
     mutationFn: ({ platform, label }) =>
-      authenticatedPost<{ success: boolean; channel: TaskChannel }>("/api/task-channels", { platform, label }),
+      authenticatedPost<{ success: boolean; channel: TaskChannel }>("/api/task-channels", {
+        platform,
+        label,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task-channels"] });
       qc.invalidateQueries({ queryKey: ["chat-channels"] });
@@ -69,10 +76,13 @@ export function useUpdateTaskChannel() {
     { channelId: string; label?: string; status?: string }
   >({
     mutationFn: ({ channelId, label, status }) =>
-      authenticatedPatch<{ success: boolean; channel: TaskChannel }>(`/api/task-channels/${channelId}`, {
-        label,
-        status,
-      }),
+      authenticatedPatch<{ success: boolean; channel: TaskChannel }>(
+        `/api/task-channels/${channelId}`,
+        {
+          label,
+          status,
+        }
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task-channels"] });
       qc.invalidateQueries({ queryKey: ["chat-channels"] });
@@ -180,7 +190,12 @@ export function useConnectDiscordTaskChannel() {
   return useProtectedMutation<
     { success: boolean; channel: TaskChannel },
     Error,
-    { channelId: string; discordBotToken: string; discordGuildId?: string; discordChannelId?: string }
+    {
+      channelId: string;
+      discordBotToken: string;
+      discordGuildId?: string;
+      discordChannelId?: string;
+    }
   >({
     mutationFn: ({ channelId, discordBotToken, discordGuildId, discordChannelId }) =>
       authenticatedPost<{ success: boolean; channel: TaskChannel }>(

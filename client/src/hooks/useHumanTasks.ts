@@ -200,7 +200,8 @@ export function useResumeHumanTask() {
 export function useTaskWorkers(taskId: string) {
   return useProtectedQuery<{ workers: HumanWorker[] }>({
     queryKey: ["human-tasks", taskId, "workers"],
-    queryFn: () => authenticatedGet<{ workers: HumanWorker[] }>(`/api/human-tasks/${taskId}/workers`),
+    queryFn: () =>
+      authenticatedGet<{ workers: HumanWorker[] }>(`/api/human-tasks/${taskId}/workers`),
     enabled: !!taskId,
     // READY / HELP etc. are processed on the server; the UI does not get a mutation to invalidate.
     // Poll while anyone is still onboarding so status flips to ACTIVE without a full page refresh.
@@ -216,8 +217,16 @@ export function useTaskWorkers(taskId: string) {
 
 export function useAddWorker() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<{ worker: HumanWorker }, Error, { taskId: string; data: { name: string; platform: string; externalId: string; phone?: string; role?: string } }>({
-    mutationFn: ({ taskId, data }) => authenticatedPost<{ worker: HumanWorker }>(`/api/human-tasks/${taskId}/workers`, data),
+  return useProtectedMutation<
+    { worker: HumanWorker },
+    Error,
+    {
+      taskId: string;
+      data: { name: string; platform: string; externalId: string; phone?: string; role?: string };
+    }
+  >({
+    mutationFn: ({ taskId, data }) =>
+      authenticatedPost<{ worker: HumanWorker }>(`/api/human-tasks/${taskId}/workers`, data),
     onSuccess: (result, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
@@ -230,7 +239,8 @@ export function useAddWorker() {
 export function useRemoveWorker() {
   const queryClient = useQueryClient();
   return useProtectedMutation<void, Error, { taskId: string; workerId: string; name: string }>({
-    mutationFn: ({ taskId, workerId }) => authenticatedDelete(`/api/human-tasks/${taskId}/workers/${workerId}`),
+    mutationFn: ({ taskId, workerId }) =>
+      authenticatedDelete(`/api/human-tasks/${taskId}/workers/${workerId}`),
     onSuccess: (_, { taskId, name }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
@@ -247,7 +257,10 @@ export function useUpdateWorkerStatus() {
     { taskId: string; workerId: string; status: "ACTIVE" | "INACTIVE"; workerName: string }
   >({
     mutationFn: ({ taskId, workerId, status }) =>
-      authenticatedPut<{ success: boolean; workerName?: string }>(`/api/human-tasks/${taskId}/workers/${workerId}`, { status }),
+      authenticatedPut<{ success: boolean; workerName?: string }>(
+        `/api/human-tasks/${taskId}/workers/${workerId}`,
+        { status }
+      ),
     onSuccess: (result, { taskId, status, workerName }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
@@ -261,7 +274,10 @@ export function useUpdateWorkerStatus() {
   });
 }
 
-export function useTaskSubmissions(taskId: string, filters?: { workerId?: string; status?: string; date?: string }) {
+export function useTaskSubmissions(
+  taskId: string,
+  filters?: { workerId?: string; status?: string; date?: string }
+) {
   const params = new URLSearchParams();
   if (filters?.workerId) params.set("workerId", filters.workerId);
   if (filters?.status) params.set("status", filters.status);
@@ -270,7 +286,10 @@ export function useTaskSubmissions(taskId: string, filters?: { workerId?: string
 
   return useProtectedQuery<{ submissions: TaskSubmission[] }>({
     queryKey: ["human-tasks", taskId, "submissions", filters],
-    queryFn: () => authenticatedGet<{ submissions: TaskSubmission[] }>(`/api/human-tasks/${taskId}/submissions${qs ? `?${qs}` : ""}`),
+    queryFn: () =>
+      authenticatedGet<{ submissions: TaskSubmission[] }>(
+        `/api/human-tasks/${taskId}/submissions${qs ? `?${qs}` : ""}`
+      ),
     enabled: !!taskId,
     refetchInterval: 30000,
   });
@@ -279,7 +298,8 @@ export function useTaskSubmissions(taskId: string, filters?: { workerId?: string
 export function useTaskReports(taskId: string) {
   return useProtectedQuery<{ reports: TaskComplianceReport[] }>({
     queryKey: ["human-tasks", taskId, "reports"],
-    queryFn: () => authenticatedGet<{ reports: TaskComplianceReport[] }>(`/api/human-tasks/${taskId}/reports`),
+    queryFn: () =>
+      authenticatedGet<{ reports: TaskComplianceReport[] }>(`/api/human-tasks/${taskId}/reports`),
     enabled: !!taskId,
   });
 }
@@ -287,7 +307,10 @@ export function useTaskReports(taskId: string) {
 export function useGenerateReport() {
   const queryClient = useQueryClient();
   return useProtectedMutation<{ report: TaskComplianceReport }, Error, { taskId: string }>({
-    mutationFn: ({ taskId }) => authenticatedPost<{ report: TaskComplianceReport }>(`/api/human-tasks/${taskId}/reports/generate`),
+    mutationFn: ({ taskId }) =>
+      authenticatedPost<{ report: TaskComplianceReport }>(
+        `/api/human-tasks/${taskId}/reports/generate`
+      ),
     onSuccess: (_, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "reports"] });
       toast.success("Report generated");
@@ -312,6 +335,8 @@ export function useChatChannels() {
 export function useAiFillTask() {
   return useProtectedMutation<{ fields: Partial<CreateHumanTaskData> }, Error, { prompt: string }>({
     mutationFn: ({ prompt }) =>
-      authenticatedPost<{ fields: Partial<CreateHumanTaskData> }>("/api/human-tasks/ai-fill", { prompt }),
+      authenticatedPost<{ fields: Partial<CreateHumanTaskData> }>("/api/human-tasks/ai-fill", {
+        prompt,
+      }),
   });
 }

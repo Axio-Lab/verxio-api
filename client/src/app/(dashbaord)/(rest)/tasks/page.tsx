@@ -18,11 +18,19 @@ function TasksLoadingView() {
   );
 }
 
-function TasksErrorFallback({ error, resetErrorBoundary }: { error: unknown; resetErrorBoundary: () => void }) {
+function TasksErrorFallback({
+  error,
+  resetErrorBoundary,
+}: {
+  error: unknown;
+  resetErrorBoundary: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 p-12">
       <p className="text-destructive">Failed to load Task Manager</p>
-      <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Unknown error"}</p>
+      <p className="text-sm text-muted-foreground">
+        {error instanceof Error ? error.message : "Unknown error"}
+      </p>
       <button onClick={resetErrorBoundary} className="text-sm underline">
         Try again
       </button>

@@ -34,7 +34,11 @@ import {
   useUpdateTaskChannel,
   type TaskChannel,
 } from "@/hooks/useTaskChannels";
-import { useDeliveryActions, type DeliveryAction, type DeliveryConfig } from "@/hooks/useAgentGoals";
+import {
+  useDeliveryActions,
+  type DeliveryAction,
+  type DeliveryConfig,
+} from "@/hooks/useAgentGoals";
 // Pagination: `EntityPagination` from entity-component — same component & styling as Support agents list & Connections.
 import {
   EntityContainer,
@@ -47,12 +51,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,9 +111,12 @@ function paginateSlice<T>(items: T[], page: number, pageSize: number) {
 }
 
 const STATUS_VARIANT: Record<string, string> = {
-  ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
-  PAUSED: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
-  ARCHIVED: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
+  ACTIVE:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  PAUSED:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  ARCHIVED:
+    "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
 };
 
 const SUBMISSION_STATUS: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -193,11 +195,11 @@ export function TasksContentClient() {
       t.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { pageItems: pagedTasks, totalPages: tasksTotalPages, safePage: tasksSafePage } = paginateSlice(
-    filteredTasks,
-    tasksPage,
-    TASK_MANAGER_PAGE_SIZE
-  );
+  const {
+    pageItems: pagedTasks,
+    totalPages: tasksTotalPages,
+    safePage: tasksSafePage,
+  } = paginateSlice(filteredTasks, tasksPage, TASK_MANAGER_PAGE_SIZE);
 
   useEffect(() => {
     setTasksPage(1);
@@ -264,7 +266,10 @@ export function TasksContentClient() {
                     key={task.id}
                     task={task}
                     onEdit={() => setEditingTask(task)}
-                    onManageWorkers={() => { setSelectedTaskId(task.id); setShowWorkerDialog(true); }}
+                    onManageWorkers={() => {
+                      setSelectedTaskId(task.id);
+                      setShowWorkerDialog(true);
+                    }}
                     onPause={() => pauseTask.mutate({ taskId: task.id })}
                     onResume={() => resumeTask.mutate({ taskId: task.id })}
                     onDelete={() => deleteTask.mutate({ taskId: task.id })}
@@ -312,7 +317,10 @@ export function TasksContentClient() {
         onClose={() => setEditingTask(null)}
         onSubmit={(data) => {
           if (!editingTask) return;
-          updateTask.mutate({ taskId: editingTask.id, data }, { onSuccess: () => setEditingTask(null) });
+          updateTask.mutate(
+            { taskId: editingTask.id, data },
+            { onSuccess: () => setEditingTask(null) }
+          );
         }}
         isPending={updateTask.isPending}
         title="Edit Task"
@@ -322,11 +330,17 @@ export function TasksContentClient() {
       {showWorkerDialog && selectedTaskId && (
         <WorkerDialog
           taskId={selectedTaskId}
-          onClose={() => { setShowWorkerDialog(false); setSelectedTaskId(null); }}
+          onClose={() => {
+            setShowWorkerDialog(false);
+            setSelectedTaskId(null);
+          }}
         />
       )}
 
-      <SubmissionDetailDialog submission={showSubmissionDetail} onClose={() => setShowSubmissionDetail(null)} />
+      <SubmissionDetailDialog
+        submission={showSubmissionDetail}
+        onClose={() => setShowSubmissionDetail(null)}
+      />
       <ReportDetailDialog report={showReportDetail} onClose={() => setShowReportDetail(null)} />
     </EntityContainer>
   );
@@ -334,7 +348,14 @@ export function TasksContentClient() {
 
 /* ─── Task Card ─── */
 
-function TaskCard({ task, onEdit, onManageWorkers, onPause, onResume, onDelete }: {
+function TaskCard({
+  task,
+  onEdit,
+  onManageWorkers,
+  onPause,
+  onResume,
+  onDelete,
+}: {
   task: HumanTask;
   onEdit: () => void;
   onManageWorkers: () => void;
@@ -349,7 +370,10 @@ function TaskCard({ task, onEdit, onManageWorkers, onPause, onResume, onDelete }
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-sm truncate">{task.name}</span>
-              <Badge variant="outline" className={cn("text-[11px] border", STATUS_VARIANT[task.status])}>
+              <Badge
+                variant="outline"
+                className={cn("text-[11px] border", STATUS_VARIANT[task.status])}
+              >
                 {task.status}
               </Badge>
             </div>
@@ -381,7 +405,10 @@ function TaskCard({ task, onEdit, onManageWorkers, onPause, onResume, onDelete }
                   <Play className="h-4 w-4 mr-2" /> Resume
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:text-destructive"
+              >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -392,10 +419,17 @@ function TaskCard({ task, onEdit, onManageWorkers, onPause, onResume, onDelete }
             <Users className="h-3 w-3" /> {task._count?.workers ?? 0} workers
           </span>
           <span>{task._count?.submissions ?? 0} submissions</span>
-          <Badge variant="outline" className="text-[11px] h-5">{RECURRENCE_LABELS[task.recurrenceType] || task.recurrenceType}</Badge>
-          <Badge variant="outline" className="text-[11px] h-5">{EVIDENCE_LABELS[task.evidenceType] || task.evidenceType}</Badge>
+          <Badge variant="outline" className="text-[11px] h-5">
+            {RECURRENCE_LABELS[task.recurrenceType] || task.recurrenceType}
+          </Badge>
+          <Badge variant="outline" className="text-[11px] h-5">
+            {EVIDENCE_LABELS[task.evidenceType] || task.evidenceType}
+          </Badge>
           {task.sampleEvidenceUrl && (
-            <Badge variant="outline" className="text-[11px] h-5 gap-1 text-emerald-600 border-emerald-300">
+            <Badge
+              variant="outline"
+              className="text-[11px] h-5 gap-1 text-emerald-600 border-emerald-300"
+            >
               <FileCheck className="h-3 w-3" /> Reference
             </Badge>
           )}
@@ -410,7 +444,14 @@ function TaskCard({ task, onEdit, onManageWorkers, onPause, onResume, onDelete }
 
 /* ─── Task Form Dialog (Create + Edit) ─── */
 
-function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData }: {
+function TaskFormDialog({
+  open,
+  onClose,
+  onSubmit,
+  isPending,
+  title,
+  initialData,
+}: {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
@@ -424,7 +465,9 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
   const [selectedDeliveryActions, setSelectedDeliveryActions] = useState<DeliveryAction[]>(
     () => (initialData?.deliveryConfig as any)?.composioActions ?? []
   );
-  const [reportChannelId, setReportChannelId] = useState(initialData?.taskChannelId ?? initialData?.reportChannelId ?? "");
+  const [reportChannelId, setReportChannelId] = useState(
+    initialData?.taskChannelId ?? initialData?.reportChannelId ?? ""
+  );
   const { data: deliveryActionsData } = useDeliveryActions();
   const { data: channelsData } = useChatChannels();
   const [aiPrompt, setAiPrompt] = useState("");
@@ -441,9 +484,13 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
       evidenceType: task?.evidenceType ?? "PHOTO",
       recurrenceType: task?.recurrenceType ?? "DAILY",
       recurrenceInterval: task?.recurrenceInterval ?? 60,
-      scheduledTimes: task?.scheduledTimes?.length ? [...(task.scheduledTimes as string[])] : ["09:00"],
+      scheduledTimes: task?.scheduledTimes?.length
+        ? [...(task.scheduledTimes as string[])]
+        : ["09:00"],
       timezone: task?.timezone ?? "UTC",
-      acceptanceRules: task?.acceptanceRules?.length ? [...(task.acceptanceRules as string[])] : [""],
+      acceptanceRules: task?.acceptanceRules?.length
+        ? [...(task.acceptanceRules as string[])]
+        : [""],
       scoringEnabled: task?.scoringEnabled ?? true,
       passingScore: task?.passingScore ?? 70,
       graceMinutes: task?.graceMinutes ?? 15,
@@ -464,36 +511,45 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
   const handleAiFill = () => {
     if (!aiPrompt.trim()) return;
-    aiFill.mutate({ prompt: aiPrompt }, {
-      onSuccess: (data) => {
-        const f = data.fields;
-        setForm((prev) => ({
-          ...prev,
-          name: f.name || prev.name,
-          description: f.description || prev.description,
-          evidenceType: f.evidenceType || prev.evidenceType,
-          recurrenceType: f.recurrenceType || prev.recurrenceType,
-          recurrenceInterval: f.recurrenceInterval ?? prev.recurrenceInterval,
-          scheduledTimes: f.scheduledTimes?.length ? f.scheduledTimes : prev.scheduledTimes,
-          timezone: f.timezone || prev.timezone,
-          acceptanceRules: f.acceptanceRules?.length ? f.acceptanceRules : prev.acceptanceRules,
-          scoringEnabled: f.scoringEnabled ?? prev.scoringEnabled,
-          passingScore: f.passingScore ?? prev.passingScore,
-          graceMinutes: f.graceMinutes ?? prev.graceMinutes,
-          resubmissionAllowed: f.resubmissionAllowed ?? prev.resubmissionAllowed,
-          reportTime: f.reportTime || prev.reportTime,
-        }));
-        setShowAiFill(false);
-        setAiPrompt("");
-      },
-    });
+    aiFill.mutate(
+      { prompt: aiPrompt },
+      {
+        onSuccess: (data) => {
+          const f = data.fields;
+          setForm((prev) => ({
+            ...prev,
+            name: f.name || prev.name,
+            description: f.description || prev.description,
+            evidenceType: f.evidenceType || prev.evidenceType,
+            recurrenceType: f.recurrenceType || prev.recurrenceType,
+            recurrenceInterval: f.recurrenceInterval ?? prev.recurrenceInterval,
+            scheduledTimes: f.scheduledTimes?.length ? f.scheduledTimes : prev.scheduledTimes,
+            timezone: f.timezone || prev.timezone,
+            acceptanceRules: f.acceptanceRules?.length ? f.acceptanceRules : prev.acceptanceRules,
+            scoringEnabled: f.scoringEnabled ?? prev.scoringEnabled,
+            passingScore: f.passingScore ?? prev.passingScore,
+            graceMinutes: f.graceMinutes ?? prev.graceMinutes,
+            resubmissionAllowed: f.resubmissionAllowed ?? prev.resubmissionAllowed,
+            reportTime: f.reportTime || prev.reportTime,
+          }));
+          setShowAiFill(false);
+          setAiPrompt("");
+        },
+      }
+    );
   };
 
   const addRule = () => setForm({ ...form, acceptanceRules: [...form.acceptanceRules, ""] });
-  const removeRule = (idx: number) => setForm({ ...form, acceptanceRules: form.acceptanceRules.filter((_, i) => i !== idx) });
-  const updateRule = (idx: number, val: string) => { const r = [...form.acceptanceRules]; r[idx] = val; setForm({ ...form, acceptanceRules: r }); };
+  const removeRule = (idx: number) =>
+    setForm({ ...form, acceptanceRules: form.acceptanceRules.filter((_, i) => i !== idx) });
+  const updateRule = (idx: number, val: string) => {
+    const r = [...form.acceptanceRules];
+    r[idx] = val;
+    setForm({ ...form, acceptanceRules: r });
+  };
   const addTime = () => setForm({ ...form, scheduledTimes: [...form.scheduledTimes, "12:00"] });
-  const removeTime = (idx: number) => setForm({ ...form, scheduledTimes: form.scheduledTimes.filter((_, i) => i !== idx) });
+  const removeTime = (idx: number) =>
+    setForm({ ...form, scheduledTimes: form.scheduledTimes.filter((_, i) => i !== idx) });
 
   const handleSampleUpload = async (file: File) => {
     setSampleFile(file);
@@ -515,7 +571,10 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
     const hasChannel = !!reportChannelId.trim();
     const deliveryConfig: DeliveryConfig | undefined =
       hasComposio || hasChannel
-        ? { messagingChannel: hasChannel, composioActions: hasComposio ? selectedDeliveryActions : undefined }
+        ? {
+            messagingChannel: hasChannel,
+            composioActions: hasComposio ? selectedDeliveryActions : undefined,
+          }
         : undefined;
     onSubmit({
       ...form,
@@ -527,12 +586,25 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !isPending) onClose(); }}>
-      <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[90vh] flex flex-col" aria-busy={isPending}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !isPending) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[90vh] flex flex-col"
+        aria-busy={isPending}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className={cn("space-y-4 mt-2 overflow-y-auto flex-1 pr-1 -mr-1 relative", isPending && "pointer-events-none opacity-60")}>
+        <div
+          className={cn(
+            "space-y-4 mt-2 overflow-y-auto flex-1 pr-1 -mr-1 relative",
+            isPending && "pointer-events-none opacity-60"
+          )}
+        >
           {isPending && (
             <div className="sticky top-0 z-10 -mt-2 mb-2 flex items-center gap-2 rounded-md border bg-muted/80 px-3 py-2 text-xs text-muted-foreground backdrop-blur-sm">
               <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
@@ -550,19 +622,37 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <Sparkles className="h-4 w-4" /> Create with AI
                 </span>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", showAiFill && "rotate-180")} />
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", showAiFill && "rotate-180")}
+                />
               </button>
               {showAiFill && (
                 <div className="px-4 py-3 space-y-3 border-t">
-                  <p className="text-xs text-muted-foreground">Describe the task and the AI will fill all the fields.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Describe the task and the AI will fill all the fields.
+                  </p>
                   <textarea
                     className="w-full px-3 py-2 rounded-md border bg-background text-sm min-h-[120px] resize-y"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     placeholder='e.g. "Clean the office bathrooms every 2 hours from 8am to 6pm. Workers submit a photo..."'
                   />
-                  <Button size="sm" onClick={handleAiFill} disabled={!aiPrompt.trim() || aiFill.isPending}>
-                    {aiFill.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Generating...</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate Task</>}
+                  <Button
+                    size="sm"
+                    onClick={handleAiFill}
+                    disabled={!aiPrompt.trim() || aiFill.isPending}
+                  >
+                    {aiFill.isPending ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        Generate Task
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
@@ -571,19 +661,37 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
           {/* Basic Info */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Basic Info</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Basic Info
+            </h3>
             <div>
               <label className="text-sm font-medium">Name *</label>
-              <p className="text-xs text-muted-foreground mt-0.5">Must be unique among your active tasks.</p>
-              <input className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Toilet Cleaning" />
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Must be unique among your active tasks.
+              </p>
+              <input
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Toilet Cleaning"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Description</label>
-              <textarea className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
+              <textarea
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={2}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Evidence Type</label>
-              <select className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.evidenceType} onChange={(e) => setForm({ ...form, evidenceType: e.target.value })}>
+              <select
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.evidenceType}
+                onChange={(e) => setForm({ ...form, evidenceType: e.target.value })}
+              >
                 <option value="PHOTO">Photo</option>
                 <option value="TEXT">Text</option>
                 <option value="PHOTO_AND_TEXT">Photo & Text</option>
@@ -596,9 +704,12 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
           {/* Sample / Expected Evidence */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reference Evidence</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Reference Evidence
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Upload a sample of what the expected result should look like. The AI will compare worker submissions against this reference when scoring.
+              Upload a sample of what the expected result should look like. The AI will compare
+              worker submissions against this reference when scoring.
             </p>
             {form.sampleEvidenceUrl ? (
               <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
@@ -614,10 +725,20 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{sampleFile?.name || "Reference file"}</p>
+                  <p className="text-sm font-medium truncate">
+                    {sampleFile?.name || "Reference file"}
+                  </p>
                   <p className="text-xs text-muted-foreground">Uploaded successfully</p>
                 </div>
-                <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={() => { setForm({ ...form, sampleEvidenceUrl: "" }); setSampleFile(null); }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-8 w-8"
+                  onClick={() => {
+                    setForm({ ...form, sampleEvidenceUrl: "" });
+                    setSampleFile(null);
+                  }}
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -628,8 +749,14 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
                 disabled={uploading}
                 className="w-full flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
               >
-                {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
-                <span className="text-sm font-medium">{uploading ? "Uploading..." : "Upload reference image or document"}</span>
+                {uploading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Upload className="h-6 w-6" />
+                )}
+                <span className="text-sm font-medium">
+                  {uploading ? "Uploading..." : "Upload reference image or document"}
+                </span>
                 <span className="text-xs">JPG, PNG, PDF, DOC up to 10MB</span>
               </button>
             )}
@@ -638,7 +765,11 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
               type="file"
               accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSampleUpload(f); e.target.value = ""; }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleSampleUpload(f);
+                e.target.value = "";
+              }}
             />
           </section>
 
@@ -646,10 +777,16 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
           {/* Schedule */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Schedule</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Schedule
+            </h3>
             <div>
               <label className="text-sm font-medium">Recurrence</label>
-              <select className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.recurrenceType} onChange={(e) => setForm({ ...form, recurrenceType: e.target.value })}>
+              <select
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.recurrenceType}
+                onChange={(e) => setForm({ ...form, recurrenceType: e.target.value })}
+              >
                 <option value="ONCE">Once</option>
                 <option value="INTERVAL">Every X Minutes</option>
                 <option value="DAILY">Daily</option>
@@ -659,7 +796,14 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
             {form.recurrenceType === "INTERVAL" && (
               <div>
                 <label className="text-sm font-medium">Interval (minutes) *</label>
-                <input type="number" className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.recurrenceInterval} onChange={(e) => setForm({ ...form, recurrenceInterval: parseInt(e.target.value) || 60 })} />
+                <input
+                  type="number"
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.recurrenceInterval}
+                  onChange={(e) =>
+                    setForm({ ...form, recurrenceInterval: parseInt(e.target.value) || 60 })
+                  }
+                />
               </div>
             )}
             {(form.recurrenceType === "DAILY" || form.recurrenceType === "WEEKLY") && (
@@ -667,11 +811,35 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
                 <label className="text-sm font-medium">Scheduled Times *</label>
                 {form.scheduledTimes.map((t, i) => (
                   <div key={i} className="flex items-center gap-2 mt-1">
-                    <input type="time" className="flex-1 px-3 py-2 rounded-md border bg-background text-sm" value={t} onChange={(e) => { const times = [...form.scheduledTimes]; times[i] = e.target.value; setForm({ ...form, scheduledTimes: times }); }} />
-                    {form.scheduledTimes.length > 1 && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTime(i)}><X className="h-3.5 w-3.5" /></Button>}
+                    <input
+                      type="time"
+                      className="flex-1 px-3 py-2 rounded-md border bg-background text-sm"
+                      value={t}
+                      onChange={(e) => {
+                        const times = [...form.scheduledTimes];
+                        times[i] = e.target.value;
+                        setForm({ ...form, scheduledTimes: times });
+                      }}
+                    />
+                    {form.scheduledTimes.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => removeTime(i)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 ))}
-                <button type="button" onClick={addTime} className="text-xs text-primary mt-1 hover:underline">+ Add Time</button>
+                <button
+                  type="button"
+                  onClick={addTime}
+                  className="text-xs text-primary mt-1 hover:underline"
+                >
+                  + Add Time
+                </button>
               </div>
             )}
           </section>
@@ -680,38 +848,90 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
           {/* Acceptance Rules */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Acceptance Rules *</h3>
-            <p className="text-xs text-muted-foreground">At least one rule is required. Describe what the AI should check in submitted evidence.</p>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Acceptance Rules *
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              At least one rule is required. Describe what the AI should check in submitted
+              evidence.
+            </p>
             {form.acceptanceRules.map((rule, i) => (
               <div key={i} className="flex items-start gap-2">
-                <textarea className="flex-1 px-3 py-2 rounded-md border bg-background text-sm" value={rule} onChange={(e) => updateRule(i, e.target.value)} rows={2} placeholder={`Rule ${i + 1}: e.g. "Floor must be dry and clean"`} />
-                {form.acceptanceRules.length > 1 && <Button variant="ghost" size="icon" className="h-8 w-8 mt-1" onClick={() => removeRule(i)}><X className="h-3.5 w-3.5" /></Button>}
+                <textarea
+                  className="flex-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={rule}
+                  onChange={(e) => updateRule(i, e.target.value)}
+                  rows={2}
+                  placeholder={`Rule ${i + 1}: e.g. "Floor must be dry and clean"`}
+                />
+                {form.acceptanceRules.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 mt-1"
+                    onClick={() => removeRule(i)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             ))}
-            <button type="button" onClick={addRule} className="text-xs text-primary hover:underline">+ Add Rule</button>
+            <button
+              type="button"
+              onClick={addRule}
+              className="text-xs text-primary hover:underline"
+            >
+              + Add Rule
+            </button>
           </section>
 
           <hr />
 
           {/* Scoring */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Scoring</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Scoring
+            </h3>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={form.scoringEnabled} onChange={(e) => setForm({ ...form, scoringEnabled: e.target.checked })} className="rounded" />
+              <input
+                type="checkbox"
+                checked={form.scoringEnabled}
+                onChange={(e) => setForm({ ...form, scoringEnabled: e.target.checked })}
+                className="rounded"
+              />
               Enable scoring
             </label>
             {form.scoringEnabled && (
               <div>
                 <label className="text-sm font-medium">Passing Score (0-100)</label>
-                <input type="number" className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.passingScore} min={0} max={100} onChange={(e) => setForm({ ...form, passingScore: parseInt(e.target.value) || 70 })} />
+                <input
+                  type="number"
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.passingScore}
+                  min={0}
+                  max={100}
+                  onChange={(e) =>
+                    setForm({ ...form, passingScore: parseInt(e.target.value) || 70 })
+                  }
+                />
               </div>
             )}
             <div>
               <label className="text-sm font-medium">Grace Period (minutes)</label>
-              <input type="number" className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.graceMinutes} onChange={(e) => setForm({ ...form, graceMinutes: parseInt(e.target.value) || 15 })} />
+              <input
+                type="number"
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.graceMinutes}
+                onChange={(e) => setForm({ ...form, graceMinutes: parseInt(e.target.value) || 15 })}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={form.resubmissionAllowed} onChange={(e) => setForm({ ...form, resubmissionAllowed: e.target.checked })} className="rounded" />
+              <input
+                type="checkbox"
+                checked={form.resubmissionAllowed}
+                onChange={(e) => setForm({ ...form, resubmissionAllowed: e.target.checked })}
+                className="rounded"
+              />
               Allow resubmission on failure
             </label>
           </section>
@@ -720,7 +940,9 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
 
           {/* Reporting */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notification Channel</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Notification Channel
+            </h3>
             <div>
               <label className="text-sm font-medium">Select channel *</label>
               <p className="text-xs text-muted-foreground mb-1">
@@ -749,20 +971,38 @@ function TaskFormDialog({ open, onClose, onSubmit, isPending, title, initialData
             </div>
             <div>
               <label className="text-sm font-medium">Report Time</label>
-              <input type="time" className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.reportTime} onChange={(e) => setForm({ ...form, reportTime: e.target.value })} />
+              <input
+                type="time"
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.reportTime}
+                onChange={(e) => setForm({ ...form, reportTime: e.target.value })}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Additional Destinations</label>
-              <p className="text-xs text-muted-foreground mb-2">Deliver reports to external apps via Composio</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Deliver reports to external apps via Composio
+              </p>
               <div className="space-y-2">
                 {(deliveryActionsData?.actions || []).map((action) => {
-                  const isSelected = selectedDeliveryActions.some((a) => a.action === action.action);
+                  const isSelected = selectedDeliveryActions.some(
+                    (a) => a.action === action.action
+                  );
                   return (
-                    <label key={action.action} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <label
+                      key={action.action}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => setSelectedDeliveryActions((prev) => isSelected ? prev.filter((a) => a.action !== action.action) : [...prev, { action: action.action, label: action.label }])}
+                        onChange={() =>
+                          setSelectedDeliveryActions((prev) =>
+                            isSelected
+                              ? prev.filter((a) => a.action !== action.action)
+                              : [...prev, { action: action.action, label: action.label }]
+                          )
+                        }
                         className="rounded border-input"
                       />
                       {action.label}
@@ -805,15 +1045,21 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
   const updateWorkerStatus = useUpdateWorkerStatus();
   const [showAdd, setShowAdd] = useState(false);
   const [membersPage, setMembersPage] = useState(1);
-  const [form, setForm] = useState({ name: "", platform: "WHATSAPP", externalId: "", phone: "", role: "" });
+  const [form, setForm] = useState({
+    name: "",
+    platform: "WHATSAPP",
+    externalId: "",
+    phone: "",
+    role: "",
+  });
 
   const workers = workersData?.workers || [];
 
-  const { pageItems: pagedWorkers, totalPages: membersTotalPages, safePage: membersSafePage } = paginateSlice(
-    workers,
-    membersPage,
-    TASK_MANAGER_PAGE_SIZE
-  );
+  const {
+    pageItems: pagedWorkers,
+    totalPages: membersTotalPages,
+    safePage: membersSafePage,
+  } = paginateSlice(workers, membersPage, TASK_MANAGER_PAGE_SIZE);
 
   useEffect(() => {
     setMembersPage(1);
@@ -823,7 +1069,12 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
     setMembersPage((p) => Math.min(p, membersTotalPages));
   }, [membersTotalPages]);
 
-  const platformLabels: Record<string, string> = { WHATSAPP: "WhatsApp", TELEGRAM: "Telegram", SLACK: "Slack", DISCORD: "Discord" };
+  const platformLabels: Record<string, string> = {
+    WHATSAPP: "WhatsApp",
+    TELEGRAM: "Telegram",
+    SLACK: "Slack",
+    DISCORD: "Discord",
+  };
   const externalIdLabels: Record<string, string> = {
     WHATSAPP: "Phone number (e.g. +1234567890)",
     TELEGRAM: "Telegram user/chat ID",
@@ -833,8 +1084,66 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
 
   const workerMutationBusy = removeWorker.isPending || updateWorkerStatus.isPending;
 
+  const validateAndBuildWorkerPayload = () => {
+    const name = form.name.trim();
+    const platform = form.platform;
+    const externalId = form.externalId.trim();
+    const role = form.role.trim();
+    const phone = form.phone.trim();
+
+    if (!name) {
+      toast.error("Member name is required.");
+      return null;
+    }
+    if (!externalId) {
+      toast.error("ID/phone is required.");
+      return null;
+    }
+    if (/\s/.test(externalId)) {
+      toast.error("ID/phone cannot contain spaces.");
+      return null;
+    }
+    if (phone && /\s/.test(phone)) {
+      toast.error("Phone number cannot contain spaces.");
+      return null;
+    }
+
+    if (platform === "WHATSAPP") {
+      const waJid = externalId.replace(/:.*@/, "@");
+      const isWaJid = /^\d{7,20}@(s\.whatsapp\.net|lid)$/.test(waJid);
+      const waDigits = externalId.replace(/\D/g, "");
+      if (!isWaJid && (waDigits.length < 7 || waDigits.length > 20)) {
+        toast.error("WhatsApp number must be 7-20 digits or a valid JID.");
+        return null;
+      }
+    } else if (platform === "TELEGRAM") {
+      if (!/^-?\d{4,20}$/.test(externalId)) {
+        toast.error("Telegram chat/user ID must be numeric.");
+        return null;
+      }
+    } else if (platform === "DISCORD") {
+      if (!/^\d{6,30}$/.test(externalId)) {
+        toast.error("Discord user ID must be numeric.");
+        return null;
+      }
+    }
+
+    return {
+      name,
+      platform,
+      externalId,
+      phone: phone || undefined,
+      role: role || undefined,
+    };
+  };
+
   return (
-    <Dialog open onOpenChange={(o) => { if (!o && !addWorker.isPending && !workerMutationBusy) onClose(); }}>
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o && !addWorker.isPending && !workerMutationBusy) onClose();
+      }}
+    >
       <DialogContent
         className="max-w-md w-[calc(100%-2rem)] sm:w-full sm:max-w-md h-auto max-h-[85vh] flex flex-col"
         aria-busy={addWorker.isPending || workerMutationBusy}
@@ -848,7 +1157,9 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
         <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 relative">
           {/* Worker List */}
           {isLoading ? (
-            <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            <div className="flex justify-center p-6">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
           ) : workers.length === 0 && !showAdd ? (
             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
               <Users className="h-10 w-10 mb-3 opacity-30" />
@@ -859,92 +1170,116 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
             <div className="space-y-2">
               {pagedWorkers.map((w) => {
                 const rowUpdating =
-                  (updateWorkerStatus.isPending && updateWorkerStatus.variables?.workerId === w.id) ||
+                  (updateWorkerStatus.isPending &&
+                    updateWorkerStatus.variables?.workerId === w.id) ||
                   (removeWorker.isPending && removeWorker.variables?.workerId === w.id);
                 return (
-                <div
-                  key={w.id}
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-lg border bg-card gap-2",
-                    w.status === "INACTIVE" && "opacity-80"
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{w.name}</p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      <Badge variant="outline" className="text-[11px] h-5">{platformLabels[w.platform] || w.platform}</Badge>
-                      {w.role && <span className="text-[11px] text-muted-foreground">{w.role}</span>}
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[11px] h-5 border",
-                          w.status === "ACTIVE" && "text-emerald-700 border-emerald-300",
-                          w.status === "INACTIVE" && "text-amber-800 border-amber-300 bg-amber-50/80 dark:bg-amber-950/30",
-                          w.status === "ONBOARDING" && "text-zinc-500 border-zinc-300"
+                  <div
+                    key={w.id}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border bg-card gap-2",
+                      w.status === "INACTIVE" && "opacity-80"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{w.name}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[11px] h-5">
+                          {platformLabels[w.platform] || w.platform}
+                        </Badge>
+                        {w.role && (
+                          <span className="text-[11px] text-muted-foreground">{w.role}</span>
                         )}
-                      >
-                        {w.status === "INACTIVE" ? "Disabled" : w.status}
-                      </Badge>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[11px] h-5 border",
+                            w.status === "ACTIVE" && "text-emerald-700 border-emerald-300",
+                            w.status === "INACTIVE" &&
+                              "text-amber-800 border-amber-300 bg-amber-50/80 dark:bg-amber-950/30",
+                            w.status === "ONBOARDING" && "text-zinc-500 border-zinc-300"
+                          )}
+                        >
+                          {w.status === "INACTIVE" ? "Disabled" : w.status}
+                        </Badge>
+                      </div>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 h-8 w-8"
+                          disabled={workerMutationBusy}
+                          aria-busy={rowUpdating}
+                        >
+                          {rowUpdating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <MoreVertical className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        {w.status !== "INACTIVE" ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updateWorkerStatus.mutate({
+                                taskId,
+                                workerId: w.id,
+                                status: "INACTIVE",
+                                workerName: w.name,
+                              })
+                            }
+                            disabled={workerMutationBusy}
+                          >
+                            {updateWorkerStatus.isPending &&
+                            updateWorkerStatus.variables?.workerId === w.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Ban className="h-4 w-4 mr-2" />
+                            )}
+                            Disable member
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updateWorkerStatus.mutate({
+                                taskId,
+                                workerId: w.id,
+                                status: "ACTIVE",
+                                workerName: w.name,
+                              })
+                            }
+                            disabled={workerMutationBusy}
+                          >
+                            {updateWorkerStatus.isPending &&
+                            updateWorkerStatus.variables?.workerId === w.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <PlayCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Enable member
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() =>
+                            removeWorker.mutate({ taskId, workerId: w.id, name: w.name })
+                          }
+                          disabled={workerMutationBusy}
+                        >
+                          {removeWorker.isPending && removeWorker.variables?.workerId === w.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <UserMinus className="h-4 w-4 mr-2" />
+                          )}
+                          Remove from task
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0 h-8 w-8"
-                        disabled={workerMutationBusy}
-                        aria-busy={rowUpdating}
-                      >
-                        {rowUpdating ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <MoreVertical className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-                      {w.status !== "INACTIVE" ? (
-                        <DropdownMenuItem
-                          onClick={() => updateWorkerStatus.mutate({ taskId, workerId: w.id, status: "INACTIVE", workerName: w.name })}
-                          disabled={workerMutationBusy}
-                        >
-                          {updateWorkerStatus.isPending && updateWorkerStatus.variables?.workerId === w.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Ban className="h-4 w-4 mr-2" />
-                          )}
-                          Disable member
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={() => updateWorkerStatus.mutate({ taskId, workerId: w.id, status: "ACTIVE", workerName: w.name })}
-                          disabled={workerMutationBusy}
-                        >
-                          {updateWorkerStatus.isPending && updateWorkerStatus.variables?.workerId === w.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <PlayCircle className="h-4 w-4 mr-2" />
-                          )}
-                          Enable member
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => removeWorker.mutate({ taskId, workerId: w.id, name: w.name })}
-                        disabled={workerMutationBusy}
-                      >
-                        {removeWorker.isPending && removeWorker.variables?.workerId === w.id ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <UserMinus className="h-4 w-4 mr-2" />
-                        )}
-                        Remove from task
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
                 );
               })}
               <EntityPagination
@@ -957,7 +1292,12 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
 
           {/* Add Worker Form */}
           {showAdd ? (
-            <div className={cn("space-y-3 border-t pt-4 relative", addWorker.isPending && "pointer-events-none opacity-70")}>
+            <div
+              className={cn(
+                "space-y-3 border-t pt-4 relative",
+                addWorker.isPending && "pointer-events-none opacity-70"
+              )}
+            >
               <h4 className="text-sm font-medium">Add New Member</h4>
               {addWorker.isPending && (
                 <div className="flex items-center gap-2 rounded-md border bg-muted/80 px-3 py-2 text-xs text-muted-foreground">
@@ -967,11 +1307,22 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
               )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Name *</label>
-                <input className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="John Doe" disabled={addWorker.isPending} />
+                <input
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="John Doe"
+                  disabled={addWorker.isPending}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Platform</label>
-                <select className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.platform} onChange={(e) => setForm({ ...form, platform: e.target.value })} disabled={addWorker.isPending}>
+                <select
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.platform}
+                  onChange={(e) => setForm({ ...form, platform: e.target.value })}
+                  disabled={addWorker.isPending}
+                >
                   <option value="WHATSAPP">WhatsApp</option>
                   <option value="TELEGRAM">Telegram</option>
                   <option value="SLACK">Slack</option>
@@ -979,27 +1330,59 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">{externalIdLabels[form.platform] || "External ID"} *</label>
-                <input className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} disabled={addWorker.isPending} />
+                <label className="text-xs font-medium text-muted-foreground">
+                  {externalIdLabels[form.platform] || "External ID"} *
+                </label>
+                <input
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.externalId}
+                  onChange={(e) => setForm({ ...form, externalId: e.target.value })}
+                  disabled={addWorker.isPending}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Role (optional)</label>
-                <input className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="e.g. Cleaner" disabled={addWorker.isPending} />
+                <input
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  placeholder="e.g. Cleaner"
+                  disabled={addWorker.isPending}
+                />
               </div>
               <div className="flex gap-2 pt-1">
-                <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} className="flex-1" disabled={addWorker.isPending}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdd(false)}
+                  className="flex-1"
+                  disabled={addWorker.isPending}
+                >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   className="flex-1"
                   onClick={() => {
+                    const payload = validateAndBuildWorkerPayload();
+                    if (!payload) return;
                     addWorker.mutate(
-                      { taskId, data: { name: form.name, platform: form.platform, externalId: form.externalId, phone: form.phone || undefined, role: form.role || undefined } },
-                      { onSuccess: () => { setShowAdd(false); setForm({ name: "", platform: "WHATSAPP", externalId: "", phone: "", role: "" }); } }
+                      { taskId, data: payload },
+                      {
+                        onSuccess: () => {
+                          setShowAdd(false);
+                          setForm({
+                            name: "",
+                            platform: "WHATSAPP",
+                            externalId: "",
+                            phone: "",
+                            role: "",
+                          });
+                        },
+                      }
                     );
                   }}
-                  disabled={!form.name || !form.externalId || addWorker.isPending}
+                  disabled={!form.name.trim() || !form.externalId.trim() || addWorker.isPending}
                 >
                   {addWorker.isPending ? (
                     <>
@@ -1013,8 +1396,17 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
               </div>
             </div>
           ) : (
-            <Button variant="outline" onClick={() => setShowAdd(true)} className="w-full gap-2" disabled={addWorker.isPending}>
-              {addWorker.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              onClick={() => setShowAdd(true)}
+              className="w-full gap-2"
+              disabled={addWorker.isPending}
+            >
+              {addWorker.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
               Add Team Member
             </Button>
           )}
@@ -1026,7 +1418,13 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
 
 /* ─── Live Board ─── */
 
-function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubmissionClick: (s: TaskSubmission) => void }) {
+function LiveBoardTab({
+  tasks,
+  onSubmissionClick,
+}: {
+  tasks: HumanTask[];
+  onSubmissionClick: (s: TaskSubmission) => void;
+}) {
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id || "");
   const [liveBoardPage, setLiveBoardPage] = useState(1);
   const today = new Date().toISOString().split("T")[0];
@@ -1036,11 +1434,11 @@ function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubm
   const submissions = submissionsData?.submissions || [];
   const workers = workersData?.workers || [];
   const activeWorkers = workers.filter((w) => w.status !== "INACTIVE");
-  const { pageItems: pagedBoardWorkers, totalPages: liveTotalPages, safePage: liveSafePage } = paginateSlice(
-    activeWorkers,
-    liveBoardPage,
-    TASK_MANAGER_PAGE_SIZE
-  );
+  const {
+    pageItems: pagedBoardWorkers,
+    totalPages: liveTotalPages,
+    safePage: liveSafePage,
+  } = paginateSlice(activeWorkers, liveBoardPage, TASK_MANAGER_PAGE_SIZE);
   const selectedTask = tasks.find((t) => t.id === selectedTaskId);
   const scheduledTimes = (selectedTask?.scheduledTimes as string[]) || [];
 
@@ -1052,18 +1450,29 @@ function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubm
     setLiveBoardPage((p) => Math.min(p, liveTotalPages));
   }, [liveTotalPages]);
 
-  if (tasks.length === 0) return <EmptyView message="No active tasks to display on the live board." />;
+  if (tasks.length === 0)
+    return <EmptyView message="No active tasks to display on the live board." />;
 
   return (
     <div className="space-y-4">
-      <select className="px-3 py-2 rounded-md border bg-background text-sm" value={selectedTaskId} onChange={(e) => setSelectedTaskId(e.target.value)}>
-        {tasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      <select
+        className="px-3 py-2 rounded-md border bg-background text-sm"
+        value={selectedTaskId}
+        onChange={(e) => setSelectedTaskId(e.target.value)}
+      >
+        {tasks.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
       </select>
 
       {isLoading ? (
         <LoadingView message="Loading submissions..." />
       ) : workers.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">No workers assigned to this task.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          No workers assigned to this task.
+        </p>
       ) : (
         <>
           <div className="border rounded-lg overflow-x-auto">
@@ -1072,7 +1481,9 @@ function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubm
                 <tr className="border-b bg-muted/50">
                   <th className="text-left p-3 font-medium sticky left-0 bg-muted/50">Worker</th>
                   {scheduledTimes.map((time) => (
-                    <th key={time} className="text-center p-3 font-medium min-w-[80px]">{time}</th>
+                    <th key={time} className="text-center p-3 font-medium min-w-[80px]">
+                      {time}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -1082,13 +1493,26 @@ function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubm
                     <td className="p-3 font-medium sticky left-0 bg-background">{worker.name}</td>
                     {scheduledTimes.map((time) => {
                       const sub = submissions.find(
-                        (s) => s.worker?.id === worker.id && new Date(s.dueAt).toTimeString().slice(0, 5) === time
+                        (s) =>
+                          s.worker?.id === worker.id &&
+                          new Date(s.dueAt).toTimeString().slice(0, 5) === time
                       );
-                      const statusInfo = sub ? SUBMISSION_STATUS[sub.status] || SUBMISSION_STATUS.PENDING : null;
+                      const statusInfo = sub
+                        ? SUBMISSION_STATUS[sub.status] || SUBMISSION_STATUS.PENDING
+                        : null;
                       return (
                         <td key={time} className="p-3 text-center">
                           {sub ? (
-                            <button onClick={() => onSubmissionClick(sub)} className={cn("inline-flex items-center justify-center", statusInfo?.color)} title={sub.status}>{statusInfo?.icon}</button>
+                            <button
+                              onClick={() => onSubmissionClick(sub)}
+                              className={cn(
+                                "inline-flex items-center justify-center",
+                                statusInfo?.color
+                              )}
+                              title={sub.status}
+                            >
+                              {statusInfo?.icon}
+                            </button>
                           ) : (
                             <span className="text-muted-foreground/30">-</span>
                           )}
@@ -1113,17 +1537,23 @@ function LiveBoardTab({ tasks, onSubmissionClick }: { tasks: HumanTask[]; onSubm
 
 /* ─── Reports ─── */
 
-function ReportsTab({ tasks, onReportClick }: { tasks: HumanTask[]; onReportClick: (r: TaskComplianceReport) => void }) {
+function ReportsTab({
+  tasks,
+  onReportClick,
+}: {
+  tasks: HumanTask[];
+  onReportClick: (r: TaskComplianceReport) => void;
+}) {
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id || "");
   const [reportsPage, setReportsPage] = useState(1);
   const { data: reportsData, isLoading } = useTaskReports(selectedTaskId);
   const generateReport = useGenerateReport();
   const reports = reportsData?.reports || [];
-  const { pageItems: pagedReports, totalPages: reportsTotalPages, safePage: reportsSafePage } = paginateSlice(
-    reports,
-    reportsPage,
-    TASK_MANAGER_PAGE_SIZE
-  );
+  const {
+    pageItems: pagedReports,
+    totalPages: reportsTotalPages,
+    safePage: reportsSafePage,
+  } = paginateSlice(reports, reportsPage, TASK_MANAGER_PAGE_SIZE);
 
   useEffect(() => {
     setReportsPage(1);
@@ -1138,11 +1568,29 @@ function ReportsTab({ tasks, onReportClick }: { tasks: HumanTask[]; onReportClic
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <select className="px-3 py-2 rounded-md border bg-background text-sm" value={selectedTaskId} onChange={(e) => setSelectedTaskId(e.target.value)}>
-          {tasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        <select
+          className="px-3 py-2 rounded-md border bg-background text-sm"
+          value={selectedTaskId}
+          onChange={(e) => setSelectedTaskId(e.target.value)}
+        >
+          {tasks.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
         </select>
-        <Button variant="outline" size="sm" onClick={() => generateReport.mutate({ taskId: selectedTaskId })} disabled={generateReport.isPending}>
-          {generateReport.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />} Generate Now
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => generateReport.mutate({ taskId: selectedTaskId })}
+          disabled={generateReport.isPending}
+        >
+          {generateReport.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <FileText className="h-4 w-4 mr-2" />
+          )}{" "}
+          Generate Now
         </Button>
       </div>
 
@@ -1154,10 +1602,16 @@ function ReportsTab({ tasks, onReportClick }: { tasks: HumanTask[]; onReportClic
         <>
           <div className="flex flex-col gap-y-3">
             {pagedReports.map((report) => (
-              <Card key={report.id} className="shadow-none hover:shadow cursor-pointer transition-shadow" onClick={() => onReportClick(report)}>
+              <Card
+                key={report.id}
+                className="shadow-none hover:shadow cursor-pointer transition-shadow"
+                onClick={() => onReportClick(report)}
+              >
                 <CardContent className="flex items-center justify-between p-4">
                   <div>
-                    <p className="font-medium text-sm">{new Date(report.periodStart).toLocaleDateString()}</p>
+                    <p className="font-medium text-sm">
+                      {new Date(report.periodStart).toLocaleDateString()}
+                    </p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
                       <span>{report.totalSubmissions} submissions</span>
                       <span>{report.missedCount} missed</span>
@@ -1165,7 +1619,11 @@ function ReportsTab({ tasks, onReportClick }: { tasks: HumanTask[]; onReportClic
                       <span>Pass: {report.passRate != null ? `${report.passRate}%` : "N/A"}</span>
                     </div>
                   </div>
-                  {report.deliveredAt && <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">Delivered</Badge>}
+                  {report.deliveredAt && (
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      Delivered
+                    </Badge>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -1183,40 +1641,128 @@ function ReportsTab({ tasks, onReportClick }: { tasks: HumanTask[]; onReportClic
 
 /* ─── Submission Detail ─── */
 
-function SubmissionDetailDialog({ submission, onClose }: { submission: TaskSubmission | null; onClose: () => void }) {
+function SubmissionDetailDialog({
+  submission,
+  onClose,
+}: {
+  submission: TaskSubmission | null;
+  onClose: () => void;
+}) {
   if (!submission) return null;
-  const dueTime = new Date(submission.dueAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const submittedTime = submission.submittedAt ? new Date(submission.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
-  const latenessLabel = submission.latenessSeconds != null
-    ? submission.latenessSeconds > 0 ? `${Math.round(submission.latenessSeconds / 60)} min late` : `${Math.abs(Math.round(submission.latenessSeconds / 60))} min early`
+  const dueTime = new Date(submission.dueAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const submittedTime = submission.submittedAt
+    ? new Date(submission.submittedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : null;
+  const latenessLabel =
+    submission.latenessSeconds != null
+      ? submission.latenessSeconds > 0
+        ? `${Math.round(submission.latenessSeconds / 60)} min late`
+        : `${Math.abs(Math.round(submission.latenessSeconds / 60))} min early`
+      : null;
   let findings: string[] = [];
-  try { findings = JSON.parse(submission.aiFindings || "[]"); } catch { findings = submission.aiFindings ? [submission.aiFindings] : []; }
+  try {
+    findings = JSON.parse(submission.aiFindings || "[]");
+  } catch {
+    findings = submission.aiFindings ? [submission.aiFindings] : [];
+  }
   const scoreColor = (submission.aiScore ?? 0) >= 70 ? "text-green-600" : "text-red-600";
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader><DialogTitle>Submission Detail</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Submission Detail</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 overflow-y-auto flex-1">
           {submission.imageUrl && (
             <div className="rounded-lg overflow-hidden border">
-              <img src={`${process.env.NEXT_PUBLIC_API_URL || ""}${submission.imageUrl}`} alt="Submission" className="w-full max-h-64 object-contain bg-muted" />
+              <img
+                src={`${process.env.NEXT_PUBLIC_API_URL || ""}${submission.imageUrl}`}
+                alt="Submission"
+                className="w-full max-h-64 object-contain bg-muted"
+              />
             </div>
           )}
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Due:</span><span>{dueTime}</span></div>
-            {submittedTime && <div className="flex justify-between"><span className="text-muted-foreground">Submitted:</span><span>{submittedTime} {latenessLabel && <span className="text-xs text-muted-foreground">({latenessLabel})</span>}</span></div>}
-            <div className="flex justify-between items-center"><span className="text-muted-foreground">Score:</span><span className={cn("text-2xl font-bold", scoreColor)}>{submission.aiScore ?? "-"}<span className="text-sm font-normal">/100</span></span></div>
-            <div className="flex justify-between items-center"><span className="text-muted-foreground">Status:</span>
-              <Badge variant="secondary" className={cn("text-xs", submission.status === "PASSED" ? "bg-green-100 text-green-700" : submission.status === "FAILED" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700")}>{submission.status}</Badge>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Due:</span>
+              <span>{dueTime}</span>
             </div>
-            {submission.worker && <div className="flex justify-between"><span className="text-muted-foreground">Worker:</span><span>{submission.worker.name} <span className="text-xs text-muted-foreground">({submission.worker.platform})</span></span></div>}
+            {submittedTime && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Submitted:</span>
+                <span>
+                  {submittedTime}{" "}
+                  {latenessLabel && (
+                    <span className="text-xs text-muted-foreground">({latenessLabel})</span>
+                  )}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Score:</span>
+              <span className={cn("text-2xl font-bold", scoreColor)}>
+                {submission.aiScore ?? "-"}
+                <span className="text-sm font-normal">/100</span>
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Status:</span>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-xs",
+                  submission.status === "PASSED"
+                    ? "bg-green-100 text-green-700"
+                    : submission.status === "FAILED"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-gray-100 text-gray-700"
+                )}
+              >
+                {submission.status}
+              </Badge>
+            </div>
+            {submission.worker && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Worker:</span>
+                <span>
+                  {submission.worker.name}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    ({submission.worker.platform})
+                  </span>
+                </span>
+              </div>
+            )}
           </div>
           {findings.length > 0 && (
-            <div><h3 className="text-sm font-medium mb-2">AI Findings</h3><ul className="space-y-1 text-sm">{findings.map((f, i) => <li key={i} className="flex items-start gap-2"><span className="text-muted-foreground shrink-0">-</span> {f}</li>)}</ul></div>
+            <div>
+              <h3 className="text-sm font-medium mb-2">AI Findings</h3>
+              <ul className="space-y-1 text-sm">
+                {findings.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-muted-foreground shrink-0">-</span> {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {submission.rawMessage && (<div><h3 className="text-sm font-medium mb-1">Worker Message</h3><p className="text-sm text-muted-foreground">{submission.rawMessage}</p></div>)}
+          {submission.rawMessage && (
+            <div>
+              <h3 className="text-sm font-medium mb-1">Worker Message</h3>
+              <p className="text-sm text-muted-foreground">{submission.rawMessage}</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -1225,22 +1771,59 @@ function SubmissionDetailDialog({ submission, onClose }: { submission: TaskSubmi
 
 /* ─── Report Detail ─── */
 
-function ReportDetailDialog({ report, onClose }: { report: TaskComplianceReport | null; onClose: () => void }) {
+function ReportDetailDialog({
+  report,
+  onClose,
+}: {
+  report: TaskComplianceReport | null;
+  onClose: () => void;
+}) {
   if (!report) return null;
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader><DialogTitle>Daily Report — {new Date(report.periodStart).toLocaleDateString()}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>
+            Daily Report — {new Date(report.periodStart).toLocaleDateString()}
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-muted text-center"><p className="text-2xl font-bold">{report.totalSubmissions}</p><p className="text-xs text-muted-foreground">Total</p></div>
-            <div className="p-3 rounded-lg bg-muted text-center"><p className="text-2xl font-bold text-red-600">{report.missedCount}</p><p className="text-xs text-muted-foreground">Missed</p></div>
-            <div className="p-3 rounded-lg bg-muted text-center"><p className="text-2xl font-bold">{report.avgScore ?? "-"}</p><p className="text-xs text-muted-foreground">Avg Score</p></div>
-            <div className="p-3 rounded-lg bg-muted text-center"><p className="text-2xl font-bold">{report.passRate != null ? `${report.passRate}%` : "-"}</p><p className="text-xs text-muted-foreground">Pass Rate</p></div>
+            <div className="p-3 rounded-lg bg-muted text-center">
+              <p className="text-2xl font-bold">{report.totalSubmissions}</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted text-center">
+              <p className="text-2xl font-bold text-red-600">{report.missedCount}</p>
+              <p className="text-xs text-muted-foreground">Missed</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted text-center">
+              <p className="text-2xl font-bold">{report.avgScore ?? "-"}</p>
+              <p className="text-xs text-muted-foreground">Avg Score</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted text-center">
+              <p className="text-2xl font-bold">
+                {report.passRate != null ? `${report.passRate}%` : "-"}
+              </p>
+              <p className="text-xs text-muted-foreground">Pass Rate</p>
+            </div>
           </div>
-          <div className="prose prose-sm dark:prose-invert max-w-none"><div dangerouslySetInnerHTML={{ __html: report.summaryMarkdown.replace(/\n/g, "<br/>") }} /></div>
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div
+              dangerouslySetInnerHTML={{ __html: report.summaryMarkdown.replace(/\n/g, "<br/>") }}
+            />
+          </div>
           {report.flaggedWorkerIds.length > 0 && (
-            <div className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800"><p className="text-sm font-medium text-red-700">Flagged Workers: {report.flaggedWorkerIds.length}</p></div>
+            <div className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+              <p className="text-sm font-medium text-red-700">
+                Flagged Workers: {report.flaggedWorkerIds.length}
+              </p>
+            </div>
           )}
         </div>
       </DialogContent>
@@ -1251,10 +1834,26 @@ function ReportDetailDialog({ report, onClose }: { report: TaskComplianceReport 
 /* ─── Channels Tab ─── */
 
 const PLATFORM_STYLES: Record<string, { color: string; bg: string; border: string }> = {
-  TELEGRAM: { color: "text-blue-700 dark:text-blue-300", bg: "bg-blue-50 dark:bg-blue-950/40", border: "border-blue-200 dark:border-blue-800" },
-  WHATSAPP: { color: "text-green-700 dark:text-green-300", bg: "bg-green-50 dark:bg-green-950/40", border: "border-green-200 dark:border-green-800" },
-  SLACK: { color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-50 dark:bg-purple-950/40", border: "border-purple-200 dark:border-purple-800" },
-  DISCORD: { color: "text-indigo-700 dark:text-indigo-300", bg: "bg-indigo-50 dark:bg-indigo-950/40", border: "border-indigo-200 dark:border-indigo-800" },
+  TELEGRAM: {
+    color: "text-blue-700 dark:text-blue-300",
+    bg: "bg-blue-50 dark:bg-blue-950/40",
+    border: "border-blue-200 dark:border-blue-800",
+  },
+  WHATSAPP: {
+    color: "text-green-700 dark:text-green-300",
+    bg: "bg-green-50 dark:bg-green-950/40",
+    border: "border-green-200 dark:border-green-800",
+  },
+  SLACK: {
+    color: "text-purple-700 dark:text-purple-300",
+    bg: "bg-purple-50 dark:bg-purple-950/40",
+    border: "border-purple-200 dark:border-purple-800",
+  },
+  DISCORD: {
+    color: "text-indigo-700 dark:text-indigo-300",
+    bg: "bg-indigo-50 dark:bg-indigo-950/40",
+    border: "border-indigo-200 dark:border-indigo-800",
+  },
 };
 
 const PLATFORM_LOGOS: Record<string, string> = {
@@ -1265,14 +1864,23 @@ const PLATFORM_LOGOS: Record<string, string> = {
 };
 
 const CHANNEL_STATUS_STYLES: Record<string, string> = {
-  connected: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
-  pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
-  disabled: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
+  connected:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  pending:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  disabled:
+    "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
 };
 
 type ConnectPlatform = "TELEGRAM" | "WHATSAPP" | "SLACK" | "DISCORD";
 
-function PlatformLogo({ platform, className = "h-4 w-4" }: { platform: string; className?: string }) {
+function PlatformLogo({
+  platform,
+  className = "h-4 w-4",
+}: {
+  platform: string;
+  className?: string;
+}) {
   const src = PLATFORM_LOGOS[platform] || PLATFORM_LOGOS.TELEGRAM;
   const size = className.includes("h-5") || className.includes("w-5") ? 20 : 16;
   return (
@@ -1297,11 +1905,11 @@ function ChannelsTab() {
   const [channelsPage, setChannelsPage] = useState(1);
 
   const channels = data?.channels || [];
-  const { pageItems: pagedChannels, totalPages: channelsTotalPages, safePage: channelsSafePage } = paginateSlice(
-    channels,
-    channelsPage,
-    TASK_MANAGER_PAGE_SIZE
-  );
+  const {
+    pageItems: pagedChannels,
+    totalPages: channelsTotalPages,
+    safePage: channelsSafePage,
+  } = paginateSlice(channels, channelsPage, TASK_MANAGER_PAGE_SIZE);
 
   useEffect(() => {
     setChannelsPage((p) => Math.min(p, channelsTotalPages));
@@ -1324,81 +1932,106 @@ function ChannelsTab() {
         <EmptyView message="No channels connected yet. Add one to start managing tasks via messaging." />
       ) : (
         <>
-        <div className="flex flex-col gap-y-3">
-          {pagedChannels.map((ch) => {
-            const ps = PLATFORM_STYLES[ch.platform] || PLATFORM_STYLES.TELEGRAM;
-            const statusKey = ch.status === "connected" ? "connected" : ch.status === "pending" ? "pending" : "disabled";
-            return (
-              <Card key={ch.id} className="shadow-none hover:shadow transition-shadow">
-                <CardContent className="p-0">
-                  <div className="flex items-center justify-between gap-3 p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className={cn("text-[11px] border", ps.bg, ps.color, ps.border)}>
-                          <PlatformLogo platform={ch.platform} className="h-3.5 w-3.5 mr-1.5" />
-                          {ch.platform}
-                        </Badge>
-                        <span className="font-medium text-sm truncate">{ch.label}</span>
-                        <Badge variant="outline" className={cn("text-[11px] border", CHANNEL_STATUS_STYLES[statusKey])}>
-                          {ch.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    {confirmDelete === ch.id ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-7 text-xs"
-                          onClick={() => { deleteChannel.mutate(ch.id); setConfirmDelete(null); }}
-                          disabled={deleteChannel.isPending}
-                        >
-                          {deleteChannel.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm"}
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setConfirmDelete(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditingChannel(ch)}>
-                            <Pencil className="h-4 w-4 mr-2" /> Edit channel
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setConfirmDelete(ch.id)}
+          <div className="flex flex-col gap-y-3">
+            {pagedChannels.map((ch) => {
+              const ps = PLATFORM_STYLES[ch.platform] || PLATFORM_STYLES.TELEGRAM;
+              const statusKey =
+                ch.status === "connected"
+                  ? "connected"
+                  : ch.status === "pending"
+                    ? "pending"
+                    : "disabled";
+              return (
+                <Card key={ch.id} className="shadow-none hover:shadow transition-shadow">
+                  <CardContent className="p-0">
+                    <div className="flex items-center justify-between gap-3 p-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[11px] border", ps.bg, ps.color, ps.border)}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete channel
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                  <div className="border-t border-dashed border-border px-4 pb-3 pt-3">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {ch.telegramBotUsername && <span>@{ch.telegramBotUsername}</span>}
-                      {ch.whatsappSessionId && <span>Session: {ch.whatsappSessionId}</span>}
-                      {ch.webhookUrl && <span className="truncate max-w-[200px]">Webhook configured</span>}
-                      <span>Added {new Date(ch.createdAt).toLocaleDateString()}</span>
+                            <PlatformLogo platform={ch.platform} className="h-3.5 w-3.5 mr-1.5" />
+                            {ch.platform}
+                          </Badge>
+                          <span className="font-medium text-sm truncate">{ch.label}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[11px] border", CHANNEL_STATUS_STYLES[statusKey])}
+                          >
+                            {ch.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      {confirmDelete === ch.id ? (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              deleteChannel.mutate(ch.id);
+                              setConfirmDelete(null);
+                            }}
+                            disabled={deleteChannel.isPending}
+                          >
+                            {deleteChannel.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Confirm"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => setConfirmDelete(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditingChannel(ch)}>
+                              <Pencil className="h-4 w-4 mr-2" /> Edit channel
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setConfirmDelete(ch.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete channel
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-        <EntityPagination
-          currentPage={channelsSafePage}
-          totalPages={channelsTotalPages}
-          onPageChange={setChannelsPage}
-        />
+                    <div className="border-t border-dashed border-border px-4 pb-3 pt-3">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {ch.telegramBotUsername && <span>@{ch.telegramBotUsername}</span>}
+                        {ch.whatsappSessionId && <span>Session: {ch.whatsappSessionId}</span>}
+                        {ch.webhookUrl && (
+                          <span className="truncate max-w-[200px]">Webhook configured</span>
+                        )}
+                        <span>Added {new Date(ch.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <EntityPagination
+            currentPage={channelsSafePage}
+            totalPages={channelsTotalPages}
+            onPageChange={setChannelsPage}
+          />
         </>
       )}
 
@@ -1455,7 +2088,15 @@ function AddChannelDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setTimeout(reset, 200); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          onClose();
+          setTimeout(reset, 200);
+        }
+      }}
+    >
       <DialogContent
         className={cn(
           "w-[calc(100%-2rem)] sm:w-full",
@@ -1494,7 +2135,9 @@ function AddChannelDialog({
             </div>
             <div>
               <label className="text-sm font-medium">Label *</label>
-              <p className="text-xs text-muted-foreground mt-0.5">Must be unique across your task channels.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Must be unique across your task channels.
+              </p>
               <input
                 className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
                 value={label}
@@ -1505,9 +2148,24 @@ function AddChannelDialog({
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { onClose(); setTimeout(reset, 200); }}>Cancel</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  setTimeout(reset, 200);
+                }}
+              >
+                Cancel
+              </Button>
               <Button onClick={handleCreate} disabled={onCreate.isPending || !label.trim()}>
-                {onCreate.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating...</> : "Continue"}
+                {onCreate.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  "Continue"
+                )}
               </Button>
             </div>
           </div>
@@ -1517,7 +2175,10 @@ function AddChannelDialog({
           <ConnectChannelForm
             channel={createdChannel}
             platform={platform}
-            onDone={() => { onClose(); setTimeout(reset, 200); }}
+            onDone={() => {
+              onClose();
+              setTimeout(reset, 200);
+            }}
           />
         )}
       </DialogContent>
@@ -1562,7 +2223,9 @@ function EditChannelDialog({
         <div className="space-y-4 mt-2">
           <div>
             <label className="text-sm font-medium">Label *</label>
-            <p className="text-xs text-muted-foreground mt-0.5">Must be unique across your task channels.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Must be unique across your task channels.
+            </p>
             <input
               className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
               value={label}
@@ -1598,11 +2261,7 @@ function EditChannelDialog({
             <p className="text-xs text-muted-foreground mb-3">
               Reconnect or update credentials for this {channel.platform.toLowerCase()} channel.
             </p>
-            <ConnectChannelForm
-              channel={channel}
-              platform={platform}
-              onDone={onClose}
-            />
+            <ConnectChannelForm channel={channel} platform={platform} onDone={onClose} />
           </div>
         </div>
       </DialogContent>
@@ -1656,7 +2315,13 @@ function TelegramConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
           )}
         </div>
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={handleRefresh} disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={disconnect.isPending}
+          >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>
@@ -1688,7 +2353,12 @@ function TelegramConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
     <div className="space-y-3 mt-2">
       <p className="text-xs text-muted-foreground">
         Create a bot via{" "}
-        <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="underline text-primary">
+        <a
+          href="https://t.me/BotFather"
+          target="_blank"
+          rel="noreferrer"
+          className="underline text-primary"
+        >
           @BotFather
         </a>{" "}
         on Telegram, then paste the token below.
@@ -1734,7 +2404,10 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [whatsappStatus, setWhatsappStatus] = useState<{ status: string; qr: string | null } | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<{
+    status: string;
+    qr: string | null;
+  } | null>(null);
   /** Bump after disconnect so the init effect re-runs pairing while channelId stays the same. */
   const [reconnectNonce, setReconnectNonce] = useState(0);
   const disconnect = useDisconnectTaskChannel();
@@ -1807,7 +2480,8 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to start WhatsApp connection";
+      const message =
+        error instanceof Error ? error.message : "Failed to start WhatsApp connection";
       setConnectError(message);
       toast.error(message);
     } finally {
@@ -1836,7 +2510,7 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
 
         setWhatsappStatus({
           status: statusRes.status,
-          qr: statusRes.status === "connected" ? null : statusRes.qr ?? null,
+          qr: statusRes.status === "connected" ? null : (statusRes.qr ?? null),
         });
 
         invalidateChannelQueries();
@@ -1869,7 +2543,7 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
       }>(`/api/task-channels/${channelId}/whatsapp/status`);
       setWhatsappStatus({
         status: statusRes.status,
-        qr: statusRes.status === "connected" ? null : statusRes.qr ?? null,
+        qr: statusRes.status === "connected" ? null : (statusRes.qr ?? null),
       });
       invalidateChannelQueries();
       toast.success("Status refreshed");
@@ -1893,15 +2567,31 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
         <>
           <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50 px-6 py-8">
             <CheckCircle2 className="h-12 w-12 text-emerald-600" />
-            <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200 text-center">WhatsApp connected</p>
-            <p className="text-xs text-muted-foreground text-center max-w-xs">This channel is ready for task notifications.</p>
+            <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200 text-center">
+              WhatsApp connected
+            </p>
+            <p className="text-xs text-muted-foreground text-center max-w-xs">
+              This channel is ready for task notifications.
+            </p>
           </div>
           <div className="flex flex-wrap justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => void handleRefreshStatus()} disabled={disconnect.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleRefreshStatus()}
+              disabled={disconnect.isPending}
+            >
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
               Refresh
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={handleDisconnect} disabled={disconnect.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDisconnect}
+              disabled={disconnect.isPending}
+            >
               {disconnect.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -1922,7 +2612,9 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
             <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted/30 px-6 py-10">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-sm font-medium text-center">Finishing connection…</p>
-              <p className="text-xs text-muted-foreground text-center max-w-xs">Syncing with your workspace.</p>
+              <p className="text-xs text-muted-foreground text-center max-w-xs">
+                Syncing with your workspace.
+              </p>
             </div>
           )}
           {!isSyncingSession && whatsappStatus?.qr ? (
@@ -1943,7 +2635,8 @@ function WhatsAppConnectForm({ channel, onDone }: { channel: TaskChannel; onDone
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground max-w-[280px] mx-auto">
-                  Open WhatsApp on your phone → Settings → Linked devices → Link a device, then scan this code.
+                  Open WhatsApp on your phone → Settings → Linked devices → Link a device, then scan
+                  this code.
                 </p>
               </div>
               <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-950 ring-1 ring-border/60">
@@ -2033,21 +2726,49 @@ function SlackConnectForm({ channel, onDone }: { channel: TaskChannel; onDone: (
               Copy this URL into your Slack app&apos;s Event Subscriptions settings.
             </p>
             <div className="flex gap-2">
-              <input className="flex-1 px-3 py-2 rounded-md border bg-muted text-sm" value={webhookUrl} readOnly />
-              <Button variant="outline" size="icon" className="shrink-0" type="button" onClick={handleCopy}>
-                {copied ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              <input
+                className="flex-1 px-3 py-2 rounded-md border bg-muted text-sm"
+                value={webhookUrl}
+                readOnly
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                type="button"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">Webhook URL missing — try Refresh or reconnect.</p>
+          <p className="text-xs text-muted-foreground">
+            Webhook URL missing — try Refresh or reconnect.
+          </p>
         )}
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={handleRefresh} disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={disconnect.isPending}
+          >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => disconnect.mutate(channelId)} disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => disconnect.mutate(channelId)}
+            disabled={disconnect.isPending}
+          >
             {disconnect.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
@@ -2145,11 +2866,23 @@ function DiscordConnectForm({ channel, onDone }: { channel: TaskChannel; onDone:
           )}
         </div>
         <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={handleRefresh} disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={disconnect.isPending}
+          >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => disconnect.mutate(channelId)} disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => disconnect.mutate(channelId)}
+            disabled={disconnect.isPending}
+          >
             {disconnect.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
@@ -2170,7 +2903,8 @@ function DiscordConnectForm({ channel, onDone }: { channel: TaskChannel; onDone:
   return (
     <div className="space-y-3 mt-2">
       <p className="text-xs text-muted-foreground">
-        Enter your Discord Bot Token. Guild ID and Channel ID are optional — if omitted, the bot will listen on all channels.
+        Enter your Discord Bot Token. Guild ID and Channel ID are optional — if omitted, the bot
+        will listen on all channels.
       </p>
       <div>
         <label className="text-sm font-medium">Bot Token *</label>

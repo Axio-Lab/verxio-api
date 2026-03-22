@@ -2937,7 +2937,8 @@ const requestApprovalTool: VerxioTool = {
 
 const reflectOnOutputTool: VerxioTool = {
   name: "reflect_on_output",
-  description: "Evaluate a task output against success criteria and decide whether to accept, retry, or escalate",
+  description:
+    "Evaluate a task output against success criteria and decide whether to accept, retry, or escalate",
   inputSchema: z.object({
     taskId: z.string().describe("Task ID to reflect on"),
     output: z.any().describe("The task output to evaluate"),
@@ -2992,15 +2993,11 @@ const deliverReportToGoogleDocsTool: VerxioTool = {
     content: z.string().describe("Markdown content for the document body"),
   }),
   execute: async (args: any, context: ToolContext) => {
-    const { executeDeliveryActions } = await import(
-      "../composioReportDeliveryService"
-    );
+    const { executeDeliveryActions } = await import("../composioReportDeliveryService");
     const results = await executeDeliveryActions(
       context.userId,
       {
-        composioActions: [
-          { action: "GOOGLEDOCS_CREATE_DOCUMENT", label: "Google Docs" },
-        ],
+        composioActions: [{ action: "GOOGLEDOCS_CREATE_DOCUMENT", label: "Google Docs" }],
       },
       args.title,
       args.content
@@ -3021,9 +3018,7 @@ const generateGoalReportTool: VerxioTool = {
       .describe("Whether to also deliver to messaging channels (default: true)"),
   }),
   execute: async (args: any, _context: ToolContext) => {
-    const { generateProgressReport, deliverReport } = await import(
-      "../goalReportService"
-    );
+    const { generateProgressReport, deliverReport } = await import("../goalReportService");
     const report = await generateProgressReport(args.goalId);
     let delivery;
     if (args.deliverToChannels !== false) {
@@ -3043,7 +3038,9 @@ const createHumanTaskTool: VerxioTool = {
     evidenceType: z
       .enum(["PHOTO", "TEXT", "PHOTO_AND_TEXT", "DOCUMENT"])
       .optional()
-      .describe("Type of evidence workers must submit. DOCUMENT is for PDFs, reports, or memos. Default: PHOTO"),
+      .describe(
+        "Type of evidence workers must submit. DOCUMENT is for PDFs, reports, or memos. Default: PHOTO"
+      ),
     recurrenceType: z
       .enum(["ONCE", "INTERVAL", "DAILY", "WEEKLY"])
       .optional()
@@ -3056,16 +3053,30 @@ const createHumanTaskTool: VerxioTool = {
       .array(z.string())
       .optional()
       .describe("Times of day the task is due, e.g. ['09:00', '14:00']"),
-    timezone: z.string().optional().describe("Timezone for scheduling, e.g. 'America/New_York'. Default: UTC"),
+    timezone: z
+      .string()
+      .optional()
+      .describe("Timezone for scheduling, e.g. 'America/New_York'. Default: UTC"),
     acceptanceRules: z
       .array(z.string())
       .optional()
-      .describe("Rules the AI uses to vet submitted evidence, e.g. ['Floor must be dry and clean', 'All surfaces wiped']"),
+      .describe(
+        "Rules the AI uses to vet submitted evidence, e.g. ['Floor must be dry and clean', 'All surfaces wiped']"
+      ),
     scoringEnabled: z.boolean().optional().describe("Whether AI scoring is enabled. Default: true"),
     passingScore: z.number().optional().describe("Minimum score (0-100) to pass. Default: 70"),
-    graceMinutes: z.number().optional().describe("Grace period in minutes after scheduled time. Default: 15"),
-    resubmissionAllowed: z.boolean().optional().describe("Whether workers can resubmit on failure. Default: true"),
-    reportTime: z.string().optional().describe("Time of day to generate daily report, e.g. '18:00'. Default: 18:00"),
+    graceMinutes: z
+      .number()
+      .optional()
+      .describe("Grace period in minutes after scheduled time. Default: 15"),
+    resubmissionAllowed: z
+      .boolean()
+      .optional()
+      .describe("Whether workers can resubmit on failure. Default: true"),
+    reportTime: z
+      .string()
+      .optional()
+      .describe("Time of day to generate daily report, e.g. '18:00'. Default: 18:00"),
   }),
   execute: async (args: any, context: ToolContext) => {
     const { createHumanTask } = await import("../humanTaskService");
@@ -3096,7 +3107,8 @@ const createHumanTaskTool: VerxioTool = {
 
 const addWorkerToTaskTool: VerxioTool = {
   name: "add_worker_to_task",
-  description: "Add a human worker to an existing task so they receive reminders and can submit evidence",
+  description:
+    "Add a human worker to an existing task so they receive reminders and can submit evidence",
   inputSchema: z.object({
     taskId: z.string().describe("ID of the human task to add the worker to"),
     name: z.string().describe("Worker's name"),
@@ -3105,7 +3117,9 @@ const addWorkerToTaskTool: VerxioTool = {
       .describe("Communication platform for reminders"),
     externalId: z
       .string()
-      .describe("Platform-specific ID (phone number for WhatsApp, user/chat ID for Telegram, user ID for Slack/Discord)"),
+      .describe(
+        "Platform-specific ID (phone number for WhatsApp, user/chat ID for Telegram, user ID for Slack/Discord)"
+      ),
     role: z.string().optional().describe("Worker's role, e.g. 'Cleaner', 'Security Guard'"),
   }),
   execute: async (args: any, context: ToolContext) => {

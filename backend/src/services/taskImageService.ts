@@ -27,7 +27,11 @@ export async function downloadAndSaveImage(
   const buffer = Buffer.from(await response.arrayBuffer());
 
   const contentType = response.headers.get("content-type") || "image/jpeg";
-  const ext = contentType.includes("png") ? ".png" : contentType.includes("webp") ? ".webp" : ".jpg";
+  const ext = contentType.includes("png")
+    ? ".png"
+    : contentType.includes("webp")
+      ? ".webp"
+      : ".jpg";
   const filename = `${randomUUID()}${ext}`;
   const filePath = path.join(SUBMISSIONS_DIR, filename);
 
@@ -36,10 +40,7 @@ export async function downloadAndSaveImage(
   return `/task-submissions/${filename}`;
 }
 
-export async function downloadTelegramFile(
-  botToken: string,
-  fileId: string
-): Promise<string> {
+export async function downloadTelegramFile(botToken: string, fileId: string): Promise<string> {
   const fileInfoRes = await fetch(
     `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`
   );
@@ -53,10 +54,7 @@ export async function downloadTelegramFile(
   return downloadAndSaveImage(fileUrl);
 }
 
-export async function downloadSlackFile(
-  botToken: string,
-  fileUrl: string
-): Promise<string> {
+export async function downloadSlackFile(botToken: string, fileUrl: string): Promise<string> {
   return downloadAndSaveImage(fileUrl, {
     Authorization: `Bearer ${botToken}`,
   });

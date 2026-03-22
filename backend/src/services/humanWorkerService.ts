@@ -1,6 +1,7 @@
 import { basePrismaClient } from "@/lib/prisma";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
 import { sendDiscordMessage } from "@/services/discordConnectorClient";
+import { AppError } from "@/middleware/errorHandler";
 import {
   formatWhatsAppMessage,
   formatTelegramMessage,
@@ -19,23 +20,108 @@ export interface WorkerCreateInput {
   role?: string;
 }
 
+function normalizeWorkerCreateInput(data: WorkerCreateInput): WorkerCreateInput {
+  const platform = String(data.platform || "")
+    .trim()
+    .toUpperCase();
+  const name = String(data.name || "").trim();
+  const externalRaw = String(data.externalId || "").trim();
+  const phoneRaw = data.phone != null ? String(data.phone).trim() : "";
+  const role = data.role != null ? String(data.role).trim() : "";
+
+  if (!name) throw new AppError("Member name is required.", 400);
+  if (!platform) throw new AppError("Platform is required.", 400);
+  if (!externalRaw) throw new AppError("ID/phone is required.", 400);
+  if (/\s/.test(externalRaw)) throw new AppError("ID/phone cannot contain spaces.", 400);
+  if (phoneRaw && /\s/.test(phoneRaw))
+    throw new AppError("Phone number cannot contain spaces.", 400);
+
+  let externalId = externalRaw;
+  let phone = phoneRaw || undefined;
+
+  if (platform === "WHATSAPP") {
+    // Accept +digits, digits, or full JID; reject whitespace and malformed values.
+    const jid = externalRaw.replace(/:.*@/, "@");
+    if (/@/.test(jid)) {
+      if (!/^\d{7,20}@(s\.whatsapp\.net|lid)$/.test(jid)) {
+        throw new AppError("WhatsApp ID must be a valid phone number or JID.", 400);
+      }
+      externalId = jid;
+      if (!phone && jid.endsWith("@s.whatsapp.net")) {
+        phone = `+${jid.replace(/@s\.whatsapp\.net$/, "")}`;
+      }
+    } else {
+      const digits = externalRaw.replace(/\D/g, "");
+      if (digits.length < 7 || digits.length > 20) {
+        throw new AppError("WhatsApp number must be 7-20 digits.", 400);
+      }
+      externalId = `+${digits}`;
+      phone = phone || `+${digits}`;
+    }
+  } else if (platform === "TELEGRAM") {
+    if (!/^-?\d{4,20}$/.test(externalRaw)) {
+      throw new AppError("Telegram chat/user ID must be numeric.", 400);
+    }
+    externalId = externalRaw;
+  } else if (platform === "SLACK") {
+    if (!/^[A-Za-z0-9_-]{6,40}$/.test(externalRaw)) {
+      throw new AppError("Slack ID format is invalid.", 400);
+    }
+  } else if (platform === "DISCORD") {
+    if (!/^\d{6,30}$/.test(externalRaw)) {
+      throw new AppError("Discord user ID must be numeric.", 400);
+    }
+  }
+
+  if (phone) {
+    const pDigits = phone.replace(/\D/g, "");
+    if (pDigits.length < 7 || pDigits.length > 20) {
+      throw new AppError("Phone number must be 7-20 digits.", 400);
+    }
+    phone = `+${pDigits}`;
+  }
+
+  return {
+    ...data,
+    platform,
+    name,
+    externalId,
+    phone,
+    role: role || undefined,
+  };
+}
+
 export async function addWorker(userId: string, taskId: string, data: WorkerCreateInput) {
+  const normalized = normalizeWorkerCreateInput(data);
+
   const task = await prisma.humanTask.findFirst({
     where: { id: taskId, userId },
   });
   if (!task) throw new Error("Task not found or not owned by user");
   if (!task.taskChannelId) {
-    throw new Error("This task has no notification channel. Add one in the Channels tab before inviting members.");
+    throw new Error(
+      "This task has no notification channel. Add one in the Channels tab before inviting members."
+    );
+  }
+
+  // Auto-derive phone from externalId when not explicitly provided (WhatsApp workers are
+  // often added with just the phone number as externalId, e.g. "+2348131958146").
+  let phone = normalized.phone ?? null;
+  if (!phone && normalized.externalId) {
+    const digits = normalized.externalId.replace(/\D/g, "");
+    if (digits.length >= 8) {
+      phone = normalized.externalId.startsWith("+") ? normalized.externalId : `+${digits}`;
+    }
   }
 
   const worker = await prisma.humanWorker.create({
     data: {
       humanTaskId: taskId,
-      name: data.name,
-      phone: data.phone ?? null,
-      platform: data.platform,
-      externalId: data.externalId,
-      role: data.role ?? null,
+      name: normalized.name,
+      phone,
+      platform: normalized.platform,
+      externalId: normalized.externalId,
+      role: normalized.role ?? null,
       status: "ONBOARDING",
       taskChannelId: task.taskChannelId,
     },
@@ -373,7 +459,10 @@ export async function updateWorkerStatus(
 
   const channel = worker.taskChannel ?? task.taskChannel;
   if (channel) {
-    const text = status === "INACTIVE" ? buildDisableMessageText(worker, task) : buildEnableMessageText(worker, task);
+    const text =
+      status === "INACTIVE"
+        ? buildDisableMessageText(worker, task)
+        : buildEnableMessageText(worker, task);
     await sendWorkerChannelMessage(worker, channel, text).catch((err) => {
       console.error(`[worker-status] failed to notify worker ${workerId}:`, err);
     });
@@ -392,7 +481,57 @@ export type WorkerLookupOptions = {
    * (e.g. admin pasted chat id vs `from.id`). Pass all known ids from the update.
    */
   additionalExternalIds?: string[];
+  /** Optional sender display name (e.g. WhatsApp pushName) for disambiguation. */
+  senderName?: string;
 };
+
+function normalizeNameForMatch(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function nameTokens(name: string): string[] {
+  return String(name || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3);
+}
+
+function namesLikelySame(a: string, b: string): boolean {
+  const na = normalizeNameForMatch(a);
+  const nb = normalizeNameForMatch(b);
+  if (!na || !nb) return false;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+
+  // Handle concatenated swapped order, e.g. "uzoezieemmanuel" vs "Emmanuel Uzoezie".
+  const ta = nameTokens(a);
+  const tb = nameTokens(b);
+  if (ta.length >= 2) {
+    const forwardA = ta.join("");
+    const reverseA = [...ta].reverse().join("");
+    if (nb === forwardA || nb === reverseA || nb.includes(forwardA) || nb.includes(reverseA)) {
+      return true;
+    }
+  }
+  if (tb.length >= 2) {
+    const forwardB = tb.join("");
+    const reverseB = [...tb].reverse().join("");
+    if (na === forwardB || na === reverseB || na.includes(forwardB) || na.includes(reverseB)) {
+      return true;
+    }
+  }
+
+  // Handle swapped order / partial token overlap (e.g. "uzoezieemmanuel" vs "Emmanuel Uzoezie")
+  if (!ta.length || !tb.length) return false;
+  const sb = new Set(tb);
+  let overlap = 0;
+  for (const t of ta) {
+    if (sb.has(t)) overlap += 1;
+  }
+  return overlap >= Math.min(2, Math.min(ta.length, tb.length));
+}
 
 /** All strings we should try to match against `HumanWorker.externalId` for Telegram. */
 function buildTelegramExternalIdCandidates(primary: string, extras?: string[]): string[] {
@@ -409,7 +548,11 @@ function buildTelegramExternalIdCandidates(primary: string, extras?: string[]): 
   return [...out];
 }
 
-async function sendTelegramApiMessage(botToken: string, chatId: string, text: string): Promise<void> {
+async function sendTelegramApiMessage(
+  botToken: string,
+  chatId: string,
+  text: string
+): Promise<void> {
   const formatted = formatTelegramMessage(text);
   const payload: Record<string, unknown> = {
     chat_id: /^\d+$/.test(String(chatId).trim()) ? Number(String(chatId).trim()) : chatId,
@@ -483,14 +626,22 @@ function buildWhatsAppExternalIdCandidates(raw: string): string[] {
   return [...out];
 }
 
-function whatsappDigitsLikelyMatch(incomingDigits: string, externalId: string, phone: string | null): boolean {
+function whatsappDigitsLikelyMatch(
+  incomingDigits: string,
+  externalId: string,
+  phone: string | null
+): boolean {
   if (incomingDigits.length < 8) return false;
   const ext = extractWhatsAppDigits(externalId);
   const ph = extractWhatsAppDigits(phone);
   for (const c of [ext, ph]) {
     if (!c) continue;
     if (c === incomingDigits) return true;
-    if (c.length >= 10 && incomingDigits.length >= 10 && c.slice(-10) === incomingDigits.slice(-10)) {
+    if (
+      c.length >= 10 &&
+      incomingDigits.length >= 10 &&
+      c.slice(-10) === incomingDigits.slice(-10)
+    ) {
       return true;
     }
   }
@@ -516,76 +667,130 @@ export async function getWorkerByExternalId(
   };
 
   const baseStatus = { in: ["ACTIVE", "ONBOARDING"] as const };
-  const tag = `[WorkerLookup ${platform}]`;
 
-  const allExternalIds = buildAllExternalIdCandidates(platform, externalId, options?.additionalExternalIds);
+  const allExternalIds = buildAllExternalIdCandidates(
+    platform,
+    externalId,
+    options?.additionalExternalIds
+  );
+
+  // Phone-number formatted candidates (for matching against worker.phone column)
+  const phoneCandidates: string[] = [];
+  for (const c of [externalId, ...(options?.additionalExternalIds ?? [])]) {
+    const d = extractWhatsAppDigits(c);
+    if (d.length >= 8) {
+      phoneCandidates.push(d, `+${d}`);
+    }
+  }
 
   // --- Helper: try findFirst with given where + each candidate set ---
   async function tryFind(where: Record<string, unknown>): Promise<any> {
     let w = await prisma.humanWorker.findFirst({ where: { ...where, externalId }, include });
     if (w) return w;
     if (allExternalIds.length > 0) {
-      w = await prisma.humanWorker.findFirst({ where: { ...where, externalId: { in: allExternalIds } }, include });
+      w = await prisma.humanWorker.findFirst({
+        where: { ...where, externalId: { in: allExternalIds } },
+        include,
+      });
+      if (w) return w;
+    }
+    // Also match by phone column (covers WhatsApp @lid JIDs where digits ≠ phone number)
+    if (phoneCandidates.length > 0) {
+      w = await prisma.humanWorker.findFirst({
+        where: { ...where, phone: { in: phoneCandidates } },
+        include,
+      });
       if (w) return w;
     }
     return null;
   }
 
-  // --- 1. Scoped by task channel ---
+  function matched(worker: any): any {
+    backfillWorkerPhone(worker);
+    return worker;
+  }
+
+  // --- 1. Scoped by task channel (same platform) ---
   const scopedWhere: Record<string, unknown> = { platform, status: baseStatus };
   if (options?.taskChannelId) {
     scopedWhere.taskChannelId = options.taskChannelId;
   }
 
   let w = await tryFind(scopedWhere);
-  if (w) {
-    console.log(`${tag} Tier-1 scoped → ${w.id} (${w.name})`);
-    return w;
-  }
+  if (w) return matched(w);
 
-  // WhatsApp digit-level fuzzy (scoped)
+  // WhatsApp digit-level fuzzy (scoped — checks worker.phone too)
   if (platform === "WHATSAPP" && options?.taskChannelId) {
     const incomingDigits = extractWhatsAppDigits(externalId);
     if (incomingDigits.length >= 8) {
       const workers = await prisma.humanWorker.findMany({ where: scopedWhere, include });
       for (const c of workers) {
         if (whatsappDigitsLikelyMatch(incomingDigits, c.externalId, c.phone)) {
-          console.log(`${tag} Tier-1 WA fuzzy → ${c.id} (${c.name})`);
-          return c;
+          return matched(c);
         }
       }
     }
   }
 
-  // --- 1b. Task channel: exactly one ONBOARDING worker (common when WhatsApp sends @lid but DB has phone number)
-  if (platform === "WHATSAPP" && options?.taskChannelId) {
+  // --- 1a. Task channel platform-agnostic: worker may have been stored with a different platform
+  // (e.g. TELEGRAM) but is on a WhatsApp task channel. The task channel scoping is sufficient.
+  if (options?.taskChannelId) {
+    const anyPlatformWhere: Record<string, unknown> = {
+      status: baseStatus,
+      taskChannelId: options.taskChannelId,
+    };
+    w = await tryFind(anyPlatformWhere);
+    if (w) return matched(w);
+
+    // Digit-level fuzzy across all platforms on this channel
+    const incomingDigits = extractWhatsAppDigits(externalId);
+    if (incomingDigits.length >= 8) {
+      const allOnChannel = await prisma.humanWorker.findMany({ where: anyPlatformWhere, include });
+      for (const c of allOnChannel) {
+        if (whatsappDigitsLikelyMatch(incomingDigits, c.externalId, c.phone)) {
+          return matched(c);
+        }
+      }
+    }
+  }
+
+  // --- 1b. Task channel: exactly one ONBOARDING worker (any platform; common @lid vs phone mismatch)
+  if (options?.taskChannelId) {
     const onboardingOnly = await prisma.humanWorker.findMany({
       where: {
-        platform: "WHATSAPP",
         taskChannelId: options.taskChannelId,
         status: "ONBOARDING",
       },
       include,
     });
     if (onboardingOnly.length === 1) {
-      console.log(`${tag} Tier-1b single ONBOARDING on task channel → ${onboardingOnly[0].id} (${onboardingOnly[0].name})`);
-      return onboardingOnly[0];
+      return matched(onboardingOnly[0]);
     }
   }
 
-  // --- 1c. Task channel: exactly one ACTIVE or ONBOARDING worker (JID vs phone mismatch after active)
-  if (platform === "WHATSAPP" && options?.taskChannelId) {
+  // --- 1c. Task channel: exactly one ACTIVE or ONBOARDING worker (any platform; JID mismatch after active)
+  if (options?.taskChannelId) {
     const soleWorker = await prisma.humanWorker.findMany({
       where: {
-        platform: "WHATSAPP",
         taskChannelId: options.taskChannelId,
         status: { in: ["ACTIVE", "ONBOARDING"] as const },
       },
       include,
     });
     if (soleWorker.length === 1) {
-      console.log(`${tag} Tier-1c single worker on task channel → ${soleWorker[0].id} (${soleWorker[0].name})`);
-      return soleWorker[0];
+      return matched(soleWorker[0]);
+    }
+    if (soleWorker.length > 1) {
+      // --- 1d. Task channel: disambiguate by sender display name (WhatsApp pushName, etc.)
+      const senderNorm = normalizeNameForMatch(options?.senderName || "");
+      if (senderNorm) {
+        const byName = soleWorker.filter((sw: any) => {
+          return namesLikelySame(sw.name || "", options?.senderName || "");
+        });
+        if (byName.length === 1) {
+          return matched(byName[0]);
+        }
+      }
     }
   }
 
@@ -598,25 +803,33 @@ export async function getWorkerByExternalId(
       humanTask: { taskChannelId: options.taskChannelId },
     };
     w = await tryFind(legacyWhere);
-    if (w) {
-      console.log(`${tag} Tier-2 legacy → ${w.id} (${w.name})`);
-      return w;
-    }
+    if (w) return matched(w);
   }
 
   // --- 3. Unscoped fallback ---
   const unscopedWhere = { platform, status: baseStatus };
   w = await tryFind(unscopedWhere);
-  if (w) {
-    console.log(`${tag} Tier-3 unscoped → ${w.id} (${w.name})`);
-    return w;
-  }
+  if (w) return matched(w);
 
-  console.log(`${tag} No worker found for externalId=${externalId}`);
   return null;
 }
 
-function buildAllExternalIdCandidates(platform: string, primary: string, extras?: string[]): string[] {
+/** When a worker is matched but has no phone stored, derive it from externalId and persist. */
+function backfillWorkerPhone(worker: any): void {
+  if (worker.phone) return;
+  const digits = (worker.externalId || "").replace(/\D/g, "");
+  if (digits.length >= 8) {
+    const phone = worker.externalId.startsWith("+") ? worker.externalId : `+${digits}`;
+    prisma.humanWorker.update({ where: { id: worker.id }, data: { phone } }).catch(() => {});
+    worker.phone = phone;
+  }
+}
+
+function buildAllExternalIdCandidates(
+  platform: string,
+  primary: string,
+  extras?: string[]
+): string[] {
   if (platform === "TELEGRAM") {
     return buildTelegramExternalIdCandidates(primary, extras);
   }
