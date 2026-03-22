@@ -1,13 +1,9 @@
 import crypto from "crypto";
 import { Router, Request, Response } from "express";
+import { getTaskChannelInternal } from "@/services/taskChannelService";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
 import { sendSlackMessage } from "@/services/chatIntegrationService";
 import { deliverTaskWorkerFeedbackSlack } from "@/services/taskWorkerFeedbackDelivery";
-import {
-  getSupportChannelByIdInternal,
-  updateSupportChannelConfigInternal,
-} from "@/services/supportChannelService";
-import { respondToChannelMessage } from "@/services/supportChannelChatService";
-import { handleIncomingSubmission } from "@/services/taskSubmissionService";
 import { downloadSlackFile } from "@/services/taskImageService";
 
 const router = Router();
@@ -28,15 +24,15 @@ function verifySlackSignature(
 }
 
 /**
- * POST /api/internal/slack/support/:channelId/events
- * Slack Events API receiver for support channels.
+ * POST /api/internal/task-channels/slack/:channelId/events
+ * Slack Events API receiver for task channels.
  */
-router.post("/support/:channelId/events", async (req: Request, res: Response) => {
+router.post("/slack/:channelId/events", async (req: Request, res: Response) => {
   const { channelId } = req.params;
-  const channel = await getSupportChannelByIdInternal(channelId);
+  const channel = await getTaskChannelInternal(channelId);
 
   if (!channel || channel.platform !== "SLACK" || channel.status !== "connected") {
-    return res.status(404).json({ error: "Support Slack channel not found" });
+    return res.status(404).json({ error: "Task Slack channel not found" });
   }
   if (!channel.slackSigningSecret || !channel.slackBotToken) {
     return res.status(400).json({ error: "Slack credentials not configured" });
@@ -83,61 +79,44 @@ router.post("/support/:channelId/events", async (req: Request, res: Response) =>
   const threadTs = (event.thread_ts || event.ts) as string;
   const senderId = (event.user || "unknown") as string;
   let text = (event.text || "") as string;
-  if (!text.trim()) {
-    return;
-  }
-
-  // Remove any @mentions so the support agent receives clean user text.
   text = text.replace(/<@[A-Z0-9]+>/g, "").trim();
+
+  if (!text) return;
 
   void (async () => {
     try {
-      if (!channel.slackChannelId || channel.slackChannelId !== sourceChannel) {
-        await updateSupportChannelConfigInternal(channel.id, {
-          slackChannelId: sourceChannel,
-          slackTeamId: payload?.team_id || channel.slackTeamId || null,
-        });
-      }
-      // Human task workers on this Slack connection
-      try {
-        let imageUrl: string | undefined;
-        if (event.files?.length > 0 && channel.slackBotToken) {
-          const imgFile = event.files.find(
-            (f: any) => f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
-          );
-          if (imgFile) {
-            const fileUrl = imgFile.url_private_download || imgFile.url_private;
-            imageUrl = await downloadSlackFile(channel.slackBotToken, fileUrl);
-          }
+      let imageUrl: string | undefined;
+      if (event.files?.length > 0 && channel.slackBotToken) {
+        const imgFile = event.files.find(
+          (f: any) => f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
+        );
+        if (imgFile) {
+          const fileUrl = imgFile.url_private_download || imgFile.url_private;
+          imageUrl = await downloadSlackFile(channel.slackBotToken, fileUrl);
         }
-        const result = await handleIncomingSubmission("SLACK", senderId, text, imageUrl, {
-          supportChannelId: channel.id,
-        });
-        if (result.handled && result.feedback) {
-          await deliverTaskWorkerFeedbackSlack(
-            channel.slackBotToken!,
-            sourceChannel,
-            threadTs,
-            result.feedback
-          );
-        }
-        if (result.handled) return;
-      } catch (workerErr) {
-        console.warn("[Support Slack] Worker routing check failed:", workerErr);
       }
 
-      // Skip support agent if disabled (workers above still get processed)
-      const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
-      if (agentStatus === "disabled") return;
-
-      const reply = await respondToChannelMessage({
-        supportAgentId: channel.supportAgentId,
-        externalId: senderId,
-        message: text,
+      const result = await handleIncomingSubmission("SLACK", senderId, text, imageUrl, {
+        taskChannelId: channel.id,
       });
-      await sendSlackMessage(channel.slackBotToken!, sourceChannel, reply, threadTs);
+
+      if (result.handled && result.feedback) {
+        await deliverTaskWorkerFeedbackSlack(
+          channel.slackBotToken!,
+          sourceChannel,
+          threadTs,
+          result.feedback
+        );
+      } else if (!result.handled) {
+        await sendSlackMessage(
+          channel.slackBotToken!,
+          sourceChannel,
+          "Hi! This channel is used for task management. If you were added to a task, your manager will send you an onboarding message. Reply HELP for more info.",
+          threadTs
+        );
+      }
     } catch (error) {
-      console.error("[Support Slack webhook] Error:", error);
+      console.error("[TaskChannel Slack] Error:", error);
       try {
         await sendSlackMessage(
           channel.slackBotToken!,
@@ -145,9 +124,9 @@ router.post("/support/:channelId/events", async (req: Request, res: Response) =>
           "Something went wrong. Please try again.",
           threadTs
         );
-      } catch (_) {}
+      } catch {}
     }
   })();
 });
 
-export const internalSlackSupportRouter = router;
+export const taskChannelSlackRouter = router;

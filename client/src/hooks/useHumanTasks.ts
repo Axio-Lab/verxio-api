@@ -21,12 +21,14 @@ export interface HumanTask {
   scheduledTimes: string[];
   timezone: string;
   acceptanceRules: string[];
+  sampleEvidenceUrl?: string | null;
   scoringEnabled: boolean;
   passingScore: number;
   graceMinutes: number;
   resubmissionAllowed: boolean;
   reportTime: string;
   reportChannelId?: string | null;
+  taskChannelId?: string | null;
   deliveryConfig?: DeliveryConfig | null;
   status: string;
   createdAt: string;
@@ -88,6 +90,8 @@ export interface TaskComplianceReport {
 
 export interface CreateHumanTaskData {
   name: string;
+  /** Required: worker reminders, onboarding, HELP, and report delivery use this channel */
+  reportChannelId: string;
   description?: string;
   supportAgentId?: string;
   evidenceType?: string;
@@ -96,12 +100,12 @@ export interface CreateHumanTaskData {
   scheduledTimes?: string[];
   timezone?: string;
   acceptanceRules?: string[];
+  sampleEvidenceUrl?: string;
   scoringEnabled?: boolean;
   passingScore?: number;
   graceMinutes?: number;
   resubmissionAllowed?: boolean;
   reportTime?: string;
-  reportChannelId?: string;
   deliveryConfig?: DeliveryConfig;
 }
 
@@ -130,6 +134,7 @@ export function useCreateHumanTask() {
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
       toast.success("Task created");
     },
+    onError: (e) => toast.error(e.message || "Could not create task"),
   });
 }
 
@@ -141,6 +146,7 @@ export function useUpdateHumanTask() {
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
       toast.success("Task updated");
     },
+    onError: (e) => toast.error(e.message || "Could not update task"),
   });
 }
 
@@ -150,9 +156,23 @@ export function useDeleteHumanTask() {
     mutationFn: ({ taskId }) => authenticatedDelete(`/api/human-tasks/${taskId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
-      toast.success("Task archived");
+      toast.success("Task deleted");
     },
   });
+}
+
+export async function uploadSampleEvidence(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
+  const res = await fetch(`${apiBase}/api/human-tasks/upload-sample-evidence`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Upload failed");
+  const data = await res.json();
+  return data.url;
 }
 
 export function usePauseHumanTask() {
@@ -182,29 +202,61 @@ export function useTaskWorkers(taskId: string) {
     queryKey: ["human-tasks", taskId, "workers"],
     queryFn: () => authenticatedGet<{ workers: HumanWorker[] }>(`/api/human-tasks/${taskId}/workers`),
     enabled: !!taskId,
+    // READY / HELP etc. are processed on the server; the UI does not get a mutation to invalidate.
+    // Poll while anyone is still onboarding so status flips to ACTIVE without a full page refresh.
+    refetchInterval: (query) => {
+      const workers = query.state.data?.workers;
+      if (!workers?.length) return false;
+      const hasOnboarding = workers.some((w) => w.status === "ONBOARDING");
+      return hasOnboarding ? 5000 : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
 export function useAddWorker() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<{ worker: HumanWorker }, Error, { taskId: string; data: { name: string; platform: string; externalId: string; phone?: string; supportChannelId?: string; role?: string } }>({
+  return useProtectedMutation<{ worker: HumanWorker }, Error, { taskId: string; data: { name: string; platform: string; externalId: string; phone?: string; role?: string } }>({
     mutationFn: ({ taskId, data }) => authenticatedPost<{ worker: HumanWorker }>(`/api/human-tasks/${taskId}/workers`, data),
-    onSuccess: (_, { taskId }) => {
+    onSuccess: (result, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
-      toast.success("Worker added");
+      toast.success(`${result.worker.name} has been added to this task`);
     },
+    onError: (e) => toast.error(e.message || "Could not add member"),
   });
 }
 
 export function useRemoveWorker() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<void, Error, { taskId: string; workerId: string }>({
+  return useProtectedMutation<void, Error, { taskId: string; workerId: string; name: string }>({
     mutationFn: ({ taskId, workerId }) => authenticatedDelete(`/api/human-tasks/${taskId}/workers/${workerId}`),
-    onSuccess: (_, { taskId }) => {
+    onSuccess: (_, { taskId, name }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
-      toast.success("Worker removed");
+      toast.success(`${name} has been removed from this task`);
+    },
+  });
+}
+
+export function useUpdateWorkerStatus() {
+  const queryClient = useQueryClient();
+  return useProtectedMutation<
+    { success: boolean; workerName?: string },
+    Error,
+    { taskId: string; workerId: string; status: "ACTIVE" | "INACTIVE"; workerName: string }
+  >({
+    mutationFn: ({ taskId, workerId, status }) =>
+      authenticatedPut<{ success: boolean; workerName?: string }>(`/api/human-tasks/${taskId}/workers/${workerId}`, { status }),
+    onSuccess: (result, { taskId, status, workerName }) => {
+      queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "workers"] });
+      queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
+      const name = result.workerName || workerName;
+      toast.success(
+        status === "INACTIVE"
+          ? `${name} has been disabled on this task`
+          : `${name} has been enabled on this task`
+      );
     },
   });
 }
@@ -247,13 +299,13 @@ export interface ChatChannel {
   id: string;
   platform: string;
   label: string;
-  source: "support" | "integration";
+  source: "task_channel";
 }
 
 export function useChatChannels() {
   return useProtectedQuery<{ channels: ChatChannel[] }>({
     queryKey: ["chat-channels"],
-    queryFn: () => authenticatedGet<{ channels: ChatChannel[] }>("/api/human-tasks/channels"),
+    queryFn: () => authenticatedGet<{ channels: ChatChannel[] }>("/api/task-channels/active"),
   });
 }
 

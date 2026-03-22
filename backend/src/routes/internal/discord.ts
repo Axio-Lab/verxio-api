@@ -10,7 +10,7 @@ import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
 import { handleIncomingSubmission } from "@/services/taskSubmissionService";
 import { downloadDiscordAttachment } from "@/services/taskImageService";
-import { getWorkerByExternalId } from "@/services/humanWorkerService";
+import { deliverTaskWorkerFeedbackDiscord } from "@/services/taskWorkerFeedbackDelivery";
 
 const router = Router();
 
@@ -72,47 +72,48 @@ router.post("/incoming", async (req: Request, res: Response) => {
       supportChannel.platform === "DISCORD" &&
       supportChannel.status === "connected"
     ) {
-      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
-        ?.status;
-      if (agentStatus === "disabled") {
-        return res.json({ ok: true, skipped: "agent_disabled" });
-      }
-
       const replyChannelId = threadId || channelId;
       const replyToMessageId = body.messageId;
       const isServerChannel = !!guildId;
       const groupPrefix = isServerChannel && authorId ? `<@${authorId}> ` : "";
 
-      // Check if sender is a task worker before routing to support agent
+      // Human task workers MUST be checked even when the support agent is disabled
       if (authorId) {
         try {
-          const worker = await getWorkerByExternalId("DISCORD", authorId);
-          if (worker) {
-            let imageUrl: string | undefined;
-            if (body.attachments?.length) {
-              const imgAttachment = body.attachments.find(
-                (a) => a.type === "image" && a.url
-              );
-              if (imgAttachment?.url) {
-                imageUrl = await downloadDiscordAttachment(imgAttachment.url);
-              }
+          let imageUrl: string | undefined;
+          if (body.attachments?.length) {
+            const imgAttachment = body.attachments.find((a) => a.type === "image" && a.url);
+            if (imgAttachment?.url) {
+              imageUrl = await downloadDiscordAttachment(imgAttachment.url);
             }
-            const result = await handleIncomingSubmission("DISCORD", authorId, messageText, imageUrl);
-            if (result.handled && result.feedback) {
-              const formatted = chatIntegrationService.formatDiscordMessage(result.feedback);
-              await sendDiscordMessage({
-                integrationId: supportChannel.id,
-                channelId: replyChannelId,
-                text: formatted,
-              });
-            }
-            if (result.handled) {
-              return res.json({ ok: true, taskSubmission: true });
-            }
+          }
+          const result = await handleIncomingSubmission(
+            "DISCORD",
+            authorId,
+            messageText,
+            imageUrl,
+            { supportChannelId: supportChannel.id }
+          );
+          if (result.handled && result.feedback) {
+            await deliverTaskWorkerFeedbackDiscord({
+              integrationId: supportChannel.id,
+              channelId: replyChannelId,
+              markdownBody: result.feedback,
+            });
+          }
+          if (result.handled) {
+            return res.json({ ok: true, taskSubmission: true });
           }
         } catch (workerErr) {
           console.warn("[Discord] Worker routing check failed:", workerErr);
         }
+      }
+
+      // Skip support agent if disabled (workers above still get processed)
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
+        ?.status;
+      if (agentStatus === "disabled") {
+        return res.json({ ok: true, skipped: "agent_disabled" });
       }
 
       void (async () => {

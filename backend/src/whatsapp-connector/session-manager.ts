@@ -209,11 +209,21 @@ export async function startSession(
       return;
     }
 
-    // Support channel session (no integrationId, no credentialId): forward all incoming and group messages to backend
+    // Task channel + support channel sessions (no integrationId, no credentialId).
+    // Must allow 1:1 self-chat (fromMe + remoteJid === owner) so managers can test READY/HELP from
+    // the same number linked to the session; we previously dropped all fromMe messages here.
     if (!row.integrationId && !row.credentialId) {
+      const normJid = (j: string | null | undefined) =>
+        typeof j === "string" ? j.replace(/:.*@/, "@") : "";
       for (const msg of messages) {
         const fromMe = msg.key.fromMe === true;
-        if (fromMe) continue;
+        const remoteJid = msg.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith("@g.us")) continue;
+        const ownerNorm = normJid(ownerJid);
+        const remoteNorm = normJid(remoteJid);
+        const isSelfChat = fromMe && !!ownerNorm && remoteNorm === ownerNorm;
+        const isIncomingFromOther = !fromMe;
+        if (!isSelfChat && !isIncomingFromOther) continue;
         const payload = normalizeMessage(msg as WAMessage, true);
         if (!payload) continue;
         try {

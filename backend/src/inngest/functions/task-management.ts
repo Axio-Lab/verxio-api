@@ -3,7 +3,10 @@ import { NonRetriableError } from "inngest";
 import { basePrismaClient } from "@/lib/prisma";
 import { createPendingSubmission, markMissed } from "@/services/taskSubmissionService";
 import { generateDailyReport } from "@/services/taskReportService";
-import { scheduleGracePeriodCheck } from "@/services/taskSchedulerService";
+import {
+  scheduleGracePeriodCheck,
+  scheduleAllActiveTaskReminders,
+} from "@/services/taskSchedulerService";
 import {
   formatTelegramMessage,
   formatWhatsAppMessage,
@@ -12,8 +15,12 @@ import {
 } from "@/services/chatIntegrationService";
 import { sendWhatsAppMessage } from "@/services/whatsappConnectorClient";
 import { sendDiscordMessage } from "@/services/discordConnectorClient";
+import { resolveWorkerNotifyChannel } from "@/services/humanWorkerService";
 
 const prisma = basePrismaClient as any;
+
+/** Minutes before due time to send a heads-up (no submission created yet). */
+const UPCOMING_REMINDER_MINUTES = 30;
 
 async function sendMessageToWorker(worker: any, channel: any, message: string) {
   if (!channel) return;
@@ -89,9 +96,10 @@ export const taskReminder = inngest.createFunction(
       return prisma.humanTask.findUnique({
         where: { id: taskId },
         include: {
+          taskChannel: true,
           workers: {
             where: { status: { in: ["ACTIVE", "ONBOARDING"] } },
-            include: { supportChannel: true },
+            include: { taskChannel: true },
           },
         },
       });
@@ -100,6 +108,14 @@ export const taskReminder = inngest.createFunction(
     if (!task || task.status !== "ACTIVE") return;
 
     const dueDate = new Date(dueAt);
+    const dueLabel = dueDate.toLocaleString("en-US", {
+      timeZone: task.timezone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
 
     for (const worker of task.workers) {
       await step.run(`remind-${worker.id}`, async () => {
@@ -110,13 +126,74 @@ export const taskReminder = inngest.createFunction(
             ? "Send a photo when done."
             : task.evidenceType === "TEXT"
               ? "Send a message confirming completion."
-              : "Send a photo and message when done.";
+              : task.evidenceType === "DOCUMENT"
+                ? "Send your document or file when done."
+                : "Send a photo and message when done.";
 
-        const message = `${task.name} is due now.\n\nPlease complete the task and send your evidence here.\n${evidenceHint}`;
+        const message =
+          `## Check-in due now\n` +
+          `${task.name}\n\n` +
+          `Scheduled: ${dueLabel} (${task.timezone || "UTC"})\n\n` +
+          `Please complete the task and send your evidence in this chat.\n${evidenceHint}`;
 
-        await sendMessageToWorker(worker, worker.supportChannel, message);
+        const channel = resolveWorkerNotifyChannel(worker, task);
+        await sendMessageToWorker(worker, channel, message);
 
         await scheduleGracePeriodCheck(submission.id, dueDate, task.graceMinutes || 15);
+      });
+    }
+  }
+);
+
+export const taskUpcomingReminder = inngest.createFunction(
+  { id: "task-upcoming-reminder", name: "Task Upcoming Reminder" },
+  { event: "verxio/task.upcoming-reminder" },
+  async ({ event, step }) => {
+    const { taskId, dueAt } = event.data;
+    const dueDate = new Date(dueAt);
+    const upcomingAt = new Date(dueDate.getTime() - UPCOMING_REMINDER_MINUTES * 60 * 1000);
+    const now = new Date();
+
+    if (upcomingAt > now) {
+      await step.sleepUntil("wait-until-upcoming", upcomingAt);
+    } else {
+      return;
+    }
+
+    const task = await step.run("load-task-upcoming", async () => {
+      return prisma.humanTask.findUnique({
+        where: { id: taskId },
+        include: {
+          taskChannel: true,
+          workers: {
+            where: { status: { in: ["ACTIVE", "ONBOARDING"] } },
+            include: { taskChannel: true },
+          },
+        },
+      });
+    });
+
+    if (!task || task.status !== "ACTIVE") return;
+
+    const dueLabel = dueDate.toLocaleString("en-US", {
+      timeZone: task.timezone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+
+    const headsUp =
+      `## Heads-up\n` +
+      `Your check-in for *${task.name}* is due in about ${UPCOMING_REMINDER_MINUTES} minutes.\n\n` +
+      `Due: ${dueLabel} (${task.timezone || "UTC"})\n\n` +
+      `Get your evidence ready. You will get another message when it is time to submit.`;
+
+    for (const worker of task.workers) {
+      await step.run(`upcoming-${worker.id}`, async () => {
+        const channel = resolveWorkerNotifyChannel(worker, task);
+        await sendMessageToWorker(worker, channel, headsUp);
       });
     }
   }
@@ -134,8 +211,8 @@ export const taskGraceCheck = inngest.createFunction(
       const submission = await prisma.taskSubmission.findUnique({
         where: { id: submissionId },
         include: {
-          worker: { include: { supportChannel: true } },
-          humanTask: true,
+          worker: { include: { taskChannel: true } },
+          humanTask: { include: { taskChannel: true } },
         },
       });
 
@@ -149,11 +226,8 @@ export const taskGraceCheck = inngest.createFunction(
       });
       const message = `${submission.humanTask.name} was due at ${dueTime} and hasn't been submitted yet.\n\nPlease complete it as soon as possible and send your evidence.`;
 
-      await sendMessageToWorker(
-        submission.worker,
-        submission.worker.supportChannel,
-        message
-      );
+      const channel = resolveWorkerNotifyChannel(submission.worker, submission.humanTask);
+      await sendMessageToWorker(submission.worker, channel, message);
     });
   }
 );
@@ -166,6 +240,20 @@ export const taskDailyReport = inngest.createFunction(
 
     await step.run("generate-report", async () => {
       await generateDailyReport(taskId);
+    });
+  }
+);
+
+/**
+ * Runs every 30 minutes to (re-)schedule upcoming task reminders.
+ * Ensures reminders survive server restarts and cover all recurrence types.
+ */
+export const taskSchedulerCron = inngest.createFunction(
+  { id: "task-scheduler-cron", name: "Task Scheduler Cron" },
+  { cron: "*/30 * * * *" },
+  async ({ step }) => {
+    await step.run("schedule-reminders", async () => {
+      await scheduleAllActiveTaskReminders();
     });
   }
 );

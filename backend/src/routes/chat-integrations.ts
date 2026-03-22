@@ -1194,7 +1194,7 @@ chatIntegrationRouter.post(
                 "Slack chat with Verxio is a premium feature. Please upgrade your plan to use it.",
                 threadTs
               );
-            } catch (_) {}
+            } catch (_) { }
             return;
           }
 
@@ -1212,7 +1212,7 @@ chatIntegrationRouter.post(
                   : msg,
                 threadTs
               );
-            } catch (_) {}
+            } catch (_) { }
             return;
           }
 
@@ -1226,7 +1226,7 @@ chatIntegrationRouter.post(
               undefined,
               { channel, teamId: slackPayload.team_id }
             );
-          } catch (_) {}
+          } catch (_) { }
 
           // Extract file attachments from Slack event (images, documents, etc.)
           const slackAttachments: Array<{
@@ -1288,7 +1288,7 @@ chatIntegrationRouter.post(
               "Something went wrong. Please try again.",
               threadTs
             );
-          } catch (_) {}
+          } catch (_) { }
         }
       })().catch((err) => console.error("[Slack webhook] background error:", err));
     } catch (error) {
@@ -1421,7 +1421,7 @@ chatIntegrationRouter.post(
               }),
             }
           );
-        } catch (_) {}
+        } catch (_) { }
         return res.status(200).json({ success: true, premiumRequired: true });
       }
 
@@ -1455,7 +1455,7 @@ chatIntegrationRouter.post(
               }),
             }
           );
-        } catch (_) {}
+        } catch (_) { }
         return res.status(200).json({ success: true, quotaExceeded: true });
       }
 
@@ -1527,7 +1527,7 @@ chatIntegrationRouter.post(
                 }),
               }
             );
-          } catch (_) {}
+          } catch (_) { }
         }
       })().catch((err) => console.error("[Telegram webhook] background error:", err));
 
@@ -1724,11 +1724,11 @@ chatIntegrationRouter.get(
         },
         identity: externalIdentity
           ? {
-              platform: externalIdentity.platform,
-              externalId: externalIdentity.externalId,
-              externalName: externalIdentity.externalName,
-              linkedAt: externalIdentity.linkedAt,
-            }
+            platform: externalIdentity.platform,
+            externalId: externalIdentity.externalId,
+            externalName: externalIdentity.externalName,
+            linkedAt: externalIdentity.linkedAt,
+          }
           : null,
       });
     } catch (error) {

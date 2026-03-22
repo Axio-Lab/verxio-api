@@ -1,8 +1,90 @@
 import { basePrismaClient } from "@/lib/prisma";
-import { getWorkerByExternalId, activateWorker } from "./humanWorkerService";
+import {
+  getWorkerByExternalId,
+  activateWorker,
+  buildTaskWorkerHelpText,
+  type WorkerLookupOptions,
+} from "./humanWorkerService";
 import { vetSubmission, vetTextSubmission } from "./taskVettingService";
 
 const prisma = basePrismaClient as any;
+
+/** Message-only "ready" from onboarding instructions (case-insensitive; optional ! or .). */
+function isReadyOnboardingMessage(message: string): boolean {
+  return /^\s*ready[!.]*\s*$/i.test(message.trim());
+}
+
+/** Strip zero-width / BOM chars WhatsApp and other clients sometimes insert; NFKC for fullwidth etc. */
+function normalizeChatText(s: string): string {
+  return s
+    .normalize("NFKC")
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+}
+
+/**
+ * Same intent across Telegram, WhatsApp, Slack, Discord task channels.
+ * Users often say hi/hello instead of typing HELP — treat short greetings as help requests.
+ * HELP / help / Help are matched case-insensitively; optional ! or . after "help".
+ */
+export function isHelpIntentMessage(message: string): boolean {
+  const trimmed = normalizeChatText(message);
+  if (!trimmed) return false;
+  // Case-insensitive HELP (help, Help, HELP) — whole message, optional punctuation
+  if (/^help[!.?…]*$/i.test(trimmed)) return true;
+  if (/^\/help$/i.test(trimmed) || /^\/start$/i.test(trimmed)) return true;
+  if (/^help\b/i.test(trimmed)) return true;
+  // Short greetings only (avoid matching long evidence text that starts with "Hi")
+  if (/^(hello|hi|hey|helo|hii)([!.?…]|\s)*$/i.test(trimmed)) return true;
+  return false;
+}
+
+function buildOnboardingCompleteMessage(worker: { name: string }, task: { name: string }): string {
+  return (
+    `Hi ${worker.name}! **Onboarding complete** — you've been successfully set up on "${task.name}".\n\n` +
+    `We'll message you in this chat when check-ins are due. Send HELP anytime if you need instructions.`
+  );
+}
+
+async function buildWorkerHelpFeedback(worker: any, task: any): Promise<string> {
+  const pending = await prisma.taskSubmission.findFirst({
+    where: {
+      workerId: worker.id,
+      humanTaskId: task.id,
+      status: "PENDING",
+    },
+    orderBy: { dueAt: "asc" },
+  });
+
+  const tz = task.timezone || "UTC";
+  const lines = ["", "## Your check-ins"];
+
+  if (pending) {
+    const due = new Date(pending.dueAt);
+    const now = Date.now();
+    const dueLabel = due.toLocaleString("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    if (due.getTime() <= now) {
+      lines.push("You have a check-in due **now**. Submit your evidence in this chat.");
+    } else {
+      const mins = Math.max(0, Math.round((due.getTime() - now) / 60000));
+      lines.push(`Next check-in due: ${dueLabel} (${tz}).`);
+      lines.push(`About ${mins} minute(s) from now.`);
+    }
+  } else {
+    lines.push("No open check-in right now.");
+    lines.push("We send a heads-up about 30 minutes before the next due time, then again when it is due.");
+  }
+
+  return `${buildTaskWorkerHelpText(worker, task)}\n${lines.join("\n")}`;
+}
 
 export async function createPendingSubmission(taskId: string, workerId: string, dueAt: Date) {
   return prisma.taskSubmission.create({
@@ -19,25 +101,49 @@ export async function handleIncomingSubmission(
   platform: string,
   externalId: string,
   message?: string,
-  imageUrl?: string
+  imageUrl?: string,
+  lookupOptions?: WorkerLookupOptions
 ): Promise<{ handled: boolean; feedback?: string }> {
-  const worker = await getWorkerByExternalId(platform, externalId);
-  if (!worker) return { handled: false };
+  const worker = await getWorkerByExternalId(platform, externalId, lookupOptions);
+  if (!worker) {
+    console.log(
+      `[TaskSubmission] No worker found: platform=${platform} externalId=${externalId} channelScope=${lookupOptions?.supportChannelId ?? "none"}`
+    );
+    return { handled: false };
+  }
+  console.log(
+    `[TaskSubmission] Matched worker ${worker.id} (${worker.name}) status=${worker.status} task=${worker.humanTask?.name}`
+  );
+
+  const trimmed = (message || "").trim();
+  const isHelpIntent = isHelpIntentMessage(trimmed);
 
   const task = worker.humanTask;
-  if (!task || task.status !== "ACTIVE") return { handled: false };
+  if (!task) return { handled: false };
 
-  // Auto-activate onboarding workers on first message
-  if (worker.status === "ONBOARDING") {
+  // HELP must work when the task is PAUSED (only ACTIVE is required for evidence / check-ins).
+  if (isHelpIntent) {
+    if (task.status === "ARCHIVED") {
+      return {
+        handled: true,
+        feedback:
+          "This assignment has been archived. If you think this is a mistake, contact your manager.",
+      };
+    }
+    // Telegram users often tap /start first; that must still complete onboarding on the dashboard.
+    if (worker.status === "ONBOARDING") {
+      await activateWorker(worker.id);
+    }
+    const feedback = await buildWorkerHelpFeedback(worker, task);
+    return { handled: true, feedback };
+  }
+
+  if (task.status !== "ACTIVE") return { handled: false };
+
+  const wasOnboarding = worker.status === "ONBOARDING";
+  const isReadyOnly = isReadyOnboardingMessage(trimmed);
+  if (wasOnboarding) {
     await activateWorker(worker.id);
-  }
-
-  // Validate evidence type
-  if (task.evidenceType === "PHOTO" && !imageUrl) {
-    return { handled: true, feedback: "This task requires a photo. Please send an image." };
-  }
-  if (task.evidenceType === "DOCUMENT" && !imageUrl && !message) {
-    return { handled: true, feedback: "This task requires a document or file. Please send a file or paste the document content." };
   }
 
   // Find latest PENDING submission for this worker's task
@@ -77,7 +183,59 @@ export async function handleIncomingSubmission(
   }
 
   if (!submission) {
-    return { handled: true, feedback: "No pending task found. Your submission will be recorded when the next task is due." };
+    if (wasOnboarding && isReadyOnly) {
+      return { handled: true, feedback: buildOnboardingCompleteMessage(worker, task) };
+    }
+    const feedback = wasOnboarding
+      ? "You are all set. Nothing is due right now — we will message you here when the next check-in is due."
+      : "No check-in is due right now. When you get a reminder, reply here with the requested evidence.";
+    return { handled: true, feedback };
+  }
+
+  // Explicit READY completes onboarding but must not be stored as compliance evidence
+  if (wasOnboarding && isReadyOnly) {
+    const confirmation = buildOnboardingCompleteMessage(worker, task);
+    let followUp: string;
+    if (task.evidenceType === "PHOTO" && !imageUrl) {
+      followUp =
+        "A check-in is open for you. Please send a **photo** here as your evidence for this check-in.";
+    } else if (task.evidenceType === "PHOTO_AND_TEXT") {
+      if (!imageUrl) {
+        followUp =
+          "A check-in is open. Please send a **photo** (you can add a caption with your note).";
+      } else {
+        followUp =
+          "A check-in is open. Please add a short **text** note (caption or a follow-up message) about the work.";
+      }
+    } else if (task.evidenceType === "DOCUMENT" && !imageUrl) {
+      followUp = "A check-in is open. Please send a **document or file** for this check-in.";
+    } else if (task.evidenceType === "TEXT") {
+      followUp =
+        "A check-in is open. Please send a **text message** that describes the work you completed (READY was only to finish setup).";
+    } else {
+      followUp =
+        "A check-in is open. Please send the **evidence** requested for this task in a follow-up message.";
+    }
+    return { handled: true, feedback: `${confirmation}\n\n${followUp}` };
+  }
+
+  // Require correct evidence only when a submission slot is actually open
+  if (task.evidenceType === "PHOTO" && !imageUrl) {
+    return { handled: true, feedback: "This check-in requires a photo. Please send an image." };
+  }
+  if (task.evidenceType === "PHOTO_AND_TEXT") {
+    if (!imageUrl) {
+      return { handled: true, feedback: "This check-in requires a photo. Please send an image (you can add a caption)." };
+    }
+    if (!trimmed) {
+      return { handled: true, feedback: "Please add a short text note (photo caption or a follow-up message)." };
+    }
+  }
+  if (task.evidenceType === "DOCUMENT" && !imageUrl && !trimmed) {
+    return { handled: true, feedback: "This check-in needs a document or file. Please send a file or paste the content." };
+  }
+  if (task.evidenceType === "TEXT" && !trimmed && !imageUrl) {
+    return { handled: true, feedback: "Please send your confirmation as a text message." };
   }
 
   const now = new Date();

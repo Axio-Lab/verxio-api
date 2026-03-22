@@ -13,8 +13,9 @@ generator fieldEncryption {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model VerxioUser {
@@ -288,6 +289,7 @@ model User {
   agentMemories         AgentMemory[]
   agentWatches          AgentWatch[]
   humanTasks            HumanTask[]
+  taskChannels          TaskChannel[]
 
   @@map("user")
 }
@@ -807,6 +809,7 @@ model ChatIntegration {
   skillScope         SkillScope @default(ALL_SKILLS) // ALL_SKILLS | SELECTED_SKILLS | NO_SKILLS
   allowedSkillIds    String[] @default([]) // Skill IDs when skillScope is SELECTED_SKILLS
 
+  @@unique([userId, label])
   @@index([userId])
   @@index([platform])
   @@index([scope])
@@ -832,6 +835,7 @@ model WhatsAppSession {
 
   chatIntegration ChatIntegration?
   supportChannels SupportChannel[] @relation("SupportChannelWhatsAppSession")
+  taskChannels    TaskChannel[]    @relation("TaskChannelWhatsAppSession")
 
   @@index([status])
   @@index([workerId])
@@ -970,6 +974,7 @@ model SupportAgent {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([userId, name])
   @@index([userId])
   @@map("support_agents")
 }
@@ -1315,6 +1320,7 @@ model HumanTask {
   scheduledTimes      Json             @default("[]")
   timezone            String           @default("UTC")
   acceptanceRules     Json             @default("[]")
+  sampleEvidenceUrl   String?
   scoringEnabled      Boolean          @default(true)
   passingScore        Int              @default(70)
   graceMinutes        Int              @default(15)
@@ -1331,9 +1337,50 @@ model HumanTask {
   submissions TaskSubmission[]
   reports     TaskComplianceReport[]
 
+  taskChannelId       String?
+  taskChannel         TaskChannel? @relation("TaskNotificationChannel", fields: [taskChannelId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([status])
   @@map("human_tasks")
+}
+
+model TaskChannel {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String       @default("Task Channel")
+  platform  ChatPlatform
+  status    String       @default("pending") // pending | connected | disabled
+
+  telegramBotToken    String?
+  telegramBotUsername  String?
+
+  whatsappSessionId   String?   @unique
+  whatsappSession     WhatsAppSession? @relation("TaskChannelWhatsAppSession", fields: [whatsappSessionId], references: [id], onDelete: SetNull)
+
+  slackBotToken       String?
+  slackSigningSecret  String?
+  slackTeamId         String?
+  slackChannelId      String?
+
+  discordBotToken     String?
+  discordGuildId      String?
+  discordChannelId    String?
+
+  webhookUrl          String?
+  sharedSecret        String?
+
+  tasks       HumanTask[]   @relation("TaskNotificationChannel")
+  workers     HumanWorker[] @relation("WorkerTaskChannel")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, label])
+  @@index([userId])
+  @@index([platform])
+  @@map("task_channels")
 }
 
 model HumanWorker {
@@ -1346,6 +1393,8 @@ model HumanWorker {
   externalId       String
   supportChannelId String?
   supportChannel   SupportChannel? @relation("WorkerSupportChannel", fields: [supportChannelId], references: [id], onDelete: SetNull)
+  taskChannelId    String?
+  taskChannel      TaskChannel?    @relation("WorkerTaskChannel", fields: [taskChannelId], references: [id], onDelete: SetNull)
   role             String?
   status           WorkerStatus @default(ONBOARDING)
   onboardedAt      DateTime?

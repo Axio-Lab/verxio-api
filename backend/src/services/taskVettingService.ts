@@ -22,16 +22,22 @@ export async function vetSubmission(submissionId: string): Promise<string> {
     ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
     : "No specific rules defined. Evaluate general quality and completeness.";
 
+  const sampleUrl = submission.humanTask.sampleEvidenceUrl;
+
   let prompt = `You are a strict quality inspector. Evaluate the submitted evidence against these acceptance rules:\n\n${rulesText}\n\n`;
 
+  if (sampleUrl) {
+    prompt += `REFERENCE/EXPECTED EVIDENCE: A sample of the expected outcome has been provided at: ${sampleUrl}\nCompare the worker's submission against this reference carefully. The submission should meet or exceed the standard shown in the sample.\n\n`;
+  }
+
   if (submission.imageUrl) {
-    prompt += `An image has been submitted as evidence. The image is located at: ${submission.imageUrl}\nUse your vision capabilities or any available tools to analyze it.\n`;
+    prompt += `SUBMITTED EVIDENCE: An image has been submitted as evidence. The image is located at: ${submission.imageUrl}\nUse your vision capabilities or any available tools to analyze it.\n`;
   }
   if (submission.rawMessage) {
     prompt += `Worker's message: "${submission.rawMessage}"\n`;
   }
 
-  prompt += `\nReturn JSON: { "score": 0-100, "passed": true/false, "findings": ["finding1", "finding2"], "summary": "brief summary" }\nBe strict and specific. Reference each rule.`;
+  prompt += `\nReturn JSON: { "score": 0-100, "passed": true/false, "findings": ["finding1", "finding2"], "summary": "brief summary" }\nBe strict and specific. Reference each rule.${sampleUrl ? " Compare against the reference sample." : ""}`;
 
   const agentResult = await simpleAgentQuery({
     prompt,

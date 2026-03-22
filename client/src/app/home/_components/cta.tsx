@@ -7,10 +7,10 @@ export function CTA() {
     <section className="py-24 bg-gray-50">
       <div className="mx-auto max-w-4xl px-6 text-center">
         <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
-          Ready to put AI to work?
+          Ready to automate your operations?
         </h2>
         <p className="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
-          Build websites, automate workflows, and deploy AI agents to every channel your team uses.
+          Set goals, assign tasks, deploy support agents, run loyalty programs, and let AI manage compliance and reporting.
           Start in minutes.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -18,7 +18,7 @@ export function CTA() {
             href="/signup"
             className="inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-primary rounded-lg hover:brightness-110 transition-all shadow-md shadow-primary/20"
           >
-            Start building free
+            Start Now
             <svg
               className="ml-2 w-4 h-4"
               fill="none"

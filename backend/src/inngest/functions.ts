@@ -9,8 +9,10 @@ import {
 } from "./functions/agent-orchestration";
 import {
   taskReminder,
+  taskUpcomingReminder,
   taskGraceCheck,
   taskDailyReport,
+  taskSchedulerCron,
 } from "./functions/task-management";
 
 // Export all Inngest functions
@@ -22,6 +24,8 @@ export const functions = [
   goalReflect,
   agentWatchFire,
   taskReminder,
+  taskUpcomingReminder,
   taskGraceCheck,
   taskDailyReport,
+  taskSchedulerCron,
 ];

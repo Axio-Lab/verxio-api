@@ -28,6 +28,11 @@ import { supportPublicChatRouter } from "./routes/support-public-chat";
 import { supportAgentsRouter } from "./routes/support-agents";
 import { agentGoalsRouter } from "./routes/agent-goals";
 import { humanTasksRouter } from "./routes/human-tasks";
+import { taskChannelsRouter } from "./routes/task-channels";
+import { taskChannelTelegramRouter } from "./routes/internal/task-channel-telegram";
+import { taskChannelWhatsAppRouter } from "./routes/internal/task-channel-whatsapp";
+import { taskChannelSlackRouter } from "./routes/internal/task-channel-slack";
+import { taskChannelDiscordRouter } from "./routes/internal/task-channel-discord";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
@@ -184,6 +189,9 @@ app.use("/support-uploads", express.static(path.join(process.cwd(), "public", "s
 // Serve task submission images
 app.use("/task-submissions", express.static(path.join(process.cwd(), "public", "task-submissions")));
 
+// Serve sample evidence files
+app.use("/sample-evidence", express.static(path.join(process.cwd(), "public", "sample-evidence")));
+
 // Logging middleware
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
@@ -218,6 +226,11 @@ app.use("/api/public/support-chat", supportPublicChatRouter);
 app.use("/api/support-agents", supportAgentsRouter);
 app.use("/api/agent-goals", agentGoalsRouter);
 app.use("/api/human-tasks", humanTasksRouter);
+app.use("/api/task-channels", taskChannelsRouter);
+app.use("/api/internal/task-channels", taskChannelTelegramRouter);
+app.use("/api/internal/task-channels", taskChannelWhatsAppRouter);
+app.use("/api/internal/task-channels", taskChannelSlackRouter);
+app.use("/api/internal/task-channels", taskChannelDiscordRouter);
 
 // API routes
 // app.use('/health', healthRouter);
@@ -392,6 +405,14 @@ const server: Server = app.listen(serverPort, async () => {
 
   // Initialize cron scheduler for timed triggers
   await initializeCronScheduler();
+
+  // Schedule human-task reminders for all active tasks on startup
+  try {
+    const { scheduleAllActiveTaskReminders } = await import("./services/taskSchedulerService");
+    await scheduleAllActiveTaskReminders();
+  } catch (err) {
+    console.error("[Startup] Failed to schedule task reminders:", err);
+  }
 
   // Recover any SDR follow-ups that were lost to server restart
   const { startFollowUpRecovery } = await import("./services/sdrChannelService");

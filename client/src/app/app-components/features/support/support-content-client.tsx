@@ -1059,7 +1059,8 @@ export function SupportContent() {
         <div className="mt-2 flex-1 overflow-y-auto pr-1 -mr-1">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Name *</Label>
+              <p className="text-xs text-muted-foreground">Must be unique among your support agents.</p>
               <Input id="name" {...form.register("name")} />
             </div>
             <div className="space-y-2">

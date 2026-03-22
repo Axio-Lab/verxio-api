@@ -4,8 +4,27 @@ import * as humanTaskService from "../services/humanTaskService";
 import * as humanWorkerService from "../services/humanWorkerService";
 import * as taskSubmissionService from "../services/taskSubmissionService";
 import * as taskReportService from "../services/taskReportService";
-import { listAllActiveChannels } from "../services/supportChannelService";
+import { listActiveTaskChannels } from "../services/taskChannelService";
+import { scheduleAllActiveTaskReminders } from "../services/taskSchedulerService";
 import { generateTextWithSystemPrompt } from "../services/agent/agentService";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const sampleEvidenceDir = path.join(__dirname, "../../public/sample-evidence");
+if (!fs.existsSync(sampleEvidenceDir)) fs.mkdirSync(sampleEvidenceDir, { recursive: true });
+
+const sampleEvidenceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, sampleEvidenceDir),
+    filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx)$/i;
+    cb(null, allowed.test(file.originalname));
+  },
+});
 
 export const humanTasksRouter: Router = Router();
 
@@ -15,7 +34,7 @@ humanTasksRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).userId as string;
-      const channels = await listAllActiveChannels(userId);
+      const channels = await listActiveTaskChannels(userId);
       res.json({ channels });
     } catch (error) {
       next(error);
@@ -80,6 +99,21 @@ Be smart about inferring fields:
   }
 );
 
+humanTasksRouter.post(
+  "/upload-sample-evidence",
+  betterAuthMiddleware,
+  sampleEvidenceUpload.single("file"),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const url = `/sample-evidence/${req.file.filename}`;
+      res.json({ url });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Task CRUD
 humanTasksRouter.get(
   "/",
@@ -102,8 +136,21 @@ humanTasksRouter.post(
     try {
       const userId = (req as any).userId as string;
       const task = await humanTaskService.createHumanTask(userId, req.body);
+      void scheduleAllActiveTaskReminders().catch((e) =>
+        console.error("[human-tasks] schedule reminders after create:", e)
+      );
       res.status(201).json({ task });
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.message ? String(error.message) : "";
+      if (
+        msg.includes("required") ||
+        msg.includes("Notification channel") ||
+        msg.includes("acceptance rule") ||
+        msg.includes("scheduled time") ||
+        msg.includes("Interval")
+      ) {
+        return res.status(400).json({ error: msg });
+      }
       next(error);
     }
   }
@@ -132,7 +179,17 @@ humanTasksRouter.put(
       const userId = (req as any).userId as string;
       await humanTaskService.updateHumanTask(userId, req.params.taskId, req.body);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.message ? String(error.message) : "";
+      if (
+        msg.includes("required") ||
+        msg.includes("Notification channel") ||
+        msg.includes("acceptance rule") ||
+        msg.includes("scheduled time") ||
+        msg.includes("Interval")
+      ) {
+        return res.status(400).json({ error: msg });
+      }
       next(error);
     }
   }
@@ -173,6 +230,9 @@ humanTasksRouter.post(
     try {
       const userId = (req as any).userId as string;
       await humanTaskService.resumeHumanTask(userId, req.params.taskId);
+      void scheduleAllActiveTaskReminders().catch((e) =>
+        console.error("[human-tasks] schedule reminders after resume:", e)
+      );
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -202,6 +262,24 @@ humanTasksRouter.post(
       const userId = (req as any).userId as string;
       const worker = await humanWorkerService.addWorker(userId, req.params.taskId, req.body);
       res.status(201).json({ worker });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+humanTasksRouter.put(
+  "/:taskId/workers/:workerId",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId as string;
+      const { status } = req.body || {};
+      if (status !== "ACTIVE" && status !== "INACTIVE") {
+        return res.status(400).json({ error: "status must be ACTIVE or INACTIVE" });
+      }
+      const result = await humanWorkerService.updateWorkerStatus(userId, req.params.taskId, req.params.workerId, status);
+      res.json({ success: true, workerName: result.workerName });
     } catch (error) {
       next(error);
     }

@@ -129,18 +129,16 @@ export function Hero() {
           {/* Left: Copy */}
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold tracking-wide">
-              AI Coworker Platform
+              Agentic Operations Platform
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.1] tracking-tight">
-              Your AI coworker that
-              <span className="text-primary"> ships, sells, and scales</span>
+              AI agents that
+              <span className="text-primary"> run every business operations</span>
             </h1>
 
             <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
-              Spin up AI agents that automate workflows, build websites and funnels, manage blogs,
-              and work across Slack, Discord, Telegram, and WhatsApp. 10,000+ actions. 800+ apps.
-              One platform.
+              Orchestrate AI goals, supervise human tasks, automate workflows, customer support, and manage loyalty programs.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -148,7 +146,7 @@ export function Hero() {
                 href="/signup"
                 className="inline-flex items-center px-7 py-3.5 text-sm font-semibold text-white bg-primary rounded-lg hover:brightness-110 transition-all shadow-md shadow-primary/20"
               >
-                Start building free
+                Start Now
                 <svg
                   className="ml-2 w-4 h-4"
                   fill="none"
@@ -178,7 +176,7 @@ export function Hero() {
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
                   <div className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <span className="text-xs text-gray-400 font-mono ml-2">verxio agent builder</span>
+                <span className="text-xs text-gray-400 font-mono ml-2">verxio operations</span>
               </div>
 
               {/* Terminal body */}
@@ -201,7 +199,7 @@ export function Hero() {
 
             {/* Floating badge */}
             <div className="absolute -bottom-4 -left-4 px-4 py-2 rounded-xl bg-white border border-gray-200 shadow-lg text-xs font-medium text-gray-700 animate-float">
-              Deploys to your preferred chat channel
+              AI-managed operations, 24/7
             </div>
           </div>
         </div>
