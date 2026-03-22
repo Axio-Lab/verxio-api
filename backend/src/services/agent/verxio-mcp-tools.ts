@@ -42,8 +42,15 @@ export interface ToolContext {
 export const AVAILABLE_NODE_TYPES = {
   // Triggers (start workflow execution)
   triggers: [
-    { type: "MANUAL_TRIGGER", description: "Manually triggered workflow execution" },
-    { type: "MANUAL_INPUT", description: "Workflow that starts with user-provided input data" },
+    {
+      type: "MANUAL_TRIGGER",
+      description: "Starts a run when the user clicks Run (default manual start)",
+    },
+    {
+      type: "MANUAL_INPUT",
+      description:
+        "Prompts the user for input when execution reaches this node. Not a substitute for MANUAL_TRIGGER: use MANUAL_TRIGGER to start the run, then MANUAL_INPUT if you need fields at run time.",
+    },
     { type: "TIMED_TRIGGER", description: "Workflow triggered on a schedule (cron)" },
     { type: "WEBHOOK", description: "Workflow triggered by HTTP POST request" },
     { type: "GOOGLE_FORM_TRIGGER", description: "Triggered when a Google Form is submitted" },
