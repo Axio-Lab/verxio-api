@@ -1,4 +1,5 @@
 import { basePrismaClient } from "@/lib/prisma";
+import { AppError } from "@/middleware/errorHandler";
 
 const prisma = basePrismaClient as any;
 
@@ -23,10 +24,18 @@ export interface SupportAgentCreateInput {
 export interface SupportAgentUpdateInput extends Partial<SupportAgentCreateInput> {}
 
 export async function createSupportAgent(userId: string, data: SupportAgentCreateInput) {
+  const name = String(data.name ?? "").trim();
+  if (!name) {
+    throw new AppError("Name is required", 400);
+  }
+  const dup = await prisma.supportAgent.findFirst({ where: { userId, name } });
+  if (dup) {
+    throw new AppError("A support agent with this name already exists.", 400);
+  }
   return prisma.supportAgent.create({
     data: {
       userId,
-      name: data.name,
+      name,
       description: data.description ?? null,
       knowledgeBaseIds: data.knowledgeBaseIds ?? [],
       fallbackEmail: data.fallbackEmail ?? null,
@@ -67,7 +76,22 @@ export async function updateSupportAgent(
 ) {
   const agent = await prisma.supportAgent.findUnique({ where: { id } });
   if (!agent || agent.userId !== userId) {
-    throw new Error("Support agent not found");
+    throw new AppError("Support agent not found", 404);
+  }
+  if (data.name !== undefined) {
+    const nextName = String(data.name).trim();
+    if (!nextName) {
+      throw new AppError("Name is required", 400);
+    }
+    if (nextName !== agent.name) {
+      const dup = await prisma.supportAgent.findFirst({
+        where: { userId, name: nextName, NOT: { id } },
+      });
+      if (dup) {
+        throw new AppError("A support agent with this name already exists.", 400);
+      }
+    }
+    data = { ...data, name: nextName };
   }
   return prisma.supportAgent.update({
     where: { id },
@@ -88,7 +112,7 @@ export async function updateSupportAgent(
 export async function deleteSupportAgent(userId: string, id: string) {
   const agent = await prisma.supportAgent.findUnique({ where: { id } });
   if (!agent || agent.userId !== userId) {
-    throw new Error("Support agent not found");
+    throw new AppError("Support agent not found", 404);
   }
   // Delete all conversations (sessions + messages) for this agent, then the agent
   const sessions = await prisma.supportChatSession.findMany({

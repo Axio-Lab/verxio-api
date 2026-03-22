@@ -65,6 +65,8 @@ type EntityPaginationProps = {
   totalItems?: number;
   itemsPerPage?: number;
   showInfo?: boolean;
+  /** Merged onto the outer row; same component used by Support, Connections, Task Manager, etc. */
+  className?: string;
 };
 
 interface StatesViewProps {
@@ -205,11 +207,16 @@ export const EntitySearch = ({
   );
 };
 
+/**
+ * Shared pagination UI (Previous / page numbers / Next) used across the app:
+ * Support agents list, contacts, Connections, Credentials, Workflows, Task Manager, etc.
+ */
 export const EntityPagination = ({
   currentPage,
   totalPages,
   onPageChange,
   showInfo = true,
+  className,
 }: EntityPaginationProps) => {
   // Don't render if there's only one page or no pages
   if (totalPages <= 1) {
@@ -248,15 +255,16 @@ export const EntityPagination = ({
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 mt-6">
+    <div className={cn("flex items-center justify-center gap-2 mt-6", className)}>
       <button
+        type="button"
         onClick={() => {
           if (currentPage > 1) {
             onPageChange(currentPage - 1);
           }
         }}
         disabled={currentPage === 1}
-        className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        className="rounded-full border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Previous
       </button>
@@ -269,13 +277,15 @@ export const EntityPagination = ({
             </span>
           ) : (
             <button
+              type="button"
               key={item}
               onClick={() => onPageChange(item)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
                 currentPage === item
-                  ? "bg-primary text-white"
-                  : "border border-gray-200 bg-white text-textPrimary hover:border-primary hover:text-primary"
-              }`}
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-background text-foreground hover:border-primary hover:text-primary"
+              )}
             >
               {item}
             </button>
@@ -284,13 +294,14 @@ export const EntityPagination = ({
       </div>
 
       <button
+        type="button"
         onClick={() => {
           if (currentPage < totalPages) {
             onPageChange(currentPage + 1);
           }
         }}
         disabled={currentPage === totalPages}
-        className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-textPrimary transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        className="rounded-full border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Next
       </button>

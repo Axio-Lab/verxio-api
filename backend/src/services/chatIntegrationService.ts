@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { AppError } from "@/middleware/errorHandler";
 import { generateSharedSecret } from "../middleware/chatIntegrationAuth";
 import {
   sendPlanningMessage,
@@ -57,11 +58,21 @@ export async function createIntegration(
     allowedSkillIds?: string[];
   }
 ) {
+  const label = String(data.label ?? "").trim();
+  if (!label) {
+    throw new AppError("Label is required", 400);
+  }
+  const dup = await (prisma as any).chatIntegration.findFirst({
+    where: { userId, label },
+  });
+  if (dup) {
+    throw new AppError("A chat integration with this label already exists.", 400);
+  }
   const secret = generateSharedSecret();
   return (prisma as any).chatIntegration.create({
     data: {
       userId,
-      label: data.label,
+      label,
       platform: data.platform || "TELEGRAM",
       scope: data.scope || "ALL_WORKFLOWS",
       scopeWorkflowId: data.scopeWorkflowId || null,
@@ -124,7 +135,22 @@ export async function updateIntegration(
 ) {
   const existing = await getIntegration(userId, integrationId);
   if (!existing) {
-    throw new Error("Chat Integration integration not found.");
+    throw new AppError("Chat Integration integration not found.", 404);
+  }
+  if (data.label !== undefined) {
+    const nextLabel = String(data.label).trim();
+    if (!nextLabel) {
+      throw new AppError("Label is required", 400);
+    }
+    if (nextLabel !== existing.label) {
+      const taken = await (prisma as any).chatIntegration.findFirst({
+        where: { userId, label: nextLabel, NOT: { id: integrationId } },
+      });
+      if (taken) {
+        throw new AppError("A chat integration with this label already exists.", 400);
+      }
+    }
+    data = { ...data, label: nextLabel };
   }
 
   return (prisma as any).chatIntegration.update({
@@ -694,7 +720,10 @@ export function formatTelegramMessage(text: string): string {
     return applyTelegramInlineMarkdown(escapeTelegramHtml(line));
   });
 
-  return mapped.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return mapped
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 /**

@@ -67,6 +67,7 @@ export function useCreateSupportAgent() {
       queryClient.invalidateQueries({ queryKey: ["support-agents"] });
       toast.success("Support agent created");
     },
+    onError: (err) => toast.error(err.message || "Failed to create support agent"),
   });
 }
 
@@ -83,6 +84,7 @@ export function useUpdateSupportAgent() {
         toast.success("Support agent updated");
       }
     },
+    onError: (err) => toast.error(err.message || "Failed to update support agent"),
   });
 }
 

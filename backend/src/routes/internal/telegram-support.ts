@@ -6,6 +6,9 @@ import {
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { upsertSupportContact } from "@/services/supportContactService";
 import { formatTelegramMessage } from "@/services/chatIntegrationService";
+import { deliverTaskWorkerFeedbackTelegram } from "@/services/taskWorkerFeedbackDelivery";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadTelegramFile } from "@/services/taskImageService";
 
 const router = Router();
 
@@ -43,11 +46,6 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Telegram bot token not configured" });
   }
 
-  const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
-  if (agentStatus === "disabled") {
-    return res.status(200).json({ ok: true, skipped: "agent_disabled" });
-  }
-
   const secretHeader = req.headers["x-telegram-bot-api-secret-token"] as string | undefined;
   if (secretHeader !== channel.id) {
     return res.status(401).json({ error: "Invalid Telegram webhook secret" });
@@ -55,14 +53,15 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
 
   const update = req.body;
   const message = update?.message || update?.edited_message || update?.callback_query?.message;
-  const text = message?.text || update?.callback_query?.data || "";
+  const text = message?.text || message?.caption || update?.callback_query?.data || "";
   const chatId = message?.chat?.id ? String(message.chat.id) : "";
   const senderId = message?.from?.id ? String(message.from.id) : chatId;
+  const hasPhoto = !!(message?.photo && message.photo.length > 0);
 
   // Return quickly so Telegram does not retry on long model responses.
   res.status(200).json({ ok: true });
 
-  if (!chatId || !text.trim()) {
+  if (!chatId || (!text.trim() && !hasPhoto)) {
     return;
   }
 
@@ -94,6 +93,37 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         }
       }
 
+      // Human task workers MUST be checked even when the support agent is disabled
+      try {
+        const lookupId = senderId || chatId;
+        const extras = [senderId, chatId].filter(Boolean);
+
+        let imageUrl: string | undefined;
+        const photos = message?.photo;
+        if (photos && photos.length > 0 && channel.telegramBotToken) {
+          const largestPhoto = photos[photos.length - 1];
+          imageUrl = await downloadTelegramFile(channel.telegramBotToken, largestPhoto.file_id);
+        }
+        const result = await handleIncomingSubmission("TELEGRAM", lookupId, text, imageUrl, {
+          supportChannelId: channel.id,
+          additionalExternalIds: extras,
+        });
+        if (result.handled && result.feedback) {
+          await deliverTaskWorkerFeedbackTelegram(
+            channel.telegramBotToken!,
+            chatId,
+            result.feedback
+          );
+        }
+        if (result.handled) return;
+      } catch (workerErr) {
+        console.error("[Support Telegram] Worker routing check FAILED:", workerErr);
+      }
+
+      // Skip support agent if disabled (but workers above still get processed)
+      const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
+      if (agentStatus === "disabled") return;
+
       const reply = await respondToChannelMessage({
         supportAgentId: channel.supportAgentId,
         externalId: senderId || chatId,
@@ -106,7 +136,11 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
     } catch (error) {
       console.error("[Support Telegram webhook] Error:", error);
       try {
-        await sendTelegramMessage(channel.telegramBotToken!, chatId, "Something went wrong. Please try again.");
+        await sendTelegramMessage(
+          channel.telegramBotToken!,
+          chatId,
+          "Something went wrong. Please try again."
+        );
       } catch (_) {}
     }
   })();

@@ -214,7 +214,10 @@ supportChannelsRouter.post(
       });
       const setWebhook = await setWebhookRes.json().catch(() => ({}));
       if (!setWebhookRes.ok || !setWebhook?.ok) {
-        console.error("[Telegram connect] setWebhook failed:", JSON.stringify({ webhookUrl, setWebhook }));
+        console.error(
+          "[Telegram connect] setWebhook failed:",
+          JSON.stringify({ webhookUrl, setWebhook })
+        );
         return res.status(400).json({
           success: false,
           message: "Telegram webhook configuration failed.",

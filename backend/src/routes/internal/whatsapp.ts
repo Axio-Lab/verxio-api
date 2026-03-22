@@ -10,6 +10,10 @@ import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
+import { handleIncomingSubmission } from "@/services/taskSubmissionService";
+import { downloadAndSaveImage } from "@/services/taskImageService";
+import { processTaskChannelWhatsAppIncoming } from "@/routes/internal/task-channel-whatsapp";
+import { deliverTaskWorkerFeedbackWhatsApp } from "@/services/taskWorkerFeedbackDelivery";
 
 const router = Router();
 
@@ -25,6 +29,9 @@ function validateSecret(req: Request): boolean {
  * POST /api/internal/whatsapp/incoming
  * Called by the WhatsApp Connector when a message is received.
  * Body: { sessionId, integrationId?, credentialId?, payload: WhatsAppPayload }
+ *
+ * Routing: Chat integration (integrationId) → Task Manager task channel (sessionId on TaskChannel)
+ * → Support channel (sessionId on SupportChannel) → workflow credential triggers.
  */
 router.post("/incoming", async (req: Request, res: Response) => {
   if (!validateSecret(req)) {
@@ -234,25 +241,46 @@ router.post("/incoming", async (req: Request, res: Response) => {
     return res.json({ ok: true });
   }
 
+  // Task Manager (HumanTask) channels: WhatsApp session is linked on TaskChannel. The connector
+  // only calls this route — task-channel workers must be handled here (not only /task-channels/whatsapp/incoming).
+  if (body.sessionId && !body.integrationId) {
+    const taskChannel = await (prisma as any).taskChannel.findFirst({
+      where: {
+        whatsappSessionId: body.sessionId,
+        platform: "WHATSAPP",
+        status: "connected",
+      },
+    });
+    if (taskChannel) {
+      if (isGroup) {
+        return res.json({ ok: true, skipped: "task_channel_dm_only" });
+      }
+      const text = payload.body || "";
+      res.status(200).json({ ok: true, taskChannelId: taskChannel.id });
+      void processTaskChannelWhatsAppIncoming(
+        taskChannel,
+        body.sessionId,
+        fromJid,
+        replyToJid,
+        text,
+        payload
+      );
+      return;
+    }
+  }
+
   // Support channel branch: sessionId without integrationId can map to a SupportChannel
   if (body.sessionId && !body.integrationId) {
     const supportChannel = await getSupportChannelByWhatsAppSession(body.sessionId);
     if (supportChannel) {
-      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
-        ?.status;
-      if (agentStatus === "disabled") {
-        return res.json({ ok: true, skipped: "agent_disabled" });
-      }
-
       // Save contact when someone messages the support agent (normalize JID to prevent duplicates)
       try {
         // For WhatsApp we must preserve the real remote JID (often @lid). Digits-only IDs can collide.
         const normalizedRemoteJid =
-          typeof rawRemoteJid === "string" && rawRemoteJid
-            ? rawRemoteJid.replace(/:.*@/, "@")
-            : "";
+          typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "";
         const externalIdForContact =
-          normalizedRemoteJid || (typeof fromJid === "string" && fromJid ? `${fromJid}@s.whatsapp.net` : "");
+          normalizedRemoteJid ||
+          (typeof fromJid === "string" && fromJid ? `${fromJid}@s.whatsapp.net` : "");
         const phoneMatch = fromJid.match(/^(\d{7,})$/);
         await upsertSupportContact({
           supportAgentId: supportChannel.supportAgentId,
@@ -265,7 +293,62 @@ router.post("/incoming", async (req: Request, res: Response) => {
         });
       } catch (contactErr) {}
 
-      // For now, always route messages to the bound support agent
+      // Human task workers: match stored phone / JID to incoming Baileys id (scoped to this channel)
+      const normalizedJidForWorker =
+        typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "";
+      const normalizedFromJid =
+        typeof fromJid === "string" && fromJid ? fromJid.replace(/:.*@/, "@") : "";
+      // Prefer connector-resolved phone (LID→phone) when available
+      const resolvedPhone =
+        typeof (payload as any).resolvedPhone === "string" ? (payload as any).resolvedPhone : "";
+      const workerLookupId = resolvedPhone || normalizedJidForWorker || normalizedFromJid;
+      if (workerLookupId) {
+        try {
+          let imageUrl: string | undefined;
+          const attachments = payload.attachments as any[] | undefined;
+          if (attachments && attachments.length > 0) {
+            const imgAttachment = attachments.find(
+              (a: any) => a.mimetype?.startsWith("image/") && a.url
+            );
+            if (imgAttachment?.url) {
+              imageUrl = await downloadAndSaveImage(imgAttachment.url);
+            }
+          }
+          const additionalIds = [
+            resolvedPhone,
+            normalizedJidForWorker,
+            normalizedFromJid,
+            fromJid,
+          ].filter(Boolean);
+          const result = await handleIncomingSubmission(
+            "WHATSAPP",
+            workerLookupId,
+            payload.body,
+            imageUrl,
+            {
+              supportChannelId: supportChannel.id,
+              additionalExternalIds: additionalIds,
+              senderName: typeof payload.pushName === "string" ? payload.pushName : "",
+            }
+          );
+          if (result.handled && result.feedback) {
+            await deliverTaskWorkerFeedbackWhatsApp(body.sessionId!, replyToJid, result.feedback);
+          }
+          if (result.handled) {
+            return res.json({ ok: true, taskSubmission: true });
+          }
+        } catch (workerErr) {
+          console.warn("[WhatsApp] Worker routing check failed:", workerErr);
+        }
+      }
+
+      // Skip support agent if disabled (workers above still get processed)
+      const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
+        ?.status;
+      if (agentStatus === "disabled") {
+        return res.json({ ok: true, skipped: "agent_disabled" });
+      }
+
       const groupPrefix = isGroup && payload.pushName ? `**${payload.pushName}:** ` : "";
 
       void (async () => {
@@ -274,8 +357,9 @@ router.post("/incoming", async (req: Request, res: Response) => {
             supportAgentId: supportChannel.supportAgentId,
             // Session should be keyed by the real JID for correct 1:1 + future group support
             externalId:
-              (typeof rawRemoteJid === "string" && rawRemoteJid ? rawRemoteJid.replace(/:.*@/, "@") : "") ||
-              fromJid,
+              (typeof rawRemoteJid === "string" && rawRemoteJid
+                ? rawRemoteJid.replace(/:.*@/, "@")
+                : "") || fromJid,
             message: payload.body,
           });
 

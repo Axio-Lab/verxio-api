@@ -21,7 +21,7 @@ export function Footer() {
               <span className="text-xl font-bold text-gray-900 tracking-tight">Verxio</span>
             </Link>
             <p className="text-sm text-gray-500 leading-relaxed">
-              AI coworker that ships, sells, and scales your business.
+              Agentic operations platform that automates, supervises, and scales your business.
             </p>
           </div>
 

@@ -24,6 +24,8 @@ export interface WhatsAppPayload {
   groupJid?: string; // Raw group JID (e.g. "123456@g.us") when isGroup=true
   /** Raw Baileys remoteJid — use this for replies so the JID matches exactly. */
   remoteJid?: string;
+  /** Phone JID resolved from an @lid JID via Baileys contact store. Only set when remoteJid is an LID. */
+  resolvedPhone?: string;
 }
 
 export interface IncomingWhatsAppEvent {

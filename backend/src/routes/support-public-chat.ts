@@ -350,7 +350,7 @@ supportPublicChatRouter.post(
           : "When you cannot answer confidently, ask the user to contact support via email and say that a human agent will respond.",
         "",
         "TONE:",
-        'Never use em dashes. Use commas, periods, or semicolons instead.',
+        "Never use em dashes. Use commas, periods, or semicolons instead.",
         'Never use AI-like filler phrases: "Great question!", "Absolutely!", "Of course!", "Certainly!", "Sure thing!". Start directly with the answer.',
         'Use first-person language ("I") and a warm, conversational tone. Sound like a helpful human, not a bot.',
         "",

@@ -130,6 +130,27 @@ export async function authenticatedPut<T>(url: string, data?: unknown): Promise<
 }
 
 /**
+ * Helper for PATCH requests
+ */
+export async function authenticatedPatch<T>(url: string, data?: unknown): Promise<T> {
+  const response = await authenticatedFetch(url, {
+    method: "PATCH",
+    body: data ? JSON.stringify(data) : undefined,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Authentication required. Please log in.");
+    }
+
+    const error = await response.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
  * Helper for DELETE requests
  */
 export async function authenticatedDelete<T>(url: string, data?: unknown): Promise<T> {

@@ -34,6 +34,72 @@ export interface SessionInfo {
 
 const sessions = new Map<string, SessionInfo>();
 
+/**
+ * LID → phone JID mapping built from Baileys contact sync events.
+ * WhatsApp multi-device uses Linked IDs (@lid) internally; the phone JID
+ * (@s.whatsapp.net) is needed for matching workers by phone number.
+ * Key: normalized LID (e.g. "49134493028426@lid"), Value: phone JID (e.g. "2348131958146@s.whatsapp.net")
+ */
+const lidToPhoneMap = new Map<string, string>();
+
+function normalizeJid(jid: string): string {
+  return jid.replace(/:.*@/, "@");
+}
+
+function extractStringValues(input: unknown, out: string[], depth = 0): void {
+  if (depth > 4 || input === null || input === undefined) return;
+  if (typeof input === "string") {
+    if (input.trim()) out.push(input.trim());
+    return;
+  }
+  if (Array.isArray(input)) {
+    for (const item of input) extractStringValues(item, out, depth + 1);
+    return;
+  }
+  if (typeof input === "object") {
+    for (const value of Object.values(input as Record<string, unknown>)) {
+      extractStringValues(value, out, depth + 1);
+    }
+  }
+}
+
+function firstPhoneJid(values: string[]): string | undefined {
+  for (const v of values) {
+    const n = normalizeJid(v);
+    if (/^\d{7,}@s\.whatsapp\.net$/.test(n)) return n;
+  }
+  for (const v of values) {
+    // Never infer phone digits from JIDs/domains (especially @lid), only from pure phone-like values.
+    if (v.includes("@")) continue;
+    const trimmed = v.trim();
+    if (!/^\+?\d{7,15}$/.test(trimmed)) continue;
+    const digits = trimmed.replace(/\D/g, "");
+    if (digits.length >= 7) return `${digits}@s.whatsapp.net`;
+  }
+  return undefined;
+}
+
+function allLids(values: string[]): string[] {
+  const out = new Set<string>();
+  for (const v of values) {
+    const n = normalizeJid(v);
+    if (/^\d+@lid$/.test(n)) out.add(n);
+  }
+  return [...out];
+}
+
+function lidDigits(lidJid: string): string {
+  const norm = normalizeJid(lidJid);
+  const at = norm.indexOf("@");
+  return (at === -1 ? norm : norm.slice(0, at)).replace(/\D/g, "");
+}
+
+export function resolveLidToPhone(lid: string): string | undefined {
+  if (!lid || !lid.includes("@lid")) return undefined;
+  const norm = normalizeJid(lid);
+  return lidToPhoneMap.get(norm);
+}
+
 export async function getSessionsToRun(): Promise<
   { id: string; integrationId: string | null; credentialId: string | null }[]
 > {
@@ -88,6 +154,52 @@ export async function startSession(
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+  // Build LID → phone mapping from contact sync.
+  function processContacts(contacts: any[]) {
+    for (const c of contacts) {
+      const values: string[] = [];
+      extractStringValues(c, values);
+      const lids = allLids(values);
+      const phoneJid = firstPhoneJid(values);
+      if (lids.length > 0 && phoneJid) {
+        for (const lid of lids) {
+          lidToPhoneMap.set(lid, phoneJid);
+        }
+      }
+      // Backward-compat path for explicit fields on some Baileys versions
+      const lid = typeof c.lid === "string" ? normalizeJid(c.lid) : "";
+      const explicitPhoneJid =
+        typeof c.id === "string" && c.id.includes("@s.whatsapp.net") ? normalizeJid(c.id) : "";
+      if (lid && explicitPhoneJid) {
+        lidToPhoneMap.set(lid, explicitPhoneJid);
+      }
+      if (typeof c.id === "string" && c.id.includes("@lid") && typeof c.pn === "string" && c.pn) {
+        const phoneFromPn = firstPhoneJid([c.pn]);
+        if (phoneFromPn) {
+          lidToPhoneMap.set(normalizeJid(c.id), phoneFromPn);
+        }
+      }
+      if (
+        typeof c.id === "string" &&
+        c.id.includes("@lid") &&
+        typeof c.phone === "string" &&
+        c.phone
+      ) {
+        const phoneFromField = firstPhoneJid([c.phone]);
+        if (phoneFromField) {
+          lidToPhoneMap.set(normalizeJid(c.id), phoneFromField);
+        }
+      }
+    }
+  }
+
+  sock.ev.on("contacts.upsert", (contacts: any[]) => {
+    processContacts(contacts);
+  });
+  sock.ev.on("contacts.update", (contacts: any[]) => {
+    processContacts(contacts);
+  });
 
   let resolveFirstQr: (qr: string | undefined) => void;
   const firstQrPromise = new Promise<string | undefined>((resolve) => {
@@ -179,6 +291,32 @@ export async function startSession(
     return !fromMe;
   }
 
+  /** Attach resolvedPhone when the remoteJid is an LID and we can infer a phone JID. */
+  function enrichPayloadWithPhone(payload: WhatsAppPayload, msg?: WAMessage): WhatsAppPayload {
+    if (payload.remoteJid && payload.remoteJid.includes("@lid")) {
+      const remoteLidDigits = lidDigits(payload.remoteJid);
+      let phone = resolveLidToPhone(payload.remoteJid);
+      if (!phone && msg) {
+        // Sometimes phone appears in other message fields even when contact map is empty.
+        const values: string[] = [];
+        extractStringValues(msg as unknown, values);
+        phone = firstPhoneJid(values);
+        // Guard: do not accept "phone" reconstructed from the LID itself.
+        if (phone) {
+          const pDigits = phone.replace(/\D/g, "");
+          if (remoteLidDigits && pDigits === remoteLidDigits) {
+            phone = undefined;
+          }
+        }
+      }
+      if (phone) {
+        payload.resolvedPhone = phone;
+        lidToPhoneMap.set(normalizeJid(payload.remoteJid), phone);
+      }
+    }
+    return payload;
+  }
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
     const ownerJid = (sock as any).__ownerJid as string | null;
@@ -194,6 +332,7 @@ export async function startSession(
         if (!isSelfChat && !isIncoming) continue;
         const payload = normalizeMessage(msg as WAMessage);
         if (!payload) continue;
+        enrichPayloadWithPhone(payload, msg as WAMessage);
         try {
           await onIncoming({
             sessionId,
@@ -209,13 +348,24 @@ export async function startSession(
       return;
     }
 
-    // Support channel session (no integrationId, no credentialId): forward all incoming and group messages to backend
+    // Task channel + support channel sessions (no integrationId, no credentialId).
+    // Must allow 1:1 self-chat (fromMe + remoteJid === owner) so managers can test READY/HELP from
+    // the same number linked to the session; we previously dropped all fromMe messages here.
     if (!row.integrationId && !row.credentialId) {
+      const normJid = (j: string | null | undefined) =>
+        typeof j === "string" ? j.replace(/:.*@/, "@") : "";
       for (const msg of messages) {
         const fromMe = msg.key.fromMe === true;
-        if (fromMe) continue;
+        const remoteJid = msg.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith("@g.us")) continue;
+        const ownerNorm = normJid(ownerJid);
+        const remoteNorm = normJid(remoteJid);
+        const isSelfChat = fromMe && !!ownerNorm && remoteNorm === ownerNorm;
+        const isIncomingFromOther = !fromMe;
+        if (!isSelfChat && !isIncomingFromOther) continue;
         const payload = normalizeMessage(msg as WAMessage, true);
         if (!payload) continue;
+        enrichPayloadWithPhone(payload, msg as WAMessage);
         try {
           await onIncoming({
             sessionId,
@@ -255,6 +405,7 @@ export async function startSession(
       // Pass allowGroups=true for integration sessions so group messages are normalized
       const payload = normalizeMessage(msg as WAMessage, /* allowGroups */ true);
       if (!payload) continue;
+      enrichPayloadWithPhone(payload, msg as WAMessage);
       try {
         await onIncoming({
           sessionId,

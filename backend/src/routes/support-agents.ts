@@ -317,7 +317,9 @@ supportAgentsRouter.post(
         if (contact.supportChannel.status !== "connected") {
           throw new AppError("WhatsApp is not connected", 400);
         }
-        const session = await getOrCreateWhatsAppSessionForSupportChannel(contact.supportChannel.id);
+        const session = await getOrCreateWhatsAppSessionForSupportChannel(
+          contact.supportChannel.id
+        );
 
         const meta = (contact.metadata || {}) as Record<string, unknown>;
         const metaJid =
