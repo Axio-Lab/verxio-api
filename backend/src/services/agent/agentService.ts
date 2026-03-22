@@ -366,7 +366,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
           ...(composioMcpConfig ? { composio: composioMcpConfig } : {}),
           ...userMcpServers,
         },
-        tools: { type: "preset", preset: "claude_code" },
+        tools: [],
         maxTurns,
         abortController,
         includePartialMessages: true,
