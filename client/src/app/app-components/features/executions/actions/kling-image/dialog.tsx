@@ -8,7 +8,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { z } from "zod";
+import { z } from "zod/v3";
 import {
   Form,
   FormControl,

@@ -36,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 
-import { z } from "zod";
+import { z } from "zod/v3";
 interface CredentialFormProps {
   initialData?: {
     id?: string;

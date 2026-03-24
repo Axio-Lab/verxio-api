@@ -1,8 +1,45 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import * as kbService from "../services/knowledgeBaseService";
+import multer from "multer";
+import pdfParse from "pdf-parse";
+import mammoth from "mammoth";
+import path from "path";
 
 export const knowledgeBaseRouter: Router = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
+
+function inferSourceType(filename: string): string {
+  const ext = path.extname(filename || "").toLowerCase();
+  if (ext === ".pdf") return "pdf";
+  if (ext === ".docx") return "docx";
+  if (ext === ".md" || ext === ".markdown") return "markdown";
+  return "text";
+}
+
+async function extractUploadedDocumentText(file: Express.Multer.File): Promise<string> {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+
+  if (ext === ".pdf") {
+    const parsed = await pdfParse(file.buffer);
+    return (parsed.text || "").trim();
+  }
+
+  if (ext === ".docx") {
+    const parsed = await mammoth.extractRawText({ buffer: file.buffer });
+    return (parsed.value || "").trim();
+  }
+
+  if (ext === ".txt" || ext === ".md" || ext === ".markdown") {
+    return file.buffer.toString("utf8").trim();
+  }
+
+  throw new Error("Unsupported file type. Allowed: .pdf, .docx, .txt, .md, .markdown");
+}
 
 knowledgeBaseRouter.post(
   "/",
@@ -65,15 +102,52 @@ knowledgeBaseRouter.delete(
 knowledgeBaseRouter.post(
   "/:id/documents",
   betterAuthMiddleware,
+  upload.single("file"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).userId;
-      const { title, sourceType, sourceUrl, content } = req.body;
-      if (!title || !content)
-        return res.status(400).json({ error: "title and content are required" });
+      const title = String(req.body?.title || "").trim();
+      const sourceUrl = typeof req.body?.sourceUrl === "string" ? req.body.sourceUrl : undefined;
+      const pastedContent = String(req.body?.content || "").trim();
+      const file = req.file;
+
+      if (!title) {
+        return res.status(400).json({ error: "title is required" });
+      }
+
+      const hasPastedContent = pastedContent.length > 0;
+      const hasUploadedFile = !!file;
+
+      if (hasPastedContent === hasUploadedFile) {
+        return res.status(400).json({
+          error: "Provide either pasted content or an uploaded document (not both).",
+        });
+      }
+
+      let content = pastedContent;
+      let sourceType = "text";
+
+      if (file) {
+        try {
+          content = await extractUploadedDocumentText(file);
+          sourceType = inferSourceType(file.originalname);
+        } catch (parseError) {
+          return res.status(400).json({
+            error:
+              parseError instanceof Error
+                ? parseError.message
+                : "Failed to parse uploaded document.",
+          });
+        }
+      }
+
+      if (!content.trim()) {
+        return res.status(400).json({ error: "Document content is empty after parsing." });
+      }
+
       const doc = await kbService.addDocument(req.params.id, userId, {
         title,
-        sourceType: sourceType || "text",
+        sourceType,
         sourceUrl,
         content,
       });

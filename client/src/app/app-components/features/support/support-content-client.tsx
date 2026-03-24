@@ -33,7 +33,7 @@ import {
   Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -1111,94 +1111,98 @@ export function SupportContent() {
                 voice.
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>Knowledge bases</Label>
-              {knowledgeBases.length === 0 ? (
+            {formMode === "support" && (
+              <div className="space-y-2">
+                <Label>Knowledge bases</Label>
+                {knowledgeBases.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    You have no knowledge bases yet. Create one in the Knowledge Base section.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
+                    {knowledgeBases.map((kb) => {
+                      const checked = selectedKnowledgeBaseIds.includes(kb.id);
+                      return (
+                        <label key={kb.id} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border"
+                            checked={checked}
+                            onChange={(e) => {
+                              const current = form.getValues("knowledgeBaseIds") || [];
+                              if (e.target.checked) {
+                                form.setValue("knowledgeBaseIds", [...current, kb.id], {
+                                  shouldDirty: true,
+                                });
+                              } else {
+                                form.setValue(
+                                  "knowledgeBaseIds",
+                                  current.filter((id) => id !== kb.id),
+                                  { shouldDirty: true }
+                                );
+                              }
+                            }}
+                          />
+                          <span className="truncate">{kb.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  You have no knowledge bases yet. Create one in the Knowledge Base section.
+                  The support agent will answer only from the selected knowledge bases.
                 </p>
-              ) : (
-                <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
-                  {knowledgeBases.map((kb) => {
-                    const checked = selectedKnowledgeBaseIds.includes(kb.id);
-                    return (
-                      <label key={kb.id} className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded border"
-                          checked={checked}
-                          onChange={(e) => {
-                            const current = form.getValues("knowledgeBaseIds") || [];
-                            if (e.target.checked) {
-                              form.setValue("knowledgeBaseIds", [...current, kb.id], {
-                                shouldDirty: true,
-                              });
-                            } else {
-                              form.setValue(
-                                "knowledgeBaseIds",
-                                current.filter((id) => id !== kb.id),
-                                { shouldDirty: true }
-                              );
-                            }
-                          }}
-                        />
-                        <span className="truncate">{kb.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                The support agent will answer only from the selected knowledge bases.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Skills</Label>
-              {(skillsData?.skills ?? []).length === 0 ? (
+              </div>
+            )}
+            {formMode === "sdr" && (
+              <div className="space-y-2">
+                <Label>Skills</Label>
+                {(skillsData?.skills ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    You have no skills yet.{" "}
+                    <NextLink href="/skills" className="text-primary underline">
+                      Create a skill
+                    </NextLink>{" "}
+                    to attach knowledge for nuanced replies.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
+                    {(skillsData?.skills ?? []).map((skill) => {
+                      const selectedSkillIds = form.watch("skillIds") || [];
+                      const checked = selectedSkillIds.includes(skill.id);
+                      return (
+                        <label key={skill.id} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border"
+                            checked={checked}
+                            onChange={(e) => {
+                              const current = form.getValues("skillIds") || [];
+                              if (e.target.checked) {
+                                form.setValue("skillIds", [...current, skill.id], {
+                                  shouldDirty: true,
+                                });
+                              } else {
+                                form.setValue(
+                                  "skillIds",
+                                  current.filter((id) => id !== skill.id),
+                                  { shouldDirty: true }
+                                );
+                              }
+                            }}
+                          />
+                          <span className="truncate">{skill.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  You have no skills yet.{" "}
-                  <NextLink href="/skills" className="text-primary underline">
-                    Create a skill
-                  </NextLink>{" "}
-                  to attach knowledge for nuanced replies.
+                  Attach skills for objection handling and qualification (especially useful for SDR
+                  mode).
                 </p>
-              ) : (
-                <div className="flex flex-col gap-1 max-h-32 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 pr-1">
-                  {(skillsData?.skills ?? []).map((skill) => {
-                    const selectedSkillIds = form.watch("skillIds") || [];
-                    const checked = selectedSkillIds.includes(skill.id);
-                    return (
-                      <label key={skill.id} className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded border"
-                          checked={checked}
-                          onChange={(e) => {
-                            const current = form.getValues("skillIds") || [];
-                            if (e.target.checked) {
-                              form.setValue("skillIds", [...current, skill.id], {
-                                shouldDirty: true,
-                              });
-                            } else {
-                              form.setValue(
-                                "skillIds",
-                                current.filter((id) => id !== skill.id),
-                                { shouldDirty: true }
-                              );
-                            }
-                          }}
-                        />
-                        <span className="truncate">{skill.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Attach skills for objection handling and qualification (especially useful for SDR
-                mode).
-              </p>
-            </div>
+              </div>
+            )}
             {formMode === "sdr" && (
               <>
                 <div className="space-y-2">

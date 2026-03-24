@@ -90,6 +90,7 @@ import {
   Copy,
   RefreshCw,
   Unplug,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authenticatedGet, authenticatedPost } from "@/lib/api-client";
@@ -142,6 +143,50 @@ const EVIDENCE_LABELS: Record<string, string> = {
   PHOTO_AND_TEXT: "Photo & Text",
   DOCUMENT: "Document",
 };
+const CHANNEL_PLATFORM_LABELS: Record<string, string> = {
+  WHATSAPP: "WhatsApp",
+  TELEGRAM: "Telegram",
+  SLACK: "Slack",
+  DISCORD: "Discord",
+};
+
+const COMMON_TIMEZONES = [
+  "UTC",
+  "Europe/London",
+  "Europe/Paris",
+  "Africa/Lagos",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "America/Sao_Paulo",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+function formatTaskTimeForTimezone(timeStr: string, timezone: string): string {
+  const [h, m] = String(timeStr)
+    .split(":")
+    .map((v) => Number(v));
+  if (Number.isNaN(h) || Number.isNaN(m)) return timeStr;
+
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  const minute = String(m).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const tzParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone || "UTC",
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const tzName = tzParts.find((p) => p.type === "timeZoneName")?.value || "GMT+0";
+  return `${hour12}:${minute} ${ampm} ${tzName}`;
+}
 
 /** Aligns with backend `validateHumanTaskPayload` (create). */
 function isHumanTaskFormValid(
@@ -330,6 +375,7 @@ export function TasksContentClient() {
       {showWorkerDialog && selectedTaskId && (
         <WorkerDialog
           taskId={selectedTaskId}
+          allowedPlatform={tasks.find((t) => t.id === selectedTaskId)?.taskChannel?.platform}
           onClose={() => {
             setShowWorkerDialog(false);
             setSelectedTaskId(null);
@@ -423,8 +469,19 @@ function TaskCard({
             {RECURRENCE_LABELS[task.recurrenceType] || task.recurrenceType}
           </Badge>
           <Badge variant="outline" className="text-[11px] h-5">
+            {task.evidenceType === "DOCUMENT" ? (
+              <FileText className="h-3 w-3 mr-1" />
+            ) : (
+              <ImageIcon className="h-3 w-3 mr-1" />
+            )}
             {EVIDENCE_LABELS[task.evidenceType] || task.evidenceType}
           </Badge>
+          {task.taskChannel?.platform && (
+            <Badge variant="outline" className="text-[11px] h-5">
+              <PlatformLogo platform={task.taskChannel.platform} className="h-3 w-3 mr-1" />
+              {CHANNEL_PLATFORM_LABELS[task.taskChannel.platform] || task.taskChannel.platform}
+            </Badge>
+          )}
           {task.sampleEvidenceUrl && (
             <Badge
               variant="outline"
@@ -434,7 +491,12 @@ function TaskCard({
             </Badge>
           )}
           {task.scheduledTimes?.length > 0 && (
-            <span>{(task.scheduledTimes as string[]).join(", ")}</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {(task.scheduledTimes as string[])
+                .map((t) => formatTaskTimeForTimezone(t, task.timezone || "UTC"))
+                .join(", ")}
+            </span>
           )}
         </div>
       </CardContent>
@@ -478,6 +540,7 @@ function TaskFormDialog({
   const fileRef = useRef<HTMLInputElement>(null);
 
   function buildForm(task?: HumanTask) {
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     return {
       name: task?.name ?? "",
       description: task?.description ?? "",
@@ -487,7 +550,7 @@ function TaskFormDialog({
       scheduledTimes: task?.scheduledTimes?.length
         ? [...(task.scheduledTimes as string[])]
         : ["09:00"],
-      timezone: task?.timezone ?? "UTC",
+      timezone: task?.timezone ?? browserTimezone,
       acceptanceRules: task?.acceptanceRules?.length
         ? [...(task.acceptanceRules as string[])]
         : [""],
@@ -842,6 +905,26 @@ function TaskFormDialog({
                 </button>
               </div>
             )}
+            <div>
+              <label className="text-sm font-medium">Timezone *</label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Task reminders and due times run in this timezone.
+              </p>
+              <select
+                className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                value={form.timezone}
+                onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+              >
+                {!COMMON_TIMEZONES.includes(form.timezone) && (
+                  <option value={form.timezone}>{form.timezone}</option>
+                )}
+                {COMMON_TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </div>
           </section>
 
           <hr />
@@ -1038,7 +1121,15 @@ function TaskFormDialog({
 
 /* ─── Worker Dialog ─── */
 
-function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+function WorkerDialog({
+  taskId,
+  allowedPlatform,
+  onClose,
+}: {
+  taskId: string;
+  allowedPlatform?: string | null;
+  onClose: () => void;
+}) {
   const { data: workersData, isLoading } = useTaskWorkers(taskId);
   const addWorker = useAddWorker();
   const removeWorker = useRemoveWorker();
@@ -1047,13 +1138,26 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
   const [membersPage, setMembersPage] = useState(1);
   const [form, setForm] = useState({
     name: "",
-    platform: "WHATSAPP",
+    platform: (allowedPlatform || "WHATSAPP").toUpperCase(),
     externalId: "",
     phone: "",
     role: "",
   });
 
   const workers = workersData?.workers || [];
+  const selectedPlatform = (allowedPlatform || "").toUpperCase();
+  const platformOptions = selectedPlatform
+    ? [selectedPlatform]
+    : ["WHATSAPP", "TELEGRAM", "SLACK", "DISCORD"];
+
+  useEffect(() => {
+    if (selectedPlatform) {
+      setForm((prev) => ({
+        ...prev,
+        platform: selectedPlatform,
+      }));
+    }
+  }, [selectedPlatform]);
 
   const {
     pageItems: pagedWorkers,
@@ -1321,12 +1425,13 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
                   className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
                   value={form.platform}
                   onChange={(e) => setForm({ ...form, platform: e.target.value })}
-                  disabled={addWorker.isPending}
+                  disabled={addWorker.isPending || !!selectedPlatform}
                 >
-                  <option value="WHATSAPP">WhatsApp</option>
-                  <option value="TELEGRAM">Telegram</option>
-                  <option value="SLACK">Slack</option>
-                  <option value="DISCORD">Discord</option>
+                  {platformOptions.map((platform) => (
+                    <option key={platform} value={platform}>
+                      {platformLabels[platform] || platform}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1373,7 +1478,7 @@ function WorkerDialog({ taskId, onClose }: { taskId: string; onClose: () => void
                           setShowAdd(false);
                           setForm({
                             name: "",
-                            platform: "WHATSAPP",
+                            platform: selectedPlatform || "WHATSAPP",
                             externalId: "",
                             phone: "",
                             role: "",
