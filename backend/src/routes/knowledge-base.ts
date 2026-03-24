@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import * as kbService from "../services/knowledgeBaseService";
 import multer from "multer";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import path from "path";
 
@@ -25,8 +25,13 @@ async function extractUploadedDocumentText(file: Express.Multer.File): Promise<s
   const ext = path.extname(file.originalname || "").toLowerCase();
 
   if (ext === ".pdf") {
-    const parsed = await pdfParse(file.buffer);
-    return (parsed.text || "").trim();
+    const parser = new PDFParse({ data: file.buffer });
+    try {
+      const result = await parser.getText();
+      return (result.text || "").trim();
+    } finally {
+      await parser.destroy();
+    }
   }
 
   if (ext === ".docx") {
