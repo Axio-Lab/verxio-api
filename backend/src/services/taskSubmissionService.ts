@@ -130,6 +130,15 @@ async function buildWorkerHelpFeedback(worker: any, task: any): Promise<string> 
 }
 
 export async function createPendingSubmission(taskId: string, workerId: string, dueAt: Date) {
+  const existing = await prisma.taskSubmission.findFirst({
+    where: {
+      humanTaskId: taskId,
+      workerId,
+      dueAt,
+    },
+  });
+  if (existing) return existing;
+
   return prisma.taskSubmission.create({
     data: {
       humanTaskId: taskId,

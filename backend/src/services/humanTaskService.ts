@@ -129,6 +129,7 @@ export async function listHumanTasks(userId: string) {
   return prisma.humanTask.findMany({
     where: { userId },
     include: {
+      taskChannel: { select: { id: true, platform: true, label: true } },
       _count: { select: { workers: true, submissions: true } },
     },
     orderBy: { createdAt: "desc" },

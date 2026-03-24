@@ -3,7 +3,12 @@
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useEffect, useState, useCallback } from "react";
-import { authenticatedGet, authenticatedPost, authenticatedDelete } from "@/lib/api-client";
+import {
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedDelete,
+  authenticatedPostForm,
+} from "@/lib/api-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +57,8 @@ interface KnowledgeBase {
   createdAt: string;
 }
 
+type DocumentInputMode = "paste" | "upload";
+
 function KnowledgeContent() {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +66,9 @@ function KnowledgeContent() {
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [selectedKbId, setSelectedKbId] = useState<string | null>(null);
   const [kbForm, setKbForm] = useState({ name: "", description: "" });
-  const [docForm, setDocForm] = useState({ title: "", content: "", sourceType: "text" });
+  const [docForm, setDocForm] = useState({ title: "", content: "" });
+  const [docInputMode, setDocInputMode] = useState<DocumentInputMode>("paste");
+  const [docFile, setDocFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const [shouldPoll, setShouldPoll] = useState(false);
 
@@ -126,15 +135,34 @@ function KnowledgeContent() {
   };
 
   const addDocument = async () => {
-    if (!docForm.title.trim() || !docForm.content.trim())
-      return toast.error("Title and content are required");
+    if (!docForm.title.trim()) return toast.error("Title is required");
     if (!selectedKbId) return;
+    if (docInputMode === "paste" && !docForm.content.trim()) {
+      return toast.error("Please paste content.");
+    }
+    if (docInputMode === "upload" && !docFile) {
+      return toast.error("Please upload a document.");
+    }
+
     setCreating(true);
     try {
-      await authenticatedPost(`/api/knowledge-base/${selectedKbId}/documents`, docForm);
+      if (docInputMode === "paste") {
+        await authenticatedPost(`/api/knowledge-base/${selectedKbId}/documents`, {
+          title: docForm.title,
+          content: docForm.content,
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("title", docForm.title);
+        formData.append("file", docFile as File);
+        await authenticatedPostForm(`/api/knowledge-base/${selectedKbId}/documents`, formData);
+      }
+
       toast.success("Document added - processing will begin shortly");
       setDocDialogOpen(false);
-      setDocForm({ title: "", content: "", sourceType: "text" });
+      setDocForm({ title: "", content: "" });
+      setDocInputMode("paste");
+      setDocFile(null);
       fetchData();
     } catch {
       toast.error("Failed to add document");
@@ -322,30 +350,52 @@ function KnowledgeContent() {
               />
             </div>
             <div>
-              <Label>Source Type</Label>
+              <Label>Input Mode</Label>
               <Select
-                value={docForm.sourceType}
-                onValueChange={(value) => setDocForm({ ...docForm, sourceType: value })}
+                value={docInputMode}
+                onValueChange={(value) => {
+                  const mode = value as DocumentInputMode;
+                  setDocInputMode(mode);
+                  if (mode === "paste") {
+                    setDocFile(null);
+                  } else {
+                    setDocForm((prev) => ({ ...prev, content: "" }));
+                  }
+                }}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select source type" />
+                  <SelectValue placeholder="Select input mode" />
                 </SelectTrigger>
                 <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="text">Plain Text</SelectItem>
-                  <SelectItem value="file">File Content</SelectItem>
+                  <SelectItem value="paste">Paste Content</SelectItem>
+                  <SelectItem value="upload">Upload Document</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Content</Label>
-              <Textarea
-                value={docForm.content}
-                onChange={(e) => setDocForm({ ...docForm, content: e.target.value })}
-                placeholder="Paste your document content here..."
-                rows={6}
-                className="min-h-[120px]"
-              />
-            </div>
+            {docInputMode === "paste" ? (
+              <div>
+                <Label>Content</Label>
+                <Textarea
+                  value={docForm.content}
+                  onChange={(e) => setDocForm({ ...docForm, content: e.target.value })}
+                  placeholder="Paste your document content here..."
+                  rows={6}
+                  className="min-h-[120px]"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Upload Document</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md,.markdown"
+                  onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported formats: PDF, DOCX, TXT, MD, MARKDOWN.
+                </p>
+              </div>
+            )}
             <Button onClick={addDocument} disabled={creating} className="w-full shrink-0">
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Document
             </Button>

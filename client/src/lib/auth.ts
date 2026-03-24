@@ -1,6 +1,13 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { dash } from "@better-auth/infra";
 import { prisma } from "./prisma";
+
+function createDashPlugin() {
+  const apiKey = process.env.BETTER_AUTH_API_KEY?.trim();
+  if (!apiKey) return null;
+  return dash({ apiKey });
+}
 
 // Polar plugin per @polar-sh/better-auth docs
 function createPolarPlugin() {
@@ -49,6 +56,7 @@ function createPolarPlugin() {
 }
 
 const polarPlugin = createPolarPlugin();
+const dashPlugin = createDashPlugin();
 
 export const auth = betterAuth({
   // Database configuration using Prisma adapter
@@ -143,6 +151,5 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
 
-  // Plugins - only include Polar if configured
-  plugins: polarPlugin ? [polarPlugin] : [],
+  plugins: [...(dashPlugin ? [dashPlugin] : []), ...(polarPlugin ? [polarPlugin] : [])],
 });

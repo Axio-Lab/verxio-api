@@ -26,7 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { ComposioConnectionStatus } from "../../components/composio-connection-status";
 import { useComposioConnectedAccounts } from "@/hooks/useComposioConnections";
 import {

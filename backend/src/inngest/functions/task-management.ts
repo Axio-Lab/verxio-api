@@ -116,6 +116,12 @@ export const taskReminder = inngest.createFunction(
 
     for (const worker of task.workers) {
       await step.run(`remind-${worker.id}`, async () => {
+        const existing = await prisma.taskSubmission.findFirst({
+          where: { humanTaskId: taskId, workerId: worker.id, dueAt: dueDate },
+        });
+        if (existing && existing.status !== "PENDING") return;
+        if (existing) return;
+
         const submission = await createPendingSubmission(taskId, worker.id, dueDate);
 
         const evidenceHint =

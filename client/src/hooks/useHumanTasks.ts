@@ -29,6 +29,7 @@ export interface HumanTask {
   reportTime: string;
   reportChannelId?: string | null;
   taskChannelId?: string | null;
+  taskChannel?: { id: string; platform: string; label?: string | null } | null;
   deliveryConfig?: DeliveryConfig | null;
   status: string;
   createdAt: string;

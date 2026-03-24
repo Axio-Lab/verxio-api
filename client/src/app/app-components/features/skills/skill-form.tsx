@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2Icon, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authenticatedPost } from "@/lib/api-client";
 

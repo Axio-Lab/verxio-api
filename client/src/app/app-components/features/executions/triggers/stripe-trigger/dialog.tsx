@@ -14,7 +14,7 @@ import { useParams } from "next/navigation";
 import { CopyIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useReactFlow } from "@xyflow/react";
-import { z } from "zod";
+import { z } from "zod/v3";
 import {
   Form,
   FormControl,
