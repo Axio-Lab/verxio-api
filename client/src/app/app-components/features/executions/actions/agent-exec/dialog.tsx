@@ -22,14 +22,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAvailableSubagents } from "@/hooks/useCustomSubagents";
 import { Paperclip, X, Bot, Cpu } from "lucide-react";
-import { useReactFlow } from "@xyflow/react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
+export type AgentExecFormValues = {
+  variables: string;
+  objective: string;
+  strategy: "auto" | "parallel" | "sequential";
+  maxTurns: number;
+  selectedSubagents: string[];
+  attachments?: Array<{ fileName: string; fileType: string }>;
+};
 
 interface AgentExecDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  nodeId: string;
+  onSubmit: (values: AgentExecFormValues) => void;
   defaultValues?: any;
+  onRefreshCanvas?: () => Promise<void>;
 }
 
 const ALLOWED_MIME = [
@@ -45,10 +55,11 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export function AgentExecDialog({
   open,
   onOpenChange,
-  nodeId,
+  onSubmit,
   defaultValues,
+  onRefreshCanvas,
 }: AgentExecDialogProps) {
-  const { setNodes } = useReactFlow();
+  const router = useRouter();
   const { data: availableData } = useAvailableSubagents();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,28 +121,35 @@ export function AgentExecDialog({
       fileType: f.type,
     }));
 
-    setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id !== nodeId) return node;
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            variables,
-            objective: objective.trim(),
-            strategy,
-            maxTurns,
-            selectedSubagents,
-            attachments: attachments.length > 0 ? attachments : undefined,
-          },
-        };
-      })
-    );
+    onSubmit({
+      variables,
+      objective: objective.trim(),
+      strategy,
+      maxTurns,
+      selectedSubagents,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={async (nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen) {
+          try {
+            if (onRefreshCanvas) {
+              await onRefreshCanvas();
+            } else {
+              router.refresh();
+            }
+          } catch {
+            // ignore refresh errors
+          }
+        }
+      }}
+    >
       <DialogContent className="max-w-[560px] w-[calc(100%-2rem)] sm:w-full sm:max-w-[560px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Configure Agent Execute</DialogTitle>
