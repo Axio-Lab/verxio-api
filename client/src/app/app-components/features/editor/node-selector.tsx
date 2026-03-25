@@ -13,6 +13,7 @@ import {
   Download,
   FileText,
   Users,
+  Bot,
 } from "lucide-react";
 import {
   Sheet,
@@ -260,6 +261,13 @@ const executionNodes: NodeTypeOption[] = [
     description:
       "Orchestrate multiple AI agents working together on complex tasks with sequential, parallel, or supervisor strategies.",
     icon: Users,
+  },
+  {
+    type: NodeType.AGENT_EXEC,
+    label: "Agent Execute",
+    description:
+      "Run an objective using your available subagents (built-in + custom). Supports file attachments and configurable execution strategy.",
+    icon: Bot,
   },
   {
     type: NodeType.CODE_BLOCK,
@@ -1068,6 +1076,22 @@ export const NodeSelector = ({ open, onOpenChange, children, workflowId }: NodeS
             maxRounds: 5,
           },
           type: NodeType.AGENT_TEAM,
+          position: flowPosition,
+        };
+        setNodes((nodes) => [...nodes, newNode]);
+        onOpenChange(false);
+      } else if (selection.type === NodeType.AGENT_EXEC) {
+        const newNode = {
+          id: createId(),
+          data: {
+            label: "Agent Execute",
+            variables: "agentExec",
+            objective: "",
+            strategy: "auto",
+            selectedSubagents: [],
+            maxTurns: 10,
+          },
+          type: NodeType.AGENT_EXEC,
           position: flowPosition,
         };
         setNodes((nodes) => [...nodes, newNode]);

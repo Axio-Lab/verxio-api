@@ -84,7 +84,7 @@ workflowGenerationRouter.post(
           userId: user.id,
           workflowId: workflowId || undefined,
           existingNodes,
-          model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
+          model: (model as string) || undefined,
         });
 
         // Update generation record with results
@@ -172,7 +172,7 @@ workflowGenerationRouter.post(
           prompt: prompt.trim(),
           userId: user.id,
           workflowId: workflowId || undefined,
-          model: (model as string) || process.env.AGENT_CLAUDE_MODEL,
+          model: (model as string) || undefined,
         })) {
           // Send event to client
           res.write(`data: ${JSON.stringify(event)}\n\n`);

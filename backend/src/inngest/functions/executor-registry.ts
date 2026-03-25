@@ -58,6 +58,7 @@ import { reflectExecutor } from "./actions/reflect";
 import { approvalGateExecutor } from "./actions/approval-gate";
 import { reportExecutor } from "./actions/report";
 import { agentWatchExecutor } from "./actions/agent-watch";
+import { agentExecExecutor } from "./actions/agent-exec";
 import { manualInputExecutor } from "./triggers/manual-input";
 import { NodeType, type NodeTypeValue } from "@/lib/node-types";
 
@@ -141,6 +142,7 @@ export const executorRegistry: Record<NodeTypeValue, NodeExecutor> = {
   [NodeType.APPROVAL_GATE]: approvalGateExecutor as NodeExecutor,
   [NodeType.REPORT]: reportExecutor as NodeExecutor,
   [NodeType.AGENT_WATCH]: agentWatchExecutor as NodeExecutor,
+  [NodeType.AGENT_EXEC]: agentExecExecutor as NodeExecutor,
 };
 
 /**

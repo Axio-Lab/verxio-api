@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
           "/workflows/",
           "/connections/",
           "/credentials/",
+          "/coworker/",
           "/integrations/",
           "/skills/",
           "/templates/",

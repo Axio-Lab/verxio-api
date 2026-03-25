@@ -62,6 +62,7 @@ import { ValyuContentsNode } from "@/app/app-components/features/executions/acti
 import { ValyuAnswerNode } from "@/app/app-components/features/executions/actions/valyu-answer/node";
 import { ValyuDeepResearchNode } from "@/app/app-components/features/executions/actions/valyu-deep-research/node";
 import { AgentTeamNode } from "@/app/app-components/features/executions/actions/agent-team/node";
+import { AgentExecNode } from "@/app/app-components/features/executions/actions/agent-exec/node";
 
 export const NodeComponents = {
   [NodeType.INITIAL]: InitialNode,
@@ -121,6 +122,7 @@ export const NodeComponents = {
   [NodeType.VALYU_ANSWER]: ValyuAnswerNode,
   [NodeType.VALYU_DEEP_RESEARCH]: ValyuDeepResearchNode,
   [NodeType.AGENT_TEAM]: AgentTeamNode,
+  [NodeType.AGENT_EXEC]: AgentExecNode,
 } as const satisfies NodeTypes;
 
 export type RegisteredNodeType = keyof typeof NodeComponents;

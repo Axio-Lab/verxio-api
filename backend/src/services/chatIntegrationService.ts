@@ -196,40 +196,21 @@ This defines the agent's voice, tone, and communication style. How does it greet
 
 Output ONLY the soul.md content in markdown format. Do not wrap in code fences. Make it feel authentic and unique to this agent's personality — not generic.`;
 
-  const model = process.env.AGENT_CLAUDE_MODEL!;
+  const { generateTextWithSystemPrompt } = await import("./agent/agentService");
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": model,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
-    }),
+  const result = await generateTextWithSystemPrompt({
+    systemPrompt:
+      "You are an expert at crafting agent personality documents (soul.md). " +
+      "Output ONLY the soul.md content in markdown format. " +
+      "Do not wrap in code fences. Make it feel authentic and unique — not generic.",
+    userPrompt: prompt,
   });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Failed to generate soul.md: ${err}`);
-  }
-
-  const result = (await response.json()) as {
-    content: Array<{ type: string; text?: string }>;
-  };
-  const text = result.content
-    ?.filter((b: { type: string }) => b.type === "text")
-    .map((b: { text?: string }) => b.text || "")
-    .join("\n");
-
-  if (!text?.trim()) {
+  if (!result.text?.trim()) {
     throw new Error("AI returned empty soul.md content.");
   }
 
-  return text.trim();
+  return result.text.trim();
 }
 
 /**
@@ -1376,29 +1357,44 @@ async function handleCommand(
       return {
         success: true,
         type: "info",
-        message: `**Verxio Commands:**
+        message: `**Verxio AI Coworker Commands:**
 
+**Workflows:**
 /workflows - List your workflows
-/workflow <workflow_name_or_id> - Get workflow details
+/workflow <name_or_id> - Get workflow details
 /run <workflow_name> - Execute a workflow
 /create-workflow <name> - Create a new workflow
-/delete-workflow <workflow_name_or_id> - Delete a workflow
+/delete-workflow <name_or_id> - Delete a workflow
+
+**Credentials:**
 /credentials - List your credentials
 /add-credential <TYPE> <NAME> <VALUE> - Add a credential
 /delete-credential <credential_id> - Delete a credential
+
+**Skills:**
 /skills - List your skills
 /add-skill <url> - Add a skill file from URL
 /update-skill <skill_id> <url> - Update a skill from URL
 /remove-skill <skill_id> - Remove a skill
+
+**AI Agents:**
+/agents - List available agents (built-in + custom)
+/agents create <name> | <description> | <prompt> - Create a custom agent
+/agents update <slug> | <field>=<value> - Update a custom agent
+/agents delete <slug> - Delete a custom agent
+/agent run <agent_slug> <task> - Execute a task with a specific agent
+/agent run <task> - Execute a task with auto-selected agents
+
+**Goals:**
+/goal create <name> | <objective> - Create an AI goal
+
+**General:**
 /status - Check integration status
-/link - Link your Telegram to Verxio (if not already linked)
-/clear - Clear workflow conversation history
+/link - Link your Telegram to Verxio
+/clear - Clear conversation history
 
 **Plan Mode:**
-Just send a message to interact with the AI assistant. It can help you:
-- Create and modify workflows
-- Understand your automation needs
-- Configure nodes and connections`,
+Just send a message to chat with the AI. It can create workflows, manage agents, and execute operations.`,
       };
 
     case "workflows":
@@ -1466,6 +1462,15 @@ Just send a message to interact with the AI assistant. It can help you:
 
     case "update-skill":
       return handleUpdateSkill(userId, args);
+
+    case "agents":
+      return handleAgentsCommand(userId, args);
+
+    case "agent":
+      return handleAgentRunCommand(userId, args);
+
+    case "goal":
+      return handleGoalCommand(userId, args);
 
     default:
       return {
@@ -2706,6 +2711,286 @@ export async function testConnection(
     return {
       success: false,
       message: error instanceof Error ? error.message : "Failed to test connection",
+    };
+  }
+}
+
+// ============================================
+// Agent Management Commands
+// ============================================
+
+const BUILTIN_AGENTS_LIST = [
+  { slug: "ops-researcher", name: "Ops Researcher", description: "Research specialist for business operations, industry data, APIs, and documentation." },
+  { slug: "content-writer", name: "Content Writer", description: "Content creation specialist for documents, reports, emails, marketing copy, and proposals." },
+  { slug: "data-analyst", name: "Data Analyst", description: "Data analysis specialist for insights, comparisons, and analytical output." },
+  { slug: "task-executor", name: "Task Executor", description: "Action executor for creating documents, running integrations, and executing code." },
+];
+
+async function handleAgentsCommand(
+  userId: string,
+  args: string
+): Promise<ChatIntegrationResponse> {
+  const subCmd = args.trim().split(" ")[0]?.toLowerCase();
+
+  if (!subCmd || subCmd === "list" || subCmd === "") {
+    return listAllAgents(userId);
+  }
+
+  if (subCmd === "create") {
+    const payload = args.replace(/^create\s*/i, "").trim();
+    return createAgentFromChat(userId, payload);
+  }
+
+  if (subCmd === "update") {
+    const payload = args.replace(/^update\s*/i, "").trim();
+    return updateAgentFromChat(userId, payload);
+  }
+
+  if (subCmd === "delete") {
+    const slug = args.replace(/^delete\s*/i, "").trim();
+    return deleteAgentFromChat(userId, slug);
+  }
+
+  return {
+    success: false,
+    type: "error",
+    message: "Unknown agents subcommand. Use: /agents, /agents create, /agents update, /agents delete",
+  };
+}
+
+async function listAllAgents(userId: string): Promise<ChatIntegrationResponse> {
+  try {
+    const { listSubagents } = await import("./customSubagentService");
+    const custom = await listSubagents(userId);
+
+    let msg = "**Available AI Agents:**\n\n**Built-in:**\n";
+    for (const b of BUILTIN_AGENTS_LIST) {
+      msg += `• **${b.name}** (\`${b.slug}\`) — ${b.description}\n`;
+    }
+
+    msg += "\n**Custom:**\n";
+    if (custom.length === 0) {
+      msg += "_No custom agents created yet._\n";
+    } else {
+      for (const c of custom) {
+        const status = c.isActive ? "✅" : "⏸️";
+        msg += `• ${status} **${c.name}** (\`${c.slug}\`) — ${c.description}\n`;
+      }
+    }
+
+    msg += "\nUse `/agents create <name> | <description> | <prompt>` to create a new agent.";
+
+    return { success: true, type: "info", message: msg };
+  } catch (err) {
+    return { success: false, type: "error", message: "Failed to list agents." };
+  }
+}
+
+async function createAgentFromChat(
+  userId: string,
+  payload: string
+): Promise<ChatIntegrationResponse> {
+  const parts = payload.split("|").map((p) => p.trim());
+  if (parts.length < 3 || !parts[0] || !parts[1] || !parts[2]) {
+    return {
+      success: false,
+      type: "error",
+      message: "Usage: `/agents create <name> | <description> | <prompt>`",
+    };
+  }
+
+  try {
+    const { createSubagent } = await import("./customSubagentService");
+    const agent = await createSubagent(userId, {
+      name: parts[0],
+      description: parts[1],
+      prompt: parts[2],
+    });
+    return {
+      success: true,
+      type: "info",
+      message: `Agent **${agent.name}** (\`${agent.slug}\`) created successfully.`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      type: "error",
+      message: `Failed to create agent: ${err.message || "Unknown error"}`,
+    };
+  }
+}
+
+async function updateAgentFromChat(
+  userId: string,
+  payload: string
+): Promise<ChatIntegrationResponse> {
+  const pipeIndex = payload.indexOf("|");
+  if (pipeIndex === -1) {
+    return {
+      success: false,
+      type: "error",
+      message: "Usage: `/agents update <slug> | <field>=<value>`\nFields: name, description, prompt, isActive (true/false), maxTurns",
+    };
+  }
+
+  const slug = payload.slice(0, pipeIndex).trim();
+  const updates = payload.slice(pipeIndex + 1).trim();
+
+  try {
+    const { listSubagents, updateSubagent } = await import("./customSubagentService");
+    const agents = await listSubagents(userId);
+    const agent = agents.find((a: any) => a.slug === slug);
+    if (!agent) {
+      return { success: false, type: "error", message: `Agent \`${slug}\` not found.` };
+    }
+
+    const data: Record<string, any> = {};
+    for (const part of updates.split(",")) {
+      const [key, ...rest] = part.split("=");
+      const k = key?.trim();
+      const v = rest.join("=").trim();
+      if (!k || !v) continue;
+      if (k === "isActive") data[k] = v === "true";
+      else if (k === "maxTurns") data[k] = parseInt(v, 10);
+      else data[k] = v;
+    }
+
+    await updateSubagent(userId, agent.id, data);
+    return {
+      success: true,
+      type: "info",
+      message: `Agent \`${slug}\` updated successfully.`,
+    };
+  } catch (err: any) {
+    return { success: false, type: "error", message: `Failed to update agent: ${err.message || "Unknown error"}` };
+  }
+}
+
+async function deleteAgentFromChat(
+  userId: string,
+  slug: string
+): Promise<ChatIntegrationResponse> {
+  if (!slug) {
+    return { success: false, type: "error", message: "Usage: `/agents delete <slug>`" };
+  }
+
+  try {
+    const { listSubagents, deleteSubagent } = await import("./customSubagentService");
+    const agents = await listSubagents(userId);
+    const agent = agents.find((a: any) => a.slug === slug);
+    if (!agent) {
+      return { success: false, type: "error", message: `Agent \`${slug}\` not found.` };
+    }
+
+    await deleteSubagent(userId, agent.id);
+    return { success: true, type: "info", message: `Agent \`${slug}\` deleted.` };
+  } catch (err: any) {
+    return { success: false, type: "error", message: `Failed to delete agent: ${err.message || "Unknown error"}` };
+  }
+}
+
+async function handleAgentRunCommand(
+  userId: string,
+  args: string
+): Promise<ChatIntegrationResponse> {
+  const subCmd = args.trim().split(" ")[0]?.toLowerCase();
+  if (subCmd !== "run") {
+    return { success: false, type: "error", message: "Usage: `/agent run [agent_slug] <task>`" };
+  }
+
+  const afterRun = args.replace(/^run\s*/i, "").trim();
+  if (!afterRun) {
+    return { success: false, type: "error", message: "Please provide a task. Usage: `/agent run [agent_slug] <task>`" };
+  }
+
+  const allSlugs = [...BUILTIN_AGENTS_LIST.map((b) => b.slug)];
+  try {
+    const { listSubagents } = await import("./customSubagentService");
+    const custom = await listSubagents(userId);
+    allSlugs.push(...custom.map((c: any) => c.slug));
+  } catch {}
+
+  const firstWord = afterRun.split(" ")[0];
+  let targetSlug: string | undefined;
+  let task: string;
+
+  if (allSlugs.includes(firstWord)) {
+    targetSlug = firstWord;
+    task = afterRun.slice(firstWord.length).trim();
+    if (!task) {
+      return { success: false, type: "error", message: "Please provide a task after the agent slug." };
+    }
+  } else {
+    task = afterRun;
+  }
+
+  try {
+    let prompt: string;
+    if (targetSlug) {
+      prompt = `You are an AI coordinator on Verxio. The user wants to use the agent "${targetSlug}" to execute the following task. Act as that agent and complete the task thoroughly.\n\nTask: ${task}`;
+    } else {
+      prompt = `You are an AI coordinator on Verxio. Select the best available agents (ops-researcher, content-writer, data-analyst, task-executor, or any custom agents) to accomplish the following task. Orchestrate them as needed.\n\nTask: ${task}`;
+    }
+
+    const result = await simpleAgentQuery({
+      prompt,
+      userId,
+      maxTurns: 10,
+    });
+
+    return {
+      success: true,
+      type: "info",
+      message: result.result || "Task completed but no output was produced.",
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      type: "error",
+      message: `Agent execution failed: ${err.message || "Unknown error"}`,
+    };
+  }
+}
+
+async function handleGoalCommand(
+  userId: string,
+  args: string
+): Promise<ChatIntegrationResponse> {
+  const subCmd = args.trim().split(" ")[0]?.toLowerCase();
+  if (subCmd !== "create") {
+    return { success: false, type: "error", message: "Usage: `/goal create <name> | <objective>`" };
+  }
+
+  const payload = args.replace(/^create\s*/i, "").trim();
+  const parts = payload.split("|").map((p) => p.trim());
+  if (parts.length < 2 || !parts[0] || !parts[1]) {
+    return {
+      success: false,
+      type: "error",
+      message: "Usage: `/goal create <name> | <objective>`",
+    };
+  }
+
+  try {
+    const goal = await prisma.agentGoal.create({
+      data: {
+        userId,
+        name: parts[0],
+        objective: parts[1],
+        status: "PENDING",
+      },
+    });
+
+    return {
+      success: true,
+      type: "info",
+      message: `Goal **${goal.name}** created. ID: \`${goal.id}\`\nObjective: ${parts[1]}\n\nVisit the AI Goals page to run it.`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      type: "error",
+      message: `Failed to create goal: ${err.message || "Unknown error"}`,
     };
   }
 }

@@ -18,7 +18,7 @@ export function IntegrationsContent() {
   const { data: apiData, isLoading, error } = useChatIntegrations();
 
   const handleCreateIntegration = () => {
-    router.push("/integrations/new");
+    router.push("/coworker/new");
   };
 
   const integrations = apiData?.integrations || [];

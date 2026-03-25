@@ -19,14 +19,14 @@ export const IntegrationsHeader = ({ disabled }: { disabled?: boolean }) => {
   const router = useRouter();
 
   const handleNew = () => {
-    router.push("/integrations/new");
+    router.push("/coworker/new");
   };
 
   return (
     <EntityHeader
-      title="Integrations"
-      description="Create and manage your chat integrations"
-      newButtonLabel="New Integration"
+      title="AI Coworker"
+      description="Create and manage your AI coworker chat integrations"
+      newButtonLabel="New Coworker"
       onNew={handleNew}
       disabled={disabled}
       newButtonDataTourTarget="new-integration-button"
@@ -57,7 +57,7 @@ export const IntegrationsContainer = ({
           <EntitySearch
             value={searchValue}
             onChange={onSearchChange}
-            placeholder="Search integrations"
+            placeholder="Search coworkers"
             dataTourTarget="integrations-search"
           />
         ) : undefined
@@ -69,11 +69,11 @@ export const IntegrationsContainer = ({
 };
 
 export const IntegrationsLoadingView = () => {
-  return <LoadingView entity="integrations" message="Loading integrations..." />;
+  return <LoadingView entity="integrations" message="Loading AI coworkers..." />;
 };
 
 export const IntegrationsErrorView = () => {
-  return <ErrorView message="Error loading integrations" />;
+  return <ErrorView message="Error loading AI coworkers" />;
 };
 
 export const IntegrationsEmptyView = ({
@@ -86,7 +86,7 @@ export const IntegrationsEmptyView = ({
   return (
     <div data-tour-target="integrations-list">
       <EmptyView
-        message="No integrations found. Create your first integration to get started."
+        message="No AI coworkers found. Create your first coworker to get started."
         onNew={onCreateIntegration}
         isCreating={isCreating}
         newButtonDataTourTarget="new-integration-button"
@@ -117,7 +117,7 @@ export const IntegrationItem = ({ integration }: { integration: ChatIntegration 
 
   return (
     <EntityItem
-      href={`/integrations/${integration.id}`}
+      href={`/coworker/${integration.id}`}
       title={integration.label}
       subtitle={
         <span>

@@ -12,7 +12,7 @@ import {
   PlugIcon,
   // SparklesIcon,
   StarIcon,
-  Cable,
+  UserRound,
   BookOpen,
   BarChart3,
   Brain,
@@ -50,10 +50,10 @@ const menuItems = [
   { title: "Templates", url: "/templates", icon: <LayoutTemplate /> },
   { title: "Credentials", url: "/credentials", icon: <KeyIcon /> },
   { title: "Connections", url: "/connections", icon: <PlugIcon /> },
-  { title: "Integrations", url: "/integrations", icon: <Cable /> },
+  { title: "AI Coworker", url: "/coworker", icon: <UserRound /> },
   { title: "Support Agent", url: "/support", icon: <Headset /> },
   { title: "Task Manager", url: "/tasks", icon: <ClipboardCheck /> },
-  // { title: "AI Goals", url: "/goals", icon: <Target /> },
+  { title: "AI Goals", url: "/goals", icon: <Target /> },
   { title: "Agent Knowledge", url: "/knowledge", icon: <Brain /> },
   { title: "Agentic Skills", url: "/skills", icon: <BookOpen /> },
   { title: "Analytics", url: "/analytics", icon: <BarChart3 /> },
@@ -250,7 +250,7 @@ export const AppSidebar = () => {
                           ? "menu-templates"
                           : subItem.url === "/credentials"
                             ? "menu-credentials"
-                            : subItem.url === "/integrations"
+                            : subItem.url === "/coworker"
                               ? "menu-integrations"
                               : subItem.url === "/skills"
                                 ? "menu-skills"
