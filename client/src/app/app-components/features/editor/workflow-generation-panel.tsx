@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { authenticatedPost, getAuthHeaders } from "@/lib/api-client";
+import { authenticatedGet, authenticatedPost, getAuthHeaders } from "@/lib/api-client";
 import { useReactFlow, type Edge } from "@xyflow/react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
@@ -100,8 +100,69 @@ export const WorkflowGenerationPanel = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [agentProgress, setAgentProgress] = useState<AgentProgress[]>([]);
+  const [lastGeneratedWorkflowId, setLastGeneratedWorkflowId] = useState<string | null>(null);
   const { setNodes, setEdges, fitView } = useReactFlow();
   const queryClient = useQueryClient();
+
+  const refreshCanvasFromWorkflow = async (targetWorkflowId: string) => {
+    const workflow = await authenticatedGet<{
+      nodes: Array<{
+        id: string;
+        type: string;
+        name: string;
+        position: { x: number; y: number };
+        data: Record<string, any>;
+      }>;
+      connections: Array<{
+        id: string;
+        source: string;
+        target: string;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+      }>;
+    }>(`/workflow/${targetWorkflowId}`);
+
+    const normalizeHandle = (handle: any): string | undefined => {
+      if (!handle || handle === "null" || handle === "main" || handle === "" || handle === null) {
+        return undefined;
+      }
+      return handle;
+    };
+
+    const newNodes = workflow.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: {
+        ...node.data,
+        label: node.name,
+      },
+    }));
+
+    const newEdges: Edge[] = workflow.connections.map((conn) => ({
+      id: conn.id,
+      source: conn.source,
+      target: conn.target,
+      sourceHandle: normalizeHandle(conn.sourceHandle),
+      targetHandle: normalizeHandle(conn.targetHandle),
+      deletable: true,
+      selectable: true,
+    }));
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+
+    setTimeout(() => {
+      fitView({
+        padding: 0.25,
+        duration: 500,
+        includeHiddenNodes: false,
+        nodes: newNodes.map((n) => ({ id: n.id })),
+        minZoom: 0.5,
+        maxZoom: 1.5,
+      });
+    }, 150);
+  };
 
   // Map tool names to user-friendly descriptions
   const getProgressMessage = (toolName: string, input?: any): string => {
@@ -214,8 +275,15 @@ export const WorkflowGenerationPanel = ({
       if (resultData && resultData.nodes) {
         setAgentProgress((prev) => [...prev.slice(-4), { status: "Adding workflow to canvas..." }]);
 
-        // Add nodes to canvas
-        addNodesToCanvas(resultData.nodes, resultData.connections);
+        const targetWorkflowId = resultData.workflowId || workflowId;
+        if (targetWorkflowId) {
+          setLastGeneratedWorkflowId(targetWorkflowId);
+        }
+        if (targetWorkflowId) {
+          await refreshCanvasFromWorkflow(targetWorkflowId);
+        } else {
+          addNodesToCanvas(resultData.nodes, resultData.connections);
+        }
 
         // Invalidate workflow query
         if (resultData.workflowId) {
@@ -245,7 +313,15 @@ export const WorkflowGenerationPanel = ({
               : undefined,
         });
 
-        addNodesToCanvas(data.nodes, data.connections);
+        const targetWorkflowId = data.workflowId || workflowId;
+        if (targetWorkflowId) {
+          setLastGeneratedWorkflowId(targetWorkflowId);
+        }
+        if (targetWorkflowId) {
+          await refreshCanvasFromWorkflow(targetWorkflowId);
+        } else {
+          addNodesToCanvas(data.nodes, data.connections);
+        }
 
         if (data.workflowId) {
           await queryClient.invalidateQueries({ queryKey: ["workflow", data.workflowId] });
@@ -330,10 +406,29 @@ export const WorkflowGenerationPanel = ({
     onOpenChange(false);
     setPrompt("");
     setSummary(null);
+    setLastGeneratedWorkflowId(null);
+  };
+
+  const handleDialogOpenChange = async (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+
+    // On close, force-refresh from persisted backend workflow state.
+    // This mirrors plan-like behavior where the canvas reflects saved data, not stale local state.
+    if (!nextOpen) {
+      const targetWorkflowId = lastGeneratedWorkflowId || workflowId;
+      if (targetWorkflowId) {
+        try {
+          await queryClient.invalidateQueries({ queryKey: ["workflow", targetWorkflowId] });
+          await refreshCanvasFromWorkflow(targetWorkflowId);
+        } catch (error) {
+          console.error("Failed to refresh canvas on dialog close:", error);
+        }
+      }
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
