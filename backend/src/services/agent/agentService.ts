@@ -403,9 +403,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
 
     const composioPromise = hasComposioAccess
       ? getComposioMcpUrl(userId).catch((err) => {
-          console.error("[Composio] Failed to load MCP URL:", err);
-          return null;
-        })
+        console.error("[Composio] Failed to load MCP URL:", err);
+        return null;
+      })
       : Promise.resolve(null);
 
     if (includeUserConnections) {
@@ -1055,54 +1055,121 @@ export interface TemplateMetadataResult {
   error?: string;
 }
 
+function parseTemplateMetadataJson(rawText: string): Record<string, string> | null {
+  const text = rawText.trim();
+  if (!text) return null;
+
+  // Handle responses wrapped in markdown code fences.
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const baseCandidate = (fencedMatch?.[1] ?? text).trim();
+
+  const candidates: string[] = [];
+  const firstBrace = baseCandidate.indexOf("{");
+  const lastBrace = baseCandidate.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(baseCandidate.slice(firstBrace, lastBrace + 1));
+  } else if (firstBrace !== -1) {
+    // Recover common truncation case: missing trailing brace(s).
+    const partial = baseCandidate.slice(firstBrace);
+    const openCount = (partial.match(/\{/g) || []).length;
+    const closeCount = (partial.match(/\}/g) || []).length;
+    candidates.push(partial + "}".repeat(Math.max(0, openCount - closeCount)));
+  }
+
+  candidates.push(baseCandidate);
+
+  for (const candidate of candidates) {
+    const normalized = candidate
+      .replace(/^\uFEFF/, "")
+      .replace(/,\s*([}\]])/g, "$1")
+      .trim();
+    try {
+      const parsed = JSON.parse(normalized) as Record<string, string>;
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return null;
+}
+
 /**
- * Generate template metadata (name, shortDescription, howItWorks, requirements, category) from a workflow
- * using the Verxio agent. The agent uses getWorkflow to read the workflow and produces
- * descriptive, keyword-rich metadata suitable for a workflow template.
+ * Generate template metadata (name, shortDescription, howItWorks, requirements, category) from a workflow.
+ * Fetches the workflow directly from DB, then uses lightweight text generation (no CLI/tools needed)
+ * for reliable JSON output.
  */
 export async function generateTemplateMetadataForWorkflow(
   userId: string,
   workflowId: string
 ): Promise<TemplateMetadataResult> {
   const categoriesList = TEMPLATE_CATEGORIES.join(", ");
-  const prompt = `Use getWorkflow("${workflowId}") to load the current workflow. Based on its nodes, connections, and purpose, produce template metadata for exporting this workflow as a template.
-
-Return ONLY a valid JSON object with exactly these keys (no markdown, no code fence):
-- "name": A descriptive, keyword-rich title for the template (e.g. "Send Slack alert when Stripe payment succeeds")
-- "shortDescription": One or two sentences summarizing what the workflow does
-- "howItWorks": A clear, multi-line explanation of how it works, step by step. Include required API keys or credentials in this section if relevant.
-- "requirements": Multi-line text like howItWorks. List any required API keys, credentials, or external setup (e.g. "Stripe webhook secret", "Slack bot token", setup steps). Use "None" if nothing is required.
-- "category": MUST be exactly one of: ${categoriesList}. Pick the single best match for this workflow.
-
-Output nothing else except this JSON object.`;
 
   try {
-    const result = await simpleAgentQuery({
-      prompt,
-      userId,
-      workflowId,
-      maxTurns: 10,
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId },
+      select: {
+        id: true,
+        name: true,
+        connections: true,
+        nodes: {
+          select: { id: true, name: true, type: true },
+        },
+      },
     });
 
-    if (!result.success) {
+    if (!workflow) {
+      return { success: false, error: "Workflow not found" };
+    }
+
+    const workflowSummary = JSON.stringify({
+      name: workflow.name,
+      nodes: workflow.nodes.map((n: any) => ({ name: n.name, type: n.type })),
+      connections: workflow.connections,
+    });
+
+    const systemPrompt = `You are a workflow metadata generator. You receive a JSON description of a workflow and produce template metadata. Respond with ONLY a valid JSON object — no markdown, no code fences, no extra text.`;
+
+    const userPrompt = `Given this workflow:
+${workflowSummary}
+
+Produce a JSON object with exactly these keys:
+- "name": A descriptive, keyword-rich title (e.g. "Send Slack alert when Stripe payment succeeds")
+- "shortDescription": One or two sentences summarizing what the workflow does
+- "howItWorks": A clear, step-by-step explanation. Include required API keys or credentials if relevant.
+- "requirements": List any required API keys, credentials, or external setup. Use "None" if nothing is required.
+- "category": MUST be exactly one of: ${categoriesList}
+
+Output ONLY the JSON object.`;
+
+    const { text } = await generateTextWithSystemPrompt({
+      systemPrompt,
+      userPrompt,
+    });
+
+    let parsed = parseTemplateMetadataJson(text);
+
+    if (!parsed && text) {
+      const { text: repairedText } = await generateTextWithSystemPrompt({
+        systemPrompt: "You convert text into strict JSON. Respond with ONLY the JSON object, nothing else.",
+        userPrompt: `Rewrite this as valid JSON with keys "name", "shortDescription", "howItWorks", "requirements", "category":\n\n${text}`,
+      });
+      parsed = parseTemplateMetadataJson(repairedText);
+    }
+
+    if (!parsed) {
       return {
         success: false,
-        error: result.error || "Failed to generate template metadata",
+        error: "Failed to generate valid JSON metadata for template",
       };
     }
 
-    const text = (result.result || "").trim();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    const parsed = JSON.parse(jsonStr) as Record<string, string>;
-
-    // Normalize category to a valid TEMPLATE_CATEGORIES value if present
     let category = parsed.category ?? "";
     if (
       category &&
       !TEMPLATE_CATEGORIES.includes(category as (typeof TEMPLATE_CATEGORIES)[number])
     ) {
-      // Pick closest match or "Other"
       const match = TEMPLATE_CATEGORIES.find((c) =>
         c.toLowerCase().includes(String(category).toLowerCase())
       );

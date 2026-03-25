@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npm run db:generate && tsc && npm run copy:guides",
-    "copy:guides": "copyfiles -u 1 \"src/services/claude-agent/guides/*\" dist",
+    "copy:guides": "copyfiles -u 1 \"src/services/agent/guides/*\" dist",
     "start": "node -r module-alias/register dist/index.js",
     "start:prod": "npm run db:migrate:deploy && npm run start",
     "lint": "eslint src --ext .ts",
