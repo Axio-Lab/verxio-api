@@ -65,6 +65,7 @@ export const NodeType = {
   APPROVAL_GATE: "APPROVAL_GATE",
   REPORT: "REPORT",
   AGENT_WATCH: "AGENT_WATCH",
+  AGENT_EXEC: "AGENT_EXEC",
 } as const;
 
 export type NodeTypeValue = (typeof NodeType)[keyof typeof NodeType];

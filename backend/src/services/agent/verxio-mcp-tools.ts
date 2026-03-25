@@ -1,8 +1,10 @@
 /**
  * Verxio MCP Tools for Claude Agent
  *
- * These tools give Claude direct access to create, configure, and execute
- * workflows in Verxio. They enable fully autonomous workflow automation.
+ * These tools give Claude direct access to the Verxio agent operations platform:
+ * workflow creation and execution, node configuration, credential management,
+ * skill management, task/goal orchestration, Composio integrations, and more.
+ * Built for businesses across vertical industries.
  */
 
 import { z } from "zod/v4";
@@ -2246,6 +2248,162 @@ export const removeSkillTool: VerxioTool = {
 };
 
 // ============================================
+// Custom Subagent Management Tools
+// ============================================
+
+const listCustomSubagentsTool: VerxioTool = {
+  name: "listCustomSubagents",
+  description:
+    "List the user's custom subagents. These are user-created AI team members with specific roles, skills, and tool access that participate in goal execution alongside built-in subagents.",
+  inputSchema: z.object({}),
+  execute: async (_args, context) => {
+    try {
+      const { listSubagents } = await import("../customSubagentService");
+      const subagents = await listSubagents(context.userId);
+      return {
+        success: true,
+        subagents: subagents.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          slug: s.slug,
+          description: s.description,
+          skillIds: s.skillIds,
+          tools: s.tools,
+          model: s.model,
+          maxTurns: s.maxTurns,
+          isActive: s.isActive,
+        })),
+        count: subagents.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to list subagents",
+      };
+    }
+  },
+};
+
+const createCustomSubagentTool: VerxioTool = {
+  name: "createCustomSubagent",
+  description:
+    "Create a custom subagent — a specialized AI team member the user defines. " +
+    "The subagent gets a name, role description, system prompt, optional skills, and tool access. " +
+    "Once created, it participates in goal execution and can be delegated to by other agents. " +
+    "Use this when the user wants to build a custom agent for their specific business needs.",
+  inputSchema: z.object({
+    name: z.string().describe("Name for the subagent (e.g. 'Property Analyst', 'Compliance Auditor')"),
+    description: z
+      .string()
+      .describe(
+        "Short description of what this subagent does and when to use it (1-2 sentences)"
+      ),
+    prompt: z
+      .string()
+      .describe(
+        "System prompt that defines the subagent's persona, expertise, and behavior. Be specific about its domain knowledge, how it should approach tasks, and what standards it should follow."
+      ),
+    skillIds: z
+      .array(z.string())
+      .optional()
+      .describe("IDs of user skills to equip this subagent with (from getSkills)"),
+    tools: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Tools this subagent can use. Options: Read, Glob, Grep, Edit, Bash, WebSearch, WebFetch, Agent. Defaults to Read, Glob, Grep, WebSearch, WebFetch."
+      ),
+    maxTurns: z.number().optional().describe("Max conversation turns (default 8)"),
+  }),
+  execute: async (args, context) => {
+    try {
+      const { createSubagent } = await import("../customSubagentService");
+      const subagent = await createSubagent(context.userId, {
+        name: args.name,
+        description: args.description,
+        prompt: args.prompt,
+        skillIds: args.skillIds,
+        tools: args.tools,
+        maxTurns: args.maxTurns,
+      });
+      return {
+        success: true,
+        subagent: {
+          id: subagent.id,
+          name: subagent.name,
+          slug: subagent.slug,
+          description: subagent.description,
+        },
+        message: `Custom subagent "${subagent.name}" created. It will now participate in goal execution and can be delegated to by other agents.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create subagent",
+      };
+    }
+  },
+};
+
+const updateCustomSubagentTool: VerxioTool = {
+  name: "updateCustomSubagent",
+  description:
+    "Update a custom subagent's configuration: name, description, prompt, skills, tools, or active status.",
+  inputSchema: z.object({
+    subagentId: z.string().describe("ID of the subagent to update"),
+    name: z.string().optional().describe("New name"),
+    description: z.string().optional().describe("New description"),
+    prompt: z.string().optional().describe("New system prompt"),
+    skillIds: z.array(z.string()).optional().describe("New skill IDs to equip"),
+    tools: z.array(z.string()).optional().describe("New tool set"),
+    maxTurns: z.number().optional().describe("New max turns"),
+    isActive: z.boolean().optional().describe("Enable or disable this subagent"),
+  }),
+  execute: async ({ subagentId, ...updates }, context) => {
+    try {
+      const { updateSubagent } = await import("../customSubagentService");
+      const subagent = await updateSubagent(context.userId, subagentId, updates);
+      return {
+        success: true,
+        subagent: {
+          id: subagent.id,
+          name: subagent.name,
+          slug: subagent.slug,
+          description: subagent.description,
+          isActive: subagent.isActive,
+        },
+        message: `Subagent "${subagent.name}" updated.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update subagent",
+      };
+    }
+  },
+};
+
+const deleteCustomSubagentTool: VerxioTool = {
+  name: "deleteCustomSubagent",
+  description: "Delete a custom subagent.",
+  inputSchema: z.object({
+    subagentId: z.string().describe("ID of the subagent to delete"),
+  }),
+  execute: async ({ subagentId }, context) => {
+    try {
+      const { deleteSubagent } = await import("../customSubagentService");
+      await deleteSubagent(context.userId, subagentId);
+      return { success: true, message: "Subagent deleted." };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete subagent",
+      };
+    }
+  },
+};
+
+// ============================================
 // Agent Personality (Soul) Evolution Tool
 // ============================================
 
@@ -3210,6 +3368,10 @@ export const verxioTools: VerxioTool[] = [
   addSkillTool,
   updateSkillTool,
   removeSkillTool,
+  listCustomSubagentsTool,
+  createCustomSubagentTool,
+  updateCustomSubagentTool,
+  deleteCustomSubagentTool,
   updateSoulMdTool,
   browseWebsiteTool,
   checkWebRunTool,

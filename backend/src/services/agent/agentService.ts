@@ -1,8 +1,10 @@
 /**
  * Agent Service
  *
- * Main service for interacting with Claude Agent SDK.
- * Provides the query wrapper with Verxio MCP tools and dynamic user connections.
+ * Core orchestration layer for Verxio's agent operations platform.
+ * Wraps the Claude Agent SDK with Verxio MCP tools, user connections,
+ * subagent delegation, and production-hardened defaults for business
+ * and vertical-industry use cases.
  */
 
 import {
@@ -13,6 +15,7 @@ import {
   type Query,
   type McpServerConfig,
   type SdkMcpToolDefinition,
+  type AgentDefinition,
 } from "@anthropic-ai/claude-agent-sdk";
 import { basePrismaClient } from "../../lib/prisma";
 import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
@@ -24,44 +27,190 @@ import { SUBSCRIPTION_FEATURES } from "../../config/subscription-features";
 
 const prisma = basePrismaClient as any;
 
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MAX_BUDGET_USD = 2.0;
+const TEXT_GEN_MAX_BUDGET_USD = 0.5;
+
+const AGENT_BUILTIN_TOOLS = [
+  "Read",
+  "Glob",
+  "Grep",
+  "Edit",
+  "Bash",
+  "WebSearch",
+  "WebFetch",
+  "Agent",
+];
+
+function getModel(override?: string): string {
+  return override || process.env.AGENT_CLAUDE_MODEL || DEFAULT_MODEL;
+}
+
+function stderrHandler(data: string): void {
+  if (data.trim()) {
+    console.error("[AgentSDK]", data.trimEnd());
+  }
+}
+
+function getBuiltinSubagents(
+  mcpServerNames: string[]
+): Record<string, AgentDefinition> {
+  return {
+    "ops-researcher": {
+      description:
+        "Research specialist for business operations, industry data, APIs, integrations, and documentation. " +
+        "Use when you need to look up how an external API works, research industry-specific solutions, " +
+        "find documentation, or gather information about services and integrations.",
+      prompt:
+        "You are a research specialist on Verxio, an agent operations platform built for businesses " +
+        "and vertical industries. Your role is to gather accurate, detailed, and actionable information " +
+        "about APIs, services, integrations, industry practices, compliance requirements, and documentation " +
+        "that users need for their operations. Always cite sources. Tailor your findings to the user's " +
+        "specific industry context when possible (e.g. healthcare, real estate, logistics, finance, " +
+        "hospitality, retail, education).",
+      tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+      mcpServers: mcpServerNames,
+      model: "sonnet",
+      maxTurns: 8,
+    },
+    "content-writer": {
+      description:
+        "Content creation specialist for producing documents, reports, emails, marketing copy, SOPs, " +
+        "proposals, and any written deliverable. Use when a task requires writing, drafting, or " +
+        "producing structured text output.",
+      prompt:
+        "You are a professional content writer on Verxio. You produce high-quality business documents, " +
+        "reports, emails, marketing copy, SOPs, proposals, and written deliverables. Write in a direct, " +
+        "professional tone. Structure output clearly. Adapt your style to the user's industry context. " +
+        "When you need facts or data, delegate research to the ops-researcher agent. Focus on producing " +
+        "polished, ready-to-use output.",
+      tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+      mcpServers: mcpServerNames,
+      model: "sonnet",
+      maxTurns: 8,
+    },
+    "data-analyst": {
+      description:
+        "Data analysis and processing specialist. Use when a task requires analyzing data, " +
+        "generating insights, comparing options, building spreadsheets, or producing analytical output.",
+      prompt:
+        "You are a data analyst on Verxio. You analyze data, extract insights, compare alternatives, " +
+        "build structured datasets, and produce analytical summaries. Be precise with numbers and sources. " +
+        "When you need to fetch data or research, use WebSearch/WebFetch or delegate to the ops-researcher. " +
+        "Present findings with clear structure: key takeaways first, then supporting detail.",
+      tools: ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"],
+      mcpServers: mcpServerNames,
+      model: "sonnet",
+      maxTurns: 8,
+    },
+    "task-executor": {
+      description:
+        "Action-oriented executor for carrying out concrete operations: creating documents via Composio, " +
+        "sending communications, running integrations, executing code, and completing well-defined tasks.",
+      prompt:
+        "You are a task executor on Verxio. You carry out concrete operations: creating documents, " +
+        "sending emails, updating spreadsheets, running API calls, and executing integrations via " +
+        "Composio and MCP tools. Execute precisely what is asked. Report what was done and any outputs " +
+        "(URLs, IDs, confirmation details). If a prerequisite is missing (credentials, connections), " +
+        "report it clearly rather than guessing.",
+      tools: AGENT_BUILTIN_TOOLS,
+      mcpServers: mcpServerNames,
+      model: "sonnet",
+      maxTurns: 10,
+    },
+  };
+}
+
+async function buildSubagents(
+  mcpServerNames: string[],
+  userId?: string
+): Promise<Record<string, AgentDefinition>> {
+  const agents = getBuiltinSubagents(mcpServerNames);
+
+  if (!userId) return agents;
+
+  try {
+    const { getActiveSubagents, loadSubagentWithSkills } = await import(
+      "../customSubagentService"
+    );
+    const customAgents = await getActiveSubagents(userId);
+
+    for (const custom of customAgents) {
+      const loaded = await loadSubagentWithSkills(userId, custom.id);
+      if (!loaded) continue;
+
+      const skillPromptSection = loaded.skillContent
+        ? `\n\n## Skills\n${loaded.skillContent}`
+        : "";
+
+      agents[loaded.slug] = {
+        description: loaded.description,
+        prompt: `${loaded.prompt}${skillPromptSection}`,
+        tools: loaded.tools.length > 0 ? loaded.tools : ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+        mcpServers: mcpServerNames,
+        model: loaded.model || "sonnet",
+        maxTurns: loaded.maxTurns || 8,
+      };
+    }
+  } catch (err) {
+    console.error("[AgentService] Failed to load custom subagents:", err);
+  }
+
+  return agents;
+}
+
 // ============================================
-// Simple text generation via Claude Agent SDK (no MCP, no tools)
+// Simple Text Generation (no MCP, no tools)
 // ============================================
-// Single-turn query with custom system prompt. Uses AGENT_CLAUDE_MODEL.
-// Used for simple LLM text generation (e.g. JSON generation) without tools.
+// Single-turn query for lightweight LLM text generation (JSON extraction,
+// classification, formatting) without tool access.
 
 export async function generateTextWithSystemPrompt(options: {
   systemPrompt: string;
   userPrompt: string;
   model?: string;
 }): Promise<{ text: string }> {
-  const model = options.model || process.env.AGENT_CLAUDE_MODEL!;
-  const result = query({
-    prompt: options.userPrompt,
-    options: {
-      model,
-      systemPrompt: options.systemPrompt,
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
-      mcpServers: {},
-      tools: [],
-      maxTurns: 1,
-    },
-  });
-  let text = "";
-  for await (const message of result) {
-    if (message.type === "assistant" && message.message?.content) {
-      for (const block of message.message.content) {
-        if (block.type === "text") text += block.text;
+  const model = getModel(options.model);
+
+  try {
+    const result = query({
+      prompt: options.userPrompt,
+      options: {
+        model,
+        systemPrompt: options.systemPrompt,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        tools: [],
+        maxTurns: 1,
+        maxBudgetUsd: TEXT_GEN_MAX_BUDGET_USD,
+        effort: "low",
+        persistSession: false,
+        stderr: stderrHandler,
+      },
+    });
+
+    let text = "";
+    for await (const message of result) {
+      if (message.type === "assistant" && message.message?.content) {
+        for (const block of message.message.content) {
+          if (block.type === "text") text += block.text;
+        }
+      }
+      if (message.type === "result") {
+        const r = message as any;
+        if (r.subtype === "success" && typeof r.result === "string") {
+          text = r.result;
+        } else if (r.subtype !== "success") {
+          console.error("[AgentService] Text generation ended with:", r.subtype);
+        }
+        break;
       }
     }
-    if (message.type === "result" && (message as any).subtype === "success") {
-      const r = (message as any).result;
-      if (typeof r === "string") text = r;
-      break;
-    }
+    return { text };
+  } catch (error) {
+    console.error("[AgentService] generateTextWithSystemPrompt failed:", error);
+    return { text: "" };
   }
-  return { text };
 }
 
 // ============================================
@@ -211,149 +360,162 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     workflowId,
     conversationHistory,
     includeUserConnections = true,
-    model = process.env.AGENT_CLAUDE_MODEL,
+    model: modelOverride,
     maxTurns = 10,
     abortController,
     attachments,
     agentPersonality,
   } = options;
 
-  // Create tool context (include soul evolution info and skill scope when personality is set)
-  const toolContext: ToolContext = {
-    userId,
-    workflowId,
-    integrationId: agentPersonality?.integrationId,
-    evolvePersonality: agentPersonality?.evolvePersonality,
-    skillScope: agentPersonality?.skillScope,
-    allowedSkillIds: agentPersonality?.allowedSkillIds,
-  };
+  const model = getModel(modelOverride);
 
-  // Create Verxio MCP server with custom tools
-  const verxioMcpServer = createSdkMcpServer({
-    name: "verxio-workflow",
-    version: "1.0.0",
-    tools: createVerxioMcpTools(toolContext),
-  });
-
-  // Check if user has Composio access (premium feature)
-  let hasComposioAccess = false;
   try {
-    await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE);
-    hasComposioAccess = true;
-  } catch {
-    // Free user, skip Composio
-  }
+    // Create tool context (include soul evolution info and skill scope when personality is set)
+    const toolContext: ToolContext = {
+      userId,
+      workflowId,
+      integrationId: agentPersonality?.integrationId,
+      evolvePersonality: agentPersonality?.evolvePersonality,
+      skillScope: agentPersonality?.skillScope,
+      allowedSkillIds: agentPersonality?.allowedSkillIds,
+    };
 
-  // Load user's MCP connections, Composio, and user context in parallel
-  let userMcpServers: Record<string, McpServerConfig> = {};
-  let composioMcpConfig: McpServerConfig | undefined;
-  let userContext: Awaited<ReturnType<typeof getUserContext>>;
-  if (includeUserConnections) {
-    const [mcpServers, context, composioUrl] = await Promise.all([
-      loadUserMcpServers(userId),
-      getUserContext(userId, workflowId),
-      hasComposioAccess
-        ? getComposioMcpUrl(userId).catch((err) => {
-            console.error("[Composio] Failed to load MCP URL:", err);
-            return null;
-          })
-        : Promise.resolve(null),
-    ]);
-    userMcpServers = mcpServers;
-    userContext = context;
-    if (composioUrl) {
-      composioMcpConfig = { type: "http", url: composioUrl };
-    }
-  } else {
-    const [context, composioUrl] = await Promise.all([
-      getUserContext(userId, workflowId),
-      hasComposioAccess
-        ? getComposioMcpUrl(userId).catch((err) => {
-            console.error("[Composio] Failed to load MCP URL:", err);
-            return null;
-          })
-        : Promise.resolve(null),
-    ]);
-    userContext = context;
-    if (composioUrl) {
-      composioMcpConfig = { type: "http", url: composioUrl };
-    }
-  }
+    // Create Verxio MCP server with custom tools
+    const verxioMcpServer = createSdkMcpServer({
+      name: "verxio-workflow",
+      version: "1.0.0",
+      tools: createVerxioMcpTools(toolContext),
+    });
 
-  // Filter skills based on integration config (when from chat integration)
-  if (agentPersonality?.skillScope !== undefined) {
-    const allSkills = userContext.userSkills as Array<{
-      id: string;
-      name: string;
-      description?: string | null;
-      content: string;
-    }>;
-    let filteredSkills: typeof allSkills;
-    if (agentPersonality.skillScope === "NO_SKILLS") {
-      filteredSkills = [];
-    } else if (
-      agentPersonality.skillScope === "SELECTED_SKILLS" &&
-      agentPersonality.allowedSkillIds?.length
-    ) {
-      filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
+    // Check if user has Composio access (premium feature)
+    let hasComposioAccess = false;
+    try {
+      await checkFeatureAccess(userId, SUBSCRIPTION_FEATURES.COMPOSIO_ACTION_NODE);
+      hasComposioAccess = true;
+    } catch {
+      // Free user, skip Composio
+    }
+
+    // Load user's MCP connections, Composio, and user context in parallel
+    let userMcpServers: Record<string, McpServerConfig> = {};
+    let composioMcpConfig: McpServerConfig | undefined;
+    let userContext: Awaited<ReturnType<typeof getUserContext>>;
+
+    const composioPromise = hasComposioAccess
+      ? getComposioMcpUrl(userId).catch((err) => {
+          console.error("[Composio] Failed to load MCP URL:", err);
+          return null;
+        })
+      : Promise.resolve(null);
+
+    if (includeUserConnections) {
+      const [mcpServers, context, composioUrl] = await Promise.all([
+        loadUserMcpServers(userId),
+        getUserContext(userId, workflowId),
+        composioPromise,
+      ]);
+      userMcpServers = mcpServers;
+      userContext = context;
+      if (composioUrl) {
+        composioMcpConfig = { type: "http", url: composioUrl };
+      }
     } else {
-      filteredSkills = allSkills; // ALL_SKILLS or no restriction
-    }
-    userContext = { ...userContext, userSkills: filteredSkills };
-  }
-
-  // Build system prompt (now async to load guide content)
-  const systemPrompt = await getVerxioSystemPrompt(userContext);
-
-  const { wrapUntrustedContent } = await import("./promptInjectionDefense");
-
-  // Enrich prompt with media attachment info when present
-  let enrichedPrompt = prompt;
-  if (attachments && attachments.length > 0) {
-    const mediaDescriptions: string[] = [];
-    for (const att of attachments) {
-      const label = att.fileName || att.type;
-      if (att.extractedText) {
-        mediaDescriptions.push(`[${label} content]\n${att.extractedText}`);
-      } else if (att.url) {
-        const mime = att.mimeType || "";
-        if (mime.startsWith("image/")) {
-          mediaDescriptions.push(`[User shared an image: ${label}]\nURL: ${att.url}`);
-        } else if (mime.startsWith("audio/")) {
-          mediaDescriptions.push(
-            `[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`
-          );
-        } else if (mime.startsWith("video/")) {
-          mediaDescriptions.push(
-            `[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`
-          );
-        } else {
-          mediaDescriptions.push(`[User shared a file: ${label}]\nURL: ${att.url}`);
-        }
-      } else if (att.base64 && att.mimeType?.startsWith("image/")) {
-        mediaDescriptions.push(
-          `[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`
-        );
-      } else {
-        mediaDescriptions.push(`[User shared a file: ${label}]`);
+      const [context, composioUrl] = await Promise.all([
+        getUserContext(userId, workflowId),
+        composioPromise,
+      ]);
+      userContext = context;
+      if (composioUrl) {
+        composioMcpConfig = { type: "http", url: composioUrl };
       }
     }
-    enrichedPrompt = `${prompt}\n\n${wrapUntrustedContent("User Attachments", mediaDescriptions.join("\n\n"))}`;
-  }
 
-  // Build conversation context if exists; wrap all user content to resist prompt injection
-  let fullPrompt = enrichedPrompt;
-  if (conversationHistory && conversationHistory.length > 0) {
-    const historyText = conversationHistory
-      .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
-      .join("\n\n");
-    fullPrompt = `${wrapUntrustedContent("Previous conversation", historyText)}\n\n${wrapUntrustedContent("Current request", enrichedPrompt)}`;
-  } else {
-    fullPrompt = wrapUntrustedContent("Current request", enrichedPrompt);
-  }
+    // Filter skills based on integration config (when from chat integration)
+    if (agentPersonality?.skillScope !== undefined) {
+      const allSkills = userContext.userSkills as Array<{
+        id: string;
+        name: string;
+        description?: string | null;
+        content: string;
+      }>;
+      let filteredSkills: typeof allSkills;
+      if (agentPersonality.skillScope === "NO_SKILLS") {
+        filteredSkills = [];
+      } else if (
+        agentPersonality.skillScope === "SELECTED_SKILLS" &&
+        agentPersonality.allowedSkillIds?.length
+      ) {
+        filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
+      } else {
+        filteredSkills = allSkills;
+      }
+      userContext = { ...userContext, userSkills: filteredSkills };
+    }
 
-  try {
-    // Start the query
+    // Build system prompt
+    const systemPrompt = await getVerxioSystemPrompt(userContext);
+
+    const { wrapUntrustedContent } = await import("./promptInjectionDefense");
+
+    // Enrich prompt with media attachment info when present
+    let enrichedPrompt = prompt;
+    if (attachments && attachments.length > 0) {
+      const mediaDescriptions: string[] = [];
+      for (const att of attachments) {
+        const label = att.fileName || att.type;
+        if (att.extractedText) {
+          mediaDescriptions.push(`[${label} content]\n${att.extractedText}`);
+        } else if (att.url) {
+          const mime = att.mimeType || "";
+          if (mime.startsWith("image/")) {
+            mediaDescriptions.push(`[User shared an image: ${label}]\nURL: ${att.url}`);
+          } else if (mime.startsWith("audio/")) {
+            mediaDescriptions.push(
+              `[User shared an audio file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a transcription tool to process this audio if needed.`
+            );
+          } else if (mime.startsWith("video/")) {
+            mediaDescriptions.push(
+              `[User shared a video file: ${label}]\nURL: ${att.url}\nNote: use browseWebsite or a media processing tool to handle this video if needed.`
+            );
+          } else {
+            mediaDescriptions.push(`[User shared a file: ${label}]\nURL: ${att.url}`);
+          }
+        } else if (att.base64 && att.mimeType?.startsWith("image/")) {
+          mediaDescriptions.push(
+            `[User shared an image: ${label}] (base64 data provided, ${att.mimeType})`
+          );
+        } else {
+          mediaDescriptions.push(`[User shared a file: ${label}]`);
+        }
+      }
+      enrichedPrompt = `${prompt}\n\n${wrapUntrustedContent("User Attachments", mediaDescriptions.join("\n\n"))}`;
+    }
+
+    // Build conversation context; wrap all user content to resist prompt injection
+    let fullPrompt = enrichedPrompt;
+    if (conversationHistory && conversationHistory.length > 0) {
+      const historyText = conversationHistory
+        .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+        .join("\n\n");
+      fullPrompt = `${wrapUntrustedContent("Previous conversation", historyText)}\n\n${wrapUntrustedContent("Current request", enrichedPrompt)}`;
+    } else {
+      fullPrompt = wrapUntrustedContent("Current request", enrichedPrompt);
+    }
+
+    // Collect all MCP server names for subagent access
+    const mcpServers: Record<string, any> = {
+      "verxio-workflow": verxioMcpServer,
+      ...(composioMcpConfig ? { composio: composioMcpConfig } : {}),
+      ...userMcpServers,
+    };
+    const mcpServerNames = Object.keys(mcpServers);
+
+    // Build allowedTools: auto-approve built-in tools + all MCP server tools via wildcards
+    const allowedTools = [
+      ...AGENT_BUILTIN_TOOLS,
+      ...mcpServerNames.map((name) => `mcp__${name}__*`),
+    ];
+
     const result: Query = query({
       prompt: fullPrompt,
       options: {
@@ -361,23 +523,25 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
         systemPrompt,
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        mcpServers: {
-          "verxio-workflow": verxioMcpServer,
-          ...(composioMcpConfig ? { composio: composioMcpConfig } : {}),
-          ...userMcpServers,
-        },
-        tools: [],
+        mcpServers,
+        tools: AGENT_BUILTIN_TOOLS,
+        allowedTools,
+        agents: await buildSubagents(mcpServerNames, userId),
         maxTurns,
+        maxBudgetUsd: DEFAULT_MAX_BUDGET_USD,
+        effort: "high",
+        persistSession: false,
         abortController,
         includePartialMessages: true,
+        stderr: stderrHandler,
       },
     });
 
-    // Stream messages
     for await (const message of result) {
       yield* processSDKMessage(message);
     }
   } catch (error: any) {
+    console.error("[AgentService] runAgentQuery failed:", error);
     yield {
       type: "error",
       data: { message: error.message, stack: error.stack },
@@ -603,7 +767,7 @@ export async function generateWorkflowWithAgent(
 // ============================================
 
 const WORKFLOW_SESSION_CONTEXT = `
-All capabilities, node types, research/TinyFish/Composio rules, plan mode, single-node execution, and workflow-building instructions are in your system prompt. Follow them.
+All capabilities, node types, research/TinyFish/Composio rules, plan mode, single-node execution, workflow-building instructions, task management, and goal orchestration are in your system prompt. Follow them.
 `;
 
 export interface AgentPersonality {
@@ -639,12 +803,11 @@ When asked "who are you", respond with your name and personality — you are ${n
 ## Your Personality (soul.md)
 ${soulMd}
 
-${
-  evolvePersonality
-    ? `## Personality Evolution
+${evolvePersonality
+        ? `## Personality Evolution
 You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
-    : ""
-}
+        : ""
+      }
 ---
 
 `;
@@ -774,12 +937,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-          .map((name) => {
-            const value = context[name];
-            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-          })
-          .join("\n")
+        .map((name) => {
+          const value = context[name];
+          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+        })
+        .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions

@@ -52,14 +52,14 @@ function getTourIdForPathname(pathname: string | null): TourId | null {
   if (pathname.startsWith("/workflows/")) return "workflow";
   if (pathname === "/templates") return "templates";
   if (pathname === "/credentials") return "credentials";
-  if (pathname === "/integrations") return "integrations";
+  if (pathname === "/coworker") return "integrations";
   if (pathname === "/skills") return "skills";
   return null;
 }
 
 function getPathForTourId(tourId: TourId): string | null {
   if (tourId === "credentials") return "/credentials";
-  if (tourId === "integrations") return "/integrations";
+  if (tourId === "integrations") return "/coworker";
   if (tourId === "skills") return "/skills";
   return null;
 }

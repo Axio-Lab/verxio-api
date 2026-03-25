@@ -274,7 +274,7 @@ export function ChatIntegrationsSetup({
           setSelectedIntegrationId(result.integration.id);
           // If in createOnly mode, navigate back to integrations page
           if (createOnly) {
-            router.push("/integrations");
+            router.push("/coworker");
           }
         },
       }
@@ -286,8 +286,8 @@ export function ChatIntegrationsSetup({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Create New Integration</CardTitle>
-          <CardDescription>Set up a new agent chat integration.</CardDescription>
+          <CardTitle className="text-base">Create New AI Coworker</CardTitle>
+          <CardDescription>Set up a new AI coworker chat integration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
@@ -385,10 +385,10 @@ export function ChatIntegrationsSetup({
           <div className="flex items-center gap-2">
             <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
               {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Integration
+              Create AI Coworker
             </Button>
             <Button variant="outline" asChild>
-              <NextLink href="/integrations">Cancel</NextLink>
+              <NextLink href="/coworker">Cancel</NextLink>
             </Button>
           </div>
         </CardContent>
@@ -400,8 +400,8 @@ export function ChatIntegrationsSetup({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Create a new integration interface</CardTitle>
-          <CardDescription>Set up your first chat integration.</CardDescription>
+          <CardTitle className="text-base">Create a new AI Coworker</CardTitle>
+          <CardDescription>Set up your first AI coworker chat integration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -497,7 +497,7 @@ export function ChatIntegrationsSetup({
           <div className="flex items-center gap-2">
             <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
               {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Integration
+              Create AI Coworker
             </Button>
           </div>
         </CardContent>
@@ -509,8 +509,8 @@ export function ChatIntegrationsSetup({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">No integrations available</CardTitle>
-          <CardDescription>Create an integration to continue.</CardDescription>
+          <CardTitle className="text-base">No AI coworkers available</CardTitle>
+          <CardDescription>Create an AI coworker to continue.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -675,14 +675,14 @@ export function ChatIntegrationsSetup({
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Integration
+              AI Coworker
             </CardTitle>
-            <CardDescription>Select or create a chat integration.</CardDescription>
+            <CardDescription>Select or create an AI coworker.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!hideIntegrationSelector && (
               <div className="space-y-2">
-                <Label>Active Integration</Label>
+                <Label>Active Coworker</Label>
                 <Select value={selectedIntegrationId} onValueChange={setSelectedIntegrationId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select integration" />
@@ -792,7 +792,7 @@ export function ChatIntegrationsSetup({
             <div className="flex items-center gap-2">
               <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
                 {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Create Integration
+                Create AI Coworker
               </Button>
             </div>
           </CardContent>
@@ -1772,7 +1772,7 @@ export function ChatIntegrationsSetup({
         <CardHeader>
           <CardTitle className="text-base">Settings</CardTitle>
           <CardDescription>
-            Control how Chat Integration can interact with your workflows.
+            Control how your AI Coworker can interact with your workflows.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -1878,9 +1878,9 @@ export function ChatIntegrationsSetup({
 
           <div className="flex items-center justify-between">
             <div>
-              <Label>Integration Active</Label>
+              <Label>Coworker Active</Label>
               <p className="text-sm text-muted-foreground">
-                Enable or disable the Chat Integration integration.
+                Enable or disable this AI Coworker.
               </p>
             </div>
             <Switch
@@ -1894,7 +1894,7 @@ export function ChatIntegrationsSetup({
             <div>
               <Label>Allow Plan Mode</Label>
               <p className="text-sm text-muted-foreground">
-                Let ChatIntegration create and modify workflows using plan mode.
+                Let AI Coworker create and modify workflows using plan mode.
               </p>
             </div>
             <Switch
@@ -1908,7 +1908,7 @@ export function ChatIntegrationsSetup({
             <div>
               <Label>Allow Workflow Execution</Label>
               <p className="text-sm text-muted-foreground">
-                Let ChatIntegration trigger workflow runs from chat commands.
+                Let AI Coworker trigger workflow runs from chat commands.
               </p>
             </div>
             <Switch

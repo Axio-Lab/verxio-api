@@ -278,6 +278,7 @@ model User {
   externalIdentities    ExternalIdentity[]
   chatIntegrations      ChatIntegration[]
   skills                UserSkill[]
+  customSubagents       CustomSubagent[]
   referralCode          String?              @unique
   referredBy            String?
   referralsMade         Referral[]           @relation("Referrals")
@@ -501,6 +502,7 @@ enum NodeType {
   APPROVAL_GATE
   REPORT
   AGENT_WATCH
+  AGENT_EXEC
 }
 
 model ComposioWebhookSubscription {
@@ -875,6 +877,31 @@ model UserSkill {
   @@index([userId])
   @@index([userId, name])
   @@map("user_skills")
+}
+
+// ============================================
+// Custom Subagents (user-defined AI team members)
+// ============================================
+
+model CustomSubagent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String
+  prompt      String
+  skillIds    String[]
+  tools       String[]
+  model       String   @default("sonnet")
+  maxTurns    Int      @default(8)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@map("custom_subagents")
 }
 
 // ============================================

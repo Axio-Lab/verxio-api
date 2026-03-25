@@ -26,10 +26,10 @@ async function runSubAgent(
   inputContext: string,
   userId: string
 ): Promise<string> {
-  let systemContext = `You are ${agent.name}, a ${agent.role}.`;
+  let systemContext = `You are ${agent.name}, a ${agent.role}. You are part of a multi-agent team on Verxio's agent operations platform.`;
   if (agent.personality) systemContext += `\n\n${agent.personality}`;
+  systemContext += `\n\nYou have access to all Verxio tools, Composio integrations, and specialized subagents (ops-researcher, content-writer, data-analyst, task-executor). Delegate to subagents when a subtask falls outside your specialty.`;
 
-  // Add KB context if linked
   if (agent.knowledgeBaseId) {
     try {
       const { searchKnowledge } = await import("@/services/knowledgeBaseService");
@@ -48,7 +48,7 @@ async function runSubAgent(
     prompt,
     userId,
     workflowId: agent.workflowId,
-    maxTurns: 5,
+    maxTurns: 8,
   });
 
   return result.result || "No output from agent.";
@@ -96,17 +96,19 @@ async function executeSupervisor(
 
   for (let round = 0; round < maxRounds; round++) {
     // Supervisor decides which agents to run
-    const supervisorPrompt = `You are a supervisor agent orchestrating a team.
+    const supervisorPrompt = `You are a supervisor agent orchestrating a team on Verxio's agent operations platform. You coordinate specialized agents and evaluate their outputs.
 
 Objective: ${objective}
 
 Available agents:
 ${agents.map((a, i) => `${i}. ${a.name} (${a.role})`).join("\n")}
 
+Each agent has access to Verxio tools, Composio integrations, and can delegate to subagents (ops-researcher, content-writer, data-analyst, task-executor).
+
 Current results:
 ${aggregatedResults}
 
-${round === 0 ? "This is the first round. Delegate the task to the appropriate agents." : "Review the results and decide if the objective is met."}
+${round === 0 ? "This is the first round. Delegate tasks to the appropriate agents. Assign tasks in parallel where possible." : "Review the results. Decide if the objective is fully met or if agents need additional rounds."}
 
 Respond with ONLY a JSON object:
 {"done": true/false, "delegations": [{"agentIndex": 0, "task": "specific task"}], "finalOutput": "only if done=true"}`;
@@ -130,19 +132,21 @@ Respond with ONLY a JSON object:
       return parsed.finalOutput || aggregatedResults;
     }
 
-    // Execute delegated tasks
-    const delegations = parsed.delegations || [];
-    for (const delegation of delegations) {
-      const agent = agents[delegation.agentIndex];
-      if (!agent) continue;
-      const result = await runSubAgent(
-        agent,
-        delegation.task || objective,
-        aggregatedResults,
-        userId
-      );
-      aggregatedResults += `\n\n[${agent.name} round ${round + 1}]:\n${result}`;
-    }
+    const delegations = (parsed.delegations || []).filter(
+      (d: any) => agents[d.agentIndex]
+    );
+    const delegationResults = await Promise.all(
+      delegations.map((delegation: any) => {
+        const agent = agents[delegation.agentIndex];
+        return runSubAgent(
+          agent,
+          delegation.task || objective,
+          aggregatedResults,
+          userId
+        ).then((result) => `\n\n[${agent.name} round ${round + 1}]:\n${result}`);
+      })
+    );
+    aggregatedResults += delegationResults.join("");
   }
 
   return aggregatedResults;
