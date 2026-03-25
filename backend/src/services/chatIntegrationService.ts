@@ -1250,7 +1250,7 @@ async function runWorkflowAndWait(options: {
   const run = await (prisma as any).publicChatRun.create({
     data: {
       workflowId,
-      status: "PENDING",
+      status: "PLANNING",
       input: { message } as object,
     },
   });
@@ -2977,7 +2977,7 @@ async function handleGoalCommand(
         userId,
         name: parts[0],
         objective: parts[1],
-        status: "PENDING",
+        status: "PLANNING",
       },
     });
 
