@@ -60,15 +60,18 @@ router.post("/discord/:channelId", async (req: Request, res: Response) => {
   void (async () => {
     try {
       let imageUrl: string | undefined;
+      let imageSource: "camera" | "document" | undefined;
       if (body.attachments?.length) {
         const imgAttachment = body.attachments.find((a) => a.type === "image" && a.url);
         if (imgAttachment?.url) {
           imageUrl = await downloadDiscordAttachment(imgAttachment.url);
+          imageSource = "document";
         }
       }
 
       const result = await handleIncomingSubmission("DISCORD", authorId, messageText, imageUrl, {
         taskChannelId: channel.id,
+        imageSource,
       });
 
       if (result.handled && result.feedback) {

@@ -2720,16 +2720,32 @@ export async function testConnection(
 // ============================================
 
 const BUILTIN_AGENTS_LIST = [
-  { slug: "ops-researcher", name: "Ops Researcher", description: "Research specialist for business operations, industry data, APIs, and documentation." },
-  { slug: "content-writer", name: "Content Writer", description: "Content creation specialist for documents, reports, emails, marketing copy, and proposals." },
-  { slug: "data-analyst", name: "Data Analyst", description: "Data analysis specialist for insights, comparisons, and analytical output." },
-  { slug: "task-executor", name: "Task Executor", description: "Action executor for creating documents, running integrations, and executing code." },
+  {
+    slug: "ops-researcher",
+    name: "Ops Researcher",
+    description:
+      "Research specialist for business operations, industry data, APIs, and documentation.",
+  },
+  {
+    slug: "content-writer",
+    name: "Content Writer",
+    description:
+      "Content creation specialist for documents, reports, emails, marketing copy, and proposals.",
+  },
+  {
+    slug: "data-analyst",
+    name: "Data Analyst",
+    description: "Data analysis specialist for insights, comparisons, and analytical output.",
+  },
+  {
+    slug: "task-executor",
+    name: "Task Executor",
+    description:
+      "Action executor for creating documents, running integrations, and executing code.",
+  },
 ];
 
-async function handleAgentsCommand(
-  userId: string,
-  args: string
-): Promise<ChatIntegrationResponse> {
+async function handleAgentsCommand(userId: string, args: string): Promise<ChatIntegrationResponse> {
   const subCmd = args.trim().split(" ")[0]?.toLowerCase();
 
   if (!subCmd || subCmd === "list" || subCmd === "") {
@@ -2754,7 +2770,8 @@ async function handleAgentsCommand(
   return {
     success: false,
     type: "error",
-    message: "Unknown agents subcommand. Use: /agents, /agents create, /agents update, /agents delete",
+    message:
+      "Unknown agents subcommand. Use: /agents, /agents create, /agents update, /agents delete",
   };
 }
 
@@ -2829,7 +2846,8 @@ async function updateAgentFromChat(
     return {
       success: false,
       type: "error",
-      message: "Usage: `/agents update <slug> | <field>=<value>`\nFields: name, description, prompt, isActive (true/false), maxTurns",
+      message:
+        "Usage: `/agents update <slug> | <field>=<value>`\nFields: name, description, prompt, isActive (true/false), maxTurns",
     };
   }
 
@@ -2862,14 +2880,15 @@ async function updateAgentFromChat(
       message: `Agent \`${slug}\` updated successfully.`,
     };
   } catch (err: any) {
-    return { success: false, type: "error", message: `Failed to update agent: ${err.message || "Unknown error"}` };
+    return {
+      success: false,
+      type: "error",
+      message: `Failed to update agent: ${err.message || "Unknown error"}`,
+    };
   }
 }
 
-async function deleteAgentFromChat(
-  userId: string,
-  slug: string
-): Promise<ChatIntegrationResponse> {
+async function deleteAgentFromChat(userId: string, slug: string): Promise<ChatIntegrationResponse> {
   if (!slug) {
     return { success: false, type: "error", message: "Usage: `/agents delete <slug>`" };
   }
@@ -2885,7 +2904,11 @@ async function deleteAgentFromChat(
     await deleteSubagent(userId, agent.id);
     return { success: true, type: "info", message: `Agent \`${slug}\` deleted.` };
   } catch (err: any) {
-    return { success: false, type: "error", message: `Failed to delete agent: ${err.message || "Unknown error"}` };
+    return {
+      success: false,
+      type: "error",
+      message: `Failed to delete agent: ${err.message || "Unknown error"}`,
+    };
   }
 }
 
@@ -2900,7 +2923,11 @@ async function handleAgentRunCommand(
 
   const afterRun = args.replace(/^run\s*/i, "").trim();
   if (!afterRun) {
-    return { success: false, type: "error", message: "Please provide a task. Usage: `/agent run [agent_slug] <task>`" };
+    return {
+      success: false,
+      type: "error",
+      message: "Please provide a task. Usage: `/agent run [agent_slug] <task>`",
+    };
   }
 
   const allSlugs = [...BUILTIN_AGENTS_LIST.map((b) => b.slug)];
@@ -2918,7 +2945,11 @@ async function handleAgentRunCommand(
     targetSlug = firstWord;
     task = afterRun.slice(firstWord.length).trim();
     if (!task) {
-      return { success: false, type: "error", message: "Please provide a task after the agent slug." };
+      return {
+        success: false,
+        type: "error",
+        message: "Please provide a task after the agent slug.",
+      };
     }
   } else {
     task = afterRun;
@@ -2952,10 +2983,7 @@ async function handleAgentRunCommand(
   }
 }
 
-async function handleGoalCommand(
-  userId: string,
-  args: string
-): Promise<ChatIntegrationResponse> {
+async function handleGoalCommand(userId: string, args: string): Promise<ChatIntegrationResponse> {
   const subCmd = args.trim().split(" ")[0]?.toLowerCase();
   if (subCmd !== "create") {
     return { success: false, type: "error", message: "Usage: `/goal create <name> | <objective>`" };

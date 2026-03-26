@@ -583,6 +583,8 @@ function CreateGoalDialog({
                             name: data.fields.name || prev.name,
                             objective: data.fields.objective || prev.objective,
                           }));
+                          setAiPrompt("");
+                          setShowAiFill(false);
                         },
                       }
                     );

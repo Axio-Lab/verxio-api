@@ -12,12 +12,27 @@ export interface GoalCreateInput {
 }
 
 export async function createGoal(userId: string, data: GoalCreateInput) {
+  const requestedChannelId =
+    typeof data.reportingChannelId === "string" ? data.reportingChannelId.trim() : "";
+
+  let reportingChannelId: string | null = null;
+  if (requestedChannelId) {
+    const channel = await prisma.supportChannel.findFirst({
+      where: {
+        id: requestedChannelId,
+        userId,
+      },
+      select: { id: true },
+    });
+    reportingChannelId = channel?.id ?? null;
+  }
+
   const goal = await prisma.agentGoal.create({
     data: {
       userId,
       name: data.name,
       objective: data.objective,
-      reportingChannelId: data.reportingChannelId ?? null,
+      reportingChannelId,
       deliveryConfig: data.deliveryConfig ?? null,
       maxRetries: data.maxRetries ?? 3,
       status: "PLANNING",

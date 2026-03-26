@@ -79,47 +79,78 @@ export function calculateBetaTesterExpiration(): Date {
   return expiration;
 }
 
+const TRANSIENT_PRISMA_CODES = new Set(["P1001", "P1002", "P1008", "P1017"]);
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 500;
+
+async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      if (!TRANSIENT_PRISMA_CODES.has(error?.code)) throw error;
+      const delay = RETRY_BASE_MS * Math.pow(2, attempt);
+      console.warn(
+        `[SubscriptionService] Transient DB error (${error.code}), retry ${attempt + 1}/${RETRY_ATTEMPTS} in ${delay}ms`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
 /**
- * Check if subscription is active and not expired
+ * Check if subscription is active and not expired.
+ * Retries on transient DB connectivity errors and fails open
+ * (returns true) if the database remains unreachable so that
+ * paying users are not blocked by infrastructure blips.
  */
 export async function isSubscriptionActive(userId: string): Promise<boolean> {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        subscriptionStatus: true,
-        subscriptionExpiresAt: true,
-        subscriptionPlan: true,
-      },
-    });
+    const user = await withDbRetry(() =>
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          subscriptionStatus: true,
+          subscriptionExpiresAt: true,
+          subscriptionPlan: true,
+        },
+      })
+    );
 
     if (!user) {
       return false;
     }
 
-    // If no subscription plan, user is on free plan
     if (!user.subscriptionPlan || user.subscriptionPlan.trim() === "") {
       return false;
     }
 
-    // Check if status is active
     if (user.subscriptionStatus !== "active") {
       return false;
     }
 
-    // Check if expired
     if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < new Date()) {
-      // Auto-update to expired status
-      await prisma.user.update({
-        where: { id: userId },
-        data: { subscriptionStatus: "expired" },
-      });
+      await prisma.user
+        .update({
+          where: { id: userId },
+          data: { subscriptionStatus: "expired" },
+        })
+        .catch(() => {});
       return false;
     }
 
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error("[SubscriptionService] Error checking subscription:", error);
+    if (TRANSIENT_PRISMA_CODES.has(error?.code)) {
+      console.warn(
+        `[SubscriptionService] DB unreachable after retries — failing open for user ${userId}`
+      );
+      return true;
+    }
     return false;
   }
 }
@@ -129,18 +160,20 @@ export async function isSubscriptionActive(userId: string): Promise<boolean> {
  */
 export async function getUserSubscription(userId: string) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        subscriptionStatus: true,
-        subscriptionPlan: true,
-        subscriptionExpiresAt: true,
-        subscriptionFeatures: true,
-        rateLimitRemaining: true,
-        rateLimitResetAt: true,
-        polarCustomerId: true,
-      },
-    });
+    const user = await withDbRetry(() =>
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          subscriptionStatus: true,
+          subscriptionPlan: true,
+          subscriptionExpiresAt: true,
+          subscriptionFeatures: true,
+          rateLimitRemaining: true,
+          rateLimitResetAt: true,
+          polarCustomerId: true,
+        },
+      })
+    );
 
     if (!user) {
       return null;

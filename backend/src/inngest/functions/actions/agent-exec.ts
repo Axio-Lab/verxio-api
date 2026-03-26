@@ -18,29 +18,39 @@ interface AgentExecData {
   }>;
 }
 
-async function loadRoster(userId: string): Promise<Record<string, { name: string; description: string; prompt: string }>> {
-  const { getActiveSubagents, loadSubagentWithSkills } = await import("@/services/customSubagentService");
+async function loadRoster(
+  userId: string
+): Promise<Record<string, { name: string; description: string; prompt: string }>> {
+  const { getActiveSubagents, loadSubagentWithSkills } =
+    await import("@/services/customSubagentService");
 
   const BUILTINS: Record<string, { name: string; description: string; prompt: string }> = {
     "ops-researcher": {
       name: "Ops Researcher",
-      description: "Research specialist for business operations, industry data, APIs, and documentation.",
-      prompt: "You are a research specialist on Verxio. Gather accurate, detailed, actionable information. Always cite sources.",
+      description:
+        "Research specialist for business operations, industry data, APIs, and documentation.",
+      prompt:
+        "You are a research specialist on Verxio. Gather accurate, detailed, actionable information. Always cite sources.",
     },
     "content-writer": {
       name: "Content Writer",
-      description: "Content creation specialist for documents, reports, emails, marketing copy, and proposals.",
-      prompt: "You are a professional content writer on Verxio. Produce polished, ready-to-use output.",
+      description:
+        "Content creation specialist for documents, reports, emails, marketing copy, and proposals.",
+      prompt:
+        "You are a professional content writer on Verxio. Produce polished, ready-to-use output.",
     },
     "data-analyst": {
       name: "Data Analyst",
       description: "Data analysis specialist for insights, comparisons, and analytical output.",
-      prompt: "You are a data analyst on Verxio. Be precise with numbers and sources. Key takeaways first.",
+      prompt:
+        "You are a data analyst on Verxio. Be precise with numbers and sources. Key takeaways first.",
     },
     "task-executor": {
       name: "Task Executor",
-      description: "Action executor for creating documents, sending communications, and running integrations.",
-      prompt: "You are a task executor on Verxio. Execute precisely what is asked. Report what was done.",
+      description:
+        "Action executor for creating documents, sending communications, and running integrations.",
+      prompt:
+        "You are a task executor on Verxio. Execute precisely what is asked. Report what was done.",
     },
   };
 

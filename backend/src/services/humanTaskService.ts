@@ -126,14 +126,22 @@ export async function createHumanTask(userId: string, data: HumanTaskCreateInput
 }
 
 export async function listHumanTasks(userId: string) {
-  return prisma.humanTask.findMany({
+  const tasks = await prisma.humanTask.findMany({
     where: { userId },
     include: {
       taskChannel: { select: { id: true, platform: true, label: true } },
-      _count: { select: { workers: true, submissions: true } },
+      _count: {
+        select: {
+          workers: true,
+          submissions: {
+            where: { status: { in: ["SUBMITTED", "PASSED", "FAILED", "VETTING", "RESUBMITTED"] } },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
+  return tasks;
 }
 
 export async function getHumanTask(userId: string, taskId: string) {
@@ -142,7 +150,15 @@ export async function getHumanTask(userId: string, taskId: string) {
     include: {
       workers: { orderBy: { createdAt: "asc" } },
       submissions: { orderBy: { dueAt: "desc" }, take: 50 },
-      _count: { select: { workers: true, submissions: true, reports: true } },
+      _count: {
+        select: {
+          workers: true,
+          submissions: {
+            where: { status: { in: ["SUBMITTED", "PASSED", "FAILED", "VETTING", "RESUBMITTED"] } },
+          },
+          reports: true,
+        },
+      },
     },
   });
 }

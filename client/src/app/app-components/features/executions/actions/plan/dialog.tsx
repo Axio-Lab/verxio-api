@@ -152,6 +152,7 @@ export const PlanDialog = ({
       setSoulGenCoreTruths("");
       setSoulGenBoundaries("");
       setSoulTab("paste");
+      setSoulUpdateExpanded(false);
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Failed to generate personality");
