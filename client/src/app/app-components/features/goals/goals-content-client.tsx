@@ -98,8 +98,7 @@ const tabs = [
 ] as const;
 
 export function GoalsContentClient() {
-  const [activeTab, setActiveTab] =
-    useState<"goals" | "watches" | "memories" | "agents">("goals");
+  const [activeTab, setActiveTab] = useState<"goals" | "watches" | "memories" | "agents">("goals");
   const [search, setSearch] = useState("");
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [showCreateWatch, setShowCreateWatch] = useState(false);
@@ -812,13 +811,7 @@ function CreateWatchDialog({
   );
 }
 
-function BuiltinAgentCard({
-  agent,
-  onClone,
-}: {
-  agent: BuiltinSubagent;
-  onClone: () => void;
-}) {
+function BuiltinAgentCard({ agent, onClone }: { agent: BuiltinSubagent; onClone: () => void }) {
   return (
     <Card className="shadow-none border-dashed">
       <CardContent className="p-4">
@@ -836,12 +829,7 @@ function BuiltinAgentCard({
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">{agent.description}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClone}
-            className="shrink-0 text-xs gap-1.5"
-          >
+          <Button variant="ghost" size="sm" onClick={onClone} className="shrink-0 text-xs gap-1.5">
             <Copy className="h-3.5 w-3.5" /> Clone
           </Button>
         </div>
@@ -896,11 +884,7 @@ function AgentCard({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <Switch
-              checked={agent.isActive}
-              onCheckedChange={onToggle}
-              className="scale-90"
-            />
+            <Switch checked={agent.isActive} onCheckedChange={onToggle} className="scale-90" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -1126,10 +1110,7 @@ function AgentFormDialog({
             >
               Cancel
             </Button>
-            <Button
-              onClick={() => onSubmit(form)}
-              disabled={!isValid || isPending}
-            >
+            <Button onClick={() => onSubmit(form)} disabled={!isValid || isPending}>
               {isPending
                 ? isEdit
                   ? "Saving..."

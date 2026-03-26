@@ -1879,9 +1879,7 @@ export function ChatIntegrationsSetup({
           <div className="flex items-center justify-between">
             <div>
               <Label>Coworker Active</Label>
-              <p className="text-sm text-muted-foreground">
-                Enable or disable this AI Coworker.
-              </p>
+              <p className="text-sm text-muted-foreground">Enable or disable this AI Coworker.</p>
             </div>
             <Switch
               checked={integration?.isActive || false}
