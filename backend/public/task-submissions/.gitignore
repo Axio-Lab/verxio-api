@@ -1,0 +1,4 @@
+# Ignore uploaded task submission images; keep directory in git
+*
+!.gitignore
+!.gitkeep

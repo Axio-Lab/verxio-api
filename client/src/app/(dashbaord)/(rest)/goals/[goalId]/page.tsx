@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   useAgentGoal,
@@ -9,6 +10,7 @@ import {
   useApproveGoal,
   useRejectGoal,
 } from "@/hooks/useAgentGoals";
+import { EntityPagination } from "@/app/app-components/features/editor/entity-component";
 import {
   ArrowLeft,
   Brain,
@@ -20,6 +22,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const TASKS_PER_PAGE = 5;
+const MEMORIES_PER_PAGE = 10;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING: { label: "Pending", color: "bg-gray-100 text-gray-700" },
@@ -44,6 +49,21 @@ export default function GoalDetailPage() {
   const deleteMemory = useDeleteMemory();
   const approveGoal = useApproveGoal();
   const rejectGoal = useRejectGoal();
+  const [taskPage, setTaskPage] = useState(1);
+  const [memoryPage, setMemoryPage] = useState(1);
+  const goal = goalData?.goal;
+  const tasks = tasksData?.tasks || goal?.tasks || [];
+  const memories = memoriesData?.memories || goal?.memories || [];
+  const totalTaskPages = Math.max(1, Math.ceil(tasks.length / TASKS_PER_PAGE));
+  const totalMemoryPages = Math.max(1, Math.ceil(memories.length / MEMORIES_PER_PAGE));
+
+  useEffect(() => {
+    setTaskPage((prev) => Math.min(prev, totalTaskPages));
+  }, [totalTaskPages]);
+
+  useEffect(() => {
+    setMemoryPage((prev) => Math.min(prev, totalMemoryPages));
+  }, [totalMemoryPages]);
 
   if (isLoading) {
     return (
@@ -53,13 +73,15 @@ export default function GoalDetailPage() {
     );
   }
 
-  const goal = goalData?.goal;
   if (!goal) {
     return <div className="p-6 text-center text-muted-foreground">Goal not found</div>;
   }
 
-  const tasks = tasksData?.tasks || goal.tasks || [];
-  const memories = memoriesData?.memories || goal.memories || [];
+  const pagedTasks = tasks.slice((taskPage - 1) * TASKS_PER_PAGE, taskPage * TASKS_PER_PAGE);
+  const pagedMemories = memories.slice(
+    (memoryPage - 1) * MEMORIES_PER_PAGE,
+    memoryPage * MEMORIES_PER_PAGE
+  );
   const completedTasks = tasks.filter((t) => t.status === "COMPLETE").length;
   const totalTasks = tasks.length;
   const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -139,7 +161,7 @@ export default function GoalDetailPage() {
           </p>
         ) : (
           <div className="space-y-2">
-            {tasks.map((task) => {
+            {pagedTasks.map((task) => {
               const taskStatus = STATUS_CONFIG[task.status] || {
                 label: task.status,
                 color: "bg-gray-100 text-gray-700",
@@ -193,6 +215,13 @@ export default function GoalDetailPage() {
                 </div>
               );
             })}
+            <EntityPagination
+              currentPage={taskPage}
+              totalPages={totalTaskPages}
+              onPageChange={setTaskPage}
+              showInfo={false}
+              className="mt-4"
+            />
           </div>
         )}
       </div>
@@ -216,7 +245,7 @@ export default function GoalDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {memories.map((m) => (
+                {pagedMemories.map((m) => (
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="p-3 font-mono text-xs">{m.key}</td>
                     <td className="p-3 max-w-xs truncate">{m.value}</td>
@@ -237,6 +266,13 @@ export default function GoalDetailPage() {
             </table>
           </div>
         )}
+        <EntityPagination
+          currentPage={memoryPage}
+          totalPages={totalMemoryPages}
+          onPageChange={setMemoryPage}
+          showInfo={false}
+          className="mt-4"
+        />
       </div>
     </div>
   );

@@ -13,30 +13,42 @@ import {
 } from "@/config/subscription-features";
 
 /**
- * Check if user has access to a specific feature
- * Throws error if access is denied
+ * Check if user has access to a specific feature.
+ * Throws on denied access. If the DB is transiently unreachable,
+ * this fails open so running agent workflows aren't interrupted.
  */
 export async function checkFeatureAccess(
   userId: string,
   requiredFeature: SubscriptionFeature
 ): Promise<void> {
-  // Check if subscription is active
-  const isActive = await isSubscriptionActive(userId);
+  let isActive: boolean;
+  try {
+    isActive = await isSubscriptionActive(userId);
+  } catch {
+    console.warn(`[SubscriptionCheck] DB error checking subscription for ${userId} — failing open`);
+    return;
+  }
+
   if (!isActive) {
     throw new Error(
       "Active subscription required. Please upgrade your plan to access this feature."
     );
   }
 
-  // Get user subscription to check features
-  const subscription = await getUserSubscription(userId);
+  let subscription: Awaited<ReturnType<typeof getUserSubscription>>;
+  try {
+    subscription = await getUserSubscription(userId);
+  } catch {
+    console.warn(`[SubscriptionCheck] DB error fetching subscription for ${userId} — failing open`);
+    return;
+  }
+
   if (!subscription || !subscription.isSubscribed) {
     throw new Error(
       "Active subscription required. Please upgrade your plan to access this feature."
     );
   }
 
-  // Check feature access
   if (!hasFeatureAccess(subscription.features, requiredFeature)) {
     throw new Error(
       `This feature requires a subscription. Please upgrade your plan to access ${requiredFeature}.`

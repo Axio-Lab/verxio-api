@@ -154,7 +154,10 @@ export async function handleIncomingSubmission(
   externalId: string,
   message?: string,
   imageUrl?: string,
-  lookupOptions?: WorkerLookupOptions
+  lookupOptions?: WorkerLookupOptions & {
+    /** "camera" = inline photo from camera/gallery, "document" = sent as file attachment */
+    imageSource?: "camera" | "document";
+  }
 ): Promise<{ handled: boolean; feedback?: string }> {
   const worker = await getWorkerByExternalId(platform, externalId, lookupOptions);
   if (!worker) {
@@ -169,7 +172,9 @@ export async function handleIncomingSubmission(
   const isHelpIntent = isHelpIntentMessage(trimmed);
 
   const task = worker.humanTask;
-  if (!task) return { handled: false };
+  if (!task) {
+    return { handled: false };
+  }
 
   // HELP must work when the task is PAUSED (only ACTIVE is required for evidence / check-ins).
   if (isHelpIntent) {
@@ -196,6 +201,19 @@ export async function handleIncomingSubmission(
     await activateWorker(worker.id);
   }
 
+  // Auto-mark stale PENDING submissions as MISSED (past due + grace period)
+  const graceMs = (task.graceMinutes ?? 15) * 60 * 1000;
+  const staleCutoff = new Date(Date.now() - graceMs);
+  await prisma.taskSubmission.updateMany({
+    where: {
+      workerId: worker.id,
+      humanTaskId: task.id,
+      status: "PENDING",
+      dueAt: { lt: staleCutoff },
+    },
+    data: { status: "MISSED" },
+  });
+
   // Find latest PENDING submission for this worker's task
   let submission = await prisma.taskSubmission.findFirst({
     where: {
@@ -206,26 +224,27 @@ export async function handleIncomingSubmission(
     orderBy: { dueAt: "desc" },
   });
 
-  // Check for resubmission
+  // Check for resubmission (only if the failed slot is still within grace period)
   if (!submission && task.resubmissionAllowed) {
-    submission = await prisma.taskSubmission.findFirst({
+    const failedSubmission = await prisma.taskSubmission.findFirst({
       where: {
         workerId: worker.id,
         humanTaskId: task.id,
         status: "FAILED",
+        dueAt: { gte: staleCutoff },
       },
       orderBy: { dueAt: "desc" },
     });
-    if (submission) {
+    if (failedSubmission) {
       await prisma.taskSubmission.update({
-        where: { id: submission.id },
+        where: { id: failedSubmission.id },
         data: { status: "RESUBMITTED" },
       });
       submission = await prisma.taskSubmission.create({
         data: {
           humanTaskId: task.id,
           workerId: worker.id,
-          dueAt: submission.dueAt,
+          dueAt: failedSubmission.dueAt,
           status: "PENDING",
         },
       });
@@ -236,6 +255,37 @@ export async function handleIncomingSubmission(
     if (wasOnboarding && isReadyOnly) {
       return { handled: true, feedback: buildOnboardingCompleteMessage(worker, task) };
     }
+
+    const missedSubmission = await prisma.taskSubmission.findFirst({
+      where: {
+        workerId: worker.id,
+        humanTaskId: task.id,
+        status: "MISSED",
+      },
+      orderBy: { dueAt: "desc" },
+    });
+
+    if (missedSubmission) {
+      const tz = task.timezone || "UTC";
+      const dueLabel = new Date(missedSubmission.dueAt).toLocaleString("en-US", {
+        timeZone: tz,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const feedback =
+        `## Missed check-in\n\n` +
+        `Your check-in for **${task.name}** that was due on **${dueLabel} (${tz})** has already been recorded as **missed** in the report.\n\n` +
+        `Late submissions are not accepted once the grace period has passed.\n\n` +
+        `Please make sure to submit your evidence within the allowed time when the next check-in is due. ` +
+        `You will receive a reminder when it's time.`;
+
+      return { handled: true, feedback };
+    }
+
     const feedback = wasOnboarding
       ? "You are all set. Nothing is due right now — we will message you here when the next check-in is due."
       : "No check-in is due right now. When you get a reminder, reply here with the requested evidence.";
@@ -270,14 +320,37 @@ export async function handleIncomingSubmission(
   }
 
   // Require correct evidence only when a submission slot is actually open
-  if (task.evidenceType === "PHOTO" && !imageUrl) {
-    return { handled: true, feedback: "This check-in requires a photo. Please send an image." };
+  const imageSource = lookupOptions?.imageSource;
+
+  if (task.evidenceType === "PHOTO") {
+    if (!imageUrl) {
+      return {
+        handled: true,
+        feedback:
+          "This check-in requires a live photo.\n\nUse the camera button in this chat to take a photo right now — do not upload from your gallery or files.",
+      };
+    }
+    if (imageSource === "document") {
+      return {
+        handled: true,
+        feedback:
+          "Please take a live photo using the camera button in this chat.\n\nUploading files from your device is not accepted for photo check-ins — we need real-time evidence.",
+      };
+    }
   }
   if (task.evidenceType === "PHOTO_AND_TEXT") {
     if (!imageUrl) {
       return {
         handled: true,
-        feedback: "This check-in requires a photo. Please send an image (you can add a caption).",
+        feedback:
+          "This check-in requires a live photo with a caption.\n\nUse the camera button to take a photo now and add a short note.",
+      };
+    }
+    if (imageSource === "document") {
+      return {
+        handled: true,
+        feedback:
+          "Please take a live photo using the camera button — file uploads are not accepted.\n\nAdd a short caption or follow-up message with the photo.",
       };
     }
     if (!trimmed) {

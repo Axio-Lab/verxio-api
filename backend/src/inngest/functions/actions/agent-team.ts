@@ -132,18 +132,13 @@ Respond with ONLY a JSON object:
       return parsed.finalOutput || aggregatedResults;
     }
 
-    const delegations = (parsed.delegations || []).filter(
-      (d: any) => agents[d.agentIndex]
-    );
+    const delegations = (parsed.delegations || []).filter((d: any) => agents[d.agentIndex]);
     const delegationResults = await Promise.all(
       delegations.map((delegation: any) => {
         const agent = agents[delegation.agentIndex];
-        return runSubAgent(
-          agent,
-          delegation.task || objective,
-          aggregatedResults,
-          userId
-        ).then((result) => `\n\n[${agent.name} round ${round + 1}]:\n${result}`);
+        return runSubAgent(agent, delegation.task || objective, aggregatedResults, userId).then(
+          (result) => `\n\n[${agent.name} round ${round + 1}]:\n${result}`
+        );
       })
     );
     aggregatedResults += delegationResults.join("");

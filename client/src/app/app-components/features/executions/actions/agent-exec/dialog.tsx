@@ -164,7 +164,8 @@ export function AgentExecDialog({
               placeholder="agentExec"
             />
             <p className="text-xs text-muted-foreground">
-            Use this name to reference the result in other nodes: <code>{`{{${variables || "agentExec"}.result}}`}</code>
+              Use this name to reference the result in other nodes:{" "}
+              <code>{`{{${variables || "agentExec"}.result}}`}</code>
             </p>
           </div>
 
@@ -226,11 +227,7 @@ export function AgentExecDialog({
                           : "bg-background text-foreground border-border hover:border-primary/50"
                       }`}
                     >
-                      {agent.isBuiltin ? (
-                        <Cpu className="h-3 w-3" />
-                      ) : (
-                        <Bot className="h-3 w-3" />
-                      )}
+                      {agent.isBuiltin ? <Cpu className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
                       {agent.name}
                     </button>
                   );

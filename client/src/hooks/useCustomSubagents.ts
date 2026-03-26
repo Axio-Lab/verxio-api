@@ -57,24 +57,21 @@ export interface AvailableSubagentsResponse {
 export function useCustomSubagents() {
   return useProtectedQuery<{ subagents: CustomSubagent[] }>({
     queryKey: ["custom-subagents"],
-    queryFn: () =>
-      authenticatedGet<{ subagents: CustomSubagent[] }>("/api/custom-subagents"),
+    queryFn: () => authenticatedGet<{ subagents: CustomSubagent[] }>("/api/custom-subagents"),
   });
 }
 
 export function useAvailableSubagents() {
   return useProtectedQuery<AvailableSubagentsResponse>({
     queryKey: ["available-subagents"],
-    queryFn: () =>
-      authenticatedGet<AvailableSubagentsResponse>("/api/custom-subagents/available"),
+    queryFn: () => authenticatedGet<AvailableSubagentsResponse>("/api/custom-subagents/available"),
   });
 }
 
 export function useCreateCustomSubagent() {
   const queryClient = useQueryClient();
   return useProtectedMutation<CustomSubagent, Error, CreateSubagentData>({
-    mutationFn: (data) =>
-      authenticatedPost<CustomSubagent>("/api/custom-subagents", data),
+    mutationFn: (data) => authenticatedPost<CustomSubagent>("/api/custom-subagents", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["custom-subagents"] });
       toast.success("Subagent created");
@@ -84,11 +81,7 @@ export function useCreateCustomSubagent() {
 
 export function useUpdateCustomSubagent() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<
-    CustomSubagent,
-    Error,
-    { id: string; data: UpdateSubagentData }
-  >({
+  return useProtectedMutation<CustomSubagent, Error, { id: string; data: UpdateSubagentData }>({
     mutationFn: ({ id, data }) =>
       authenticatedPut<CustomSubagent>(`/api/custom-subagents/${id}`, data),
     onSuccess: () => {

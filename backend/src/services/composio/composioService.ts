@@ -4,6 +4,68 @@ const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 
 let composioClient: Composio | null = null;
 
+/**
+ * Resolve the correct tool slug directly from Composio's toolkit registry.
+ * Queries the toolkit's available tools and picks the best match by token overlap.
+ */
+async function resolveToolSlug(client: Composio, requestedSlug: string): Promise<string | null> {
+  try {
+    const rawClient = client.getClient();
+    const toolkitPrefix = requestedSlug.split("_")[0]?.toLowerCase();
+    if (!toolkitPrefix) return null;
+
+    const response: any = await rawClient.tools
+      .list({
+        toolkit_slug: toolkitPrefix,
+        limit: 1000,
+        include_deprecated: false,
+      })
+      .catch(() => null);
+
+    const tools = Array.isArray(response?.items) ? response.items : [];
+    if (tools.length === 0) return null;
+
+    const upper = requestedSlug.toUpperCase();
+
+    // Exact match first
+    const exact = tools.find((t: any) => String(t?.slug || "").toUpperCase() === upper);
+    if (exact) return String(exact.slug).toUpperCase();
+
+    // Fuzzy: score candidates by shared token overlap
+    const reqTokens = new Set(
+      upper
+        .replace(/[^A-Z0-9]+/g, " ")
+        .split(" ")
+        .filter(Boolean)
+    );
+
+    let best: { slug: string; score: number } | null = null;
+    for (const tool of tools) {
+      const slug = String(tool?.slug || "").toUpperCase();
+      if (!slug) continue;
+      const candTokens = new Set(
+        `${slug} ${String(tool?.name || "")}`
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, " ")
+          .split(" ")
+          .filter(Boolean)
+      );
+
+      let score = 0;
+      for (const t of reqTokens) if (candTokens.has(t)) score += 3;
+      if (slug.includes(upper)) score += 6;
+      if (upper.includes(slug)) score += 4;
+
+      if (!best || score > best.score) best = { slug, score };
+    }
+
+    if (!best || best.score < 6) return null;
+    return best.slug;
+  } catch {
+    return null;
+  }
+}
+
 function getClient(): Composio | null {
   if (!COMPOSIO_API_KEY) {
     return null;
@@ -49,7 +111,8 @@ export async function getComposioMcpUrl(userId: string): Promise<string | null> 
 
 /**
  * Execute a single Composio action on behalf of a user.
- * Used by the COMPOSIO_ACTION workflow node executor.
+ * Resolves tool slugs directly from Composio's registry on TOOL_NOT_FOUND,
+ * so we never need a static alias map.
  */
 export async function executeComposioAction(
   userId: string,
@@ -57,21 +120,36 @@ export async function executeComposioAction(
   params: Record<string, unknown>
 ): Promise<unknown> {
   const client = requireClient();
-  const normalizedActionName = actionName.toUpperCase();
+  const slug = actionName.toUpperCase();
 
   try {
-    const result = await (client as any).tools.execute(normalizedActionName, {
+    return await (client as any).tools.execute(slug, {
       userId,
       arguments: params,
       dangerouslySkipVersionCheck: true,
     });
-    return result;
-  } catch (error) {
-    console.error(
-      `[Composio] Failed to execute action "${normalizedActionName}" for user ${userId}:`,
-      error
-    );
-    throw error;
+  } catch (error: any) {
+    const isNotFound = String(error?.code || "").includes("TOOL_NOT_FOUND");
+    if (!isNotFound) {
+      console.error(`[Composio] Action "${slug}" failed for user ${userId}:`, error);
+      throw error;
+    }
+
+    // Slug not found — resolve the correct one from Composio's toolkit registry
+    const resolved = await resolveToolSlug(client, slug);
+    if (!resolved || resolved === slug) {
+      console.error(
+        `[Composio] Action "${slug}" not found and no matching tool discovered for user ${userId}`
+      );
+      throw error;
+    }
+
+    console.warn(`[Composio] Resolved "${slug}" → "${resolved}" for user ${userId}`);
+    return await (client as any).tools.execute(resolved, {
+      userId,
+      arguments: params,
+      dangerouslySkipVersionCheck: true,
+    });
   }
 }
 

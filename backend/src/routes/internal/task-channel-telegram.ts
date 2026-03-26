@@ -62,27 +62,56 @@ router.post("/telegram/:channelId", async (req: Request, res: Response) => {
   const chatId = message?.chat?.id ? String(message.chat.id) : "";
   const senderId = message?.from?.id ? String(message.from.id) : chatId;
   const hasPhoto = !!(message?.photo && message.photo.length > 0);
+  const hasImageDocument = !!(
+    message?.document?.file_id &&
+    typeof message?.document?.mime_type === "string" &&
+    message.document.mime_type.startsWith("image/")
+  );
+  const isForwarded = !!(message?.forward_date || message?.forward_from || message?.forward_origin);
+
+  console.log(
+    `[TaskChannel Telegram] Incoming update channelId=${channelId} chatId=${chatId} senderId=${senderId} hasPhoto=${hasPhoto} hasImageDocument=${hasImageDocument} isForwarded=${isForwarded} text=${text.slice(0, 50)}`
+  );
 
   res.status(200).json({ ok: true });
 
-  if (!chatId || (!text.trim() && !hasPhoto)) return;
+  if (!chatId || (!text.trim() && !hasPhoto && !hasImageDocument)) {
+    console.log(`[TaskChannel Telegram] Skipping: no content to process`);
+    return;
+  }
 
   void (async () => {
     try {
       const lookupId = senderId || chatId;
       const extras = [senderId, chatId].filter(Boolean);
+      console.log(
+        `[TaskChannel Telegram] Processing: lookupId=${lookupId} extras=${JSON.stringify(extras)}`
+      );
 
       let imageUrl: string | undefined;
+      let imageSource: "camera" | "document" | undefined;
       if (hasPhoto && channel.telegramBotToken) {
         const photos = message.photo;
         const largest = photos[photos.length - 1];
         imageUrl = await downloadTelegramFile(channel.telegramBotToken, largest.file_id);
+        imageSource = isForwarded ? "document" : "camera";
+        console.log(
+          `[TaskChannel Telegram] Downloaded photo: imageUrl=${imageUrl} imageSource=${imageSource}`
+        );
+      } else if (hasImageDocument && channel.telegramBotToken) {
+        imageUrl = await downloadTelegramFile(channel.telegramBotToken, message.document.file_id);
+        imageSource = "document";
+        console.log(`[TaskChannel Telegram] Downloaded image document: imageUrl=${imageUrl}`);
       }
 
       const result = await handleIncomingSubmission("TELEGRAM", lookupId, text, imageUrl, {
         taskChannelId: channel.id,
         additionalExternalIds: extras,
+        imageSource,
       });
+      console.log(
+        `[TaskChannel Telegram] Submission result: handled=${result.handled} hasFeedback=${!!result.feedback} feedback=${(result.feedback || "").slice(0, 100)}`
+      );
 
       if (result.handled && result.feedback) {
         await deliverTaskWorkerFeedbackTelegram(channel.telegramBotToken!, chatId, result.feedback);

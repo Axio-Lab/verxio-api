@@ -52,9 +52,7 @@ function stderrHandler(data: string): void {
   }
 }
 
-function getBuiltinSubagents(
-  mcpServerNames: string[]
-): Record<string, AgentDefinition> {
+function getBuiltinSubagents(mcpServerNames: string[]): Record<string, AgentDefinition> {
   return {
     "ops-researcher": {
       description:
@@ -130,23 +128,22 @@ async function buildSubagents(
   if (!userId) return agents;
 
   try {
-    const { getActiveSubagents, loadSubagentWithSkills } = await import(
-      "../customSubagentService"
-    );
+    const { getActiveSubagents, loadSubagentWithSkills } = await import("../customSubagentService");
     const customAgents = await getActiveSubagents(userId);
 
     for (const custom of customAgents) {
       const loaded = await loadSubagentWithSkills(userId, custom.id);
       if (!loaded) continue;
 
-      const skillPromptSection = loaded.skillContent
-        ? `\n\n## Skills\n${loaded.skillContent}`
-        : "";
+      const skillPromptSection = loaded.skillContent ? `\n\n## Skills\n${loaded.skillContent}` : "";
 
       agents[loaded.slug] = {
         description: loaded.description,
         prompt: `${loaded.prompt}${skillPromptSection}`,
-        tools: loaded.tools.length > 0 ? loaded.tools : ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+        tools:
+          loaded.tools.length > 0
+            ? loaded.tools
+            : ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
         mcpServers: mcpServerNames,
         model: loaded.model || "sonnet",
         maxTurns: loaded.maxTurns || 8,
@@ -403,9 +400,9 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
 
     const composioPromise = hasComposioAccess
       ? getComposioMcpUrl(userId).catch((err) => {
-        console.error("[Composio] Failed to load MCP URL:", err);
-        return null;
-      })
+          console.error("[Composio] Failed to load MCP URL:", err);
+          return null;
+        })
       : Promise.resolve(null);
 
     if (includeUserConnections) {
@@ -803,11 +800,12 @@ When asked "who are you", respond with your name and personality — you are ${n
 ## Your Personality (soul.md)
 ${soulMd}
 
-${evolvePersonality
-        ? `## Personality Evolution
+${
+  evolvePersonality
+    ? `## Personality Evolution
 You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
-        : ""
-      }
+    : ""
+}
 ---
 
 `;
@@ -937,12 +935,12 @@ export async function generateCodeWithAgent(
   const inputDocs =
     availableInputs.length > 0
       ? availableInputs
-        .map((name) => {
-          const value = context[name];
-          const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
-          return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
-        })
-        .join("\n")
+          .map((name) => {
+            const value = context[name];
+            const sampleValue = JSON.stringify(value, null, 2).substring(0, 200);
+            return `- inputs.${name}: ${sampleValue}${sampleValue.length >= 200 ? "..." : ""}`;
+          })
+          .join("\n")
       : "No specific inputs available";
 
   // Language-specific instructions
@@ -1152,7 +1150,8 @@ Output ONLY the JSON object.`;
 
     if (!parsed && text) {
       const { text: repairedText } = await generateTextWithSystemPrompt({
-        systemPrompt: "You convert text into strict JSON. Respond with ONLY the JSON object, nothing else.",
+        systemPrompt:
+          "You convert text into strict JSON. Respond with ONLY the JSON object, nothing else.",
         userPrompt: `Rewrite this as valid JSON with keys "name", "shortDescription", "howItWorks", "requirements", "category":\n\n${text}`,
       });
       parsed = parseTemplateMetadataJson(repairedText);

@@ -86,6 +86,7 @@ router.post("/slack/:channelId/events", async (req: Request, res: Response) => {
   void (async () => {
     try {
       let imageUrl: string | undefined;
+      let imageSource: "camera" | "document" | undefined;
       if (event.files?.length > 0 && channel.slackBotToken) {
         const imgFile = event.files.find(
           (f: any) => f.mimetype?.startsWith("image/") && (f.url_private_download || f.url_private)
@@ -93,11 +94,13 @@ router.post("/slack/:channelId/events", async (req: Request, res: Response) => {
         if (imgFile) {
           const fileUrl = imgFile.url_private_download || imgFile.url_private;
           imageUrl = await downloadSlackFile(channel.slackBotToken, fileUrl);
+          imageSource = "document";
         }
       }
 
       const result = await handleIncomingSubmission("SLACK", senderId, text, imageUrl, {
         taskChannelId: channel.id,
+        imageSource,
       });
 
       if (result.handled && result.feedback) {

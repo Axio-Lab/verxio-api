@@ -2292,12 +2292,12 @@ const createCustomSubagentTool: VerxioTool = {
     "Once created, it participates in goal execution and can be delegated to by other agents. " +
     "Use this when the user wants to build a custom agent for their specific business needs.",
   inputSchema: z.object({
-    name: z.string().describe("Name for the subagent (e.g. 'Property Analyst', 'Compliance Auditor')"),
+    name: z
+      .string()
+      .describe("Name for the subagent (e.g. 'Property Analyst', 'Compliance Auditor')"),
     description: z
       .string()
-      .describe(
-        "Short description of what this subagent does and when to use it (1-2 sentences)"
-      ),
+      .describe("Short description of what this subagent does and when to use it (1-2 sentences)"),
     prompt: z
       .string()
       .describe(

@@ -31,16 +31,7 @@ function toSlug(name: string): string {
     .slice(0, 48);
 }
 
-const ALLOWED_TOOLS = [
-  "Read",
-  "Glob",
-  "Grep",
-  "Edit",
-  "Bash",
-  "WebSearch",
-  "WebFetch",
-  "Agent",
-];
+const ALLOWED_TOOLS = ["Read", "Glob", "Grep", "Edit", "Bash", "WebSearch", "WebFetch", "Agent"];
 
 function validateTools(tools: string[]): string[] {
   return tools.filter((t) => ALLOWED_TOOLS.includes(t));
@@ -72,14 +63,20 @@ export async function createSubagent(userId: string, data: CreateSubagentInput) 
       description: data.description,
       prompt: data.prompt,
       skillIds: data.skillIds || [],
-      tools: data.tools ? validateTools(data.tools) : ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+      tools: data.tools
+        ? validateTools(data.tools)
+        : ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
       model: data.model || "sonnet",
       maxTurns: data.maxTurns || 8,
     },
   });
 }
 
-export async function updateSubagent(userId: string, subagentId: string, data: UpdateSubagentInput) {
+export async function updateSubagent(
+  userId: string,
+  subagentId: string,
+  data: UpdateSubagentInput
+) {
   const existing = await prisma.customSubagent.findFirst({
     where: { id: subagentId, userId },
   });

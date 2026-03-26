@@ -146,19 +146,21 @@ function evidenceExpectationLines(evidenceType: string): string[] {
   switch (evidenceType) {
     case "PHOTO":
       return [
-        "When a check-in is due, send a clear photo in this chat as proof you completed the work.",
+        "When a check-in is due, take a LIVE photo using the camera button in this chat.",
+        "Important: You must take the photo right now — uploading photos from your gallery or files will NOT be accepted. We need real-time proof that the work is done.",
       ];
     case "TEXT":
       return [
-        "When a check-in is due, send a text message here confirming you completed the work.",
+        "When a check-in is due, type and send a text message here confirming you completed the work.",
       ];
     case "PHOTO_AND_TEXT":
       return [
-        "When a check-in is due, send a photo and a short written note together in this chat.",
+        "When a check-in is due, take a LIVE photo using the camera button in this chat and add a short caption or follow-up message.",
+        "Important: You must take the photo right now — uploading photos from your gallery or files will NOT be accepted.",
       ];
     case "DOCUMENT":
       return [
-        "When a check-in is due, send a document or file here (for example a PDF or photo of a report).",
+        "When a check-in is due, send a document or file here (for example a PDF, spreadsheet, or scanned report). You can upload from your device.",
       ];
     default:
       return ["When a check-in is due, follow the instructions in the reminder we send you."];

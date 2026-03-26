@@ -113,12 +113,15 @@ export async function processTaskChannelWhatsAppIncoming(
     ].filter(Boolean);
 
     let imageUrl: string | undefined;
+    let imageSource: "camera" | "document" | undefined;
     if (payload.attachments?.length) {
       const imgAttachment = payload.attachments.find(
         (a: any) => (a.mimeType?.startsWith("image/") || a.mimetype?.startsWith("image/")) && a.url
       );
       if (imgAttachment?.url) {
         imageUrl = await downloadAndSaveImage(imgAttachment.url);
+        const aType = (imgAttachment as any).type;
+        imageSource = aType === "document" || aType === "file" ? "document" : "camera";
       }
     }
 
@@ -126,6 +129,7 @@ export async function processTaskChannelWhatsAppIncoming(
       taskChannelId: channel.id,
       additionalExternalIds,
       senderName: typeof payload.pushName === "string" ? payload.pushName : "",
+      imageSource,
     });
 
     if (result.handled && result.feedback) {

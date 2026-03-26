@@ -88,6 +88,14 @@ export const taskReminder = inngest.createFunction(
   { event: "verxio/task.reminder" },
   async ({ event, step }) => {
     const { taskId, dueAt } = event.data;
+    const dueDate = new Date(dueAt);
+    const now = new Date();
+
+    // Important: reminder events are enqueued ahead of time; wait until dueAt
+    // so we don't send "due now" messages early for future slots.
+    if (dueDate > now) {
+      await step.sleepUntil("wait-until-due", dueDate);
+    }
 
     const task = await step.run("load-task", async () => {
       return prisma.humanTask.findUnique({
@@ -104,7 +112,6 @@ export const taskReminder = inngest.createFunction(
 
     if (!task || task.status !== "ACTIVE") return;
 
-    const dueDate = new Date(dueAt);
     const dueLabel = dueDate.toLocaleString("en-US", {
       timeZone: task.timezone || "UTC",
       hour: "2-digit",
@@ -126,12 +133,12 @@ export const taskReminder = inngest.createFunction(
 
         const evidenceHint =
           task.evidenceType === "PHOTO"
-            ? "Send a photo when done."
+            ? "Take a LIVE photo using the camera button in this chat. Do not upload from your gallery."
             : task.evidenceType === "TEXT"
               ? "Send a message confirming completion."
               : task.evidenceType === "DOCUMENT"
                 ? "Send your document or file when done."
-                : "Send a photo and message when done.";
+                : "Take a LIVE photo using the camera button and add a short note. Do not upload from gallery.";
 
         const message =
           `## Check-in due now\n` +
@@ -187,11 +194,16 @@ export const taskUpcomingReminder = inngest.createFunction(
       day: "numeric",
     });
 
+    const readyHint =
+      task.evidenceType === "PHOTO" || task.evidenceType === "PHOTO_AND_TEXT"
+        ? "Be ready to take a live photo using the camera button when prompted."
+        : "Get your evidence ready.";
+
     const headsUp =
       `## Heads-up\n` +
       `Your check-in for *${task.name}* is due in about ${UPCOMING_REMINDER_MINUTES} minutes.\n\n` +
       `Due: ${dueLabel} (${task.timezone || "UTC"})\n\n` +
-      `Get your evidence ready. You will get another message when it is time to submit.`;
+      `${readyHint} You will get another message when it is time to submit.`;
 
     for (const worker of task.workers) {
       await step.run(`upcoming-${worker.id}`, async () => {
