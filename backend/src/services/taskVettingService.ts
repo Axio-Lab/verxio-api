@@ -20,9 +20,7 @@ function parseVettingJson(text: string): {
   if (!jsonMatch) return null;
 
   try {
-    const cleaned = jsonMatch[0]
-      .replace(/,\s*([\]}])/g, "$1")
-      .replace(/[\x00-\x1F]+/g, " ");
+    const cleaned = jsonMatch[0].replace(/,\s*([\]}])/g, "$1").replace(/[\x00-\x1F]+/g, " ");
     const parsed = JSON.parse(cleaned);
     return {
       score: typeof parsed.score === "number" ? parsed.score : 50,

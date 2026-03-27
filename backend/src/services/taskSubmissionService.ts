@@ -113,7 +113,9 @@ async function buildWorkerHelpFeedback(worker: any, task: any): Promise<string> 
       minute: "2-digit",
     });
     if (due.getTime() <= now) {
-      lines.push("You have a check-in due **now**. Submit your evidence in this chat as soon as you can — before the grace period ends — so it is not recorded as missed.");
+      lines.push(
+        "You have a check-in due **now**. Submit your evidence in this chat as soon as you can — before the grace period ends — so it is not recorded as missed."
+      );
     } else {
       const mins = Math.max(0, Math.round((due.getTime() - now) / 60000));
       lines.push(`Next check-in due: ${dueLabel} (${tz}).`);
@@ -437,7 +439,13 @@ export async function getSubmission(submissionId: string) {
 
 export async function listSubmissions(
   taskId: string,
-  filters?: { workerId?: string; status?: string; date?: string; dateFrom?: string; dateTo?: string }
+  filters?: {
+    workerId?: string;
+    status?: string;
+    date?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }
 ) {
   const where: any = { humanTaskId: taskId };
   if (filters?.workerId) where.workerId = filters.workerId;

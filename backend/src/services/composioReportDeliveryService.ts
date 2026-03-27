@@ -12,9 +12,10 @@ export interface DeliveryAction {
 // ─── Task report types ──────────────────────────────────────────────────
 
 export interface ReportDestination {
-  type: "whatsapp" | "telegram" | "slack" | "discord";
+  type: "whatsapp" | "telegram" | "slack" | "discord" | "gmail";
   enabled: boolean;
   whatsappNumber?: string;
+  gmailTo?: string;
 }
 
 export interface DeliveryConfig {
@@ -69,12 +70,20 @@ export async function deliverToDestinations(
           break;
         }
         case "discord": {
-          const result = await executeComposioAction(
-            userId,
-            "DISCORD_SEND_MESSAGE",
-            { content: `**${title}**\n\n${summaryWithLink}` }
-          );
+          const result = await executeComposioAction(userId, "DISCORD_SEND_MESSAGE", {
+            content: `**${title}**\n\n${summaryWithLink}`,
+          });
           results.push({ action: "DISCORD", label: "Discord", delivered: true, result });
+          break;
+        }
+        case "gmail": {
+          if (!dest.gmailTo) break;
+          const result = await executeComposioAction(userId, "GMAIL_SEND_EMAIL", {
+            recipient_email: dest.gmailTo,
+            subject: title,
+            body: summaryWithLink,
+          });
+          results.push({ action: "GMAIL", label: "Gmail", delivered: true, result });
           break;
         }
         // WhatsApp is handled natively in taskReportService, not via Composio
@@ -121,16 +130,10 @@ export async function createReportDocument(
     const params: Record<string, unknown> = { title, text: content };
     if (folderId) params.folder_id = folderId;
 
-    const result = await executeComposioAction(
-      userId,
-      "GOOGLEDOCS_CREATE_DOCUMENT",
-      params
-    );
+    const result = await executeComposioAction(userId, "GOOGLEDOCS_CREATE_DOCUMENT", params);
     const parsed = result as any;
     const documentId =
-      parsed?.documentId ||
-      parsed?.data?.documentId ||
-      parsed?.response_data?.documentId;
+      parsed?.documentId || parsed?.data?.documentId || parsed?.response_data?.documentId;
 
     if (documentId) {
       return `https://docs.google.com/document/d/${documentId}/edit`;
@@ -148,6 +151,7 @@ export function getAvailableDestinations(): { type: string; label: string }[] {
     { type: "telegram", label: "Telegram" },
     { type: "slack", label: "Slack" },
     { type: "discord", label: "Discord" },
+    { type: "gmail", label: "Gmail" },
   ];
 }
 
@@ -175,10 +179,21 @@ export async function executeDeliveryActions(
       const documentUrl = documentId
         ? `https://docs.google.com/document/d/${documentId}/edit`
         : parsed?.url || parsed?.data?.url;
-      results.push({ action: action.action, label: action.label, delivered: true, documentUrl, result });
+      results.push({
+        action: action.action,
+        label: action.label,
+        delivered: true,
+        documentUrl,
+        result,
+      });
     } catch (err: any) {
       console.error(`[ComposioDelivery] ${action.action} failed:`, err.message);
-      results.push({ action: action.action, label: action.label, delivered: false, error: err.message });
+      results.push({
+        action: action.action,
+        label: action.label,
+        delivered: false,
+        error: err.message,
+      });
     }
   }
   return results;
@@ -194,7 +209,8 @@ function buildLegacyActionParams(
   if (upper.includes("GOOGLEDOCS")) return { ...base, title, text: content };
   if (upper.includes("GOOGLESHEETS")) return { ...base, title, data: content };
   if (upper.includes("NOTION")) return { ...base, title, content };
-  if (upper.includes("GMAIL") || upper.includes("EMAIL")) return { ...base, subject: title, body: content };
+  if (upper.includes("GMAIL") || upper.includes("EMAIL"))
+    return { ...base, subject: title, body: content };
   if (upper.includes("SLACK")) return { ...base, text: `*${title}*\n\n${content}` };
   if (upper.includes("DISCORD")) return { ...base, content: `**${title}**\n\n${content}` };
   return { ...base, title, content };

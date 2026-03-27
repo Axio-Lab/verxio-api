@@ -100,7 +100,13 @@ function getTzParts(date: Date, timeZone: string) {
   });
   const parts = dtf.formatToParts(date);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0);
-  return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute") };
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+  };
 }
 
 function getOffsetMinutes(date: Date, timeZone: string): number {
@@ -124,14 +130,23 @@ function addCivilDays(year: number, month: number, day: number, days: number) {
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
 }
 
-function zonedWallTimeToUtc(year: number, month: number, day: number, hour: number, minute: number, timeZone: string): Date {
+function zonedWallTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string
+): Date {
   const naiveUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
   const offsetMin = getOffsetMinutes(new Date(naiveUtcMs), timeZone);
   return new Date(naiveUtcMs - offsetMin * 60 * 1000);
 }
 
 function nextDueFromLocalTime(timeStr: string, timeZone: string, now: Date): Date | null {
-  const [hours, minutes] = String(timeStr).split(":").map((v) => Number(v));
+  const [hours, minutes] = String(timeStr)
+    .split(":")
+    .map((v) => Number(v));
   if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
 
   const zonedNow = getTzParts(now, timeZone);
@@ -164,7 +179,9 @@ async function preCreateSubmissions() {
 
     if (recurrence === "DAILY" || recurrence === "WEEKLY") {
       const tz = task.timezone || "UTC";
-      const scheduledTimes = Array.isArray(task.scheduledTimes) ? (task.scheduledTimes as string[]) : [];
+      const scheduledTimes = Array.isArray(task.scheduledTimes)
+        ? (task.scheduledTimes as string[])
+        : [];
       for (const timeStr of scheduledTimes) {
         const dueAt = nextDueFromLocalTime(timeStr, tz, now);
         if (dueAt && dueAt <= horizon) dueTimes.push(dueAt);
@@ -308,7 +325,10 @@ async function sendUpcomingReminders() {
 
 // ─── 4. Grace period check — mark overdue PENDING as MISSED ──────────
 
-function buildMissedRecordedMessage(task: { name: string; timezone?: string | null }, dueAt: Date): string {
+function buildMissedRecordedMessage(
+  task: { name: string; timezone?: string | null },
+  dueAt: Date
+): string {
   const tz = task.timezone || "UTC";
   const dueLabel = new Date(dueAt).toLocaleString("en-US", {
     timeZone: tz,

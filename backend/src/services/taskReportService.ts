@@ -14,19 +14,13 @@ import {
   createReportDocument,
   type DeliveryConfig,
 } from "./composioReportDeliveryService";
-import {
-  executeComposioAction,
-  isComposioConfigured,
-} from "./composio/composioService";
+import { executeComposioAction, isComposioConfigured } from "./composio/composioService";
 
 const prisma = basePrismaClient as any;
 
 // ─── Google Drive folder helper ─────────────────────────────────────────
 
-async function ensureReportFolder(
-  userId: string,
-  task: any
-): Promise<string | null> {
+async function ensureReportFolder(userId: string, task: any): Promise<string | null> {
   if (task.reportFolderId) return task.reportFolderId;
 
   const deliveryConfig = task.deliveryConfig as DeliveryConfig | null;
@@ -41,11 +35,9 @@ async function ensureReportFolder(
   if (!isComposioConfigured()) return null;
 
   try {
-    const result = await executeComposioAction(
-      userId,
-      "GOOGLEDRIVE_CREATE_FOLDER",
-      { name: `Reports - ${task.name}` }
-    );
+    const result = await executeComposioAction(userId, "GOOGLEDRIVE_CREATE_FOLDER", {
+      name: `Reports - ${task.name}`,
+    });
     const parsed = result as any;
     const folderId =
       parsed?.id ||
@@ -80,7 +72,9 @@ async function sendWhatsAppReport(
 ) {
   const channel = task.reportChannel;
   if (!channel?.whatsappSessionId) {
-    console.warn("[ReportService] No WhatsApp session for task channel; skipping WhatsApp delivery");
+    console.warn(
+      "[ReportService] No WhatsApp session for task channel; skipping WhatsApp delivery"
+    );
     return;
   }
 
@@ -115,33 +109,22 @@ export async function generateDailyReport(taskId: string) {
   const periodEnd = new Date(now);
   periodEnd.setHours(23, 59, 59, 999);
 
-  const submissions = await getSubmissionsForReport(
-    taskId,
-    periodStart,
-    periodEnd
-  );
+  const submissions = await getSubmissionsForReport(taskId, periodStart, periodEnd);
 
   const totalDue = submissions.length;
   const submitted = submissions.filter(
     (s: any) => s.status !== "PENDING" && s.status !== "MISSED"
   ).length;
-  const missed = submissions.filter(
-    (s: any) => s.status === "MISSED"
-  ).length;
+  const missed = submissions.filter((s: any) => s.status === "MISSED").length;
   const scores = submissions
     .filter((s: any) => s.aiScore != null)
     .map((s: any) => s.aiScore as number);
   const avgScore =
     scores.length > 0
-      ? Math.round(
-          scores.reduce((a: number, b: number) => a + b, 0) / scores.length
-        )
+      ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
       : null;
-  const passed = submissions.filter(
-    (s: any) => s.status === "PASSED"
-  ).length;
-  const passRate =
-    totalDue > 0 ? Math.round((passed / totalDue) * 100) : null;
+  const passed = submissions.filter((s: any) => s.status === "PASSED").length;
+  const passRate = totalDue > 0 ? Math.round((passed / totalDue) * 100) : null;
 
   const workerMap: Record<
     string,
@@ -168,8 +151,7 @@ export async function generateDailyReport(taskId: string) {
     workerMap[w.id].due++;
     if ((sub as any).status === "MISSED") workerMap[w.id].missed++;
     else if ((sub as any).status !== "PENDING") workerMap[w.id].submitted++;
-    if ((sub as any).aiScore != null)
-      workerMap[w.id].scores.push((sub as any).aiScore);
+    if ((sub as any).aiScore != null) workerMap[w.id].scores.push((sub as any).aiScore);
   }
 
   const flaggedWorkerIds: string[] = [];
@@ -178,10 +160,7 @@ export async function generateDailyReport(taskId: string) {
       w.scores.length > 0
         ? Math.round(w.scores.reduce((a, b) => a + b, 0) / w.scores.length)
         : null;
-    if (
-      w.missed >= 2 ||
-      (wAvg !== null && wAvg < (task.passingScore || 70))
-    ) {
+    if (w.missed >= 2 || (wAvg !== null && wAvg < (task.passingScore || 70))) {
       flaggedWorkerIds.push(id);
     }
     return `${w.name}: ${w.submitted}/${w.due} submitted${w.missed > 0 ? ` (${w.missed} missed)` : ""}, avg ${wAvg ?? "N/A"}`;
@@ -228,10 +207,7 @@ export async function generateDailyReport(taskId: string) {
   // 1. Create report document (Google Docs or Notion) via Composio
   let documentUrl: string | null = null;
   if (isComposioConfigured()) {
-    const folderId =
-      docType === "googledocs"
-        ? await ensureReportFolder(task.userId, task)
-        : null;
+    const folderId = docType === "googledocs" ? await ensureReportFolder(task.userId, task) : null;
 
     documentUrl = await createReportDocument(
       task.userId,
@@ -274,12 +250,7 @@ export async function generateDailyReport(taskId: string) {
   for (const dest of destinations) {
     if (dest.type === "whatsapp" && dest.whatsappNumber) {
       try {
-        await sendWhatsAppReport(
-          dest.whatsappNumber,
-          summaryMarkdown,
-          documentUrl,
-          task
-        );
+        await sendWhatsAppReport(dest.whatsappNumber, summaryMarkdown, documentUrl, task);
         deliveredTo.whatsapp = { number: dest.whatsappNumber };
       } catch (err: any) {
         console.error("[ReportService] WhatsApp delivery failed:", err.message);
@@ -288,9 +259,7 @@ export async function generateDailyReport(taskId: string) {
   }
 
   // Composio destinations (Telegram, Slack, Discord)
-  const composioDestinations = destinations.filter(
-    (d) => d.type !== "whatsapp"
-  );
+  const composioDestinations = destinations.filter((d) => d.type !== "whatsapp");
   if (composioDestinations.length > 0) {
     let summaryWithLink = summaryMarkdown;
     if (documentUrl) {
@@ -337,18 +306,15 @@ async function deliverTaskReport(markdown: string, channel: any) {
     case "TELEGRAM": {
       const formatted = formatTelegramMessage(markdown);
       if (channel.telegramBotToken && channel.telegramChatId) {
-        await fetch(
-          `https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channel.telegramChatId,
-              text: formatted,
-              parse_mode: "HTML",
-            }),
-          }
-        );
+        await fetch(`https://api.telegram.org/bot${channel.telegramBotToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel.telegramChatId,
+            text: formatted,
+            parse_mode: "HTML",
+          }),
+        });
       }
       break;
     }
@@ -411,12 +377,8 @@ export async function generateScheduledReports() {
       hour12: false,
     }).formatToParts(now);
 
-    const nowHour = Number(
-      nowInTz.find((p) => p.type === "hour")?.value || 0
-    );
-    const nowMin = Number(
-      nowInTz.find((p) => p.type === "minute")?.value || 0
-    );
+    const nowHour = Number(nowInTz.find((p) => p.type === "hour")?.value || 0);
+    const nowMin = Number(nowInTz.find((p) => p.type === "minute")?.value || 0);
 
     if (nowHour !== rh || Math.abs(nowMin - rm) > 1) continue;
 
@@ -432,9 +394,7 @@ export async function generateScheduledReports() {
     if (existing) continue;
 
     try {
-      console.log(
-        `[ReportScheduler] Generating daily report for task ${task.id}`
-      );
+      console.log(`[ReportScheduler] Generating daily report for task ${task.id}`);
       await generateDailyReport(task.id);
     } catch (err: any) {
       console.error(
