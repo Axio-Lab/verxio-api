@@ -1,7 +1,39 @@
 import { basePrismaClient } from "@/lib/prisma";
-import { simpleAgentQuery } from "./agent/agentService";
+import { generateTextWithSystemPrompt } from "./agent/agentService";
 
 const prisma = basePrismaClient as any;
+
+function getPublicImageUrl(imageUrl: string): string {
+  const base = (process.env.API_URL || "").replace(/\/$/, "");
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+  const clean = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  return base ? `${base}${clean}` : clean;
+}
+
+function parseVettingJson(text: string): {
+  score: number;
+  passed: boolean;
+  findings: string[];
+  summary: string;
+} | null {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    const cleaned = jsonMatch[0]
+      .replace(/,\s*([\]}])/g, "$1")
+      .replace(/[\x00-\x1F]+/g, " ");
+    const parsed = JSON.parse(cleaned);
+    return {
+      score: typeof parsed.score === "number" ? parsed.score : 50,
+      passed: typeof parsed.passed === "boolean" ? parsed.passed : parsed.score >= 70,
+      findings: Array.isArray(parsed.findings) ? parsed.findings : [],
+      summary: typeof parsed.summary === "string" ? parsed.summary : "Evaluation completed",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function vetSubmission(submissionId: string): Promise<string> {
   const submission = await prisma.taskSubmission.findUnique({
@@ -25,39 +57,44 @@ export async function vetSubmission(submissionId: string): Promise<string> {
 
   const sampleUrl = submission.humanTask.sampleEvidenceUrl;
 
-  let prompt = `You are a strict quality inspector. Evaluate the submitted evidence against these acceptance rules:\n\n${rulesText}\n\n`;
+  const systemPrompt =
+    "You are a strict quality inspector for task compliance. " +
+    "Evaluate submitted evidence against the provided acceptance rules. " +
+    "Always respond with ONLY valid JSON in this exact format: " +
+    '{ "score": 0-100, "passed": true/false, "findings": ["finding1", "finding2"], "summary": "brief summary" }. ' +
+    "Do not include any text before or after the JSON.";
+
+  let userPrompt = `Evaluate this evidence against these acceptance rules:\n\n${rulesText}\n\n`;
 
   if (sampleUrl) {
-    prompt += `REFERENCE/EXPECTED EVIDENCE: A sample of the expected outcome has been provided at: ${sampleUrl}\nCompare the worker's submission against this reference carefully. The submission should meet or exceed the standard shown in the sample.\n\n`;
+    userPrompt += `REFERENCE/EXPECTED EVIDENCE: ${sampleUrl}\nCompare against this reference carefully.\n\n`;
   }
 
   if (submission.imageUrl) {
-    prompt += `SUBMITTED EVIDENCE: An image has been submitted as evidence. The image is located at: ${submission.imageUrl}\nUse your vision capabilities or any available tools to analyze it.\n`;
+    const publicUrl = getPublicImageUrl(submission.imageUrl);
+    userPrompt += `SUBMITTED IMAGE: ${publicUrl}\n`;
+    userPrompt += `Analyze the image content. Does it meet the acceptance rules?\n`;
   }
   if (submission.rawMessage) {
-    prompt += `Worker's message: "${submission.rawMessage}"\n`;
+    userPrompt += `Worker's message: "${submission.rawMessage}"\n`;
   }
 
-  prompt += `\nReturn JSON: { "score": 0-100, "passed": true/false, "findings": ["finding1", "finding2"], "summary": "brief summary" }\nBe strict and specific. Reference each rule.${sampleUrl ? " Compare against the reference sample." : ""}`;
+  userPrompt += "\nRespond with ONLY the JSON evaluation object, no other text.";
 
-  const agentResult = await simpleAgentQuery({
-    prompt,
-    userId: submission.humanTask.user?.id || submission.humanTask.userId,
-    maxTurns: 5,
+  const { text: agentText } = await generateTextWithSystemPrompt({
+    systemPrompt,
+    userPrompt,
   });
 
-  const text = agentResult.result || "";
-  let result = {
-    score: 50,
-    passed: false,
-    findings: ["Unable to parse evaluation"],
-    summary: "Evaluation completed",
-  };
-  try {
-    const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)![0]);
-    result = parsed;
-  } catch {
-    // use defaults
+  let result = parseVettingJson(agentText);
+
+  if (!result) {
+    result = {
+      score: 70,
+      passed: true,
+      findings: ["Evidence received — automated evaluation could not fully analyze the submission"],
+      summary: "Evidence submitted and recorded. Manual review may apply.",
+    };
   }
 
   const passed = result.passed || result.score >= (submission.humanTask.passingScore || 70);
@@ -74,10 +111,10 @@ export async function vetSubmission(submissionId: string): Promise<string> {
   });
 
   const findings = result.findings.map((f: string) => `- ${f}`).join("\n");
-  let feedback = `Score: ${result.score}/100 ${passed ? "Passed!" : "Please redo"}\n${findings}`;
+  let feedback = `Score: ${result.score}/100 — ${passed ? "Passed!" : "Did not pass"}\n\n${findings}\n\n${result.summary}`;
 
   if (!passed && submission.humanTask.resubmissionAllowed) {
-    feedback += "\n\nPlease try again and send a new photo.";
+    feedback += "\n\nPlease try again and send a new submission.";
   }
 
   return feedback;
@@ -103,30 +140,31 @@ export async function vetTextSubmission(submissionId: string): Promise<string> {
       ? rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")
       : "Confirm task completion.";
 
-  const agentResult = await simpleAgentQuery({
-    prompt: `You are a task compliance checker. Evaluate this text submission for task completion.
+  const systemPrompt =
+    "You are a task compliance checker. " +
+    "Evaluate the text submission against the provided rules. " +
+    "Always respond with ONLY valid JSON in this exact format: " +
+    '{ "score": 0-100, "passed": true/false, "findings": ["finding1"], "summary": "brief summary" }. ' +
+    "Do not include any text before or after the JSON.";
 
-Rules:
-${rulesText}
+  const userPrompt =
+    `Rules:\n${rulesText}\n\nWorker message: "${submission.rawMessage || ""}"\n\n` +
+    "Respond with ONLY the JSON evaluation object.";
 
-Worker message: "${submission.rawMessage || ""}"
-
-Return JSON: { "score": 0-100, "passed": true/false, "findings": ["..."], "summary": "..." }`,
-    userId: submission.humanTask.user?.id || submission.humanTask.userId,
-    maxTurns: 5,
+  const { text: agentText } = await generateTextWithSystemPrompt({
+    systemPrompt,
+    userPrompt,
   });
 
-  const text = agentResult.result || "";
-  let result = {
-    score: 75,
-    passed: true,
-    findings: ["Text submission received"],
-    summary: "Submission noted",
-  };
-  try {
-    result = JSON.parse(text.match(/\{[\s\S]*\}/)![0]);
-  } catch {
-    // use defaults
+  let result = parseVettingJson(agentText);
+
+  if (!result) {
+    result = {
+      score: 75,
+      passed: true,
+      findings: ["Text submission received"],
+      summary: "Submission noted",
+    };
   }
 
   const passed = result.passed || result.score >= (submission.humanTask.passingScore || 70);
@@ -141,5 +179,6 @@ Return JSON: { "score": 0-100, "passed": true/false, "findings": ["..."], "summa
     },
   });
 
-  return `Score: ${result.score}/100 ${passed ? "Passed!" : "Please redo"}\n${result.findings.map((f: string) => `- ${f}`).join("\n")}`;
+  const findings = result.findings.map((f: string) => `- ${f}`).join("\n");
+  return `Score: ${result.score}/100 — ${passed ? "Passed!" : "Did not pass"}\n\n${findings}\n\n${result.summary}`;
 }

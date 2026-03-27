@@ -113,16 +113,19 @@ async function buildWorkerHelpFeedback(worker: any, task: any): Promise<string> 
       minute: "2-digit",
     });
     if (due.getTime() <= now) {
-      lines.push("You have a check-in due **now**. Submit your evidence in this chat.");
+      lines.push("You have a check-in due **now**. Submit your evidence in this chat as soon as you can — before the grace period ends — so it is not recorded as missed.");
     } else {
       const mins = Math.max(0, Math.round((due.getTime() - now) / 60000));
       lines.push(`Next check-in due: ${dueLabel} (${tz}).`);
       lines.push(`About ${mins} minute(s) from now.`);
+      lines.push(
+        "You can submit **early** as soon as this check-in opens (you do not need to wait until the exact minute). Submitting early helps you avoid missing the grace period."
+      );
     }
   } else {
     lines.push("No open check-in right now.");
     lines.push(
-      "We send a heads-up about 30 minutes before the next due time, then again when it is due."
+      "We send a heads-up about 30 minutes before the next due time, then a reminder at the due time. You can submit any time from when the slot opens until the grace period ends — early submission is encouraged."
     );
   }
 
@@ -280,7 +283,7 @@ export async function handleIncomingSubmission(
         `## Missed check-in\n\n` +
         `Your check-in for **${task.name}** that was due on **${dueLabel} (${tz})** has already been recorded as **missed** in the report.\n\n` +
         `Late submissions are not accepted once the grace period has passed.\n\n` +
-        `Please make sure to submit your evidence within the allowed time when the next check-in is due. ` +
+        `Please make sure to submit your evidence **early** when the next check-in opens so you finish before the grace period ends. ` +
         `You will receive a reminder when it's time.`;
 
       return { handled: true, feedback };
@@ -288,7 +291,7 @@ export async function handleIncomingSubmission(
 
     const feedback = wasOnboarding
       ? "You are all set. Nothing is due right now — we will message you here when the next check-in is due."
-      : "No check-in is due right now. When you get a reminder, reply here with the requested evidence.";
+      : "No check-in is due right now. When you get a reminder, reply here with the requested evidence — you can submit early after the slot opens so you do not miss the grace period.";
     return { handled: true, feedback };
   }
 
@@ -434,12 +437,21 @@ export async function getSubmission(submissionId: string) {
 
 export async function listSubmissions(
   taskId: string,
-  filters?: { workerId?: string; status?: string; date?: string }
+  filters?: { workerId?: string; status?: string; date?: string; dateFrom?: string; dateTo?: string }
 ) {
   const where: any = { humanTaskId: taskId };
   if (filters?.workerId) where.workerId = filters.workerId;
   if (filters?.status) where.status = filters.status;
-  if (filters?.date) {
+
+  if (filters?.dateFrom || filters?.dateTo) {
+    where.dueAt = {};
+    if (filters.dateFrom) where.dueAt.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) {
+      const end = new Date(filters.dateTo);
+      end.setDate(end.getDate() + 1);
+      where.dueAt.lt = end;
+    }
+  } else if (filters?.date) {
     const day = new Date(filters.date);
     const nextDay = new Date(day);
     nextDay.setDate(nextDay.getDate() + 1);
@@ -452,6 +464,6 @@ export async function listSubmissions(
       worker: { select: { id: true, name: true, platform: true } },
     },
     orderBy: { dueAt: "desc" },
-    take: 100,
+    take: 500,
   });
 }

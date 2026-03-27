@@ -72,8 +72,12 @@ const app: express.Application = express();
 // If behind multiple proxies, set to the number of proxies (e.g., 2 for load balancer + ngrok)
 app.set("trust proxy", 1);
 
-// Security middleware
-app.use(helmet());
+// Security middleware (allow embedding static assets from the web app on another origin/port)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 // CORS configuration: default origins are always included; ALLOWED_ORIGINS adds extra
 const defaultOrigins = [
@@ -411,12 +415,12 @@ const server: Server = app.listen(serverPort, async () => {
   // Initialize cron scheduler for timed triggers
   await initializeCronScheduler();
 
-  // Schedule human-task reminders for all active tasks on startup
+  // Start in-process task scheduler (replaces Inngest-based reminders)
   try {
-    const { scheduleAllActiveTaskReminders } = await import("./services/taskSchedulerService");
-    await scheduleAllActiveTaskReminders();
+    const { startTaskCronScheduler } = await import("./services/taskCronScheduler");
+    startTaskCronScheduler();
   } catch (err) {
-    console.error("[Startup] Failed to schedule task reminders:", err);
+    console.error("[Startup] Failed to start task cron scheduler:", err);
   }
 
   // Recover any SDR follow-ups that were lost to server restart
@@ -431,6 +435,13 @@ async function shutdown(signal: string) {
 
   try {
     shutdownCronScheduler();
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { stopTaskCronScheduler } = require("./services/taskCronScheduler");
+    stopTaskCronScheduler();
   } catch {
     // ignore
   }

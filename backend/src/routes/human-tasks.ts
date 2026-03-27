@@ -5,7 +5,6 @@ import * as humanWorkerService from "../services/humanWorkerService";
 import * as taskSubmissionService from "../services/taskSubmissionService";
 import * as taskReportService from "../services/taskReportService";
 import { listActiveTaskChannels } from "../services/taskChannelService";
-import { scheduleAllActiveTaskReminders } from "../services/taskSchedulerService";
 import { generateTextWithSystemPrompt } from "../services/agent/agentService";
 import multer from "multer";
 import path from "path";
@@ -140,9 +139,6 @@ humanTasksRouter.post(
     try {
       const userId = (req as any).userId as string;
       const task = await humanTaskService.createHumanTask(userId, req.body);
-      void scheduleAllActiveTaskReminders().catch((e) =>
-        console.error("[human-tasks] schedule reminders after create:", e)
-      );
       res.status(201).json({ task });
     } catch (error: any) {
       const msg = error?.message ? String(error.message) : "";
@@ -234,9 +230,6 @@ humanTasksRouter.post(
     try {
       const userId = (req as any).userId as string;
       await humanTaskService.resumeHumanTask(userId, req.params.taskId);
-      void scheduleAllActiveTaskReminders().catch((e) =>
-        console.error("[human-tasks] schedule reminders after resume:", e)
-      );
       res.json({ success: true });
     } catch (error) {
       next(error);
@@ -319,6 +312,8 @@ humanTasksRouter.get(
         workerId: req.query.workerId as string | undefined,
         status: req.query.status as string | undefined,
         date: req.query.date as string | undefined,
+        dateFrom: req.query.dateFrom as string | undefined,
+        dateTo: req.query.dateTo as string | undefined,
       };
       const submissions = await taskSubmissionService.listSubmissions(req.params.taskId, filters);
       res.json({ submissions });
@@ -377,6 +372,19 @@ humanTasksRouter.post(
     try {
       const report = await taskReportService.generateDailyReport(req.params.taskId);
       res.json({ report });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+humanTasksRouter.delete(
+  "/:taskId/reports/:reportId",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await taskReportService.deleteReport(req.params.reportId);
+      res.json({ success: true });
     } catch (error) {
       next(error);
     }

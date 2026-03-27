@@ -16,6 +16,7 @@ import {
   useTaskSubmissions,
   useTaskReports,
   useGenerateReport,
+  useDeleteReport,
   useAiFillTask,
   useChatChannels,
   uploadSampleEvidence,
@@ -35,9 +36,8 @@ import {
   type TaskChannel,
 } from "@/hooks/useTaskChannels";
 import {
-  useDeliveryActions,
-  type DeliveryAction,
   type DeliveryConfig,
+  type ReportDestination,
 } from "@/hooks/useAgentGoals";
 // Pagination: `EntityPagination` from entity-component — same component & styling as Support agents list & Connections.
 import {
@@ -91,11 +91,14 @@ import {
   RefreshCw,
   Unplug,
   Image as ImageIcon,
+  ExternalLink,
+  Send,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authenticatedGet, authenticatedPost } from "@/lib/api-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 /** Client-side page size for task lists (matches EntityPagination styling used across the app). */
 const TASK_MANAGER_PAGE_SIZE = 10;
@@ -524,13 +527,18 @@ function TaskFormDialog({
   const isEdit = !!initialData;
 
   const [form, setForm] = useState(() => buildForm(initialData));
-  const [selectedDeliveryActions, setSelectedDeliveryActions] = useState<DeliveryAction[]>(
-    () => (initialData?.deliveryConfig as any)?.composioActions ?? []
-  );
   const [reportChannelId, setReportChannelId] = useState(
     initialData?.taskChannelId ?? initialData?.reportChannelId ?? ""
   );
-  const { data: deliveryActionsData } = useDeliveryActions();
+  const [reportDocType, setReportDocType] = useState<"googledocs" | "notion">(
+    () => (initialData?.deliveryConfig as any)?.reportDocType ?? "googledocs"
+  );
+  const [reportFolderId, setReportFolderId] = useState(
+    () => (initialData?.deliveryConfig as any)?.reportFolderId ?? initialData?.reportFolderId ?? ""
+  );
+  const [destinations, setDestinations] = useState<ReportDestination[]>(
+    () => (initialData?.deliveryConfig as any)?.destinations ?? []
+  );
   const { data: channelsData } = useChatChannels();
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiFill, setShowAiFill] = useState(false);
@@ -568,8 +576,10 @@ function TaskFormDialog({
   if (initialData?.id !== prevInit) {
     setPrevInit(initialData?.id);
     setForm(buildForm(initialData));
-    setSelectedDeliveryActions((initialData?.deliveryConfig as any)?.composioActions ?? []);
     setReportChannelId(initialData?.taskChannelId ?? initialData?.reportChannelId ?? "");
+    setReportDocType((initialData?.deliveryConfig as any)?.reportDocType ?? "googledocs");
+    setReportFolderId((initialData?.deliveryConfig as any)?.reportFolderId ?? initialData?.reportFolderId ?? "");
+    setDestinations((initialData?.deliveryConfig as any)?.destinations ?? []);
   }
 
   const handleAiFill = () => {
@@ -630,20 +640,20 @@ function TaskFormDialog({
 
   const handleSubmit = () => {
     if (!isHumanTaskFormValid(form, reportChannelId)) return;
-    const hasComposio = selectedDeliveryActions.length > 0;
     const hasChannel = !!reportChannelId.trim();
-    const deliveryConfig: DeliveryConfig | undefined =
-      hasComposio || hasChannel
-        ? {
-            messagingChannel: hasChannel,
-            composioActions: hasComposio ? selectedDeliveryActions : undefined,
-          }
-        : undefined;
+    const enabledDests = destinations.filter((d) => d.enabled);
+    const deliveryConfig: DeliveryConfig = {
+      messagingChannel: hasChannel,
+      reportDocType: reportDocType,
+      reportFolderId: reportFolderId.trim() || undefined,
+      destinations: enabledDests.length > 0 ? enabledDests : undefined,
+    };
     onSubmit({
       ...form,
       acceptanceRules: form.acceptanceRules.filter(Boolean),
       reportChannelId: reportChannelId.trim(),
       deliveryConfig,
+      reportFolderId: reportFolderId.trim() || undefined,
       sampleEvidenceUrl: form.sampleEvidenceUrl || undefined,
     });
   };
@@ -1021,7 +1031,7 @@ function TaskFormDialog({
 
           <hr />
 
-          {/* Reporting */}
+          {/* Notification Channel */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Notification Channel
@@ -1052,8 +1062,23 @@ function TaskFormDialog({
                 </p>
               )}
             </div>
+          </section>
+
+          <hr />
+
+          {/* Report Delivery */}
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Report Delivery
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Reports are auto-generated at the set time. A document is created and a summary with the link is sent to your destinations.
+            </p>
             <div>
               <label className="text-sm font-medium">Report Time</label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Daily report will auto-generate at this time in the task timezone.
+              </p>
               <input
                 type="time"
                 className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
@@ -1061,35 +1086,133 @@ function TaskFormDialog({
                 onChange={(e) => setForm({ ...form, reportTime: e.target.value })}
               />
             </div>
+
+            {/* Document Type */}
             <div>
-              <label className="text-sm font-medium">Additional Destinations</label>
+              <label className="text-sm font-medium">Report Document</label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Where the full report document is created. Connect the app via Composio first.
+              </p>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setReportDocType("googledocs")}
+                  className={cn(
+                    "flex-1 px-3 py-2.5 rounded-md border text-sm font-medium transition-colors text-left",
+                    reportDocType === "googledocs"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <span className="block">Google Docs</span>
+                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">Default — stored in Drive folder</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportDocType("notion")}
+                  className={cn(
+                    "flex-1 px-3 py-2.5 rounded-md border text-sm font-medium transition-colors text-left",
+                    reportDocType === "notion"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-input bg-background text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <span className="block">Notion</span>
+                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">Creates a Notion page</span>
+                </button>
+              </div>
+              <a
+                href="/connections"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-2"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Connect apps in Composio
+              </a>
+            </div>
+
+            {reportDocType === "googledocs" && (
+              <div>
+                <label className="text-sm font-medium">Google Drive Folder ID</label>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Optional. If blank, a folder is auto-created for this task.
+                </p>
+                <input
+                  className="w-full mt-1 px-3 py-2 rounded-md border bg-background text-sm"
+                  value={reportFolderId}
+                  onChange={(e) => setReportFolderId(e.target.value)}
+                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                />
+              </div>
+            )}
+
+            {/* Destinations */}
+            <div>
+              <label className="text-sm font-medium">Destinations</label>
               <p className="text-xs text-muted-foreground mb-2">
-                Deliver reports to external apps via Composio
+                Receive the report summary and document link on these channels via Composio.
               </p>
               <div className="space-y-2">
-                {(deliveryActionsData?.actions || []).map((action) => {
-                  const isSelected = selectedDeliveryActions.some(
-                    (a) => a.action === action.action
-                  );
+                {(
+                  [
+                    { type: "whatsapp" as const, label: "WhatsApp" },
+                    { type: "telegram" as const, label: "Telegram" },
+                    { type: "slack" as const, label: "Slack" },
+                    { type: "discord" as const, label: "Discord" },
+                  ] as const
+                ).map(({ type, label }) => {
+                  const dest = destinations.find((d) => d.type === type);
+                  const isEnabled = dest?.enabled ?? false;
+
+                  const toggle = () => {
+                    setDestinations((prev) => {
+                      const existing = prev.find((d) => d.type === type);
+                      if (existing) {
+                        return prev.map((d) =>
+                          d.type === type ? { ...d, enabled: !d.enabled } : d
+                        );
+                      }
+                      return [...prev, { type, enabled: true }];
+                    });
+                  };
+
                   return (
-                    <label
-                      key={action.action}
-                      className="flex items-center gap-2 text-sm cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() =>
-                          setSelectedDeliveryActions((prev) =>
-                            isSelected
-                              ? prev.filter((a) => a.action !== action.action)
-                              : [...prev, { action: action.action, label: action.label }]
-                          )
-                        }
-                        className="rounded border-input"
-                      />
-                      {action.label}
-                    </label>
+                    <div key={type}>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={toggle}
+                          className="rounded border-input"
+                        />
+                        {label}
+                        {type === "whatsapp" && (
+                          <span className="text-[11px] text-muted-foreground">(enter number below)</span>
+                        )}
+                      </label>
+                      {type === "whatsapp" && isEnabled && (
+                        <div className="mt-1.5 ml-6">
+                          <input
+                            className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                            value={dest?.whatsappNumber ?? ""}
+                            onChange={(e) =>
+                              setDestinations((prev) =>
+                                prev.map((d) =>
+                                  d.type === "whatsapp"
+                                    ? { ...d, whatsappNumber: e.target.value }
+                                    : d
+                                )
+                              )
+                            }
+                            placeholder="e.g. +2348012345678"
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Your WhatsApp number with country code. Uses the connected task channel session.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -1523,6 +1646,24 @@ function WorkerDialog({
 
 /* ─── Live Board ─── */
 
+type DatePreset = "today" | "7d" | "30d" | "custom";
+
+function getDateRange(preset: DatePreset, customFrom: string, customTo: string) {
+  const today = new Date().toISOString().split("T")[0];
+  if (preset === "today") return { dateFrom: today, dateTo: today };
+  if (preset === "7d") {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return { dateFrom: d.toISOString().split("T")[0], dateTo: today };
+  }
+  if (preset === "30d") {
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
+    return { dateFrom: d.toISOString().split("T")[0], dateTo: today };
+  }
+  return { dateFrom: customFrom || today, dateTo: customTo || today };
+}
+
 function LiveBoardTab({
   tasks,
   onSubmissionClick,
@@ -1532,24 +1673,58 @@ function LiveBoardTab({
 }) {
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id || "");
   const [liveBoardPage, setLiveBoardPage] = useState(1);
+  const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const today = new Date().toISOString().split("T")[0];
-  const { data: submissionsData, isLoading } = useTaskSubmissions(selectedTaskId, { date: today });
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
+  const [filterWorkerId, setFilterWorkerId] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+
+  const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
+
+  const { data: submissionsData, isLoading } = useTaskSubmissions(selectedTaskId, {
+    dateFrom,
+    dateTo,
+    ...(filterWorkerId ? { workerId: filterWorkerId } : {}),
+    ...(filterStatus ? { status: filterStatus } : {}),
+  });
   const { data: workersData } = useTaskWorkers(selectedTaskId);
 
   const submissions = submissionsData?.submissions || [];
   const workers = workersData?.workers || [];
   const activeWorkers = workers.filter((w) => w.status !== "INACTIVE");
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+
+  const filteredSubmissions = submissions;
+
+  const stats = {
+    total: filteredSubmissions.length,
+    passed: filteredSubmissions.filter((s) => s.status === "PASSED").length,
+    failed: filteredSubmissions.filter((s) => s.status === "FAILED").length,
+    missed: filteredSubmissions.filter((s) => s.status === "MISSED").length,
+    pending: filteredSubmissions.filter((s) => s.status === "PENDING").length,
+    submitted: filteredSubmissions.filter((s) => s.status === "SUBMITTED" || s.status === "VETTING").length,
+    avgScore: (() => {
+      const scored = filteredSubmissions.filter((s) => s.aiScore != null);
+      if (!scored.length) return null;
+      return Math.round(scored.reduce((sum, s) => sum + (s.aiScore ?? 0), 0) / scored.length);
+    })(),
+    passRate: (() => {
+      const vetted = filteredSubmissions.filter((s) => s.status === "PASSED" || s.status === "FAILED");
+      if (!vetted.length) return null;
+      return Math.round((vetted.filter((s) => s.status === "PASSED").length / vetted.length) * 100);
+    })(),
+  };
+
   const {
-    pageItems: pagedBoardWorkers,
+    pageItems: pagedSubmissions,
     totalPages: liveTotalPages,
     safePage: liveSafePage,
-  } = paginateSlice(activeWorkers, liveBoardPage, TASK_MANAGER_PAGE_SIZE);
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
-  const scheduledTimes = (selectedTask?.scheduledTimes as string[]) || [];
+  } = paginateSlice(filteredSubmissions, liveBoardPage, TASK_MANAGER_PAGE_SIZE);
 
   useEffect(() => {
     setLiveBoardPage(1);
-  }, [selectedTaskId]);
+  }, [selectedTaskId, datePreset, customFrom, customTo, filterWorkerId, filterStatus]);
 
   useEffect(() => {
     setLiveBoardPage((p) => Math.min(p, liveTotalPages));
@@ -1560,80 +1735,292 @@ function LiveBoardTab({
 
   return (
     <div className="space-y-4">
-      <select
-        className="px-3 py-2 rounded-md border bg-background text-sm"
-        value={selectedTaskId}
-        onChange={(e) => setSelectedTaskId(e.target.value)}
-      >
-        {tasks.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+      {/* Controls row */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Task</label>
+          <select
+            className="px-3 py-2 rounded-md border bg-background text-sm min-w-[180px]"
+            value={selectedTaskId}
+            onChange={(e) => setSelectedTaskId(e.target.value)}
+          >
+            {tasks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Period</label>
+          <select
+            className="px-3 py-2 rounded-md border bg-background text-sm"
+            value={datePreset}
+            onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+          >
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="custom">Custom range</option>
+          </select>
+        </div>
+
+        {datePreset === "custom" && (
+          <>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">From</label>
+              <input
+                type="date"
+                className="px-3 py-2 rounded-md border bg-background text-sm"
+                value={customFrom}
+                max={customTo}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">To</label>
+              <input
+                type="date"
+                className="px-3 py-2 rounded-md border bg-background text-sm"
+                value={customTo}
+                min={customFrom}
+                max={today}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Worker</label>
+          <select
+            className="px-3 py-2 rounded-md border bg-background text-sm"
+            value={filterWorkerId}
+            onChange={(e) => setFilterWorkerId(e.target.value)}
+          >
+            <option value="">All workers</option>
+            {activeWorkers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">Status</label>
+          <select
+            className="px-3 py-2 rounded-md border bg-background text-sm"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">All statuses</option>
+            <option value="PASSED">Passed</option>
+            <option value="FAILED">Failed</option>
+            <option value="MISSED">Missed</option>
+            <option value="PENDING">Pending</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="VETTING">Vetting</option>
+            <option value="RESUBMITTED">Resubmitted</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Summary stats */}
+      {!isLoading && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold">{stats.total}</p>
+            <p className="text-[11px] text-muted-foreground">Total</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold text-green-600">{stats.passed}</p>
+            <p className="text-[11px] text-muted-foreground">Passed</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold text-red-600">{stats.failed}</p>
+            <p className="text-[11px] text-muted-foreground">Failed</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold text-gray-400">{stats.missed}</p>
+            <p className="text-[11px] text-muted-foreground">Missed</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+            <p className="text-[11px] text-muted-foreground">Pending</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold text-blue-600">{stats.submitted}</p>
+            <p className="text-[11px] text-muted-foreground">In Review</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold">{stats.avgScore ?? "—"}</p>
+            <p className="text-[11px] text-muted-foreground">Avg Score</p>
+          </div>
+          <div className="p-3 rounded-lg border bg-background text-center">
+            <p className="text-xl font-bold">{stats.passRate != null ? `${stats.passRate}%` : "—"}</p>
+            <p className="text-[11px] text-muted-foreground">Pass Rate</p>
+          </div>
+        </div>
+      )}
+
+      {/* Task info bar */}
+      {selectedTask && !isLoading && (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground px-1">
+          <span>
+            <strong className="text-foreground">{selectedTask.name}</strong>
+          </span>
+          <span>Evidence: {EVIDENCE_LABELS[selectedTask.evidenceType] || selectedTask.evidenceType}</span>
+          <span>Passing: {selectedTask.passingScore}/100</span>
+          <span>Grace: {selectedTask.graceMinutes}m</span>
+          <span>Workers: {activeWorkers.length}</span>
+          {selectedTask.resubmissionAllowed && <Badge variant="secondary" className="text-[10px] py-0">Resubmission allowed</Badge>}
+        </div>
+      )}
+
+      {/* Submissions table */}
       {isLoading ? (
         <LoadingView message="Loading submissions..." />
-      ) : workers.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          No workers assigned to this task.
-        </p>
+      ) : filteredSubmissions.length === 0 ? (
+        <EmptyView message="No submissions found for the selected filters." />
       ) : (
         <>
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium sticky left-0 bg-muted/50">Worker</th>
-                  {scheduledTimes.map((time) => (
-                    <th key={time} className="text-center p-3 font-medium min-w-[80px]">
-                      {time}
-                    </th>
-                  ))}
+                  <th className="text-left p-3 font-medium">Worker</th>
+                  <th className="text-left p-3 font-medium">Due</th>
+                  <th className="text-left p-3 font-medium">Submitted</th>
+                  <th className="text-center p-3 font-medium">Status</th>
+                  <th className="text-center p-3 font-medium">Score</th>
+                  <th className="text-center p-3 font-medium">Evidence</th>
+                  <th className="text-left p-3 font-medium">Lateness</th>
                 </tr>
               </thead>
               <tbody>
-                {pagedBoardWorkers.map((worker) => (
-                  <tr key={worker.id} className="border-b last:border-0">
-                    <td className="p-3 font-medium sticky left-0 bg-background">{worker.name}</td>
-                    {scheduledTimes.map((time) => {
-                      const sub = submissions.find(
-                        (s) =>
-                          s.worker?.id === worker.id &&
-                          new Date(s.dueAt).toTimeString().slice(0, 5) === time
-                      );
-                      const statusInfo = sub
-                        ? SUBMISSION_STATUS[sub.status] || SUBMISSION_STATUS.PENDING
-                        : null;
-                      return (
-                        <td key={time} className="p-3 text-center">
-                          {sub ? (
-                            <button
-                              onClick={() => onSubmissionClick(sub)}
-                              className={cn(
-                                "inline-flex items-center justify-center",
-                                statusInfo?.color
-                              )}
-                              title={sub.status}
-                            >
-                              {statusInfo?.icon}
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground/30">-</span>
+                {pagedSubmissions.map((sub) => {
+                  const statusInfo = SUBMISSION_STATUS[sub.status] || SUBMISSION_STATUS.PENDING;
+                  const scoreColor =
+                    sub.aiScore != null
+                      ? sub.aiScore >= (selectedTask?.passingScore ?? 70)
+                        ? "text-green-600"
+                        : "text-red-600"
+                      : "text-muted-foreground";
+                  const latenessLabel =
+                    sub.latenessSeconds != null
+                      ? sub.latenessSeconds > 0
+                        ? `${Math.round(sub.latenessSeconds / 60)}m late`
+                        : `${Math.abs(Math.round(sub.latenessSeconds / 60))}m early`
+                      : null;
+                  const dueDate = new Date(sub.dueAt);
+                  const submittedDate = sub.submittedAt ? new Date(sub.submittedAt) : null;
+
+                  return (
+                    <tr
+                      key={sub.id}
+                      className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => onSubmissionClick(sub)}
+                    >
+                      <td className="p-3">
+                        <div className="font-medium">{sub.worker?.name || "Unknown"}</div>
+                        <div className="text-[11px] text-muted-foreground">{sub.worker?.platform}</div>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div>{dueDate.toLocaleDateString([], { month: "short", day: "numeric" })}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {dueDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {submittedDate ? (
+                          <>
+                            <div>{submittedDate.toLocaleDateString([], { month: "short", day: "numeric" })}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {submittedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[11px] gap-1 py-0.5",
+                            sub.status === "PASSED" && "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300",
+                            sub.status === "FAILED" && "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+                            sub.status === "MISSED" && "bg-gray-100 text-gray-500 dark:bg-gray-800/40 dark:text-gray-400",
+                            sub.status === "PENDING" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300",
+                            (sub.status === "SUBMITTED" || sub.status === "VETTING") && "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+                            sub.status === "RESUBMITTED" && "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
                           )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                        >
+                          {statusInfo.icon}
+                          {sub.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={cn("font-semibold", scoreColor)}>
+                          {sub.aiScore != null ? sub.aiScore : "—"}
+                        </span>
+                        {sub.aiScore != null && <span className="text-[11px] text-muted-foreground">/100</span>}
+                      </td>
+                      <td className="p-3 text-center">
+                        {sub.imageUrl ? (
+                          <div className="inline-flex items-center justify-center">
+                            <img
+                              src={`${process.env.NEXT_PUBLIC_API_URL || ""}${sub.imageUrl}`}
+                              alt=""
+                              className="h-8 w-8 rounded object-cover border"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`${process.env.NEXT_PUBLIC_API_URL || ""}${sub.imageUrl}`, "_blank");
+                              }}
+                            />
+                          </div>
+                        ) : sub.rawMessage ? (
+                          <span className="text-muted-foreground text-xs" title={sub.rawMessage}>
+                            <FileText className="h-4 w-4 inline" />
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {latenessLabel ? (
+                          <span
+                            className={cn(
+                              "text-xs",
+                              sub.latenessSeconds != null && sub.latenessSeconds > 0
+                                ? "text-amber-600"
+                                : "text-green-600"
+                            )}
+                          >
+                            {latenessLabel}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          <EntityPagination
-            currentPage={liveSafePage}
-            totalPages={liveTotalPages}
-            onPageChange={setLiveBoardPage}
-          />
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Showing {pagedSubmissions.length} of {filteredSubmissions.length} submissions
+            </p>
+            <EntityPagination
+              currentPage={liveSafePage}
+              totalPages={liveTotalPages}
+              onPageChange={setLiveBoardPage}
+            />
+          </div>
         </>
       )}
     </div>
@@ -1653,6 +2040,7 @@ function ReportsTab({
   const [reportsPage, setReportsPage] = useState(1);
   const { data: reportsData, isLoading } = useTaskReports(selectedTaskId);
   const generateReport = useGenerateReport();
+  const deleteReport = useDeleteReport();
   const reports = reportsData?.reports || [];
   const {
     pageItems: pagedReports,
@@ -1709,11 +2097,13 @@ function ReportsTab({
             {pagedReports.map((report) => (
               <Card
                 key={report.id}
-                className="shadow-none hover:shadow cursor-pointer transition-shadow"
-                onClick={() => onReportClick(report)}
+                className="shadow-none hover:shadow transition-shadow"
               >
                 <CardContent className="flex items-center justify-between p-4">
-                  <div>
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => onReportClick(report)}
+                  >
                     <p className="font-medium text-sm">
                       {new Date(report.periodStart).toLocaleDateString()}
                     </p>
@@ -1724,11 +2114,77 @@ function ReportsTab({
                       <span>Pass: {report.passRate != null ? `${report.passRate}%` : "N/A"}</span>
                     </div>
                   </div>
-                  {report.deliveredAt && (
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                      Delivered
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2 ml-2">
+                    {report.deliveredAt ? (
+                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 shrink-0">
+                        <Send className="h-3 w-3 mr-1" />
+                        Sent {new Date(report.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400 shrink-0">
+                        Not sent
+                      </Badge>
+                    )}
+                    {report.documentUrl && (
+                      <a
+                        href={report.documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-blue-600 hover:text-blue-700 shrink-0"
+                        title="View Google Doc"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReportClick(report);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" /> View Details
+                        </DropdownMenuItem>
+                        {report.documentUrl && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(report.documentUrl!, "_blank");
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" /> Open Google Doc
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Delete this report?")) {
+                              deleteReport.mutate({
+                                taskId: selectedTaskId,
+                                reportId: report.id,
+                              });
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -1884,6 +2340,32 @@ function ReportDetailDialog({
   onClose: () => void;
 }) {
   if (!report) return null;
+
+  const deliveredTo = report.deliveredTo as Record<string, any> | null;
+  const deliveryChannels: string[] = [];
+  if (deliveredTo?.messagingChannel) {
+    deliveryChannels.push(deliveredTo.messagingChannel.platform || "Chat Channel");
+  }
+  if (deliveredTo?.document) {
+    const docType = (deliveredTo.document as any)?.type;
+    deliveryChannels.push(docType === "notion" ? "Notion" : "Google Docs");
+  }
+  if (deliveredTo?.whatsapp) deliveryChannels.push("WhatsApp");
+  if (deliveredTo?.destinations) {
+    const dests = deliveredTo.destinations as any[];
+    for (const d of dests) {
+      if (d.delivered) deliveryChannels.push(d.label || d.action);
+    }
+  }
+  // Legacy support
+  if (deliveredTo?.googleDoc && !deliveredTo?.document) deliveryChannels.push("Google Docs");
+  if (deliveredTo?.composioActions) {
+    const actions = deliveredTo.composioActions as any[];
+    for (const a of actions) {
+      if (a.delivered) deliveryChannels.push(a.label || a.action);
+    }
+  }
+
   return (
     <Dialog
       open
@@ -1898,6 +2380,7 @@ function ReportDetailDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 overflow-y-auto flex-1">
+          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-lg bg-muted text-center">
               <p className="text-2xl font-bold">{report.totalSubmissions}</p>
@@ -1918,14 +2401,57 @@ function ReportDetailDialog({
               <p className="text-xs text-muted-foreground">Pass Rate</p>
             </div>
           </div>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <div
-              dangerouslySetInnerHTML={{ __html: report.summaryMarkdown.replace(/\n/g, "<br/>") }}
-            />
+
+          {/* Delivery Status */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {report.deliveredAt ? (
+              <>
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">
+                  <Send className="h-3 w-3 mr-1" />
+                  Delivered at{" "}
+                  {new Date(report.deliveredAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Badge>
+                {deliveryChannels.map((ch) => (
+                  <Badge key={ch} variant="outline" className="text-xs">
+                    {ch}
+                  </Badge>
+                ))}
+              </>
+            ) : (
+              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+                Not delivered
+              </Badge>
+            )}
           </div>
+
+          {/* Google Doc Link */}
+          {report.documentUrl && (
+            <a
+              href={report.documentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-950/50 transition-colors text-sm"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              <span>View Full Report in Google Docs</span>
+            </a>
+          )}
+
+          {/* Report Content */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <ReactMarkdown>{report.summaryMarkdown}</ReactMarkdown>
+          </div>
+
+          {/* Flagged Workers */}
           {report.flaggedWorkerIds.length > 0 && (
             <div className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
-              <p className="text-sm font-medium text-red-700">
+              <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                <AlertCircle className="h-4 w-4 inline mr-1" />
                 Flagged Workers: {report.flaggedWorkerIds.length}
               </p>
             </div>

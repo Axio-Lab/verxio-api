@@ -31,6 +31,7 @@ export interface HumanTask {
   taskChannelId?: string | null;
   taskChannel?: { id: string; platform: string; label?: string | null } | null;
   deliveryConfig?: DeliveryConfig | null;
+  reportFolderId?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -84,6 +85,7 @@ export interface TaskComplianceReport {
   avgScore?: number | null;
   passRate?: number | null;
   flaggedWorkerIds: string[];
+  documentUrl?: string | null;
   deliveredAt?: string | null;
   deliveredTo?: Record<string, unknown> | null;
   createdAt: string;
@@ -277,12 +279,14 @@ export function useUpdateWorkerStatus() {
 
 export function useTaskSubmissions(
   taskId: string,
-  filters?: { workerId?: string; status?: string; date?: string }
+  filters?: { workerId?: string; status?: string; date?: string; dateFrom?: string; dateTo?: string }
 ) {
   const params = new URLSearchParams();
   if (filters?.workerId) params.set("workerId", filters.workerId);
   if (filters?.status) params.set("status", filters.status);
   if (filters?.date) params.set("date", filters.date);
+  if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
+  if (filters?.dateTo) params.set("dateTo", filters.dateTo);
   const qs = params.toString();
 
   return useProtectedQuery<{ submissions: TaskSubmission[] }>({
@@ -316,6 +320,19 @@ export function useGenerateReport() {
       queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "reports"] });
       toast.success("Report generated");
     },
+  });
+}
+
+export function useDeleteReport() {
+  const queryClient = useQueryClient();
+  return useProtectedMutation<void, Error, { taskId: string; reportId: string }>({
+    mutationFn: ({ taskId, reportId }) =>
+      authenticatedDelete(`/api/human-tasks/${taskId}/reports/${reportId}`),
+    onSuccess: (_, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: ["human-tasks", taskId, "reports"] });
+      toast.success("Report deleted");
+    },
+    onError: (e) => toast.error(e.message || "Could not delete report"),
   });
 }
 

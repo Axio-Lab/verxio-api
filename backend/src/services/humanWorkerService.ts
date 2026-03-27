@@ -143,27 +143,36 @@ export async function addWorker(userId: string, taskId: string, data: WorkerCrea
 const ONBOARDING_MESSAGE_MAX_LEN = 3800;
 
 function evidenceExpectationLines(evidenceType: string): string[] {
+  const submitEarly =
+    "Submit as soon as you can after the check-in opens — you do not need to wait until the exact due minute. Sending early helps you avoid missing the grace period.";
   switch (evidenceType) {
     case "PHOTO":
       return [
         "When a check-in is due, take a LIVE photo using the camera button in this chat.",
         "Important: You must take the photo right now — uploading photos from your gallery or files will NOT be accepted. We need real-time proof that the work is done.",
+        submitEarly,
       ];
     case "TEXT":
       return [
         "When a check-in is due, type and send a text message here confirming you completed the work.",
+        submitEarly,
       ];
     case "PHOTO_AND_TEXT":
       return [
         "When a check-in is due, take a LIVE photo using the camera button in this chat and add a short caption or follow-up message.",
         "Important: You must take the photo right now — uploading photos from your gallery or files will NOT be accepted.",
+        submitEarly,
       ];
     case "DOCUMENT":
       return [
         "When a check-in is due, send a document or file here (for example a PDF, spreadsheet, or scanned report). You can upload from your device.",
+        submitEarly,
       ];
     default:
-      return ["When a check-in is due, follow the instructions in the reminder we send you."];
+      return [
+        "When a check-in is due, follow the instructions in the reminder we send you.",
+        submitEarly,
+      ];
   }
 }
 
@@ -172,22 +181,40 @@ function scheduleSummaryLines(task: any): string[] {
   const times = (task.scheduledTimes as string[]) || [];
   switch (task.recurrenceType) {
     case "ONCE":
-      return ["One-time assignment. We will message you when it is time to submit."];
+      return [
+        "One-time assignment. We will message you when it is time to submit.",
+        "Submit as soon as you can after the check-in opens so you finish before the grace period ends.",
+      ];
     case "INTERVAL":
       return [
         `Repeats every ${task.recurrenceInterval ?? 60} minutes (timezone: ${tz}).`,
-        "You will get a reminder around each due time.",
+        "You will get a heads-up and a due-time reminder; you can submit early so you do not miss the grace period.",
       ];
     case "DAILY":
       if (times.length)
-        return [`Every day at: ${times.join(", ")} (${tz}).`, "Reminders are sent at these times."];
-      return [`Daily schedule (${tz}).`, "We will message you when each check-in is due."];
+        return [
+          `Every day at: ${times.join(", ")} (${tz}).`,
+          "Reminders are sent at these times. You can submit early after the check-in opens to avoid missing the grace period.",
+        ];
+      return [
+        `Daily schedule (${tz}).`,
+        "We will message you when each check-in is due. You can submit early after the slot opens.",
+      ];
     case "WEEKLY":
       if (times.length)
-        return [`Weekly at: ${times.join(", ")} (${tz}).`, "Reminders follow this pattern."];
-      return [`Weekly schedule (${tz}).`, "We will message you when each check-in is due."];
+        return [
+          `Weekly at: ${times.join(", ")} (${tz}).`,
+          "Reminders follow this pattern. You can submit early after the check-in opens.",
+        ];
+      return [
+        `Weekly schedule (${tz}).`,
+        "We will message you when each check-in is due. You can submit early after the slot opens.",
+      ];
     default:
-      return [`Scheduled in ${tz}.`, "We will message you when it is time to submit."];
+      return [
+        `Scheduled in ${tz}.`,
+        "We will message you when it is time to submit. Submit early when you can so you do not miss the grace period.",
+      ];
   }
 }
 
@@ -224,7 +251,10 @@ export function buildOnboardingMessageText(worker: any, task: any): string {
   lines.push("## When you will hear from us");
   lines.push(...scheduleSummaryLines(task));
   lines.push(
-    `After each reminder, you have about ${task.graceMinutes ?? 15} minutes before a missed check-in may be recorded if we receive nothing.`
+    `After the scheduled due time, you have about ${task.graceMinutes ?? 15} minutes (grace period) to submit. If we still receive nothing after that, the check-in may be recorded as missed.`
+  );
+  lines.push(
+    "You can send your evidence any time from when the check-in opens until the end of that grace period — submit early when possible so you do not miss the window."
   );
   lines.push("");
 
@@ -285,7 +315,9 @@ export function buildTaskWorkerHelpText(_worker: any, task: any): string {
     rules.forEach((r, i) => lines.push(`${i + 1}. ${r}`));
     lines.push("");
   }
-  lines.push(`Grace period after each due time: about ${task.graceMinutes ?? 15} minutes.`);
+  lines.push(
+    `Grace period after each due time: about ${task.graceMinutes ?? 15} minutes. Submit early when you can so you are done before that window closes.`
+  );
   let body = lines.join("\n");
   if (body.length > ONBOARDING_MESSAGE_MAX_LEN) {
     body = body.slice(0, ONBOARDING_MESSAGE_MAX_LEN - 80) + "\n\n…(trimmed.)";
@@ -314,6 +346,8 @@ export function buildEnableMessageText(worker: any, task: any): string {
     `You have been re-enabled on the task: ${task.name}.`,
     "",
     "You will receive reminders here for upcoming check-ins as before.",
+    "",
+    "Remember: you can submit evidence early after each check-in opens so you do not miss the grace period.",
     "",
     "Reply HELP anytime for task details and your next check-in status.",
   ].join("\n");

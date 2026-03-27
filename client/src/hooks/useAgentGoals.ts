@@ -15,9 +15,18 @@ export interface DeliveryAction {
   enabled?: boolean;
 }
 
+export interface ReportDestination {
+  type: "whatsapp" | "telegram" | "slack" | "discord";
+  enabled: boolean;
+  whatsappNumber?: string;
+}
+
 export interface DeliveryConfig {
   messagingChannel?: boolean;
   composioActions?: DeliveryAction[];
+  reportDocType?: "googledocs" | "notion";
+  reportFolderId?: string;
+  destinations?: ReportDestination[];
 }
 
 export interface AgentGoal {
