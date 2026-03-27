@@ -16,9 +16,10 @@ export interface DeliveryAction {
 }
 
 export interface ReportDestination {
-  type: "whatsapp" | "telegram" | "slack" | "discord";
+  type: "whatsapp" | "telegram" | "slack" | "discord" | "gmail";
   enabled: boolean;
   whatsappNumber?: string;
+  gmailTo?: string;
 }
 
 export interface DeliveryConfig {

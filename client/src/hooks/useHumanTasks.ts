@@ -279,7 +279,13 @@ export function useUpdateWorkerStatus() {
 
 export function useTaskSubmissions(
   taskId: string,
-  filters?: { workerId?: string; status?: string; date?: string; dateFrom?: string; dateTo?: string }
+  filters?: {
+    workerId?: string;
+    status?: string;
+    date?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }
 ) {
   const params = new URLSearchParams();
   if (filters?.workerId) params.set("workerId", filters.workerId);

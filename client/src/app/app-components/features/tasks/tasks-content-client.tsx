@@ -35,10 +35,8 @@ import {
   useUpdateTaskChannel,
   type TaskChannel,
 } from "@/hooks/useTaskChannels";
-import {
-  type DeliveryConfig,
-  type ReportDestination,
-} from "@/hooks/useAgentGoals";
+import { type DeliveryConfig, type ReportDestination } from "@/hooks/useAgentGoals";
+import { useComposioConnectedAccounts } from "@/hooks/useComposioConnections";
 // Pagination: `EntityPagination` from entity-component — same component & styling as Support agents list & Connections.
 import {
   EntityContainer,
@@ -540,6 +538,30 @@ function TaskFormDialog({
     () => (initialData?.deliveryConfig as any)?.destinations ?? []
   );
   const { data: channelsData } = useChatChannels();
+  const { data: composioData } = useComposioConnectedAccounts();
+
+  const DEST_APP_SLUGS: Record<string, string> = {
+    telegram: "telegram",
+    slack: "slack",
+    discord: "discord",
+    gmail: "gmail",
+  };
+  const DOC_APP_SLUGS: Record<string, string> = {
+    googledocs: "googledocs",
+    notion: "notion",
+  };
+  const connectedSlugs = new Set(
+    (composioData?.accounts || []).map((a) => a.appSlug.toLowerCase())
+  );
+  const isAppConnected = (slug: string) => connectedSlugs.has(slug);
+
+  const enabledComposioDestsMissing = destinations
+    .filter((d) => d.enabled && DEST_APP_SLUGS[d.type])
+    .filter((d) => !isAppConnected(DEST_APP_SLUGS[d.type]));
+
+  const docAppSlug = DOC_APP_SLUGS[reportDocType];
+  const docAppConnected = !docAppSlug || isAppConnected(docAppSlug);
+  const hasConnectionIssues = enabledComposioDestsMissing.length > 0 || !docAppConnected;
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiFill, setShowAiFill] = useState(false);
   const aiFill = useAiFillTask();
@@ -578,7 +600,9 @@ function TaskFormDialog({
     setForm(buildForm(initialData));
     setReportChannelId(initialData?.taskChannelId ?? initialData?.reportChannelId ?? "");
     setReportDocType((initialData?.deliveryConfig as any)?.reportDocType ?? "googledocs");
-    setReportFolderId((initialData?.deliveryConfig as any)?.reportFolderId ?? initialData?.reportFolderId ?? "");
+    setReportFolderId(
+      (initialData?.deliveryConfig as any)?.reportFolderId ?? initialData?.reportFolderId ?? ""
+    );
     setDestinations((initialData?.deliveryConfig as any)?.destinations ?? []);
   }
 
@@ -636,7 +660,7 @@ function TaskFormDialog({
     setUploading(false);
   };
 
-  const formValid = isHumanTaskFormValid(form, reportChannelId);
+  const formValid = isHumanTaskFormValid(form, reportChannelId) && !hasConnectionIssues;
 
   const handleSubmit = () => {
     if (!isHumanTaskFormValid(form, reportChannelId)) return;
@@ -1072,7 +1096,8 @@ function TaskFormDialog({
               Report Delivery
             </h3>
             <p className="text-xs text-muted-foreground">
-              Reports are auto-generated at the set time. A document is created and a summary with the link is sent to your destinations.
+              Reports are auto-generated at the set time. A document is created and a summary with
+              the link is sent to your destinations.
             </p>
             <div>
               <label className="text-sm font-medium">Report Time</label>
@@ -1105,7 +1130,9 @@ function TaskFormDialog({
                   )}
                 >
                   <span className="block">Google Docs</span>
-                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">Default — stored in Drive folder</span>
+                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">
+                    Default — stored in Drive folder
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -1118,18 +1145,38 @@ function TaskFormDialog({
                   )}
                 >
                   <span className="block">Notion</span>
-                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">Creates a Notion page</span>
+                  <span className="block text-[11px] font-normal mt-0.5 opacity-70">
+                    Creates a Notion page
+                  </span>
                 </button>
               </div>
-              <a
-                href="/connections"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-2"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Connect apps in Composio
-              </a>
+              {!docAppConnected && (
+                <div className="flex items-center justify-between p-2.5 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 mt-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="text-amber-700 dark:text-amber-400 text-xs">
+                      <span className="font-medium capitalize">
+                        {reportDocType === "googledocs" ? "Google Docs" : "Notion"}
+                      </span>{" "}
+                      is not connected in Composio.
+                    </span>
+                  </div>
+                  <a
+                    href="/connections"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0"
+                  >
+                    Connect <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              {docAppConnected && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 mt-2">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {reportDocType === "googledocs" ? "Google Docs" : "Notion"} connected
+                </div>
+              )}
             </div>
 
             {reportDocType === "googledocs" && (
@@ -1147,51 +1194,93 @@ function TaskFormDialog({
               </div>
             )}
 
-            {/* Destinations */}
+            {/* Destination */}
             <div>
-              <label className="text-sm font-medium">Destinations</label>
+              <label className="text-sm font-medium">Destination</label>
               <p className="text-xs text-muted-foreground mb-2">
-                Receive the report summary and document link on these channels via Composio.
+                Where to send the report summary and document link. Select one channel per task.
               </p>
               <div className="space-y-2">
                 {(
                   [
+                    { type: "none" as const, label: "None" },
                     { type: "whatsapp" as const, label: "WhatsApp" },
                     { type: "telegram" as const, label: "Telegram" },
                     { type: "slack" as const, label: "Slack" },
                     { type: "discord" as const, label: "Discord" },
+                    { type: "gmail" as const, label: "Gmail" },
                   ] as const
                 ).map(({ type, label }) => {
+                  const selectedType = destinations.find((d) => d.enabled)?.type ?? "none";
+                  const isSelected = type === selectedType;
+                  const requiredSlug = DEST_APP_SLUGS[type];
+                  const needsComposio = !!requiredSlug;
+                  const connected = !needsComposio || isAppConnected(requiredSlug);
                   const dest = destinations.find((d) => d.type === type);
-                  const isEnabled = dest?.enabled ?? false;
 
-                  const toggle = () => {
-                    setDestinations((prev) => {
-                      const existing = prev.find((d) => d.type === type);
-                      if (existing) {
-                        return prev.map((d) =>
-                          d.type === type ? { ...d, enabled: !d.enabled } : d
-                        );
-                      }
-                      return [...prev, { type, enabled: true }];
-                    });
+                  const select = () => {
+                    if (type === "none") {
+                      setDestinations((prev) => prev.map((d) => ({ ...d, enabled: false })));
+                    } else {
+                      setDestinations((prev) => {
+                        const withAllOff = prev.map((d) => ({ ...d, enabled: false }));
+                        const existing = withAllOff.find((d) => d.type === type);
+                        if (existing) {
+                          return withAllOff.map((d) =>
+                            d.type === type ? { ...d, enabled: true } : d
+                          );
+                        }
+                        return [...withAllOff, { type, enabled: true }];
+                      });
+                    }
                   };
 
                   return (
                     <div key={type}>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
                         <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={toggle}
-                          className="rounded border-input"
+                          type="radio"
+                          name="reportDestination"
+                          checked={isSelected}
+                          onChange={select}
+                          className="border-input"
                         />
-                        {label}
-                        {type === "whatsapp" && (
-                          <span className="text-[11px] text-muted-foreground">(enter number below)</span>
+                        <span className="flex items-center gap-1.5">
+                          {label}
+                          {isSelected && connected && needsComposio && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                          )}
+                        </span>
+                        {type === "whatsapp" && isSelected && (
+                          <span className="text-[11px] text-muted-foreground">
+                            (enter number below)
+                          </span>
+                        )}
+                        {type === "gmail" && isSelected && (
+                          <span className="text-[11px] text-muted-foreground">
+                            (enter email below)
+                          </span>
                         )}
                       </label>
-                      {type === "whatsapp" && isEnabled && (
+                      {isSelected && !connected && type !== "none" && (
+                        <div className="flex items-center justify-between ml-6 mt-1 p-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <span className="text-amber-700 dark:text-amber-400">
+                              {label} is not connected in Composio
+                            </span>
+                          </div>
+                          <a
+                            href="/connections"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0 ml-2"
+                          >
+                            Connect <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                      {type === "whatsapp" && isSelected && (
                         <div className="mt-1.5 ml-6">
                           <input
                             className="w-full px-3 py-2 rounded-md border bg-background text-sm"
@@ -1208,7 +1297,28 @@ function TaskFormDialog({
                             placeholder="e.g. +2348012345678"
                           />
                           <p className="text-[11px] text-muted-foreground mt-1">
-                            Your WhatsApp number with country code. Uses the connected task channel session.
+                            Your WhatsApp number with country code. Uses the connected task channel
+                            session.
+                          </p>
+                        </div>
+                      )}
+                      {type === "gmail" && isSelected && (
+                        <div className="mt-1.5 ml-6">
+                          <input
+                            type="email"
+                            className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                            value={dest?.gmailTo ?? ""}
+                            onChange={(e) =>
+                              setDestinations((prev) =>
+                                prev.map((d) =>
+                                  d.type === "gmail" ? { ...d, gmailTo: e.target.value } : d
+                                )
+                              )
+                            }
+                            placeholder="e.g. admin@company.com"
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Email address to receive the report summary and document link.
                           </p>
                         </div>
                       )}
@@ -1703,14 +1813,17 @@ function LiveBoardTab({
     failed: filteredSubmissions.filter((s) => s.status === "FAILED").length,
     missed: filteredSubmissions.filter((s) => s.status === "MISSED").length,
     pending: filteredSubmissions.filter((s) => s.status === "PENDING").length,
-    submitted: filteredSubmissions.filter((s) => s.status === "SUBMITTED" || s.status === "VETTING").length,
+    submitted: filteredSubmissions.filter((s) => s.status === "SUBMITTED" || s.status === "VETTING")
+      .length,
     avgScore: (() => {
       const scored = filteredSubmissions.filter((s) => s.aiScore != null);
       if (!scored.length) return null;
       return Math.round(scored.reduce((sum, s) => sum + (s.aiScore ?? 0), 0) / scored.length);
     })(),
     passRate: (() => {
-      const vetted = filteredSubmissions.filter((s) => s.status === "PASSED" || s.status === "FAILED");
+      const vetted = filteredSubmissions.filter(
+        (s) => s.status === "PASSED" || s.status === "FAILED"
+      );
       if (!vetted.length) return null;
       return Math.round((vetted.filter((s) => s.status === "PASSED").length / vetted.length) * 100);
     })(),
@@ -1859,7 +1972,9 @@ function LiveBoardTab({
             <p className="text-[11px] text-muted-foreground">Avg Score</p>
           </div>
           <div className="p-3 rounded-lg border bg-background text-center">
-            <p className="text-xl font-bold">{stats.passRate != null ? `${stats.passRate}%` : "—"}</p>
+            <p className="text-xl font-bold">
+              {stats.passRate != null ? `${stats.passRate}%` : "—"}
+            </p>
             <p className="text-[11px] text-muted-foreground">Pass Rate</p>
           </div>
         </div>
@@ -1871,11 +1986,17 @@ function LiveBoardTab({
           <span>
             <strong className="text-foreground">{selectedTask.name}</strong>
           </span>
-          <span>Evidence: {EVIDENCE_LABELS[selectedTask.evidenceType] || selectedTask.evidenceType}</span>
+          <span>
+            Evidence: {EVIDENCE_LABELS[selectedTask.evidenceType] || selectedTask.evidenceType}
+          </span>
           <span>Passing: {selectedTask.passingScore}/100</span>
           <span>Grace: {selectedTask.graceMinutes}m</span>
           <span>Workers: {activeWorkers.length}</span>
-          {selectedTask.resubmissionAllowed && <Badge variant="secondary" className="text-[10px] py-0">Resubmission allowed</Badge>}
+          {selectedTask.resubmissionAllowed && (
+            <Badge variant="secondary" className="text-[10px] py-0">
+              Resubmission allowed
+            </Badge>
+          )}
         </div>
       )}
 
@@ -1925,10 +2046,14 @@ function LiveBoardTab({
                     >
                       <td className="p-3">
                         <div className="font-medium">{sub.worker?.name || "Unknown"}</div>
-                        <div className="text-[11px] text-muted-foreground">{sub.worker?.platform}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {sub.worker?.platform}
+                        </div>
                       </td>
                       <td className="p-3 whitespace-nowrap">
-                        <div>{dueDate.toLocaleDateString([], { month: "short", day: "numeric" })}</div>
+                        <div>
+                          {dueDate.toLocaleDateString([], { month: "short", day: "numeric" })}
+                        </div>
                         <div className="text-[11px] text-muted-foreground">
                           {dueDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </div>
@@ -1936,9 +2061,17 @@ function LiveBoardTab({
                       <td className="p-3 whitespace-nowrap">
                         {submittedDate ? (
                           <>
-                            <div>{submittedDate.toLocaleDateString([], { month: "short", day: "numeric" })}</div>
+                            <div>
+                              {submittedDate.toLocaleDateString([], {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </div>
                             <div className="text-[11px] text-muted-foreground">
-                              {submittedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {submittedDate.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </div>
                           </>
                         ) : (
@@ -1950,12 +2083,18 @@ function LiveBoardTab({
                           variant="secondary"
                           className={cn(
                             "text-[11px] gap-1 py-0.5",
-                            sub.status === "PASSED" && "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300",
-                            sub.status === "FAILED" && "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-                            sub.status === "MISSED" && "bg-gray-100 text-gray-500 dark:bg-gray-800/40 dark:text-gray-400",
-                            sub.status === "PENDING" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300",
-                            (sub.status === "SUBMITTED" || sub.status === "VETTING") && "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-                            sub.status === "RESUBMITTED" && "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                            sub.status === "PASSED" &&
+                              "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300",
+                            sub.status === "FAILED" &&
+                              "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+                            sub.status === "MISSED" &&
+                              "bg-gray-100 text-gray-500 dark:bg-gray-800/40 dark:text-gray-400",
+                            sub.status === "PENDING" &&
+                              "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300",
+                            (sub.status === "SUBMITTED" || sub.status === "VETTING") &&
+                              "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+                            sub.status === "RESUBMITTED" &&
+                              "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
                           )}
                         >
                           {statusInfo.icon}
@@ -1966,7 +2105,9 @@ function LiveBoardTab({
                         <span className={cn("font-semibold", scoreColor)}>
                           {sub.aiScore != null ? sub.aiScore : "—"}
                         </span>
-                        {sub.aiScore != null && <span className="text-[11px] text-muted-foreground">/100</span>}
+                        {sub.aiScore != null && (
+                          <span className="text-[11px] text-muted-foreground">/100</span>
+                        )}
                       </td>
                       <td className="p-3 text-center">
                         {sub.imageUrl ? (
@@ -1977,7 +2118,10 @@ function LiveBoardTab({
                               className="h-8 w-8 rounded object-cover border"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`${process.env.NEXT_PUBLIC_API_URL || ""}${sub.imageUrl}`, "_blank");
+                                window.open(
+                                  `${process.env.NEXT_PUBLIC_API_URL || ""}${sub.imageUrl}`,
+                                  "_blank"
+                                );
                               }}
                             />
                           </div>
@@ -2095,15 +2239,9 @@ function ReportsTab({
         <>
           <div className="flex flex-col gap-y-3">
             {pagedReports.map((report) => (
-              <Card
-                key={report.id}
-                className="shadow-none hover:shadow transition-shadow"
-              >
+              <Card key={report.id} className="shadow-none hover:shadow transition-shadow">
                 <CardContent className="flex items-center justify-between p-4">
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => onReportClick(report)}
-                  >
+                  <div className="flex-1 cursor-pointer" onClick={() => onReportClick(report)}>
                     <p className="font-medium text-sm">
                       {new Date(report.periodStart).toLocaleDateString()}
                     </p>
@@ -2116,12 +2254,22 @@ function ReportsTab({
                   </div>
                   <div className="flex items-center gap-2 ml-2">
                     {report.deliveredAt ? (
-                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 shrink-0"
+                      >
                         <Send className="h-3 w-3 mr-1" />
-                        Sent {new Date(report.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        Sent{" "}
+                        {new Date(report.deliveredAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400 shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400 shrink-0"
+                      >
                         Not sent
                       </Badge>
                     )}
@@ -2406,7 +2554,10 @@ function ReportDetailDialog({
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {report.deliveredAt ? (
               <>
-                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                >
                   <Send className="h-3 w-3 mr-1" />
                   Delivered at{" "}
                   {new Date(report.deliveredAt).toLocaleString([], {
@@ -2423,7 +2574,10 @@ function ReportDetailDialog({
                 ))}
               </>
             ) : (
-              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+              <Badge
+                variant="secondary"
+                className="text-xs bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400"
+              >
                 Not delivered
               </Badge>
             )}
