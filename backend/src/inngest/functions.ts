@@ -7,15 +7,9 @@ import {
   goalReflect,
   agentWatchFire,
 } from "./functions/agent-orchestration";
-import {
-  taskReminder,
-  taskUpcomingReminder,
-  taskGraceCheck,
-  taskDailyReport,
-  taskSchedulerCron,
-} from "./functions/task-management";
 
 // Export all Inngest functions
+// Note: taskDailyReport removed — report generation now handled by cron scheduler
 export const functions = [
   triggerWorkflow,
   goalDecompose,
@@ -23,9 +17,4 @@ export const functions = [
   approvalGate,
   goalReflect,
   agentWatchFire,
-  taskReminder,
-  taskUpcomingReminder,
-  taskGraceCheck,
-  taskDailyReport,
-  taskSchedulerCron,
 ];

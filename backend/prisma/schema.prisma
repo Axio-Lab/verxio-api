@@ -1356,6 +1356,7 @@ model HumanTask {
   reportChannelId     String?
   reportChannel       SupportChannel?  @relation("TaskReportChannel", fields: [reportChannelId], references: [id], onDelete: SetNull)
   deliveryConfig      Json?
+  reportFolderId      String?
   status              TaskStatus       @default(ACTIVE)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -1450,16 +1451,19 @@ model TaskSubmission {
   aiScore          Int?
   aiFindings       String?
   aiFeedback       String?
-  status           SubmissionStatus @default(PENDING)
-  vetAttempts      Int              @default(0)
-  reportIncluded   Boolean          @default(false)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  status                  SubmissionStatus @default(PENDING)
+  vetAttempts             Int              @default(0)
+  reportIncluded          Boolean          @default(false)
+  reminderSentAt          DateTime?
+  upcomingReminderSentAt  DateTime?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
   @@index([humanTaskId])
   @@index([workerId])
   @@index([status])
   @@index([dueAt])
+  @@index([status, dueAt])
   @@map("task_submissions")
 }
 
@@ -1475,6 +1479,7 @@ model TaskComplianceReport {
   avgScore         Float?
   passRate         Float?
   flaggedWorkerIds String[]
+  documentUrl      String?
   deliveredAt      DateTime?
   deliveredTo      Json?
   createdAt        DateTime  @default(now())
