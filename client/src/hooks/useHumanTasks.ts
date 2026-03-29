@@ -180,22 +180,27 @@ export async function uploadSampleEvidence(file: File): Promise<string> {
 
 export function usePauseHumanTask() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<void, Error, { taskId: string }>({
+  return useProtectedMutation<void, Error, { taskId: string; name?: string }>({
     mutationFn: ({ taskId }) => authenticatedPost(`/api/human-tasks/${taskId}/pause`),
-    onSuccess: () => {
+    onSuccess: (_, { name }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
-      toast.success("Task paused");
+      toast.success(
+        name ? `${name} has been paused` : "This task has been paused",
+
+      );
     },
   });
 }
 
 export function useResumeHumanTask() {
   const queryClient = useQueryClient();
-  return useProtectedMutation<void, Error, { taskId: string }>({
+  return useProtectedMutation<void, Error, { taskId: string; name?: string }>({
     mutationFn: ({ taskId }) => authenticatedPost(`/api/human-tasks/${taskId}/resume`),
-    onSuccess: () => {
+    onSuccess: (_, { name }) => {
       queryClient.invalidateQueries({ queryKey: ["human-tasks"] });
-      toast.success("Task resumed");
+      toast.success(
+        name ? `${name} has been resumed` : "This task has been resumed",
+      );
     },
   });
 }

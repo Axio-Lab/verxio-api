@@ -15,6 +15,7 @@ import {
   type DeliveryConfig,
 } from "./composioReportDeliveryService";
 import { executeComposioAction, isComposioConfigured } from "./composio/composioService";
+import { getZonedDayBoundsUtc, isValidIanaTimeZone } from "@/lib/taskTimezone";
 
 const prisma = basePrismaClient as any;
 
@@ -104,10 +105,9 @@ export async function generateDailyReport(taskId: string) {
   if (!task) throw new Error("Task not found");
 
   const now = new Date();
-  const periodStart = new Date(now);
-  periodStart.setHours(0, 0, 0, 0);
-  const periodEnd = new Date(now);
-  periodEnd.setHours(23, 59, 59, 999);
+  const tzRaw = task.timezone || "UTC";
+  const tz = isValidIanaTimeZone(tzRaw) ? tzRaw : "UTC";
+  const { start: periodStart, end: periodEnd } = getZonedDayBoundsUtc(now, tz);
 
   const submissions = await getSubmissionsForReport(taskId, periodStart, periodEnd);
 
@@ -366,28 +366,40 @@ export async function generateScheduledReports() {
   for (const task of activeTasks) {
     if (!task.reportTime) continue;
 
-    const tz = task.timezone || "UTC";
+    const tzRaw = task.timezone || "UTC";
+    if (!isValidIanaTimeZone(tzRaw)) {
+      console.warn(`[ReportScheduler] Invalid timezone for task ${task.id}: ${tzRaw}`);
+      continue;
+    }
+    const tz = tzRaw;
     const [rh, rm] = String(task.reportTime).split(":").map(Number);
     if (Number.isNaN(rh) || Number.isNaN(rm)) continue;
 
-    const nowInTz = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).formatToParts(now);
+    let nowHour: number;
+    let nowMin: number;
+    try {
+      const nowInTz = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(now);
+      nowHour = Number(nowInTz.find((p) => p.type === "hour")?.value || 0);
+      nowMin = Number(nowInTz.find((p) => p.type === "minute")?.value || 0);
+    } catch {
+      continue;
+    }
 
-    const nowHour = Number(nowInTz.find((p) => p.type === "hour")?.value || 0);
-    const nowMin = Number(nowInTz.find((p) => p.type === "minute")?.value || 0);
-
+    // Fire when local time matches reportTime (±1 min) so the 1-minute cron does not miss the slot.
     if (nowHour !== rh || Math.abs(nowMin - rm) > 1) continue;
 
-    const todayStr = now.toISOString().split("T")[0];
+    const { start: dayStartUtc, end: dayEndUtc } = getZonedDayBoundsUtc(now, tz);
     const existing = await prisma.taskComplianceReport.findFirst({
       where: {
         humanTaskId: task.id,
         createdAt: {
-          gte: new Date(`${todayStr}T00:00:00.000Z`),
+          gte: dayStartUtc,
+          lte: dayEndUtc,
         },
       },
     });

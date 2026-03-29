@@ -311,13 +311,15 @@ export function TasksContentClient() {
                   <TaskCard
                     key={task.id}
                     task={task}
+                    isPausing={pauseTask.isPending && pauseTask.variables?.taskId === task.id}
+                    isResuming={resumeTask.isPending && resumeTask.variables?.taskId === task.id}
                     onEdit={() => setEditingTask(task)}
                     onManageWorkers={() => {
                       setSelectedTaskId(task.id);
                       setShowWorkerDialog(true);
                     }}
-                    onPause={() => pauseTask.mutate({ taskId: task.id })}
-                    onResume={() => resumeTask.mutate({ taskId: task.id })}
+                    onPause={() => pauseTask.mutate({ taskId: task.id, name: task.name })}
+                    onResume={() => resumeTask.mutate({ taskId: task.id, name: task.name })}
                     onDelete={() => deleteTask.mutate({ taskId: task.id })}
                   />
                 ))}
@@ -397,6 +399,8 @@ export function TasksContentClient() {
 
 function TaskCard({
   task,
+  isPausing,
+  isResuming,
   onEdit,
   onManageWorkers,
   onPause,
@@ -404,14 +408,25 @@ function TaskCard({
   onDelete,
 }: {
   task: HumanTask;
+  isPausing?: boolean;
+  isResuming?: boolean;
   onEdit: () => void;
   onManageWorkers: () => void;
   onPause: () => void;
   onResume: () => void;
   onDelete: () => void;
 }) {
+  const statusBusy = isPausing || isResuming;
+  const statusLabel = isPausing ? "Pausing…" : isResuming ? "Resuming…" : task.status;
+
   return (
-    <Card className="shadow-none hover:shadow transition-shadow">
+    <Card
+      className={cn(
+        "shadow-none hover:shadow transition-shadow",
+        statusBusy && "ring-1 ring-primary/25 bg-muted/20"
+      )}
+      aria-busy={statusBusy}
+    >
       <CardContent className="p-0">
         <div className="flex items-center justify-between p-4 gap-3">
           <div className="flex-1 min-w-0">
@@ -419,9 +434,15 @@ function TaskCard({
               <span className="font-medium text-sm truncate">{task.name}</span>
               <Badge
                 variant="outline"
-                className={cn("text-[11px] border", STATUS_VARIANT[task.status])}
+                className={cn(
+                  "text-[11px] border inline-flex items-center gap-1.5 min-h-[22px]",
+                  STATUS_VARIANT[task.status]
+                )}
               >
-                {task.status}
+                {statusBusy && (
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0 text-current" aria-hidden />
+                )}
+                {statusLabel}
               </Badge>
             </div>
             {task.description && (
@@ -443,13 +464,23 @@ function TaskCard({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {task.status === "ACTIVE" && (
-                <DropdownMenuItem onClick={onPause}>
-                  <Pause className="h-4 w-4 mr-2" /> Pause
+                <DropdownMenuItem onClick={onPause} disabled={isPausing}>
+                  {isPausing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Pause className="h-4 w-4 mr-2" />
+                  )}
+                  Pause
                 </DropdownMenuItem>
               )}
               {task.status === "PAUSED" && (
-                <DropdownMenuItem onClick={onResume}>
-                  <Play className="h-4 w-4 mr-2" /> Resume
+                <DropdownMenuItem onClick={onResume} disabled={isResuming}>
+                  {isResuming ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Resume
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
