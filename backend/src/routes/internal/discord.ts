@@ -8,9 +8,6 @@ import { checkFeatureAccess } from "@/services/subscriptionCheck";
 import { SUBSCRIPTION_FEATURES } from "@/config/subscription-features";
 import { consumePremiumQuota } from "@/services/subscriptionService";
 import { QUOTA_COST } from "@/config/rate-limits";
-import { handleIncomingSubmission } from "@/services/taskSubmissionService";
-import { downloadDiscordAttachment } from "@/services/taskImageService";
-import { deliverTaskWorkerFeedbackDiscord } from "@/services/taskWorkerFeedbackDelivery";
 
 const router = Router();
 
@@ -77,39 +74,7 @@ router.post("/incoming", async (req: Request, res: Response) => {
       const isServerChannel = !!guildId;
       const groupPrefix = isServerChannel && authorId ? `<@${authorId}> ` : "";
 
-      // Human task workers MUST be checked even when the support agent is disabled
-      if (authorId) {
-        try {
-          let imageUrl: string | undefined;
-          if (body.attachments?.length) {
-            const imgAttachment = body.attachments.find((a) => a.type === "image" && a.url);
-            if (imgAttachment?.url) {
-              imageUrl = await downloadDiscordAttachment(imgAttachment.url);
-            }
-          }
-          const result = await handleIncomingSubmission(
-            "DISCORD",
-            authorId,
-            messageText,
-            imageUrl,
-            { supportChannelId: supportChannel.id }
-          );
-          if (result.handled && result.feedback) {
-            await deliverTaskWorkerFeedbackDiscord({
-              integrationId: supportChannel.id,
-              channelId: replyChannelId,
-              markdownBody: result.feedback,
-            });
-          }
-          if (result.handled) {
-            return res.json({ ok: true, taskSubmission: true });
-          }
-        } catch (workerErr) {
-          console.warn("[Discord] Worker routing check failed:", workerErr);
-        }
-      }
-
-      // Skip support agent if disabled (workers above still get processed)
+      // Skip support agent if disabled
       const agentStatus = (supportChannel as { supportAgent?: { status: string } }).supportAgent
         ?.status;
       if (agentStatus === "disabled") {

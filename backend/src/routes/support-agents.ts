@@ -1,4 +1,8 @@
+import path from "path";
+import fs from "fs";
 import { Router, Request, Response, NextFunction } from "express";
+import multer from "multer";
+import { createId } from "@paralleldrive/cuid2";
 import { betterAuthMiddleware } from "../middleware/betterAuth";
 import { AppError } from "../middleware/errorHandler";
 import {
@@ -38,7 +42,40 @@ async function sendTelegramMessage(botToken: string, chatId: string, text: strin
   });
 }
 
+const AVATAR_DIR = path.join(process.cwd(), "public", "support-uploads");
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      if (!fs.existsSync(AVATAR_DIR)) fs.mkdirSync(AVATAR_DIR, { recursive: true });
+      cb(null, AVATAR_DIR);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".png";
+      cb(null, `avatar-${createId()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, /^image\/(jpeg|png|gif|webp|svg\+xml)$/.test(file.mimetype));
+  },
+});
+
 export const supportAgentsRouter: Router = Router();
+
+supportAgentsRouter.post(
+  "/upload-avatar",
+  betterAuthMiddleware,
+  avatarUpload.single("file"),
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const url = `/support-uploads/${req.file.filename}`;
+      res.json({ success: true, url });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 supportAgentsRouter.get(
   "/",

@@ -148,6 +148,9 @@ supportPublicChatRouter.get(
         greeting: agent.greeting,
         brandColor: agent.brandColor,
         position: agent.position,
+        avatarUrl: agent.avatarUrl ?? null,
+        widgetLabel: agent.widgetLabel ?? null,
+        widgetDisplay: agent.widgetDisplay ?? "label",
       });
     } catch (error) {
       next(error);

@@ -455,8 +455,8 @@ export function Features() {
             <span className="text-primary"> AI-managed operations</span>
           </h2>
           <p className="mt-4 text-lg text-gray-500">
-            From AI-to-AI goal orchestration to human task compliance and multi-channel support,
-            Verxio gives you the infrastructure to automate and supervise at scale.
+            From AI-to-AI goal orchestration to multi-channel support and workflow automation,
+            Verxio gives you the infrastructure to automate and operate at scale.
           </p>
         </div>
 

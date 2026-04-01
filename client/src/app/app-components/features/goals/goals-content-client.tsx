@@ -25,7 +25,7 @@ import {
   type BuiltinSubagent,
 } from "@/hooks/useCustomSubagents";
 import { useSkills, type Skill } from "@/hooks/useSkills";
-import { useChatChannels } from "@/hooks/useHumanTasks";
+import { useChatChannels } from "@/hooks/useChatChannels";
 import {
   EntityContainer,
   EntityHeader,

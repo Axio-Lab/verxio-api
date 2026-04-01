@@ -28,17 +28,15 @@ export const metadata: Metadata = {
     template: "%s | Verxio",
   },
   description:
-    "Verxio is an agentic operations platform that manages your business end-to-end. Deploy AI agents that orchestrate goals, automate workflows, supervise human task compliance, and run support across WhatsApp, Telegram, Slack, and Discord. 10,000+ actions. 800+ apps. One platform.",
+    "Verxio is an agentic operations platform that manages your business end-to-end. Deploy AI agents that orchestrate goals, automate workflows, and run support across WhatsApp, Telegram, Slack, and Discord. 10,000+ actions. 800+ apps. One platform.",
   keywords: [
     "agentic operations platform",
     "AI operations",
     "AI agents",
     "AI automation",
     "AI goal management",
-    "AI task management",
-    "human task compliance",
-    "AI micromanager",
-    "AI compliance scoring",
+    "AI support automation",
+    "AI workflow orchestration",
     "AI workflow builder",
     "AI support agent",
     "Slack bot",
@@ -68,7 +66,7 @@ export const metadata: Metadata = {
     siteName: "Verxio",
     title: "Verxio — Agentic Business Operations Platform",
     description:
-      "Verxio is an agentic operations platform that manages your business end-to-end. Deploy AI agents that orchestrate goals, automate workflows, supervise human task compliance, and run support across WhatsApp, Telegram, Slack, and Discord.",
+      "Verxio is an agentic operations platform that manages your business end-to-end. Deploy AI agents that orchestrate goals, automate workflows, and run support across WhatsApp, Telegram, Slack, and Discord.",
     images: [
       {
         url: `${siteUrl}/logo/verxioLogoMain.svg`,
@@ -82,7 +80,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Verxio — Agentic Business Operations Platform",
     description:
-      "Deploy AI agents that orchestrate goals, automate workflows, supervise human task compliance, and run support across WhatsApp, Telegram, Slack, and Discord.",
+      "Deploy AI agents that orchestrate goals, automate workflows, and run support across WhatsApp, Telegram, Slack, and Discord.",
     images: [`${siteUrl}/logo/verxioLogoMain.svg`],
     creator: "@verxioprotocol",
   },
