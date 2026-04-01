@@ -28,12 +28,6 @@ import { supportPublicChatRouter } from "./routes/support-public-chat";
 import { supportAgentsRouter } from "./routes/support-agents";
 import { agentGoalsRouter } from "./routes/agent-goals";
 import { customSubagentsRouter } from "./routes/custom-subagents";
-import { humanTasksRouter } from "./routes/human-tasks";
-import { taskChannelsRouter } from "./routes/task-channels";
-import { taskChannelTelegramRouter } from "./routes/internal/task-channel-telegram";
-import { taskChannelWhatsAppRouter } from "./routes/internal/task-channel-whatsapp";
-import { taskChannelSlackRouter } from "./routes/internal/task-channel-slack";
-import { taskChannelDiscordRouter } from "./routes/internal/task-channel-discord";
 import { airtableWebhookRouter } from "./routes/airtable-webhook";
 import { googleAuthRouter } from "./routes/auth/google";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
@@ -234,12 +228,6 @@ app.use("/api/public/support-chat", supportPublicChatRouter);
 app.use("/api/support-agents", supportAgentsRouter);
 app.use("/api/agent-goals", agentGoalsRouter);
 app.use("/api/custom-subagents", customSubagentsRouter);
-app.use("/api/human-tasks", humanTasksRouter);
-app.use("/api/task-channels", taskChannelsRouter);
-app.use("/api/internal/task-channels", taskChannelTelegramRouter);
-app.use("/api/internal/task-channels", taskChannelWhatsAppRouter);
-app.use("/api/internal/task-channels", taskChannelSlackRouter);
-app.use("/api/internal/task-channels", taskChannelDiscordRouter);
 
 // API routes
 // app.use('/health', healthRouter);
@@ -415,14 +403,6 @@ const server: Server = app.listen(serverPort, async () => {
   // Initialize cron scheduler for timed triggers
   await initializeCronScheduler();
 
-  // Start in-process task scheduler (replaces Inngest-based reminders)
-  try {
-    const { startTaskCronScheduler } = await import("./services/taskCronScheduler");
-    startTaskCronScheduler();
-  } catch (err) {
-    console.error("[Startup] Failed to start task cron scheduler:", err);
-  }
-
   // Recover any SDR follow-ups that were lost to server restart
   const { startFollowUpRecovery } = await import("./services/sdrChannelService");
   startFollowUpRecovery();
@@ -435,13 +415,6 @@ async function shutdown(signal: string) {
 
   try {
     shutdownCronScheduler();
-  } catch {
-    // ignore
-  }
-
-  try {
-    const { stopTaskCronScheduler } = require("./services/taskCronScheduler");
-    stopTaskCronScheduler();
   } catch {
     // ignore
   }

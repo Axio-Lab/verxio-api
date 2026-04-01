@@ -3,6 +3,41 @@ import { AppError } from "@/middleware/errorHandler";
 
 const prisma = basePrismaClient as any;
 
+function normalizeAvatarUrl(url?: string | null) {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/support-uploads/")) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname.startsWith("/support-uploads/")) {
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed;
+}
+
+function normalizeWidgetLabel(label?: string | null) {
+  if (label == null) return null;
+  const trimmed = String(label).trim();
+  return trimmed || null;
+}
+
+function normalizeWidgetDisplay(display?: string | null) {
+  return display === "icon" ? "icon" : "label";
+}
+
+function normalizeSupportAgent<T extends { avatarUrl?: string | null }>(agent: T): T {
+  return {
+    ...agent,
+    avatarUrl: normalizeAvatarUrl(agent.avatarUrl),
+  };
+}
+
 export interface SupportAgentCreateInput {
   name: string;
   description?: string;
@@ -12,6 +47,8 @@ export interface SupportAgentCreateInput {
   brandColor?: string;
   position?: string;
   avatarUrl?: string;
+  widgetLabel?: string | null;
+  widgetDisplay?: string;
   allowedDomains?: string[];
   status?: string;
   mode?: string;
@@ -32,7 +69,7 @@ export async function createSupportAgent(userId: string, data: SupportAgentCreat
   if (dup) {
     throw new AppError("A support agent with this name already exists.", 400);
   }
-  return prisma.supportAgent.create({
+  const agent = await prisma.supportAgent.create({
     data: {
       userId,
       name,
@@ -42,7 +79,9 @@ export async function createSupportAgent(userId: string, data: SupportAgentCreat
       greeting: data.greeting ?? "Hi! How can I help you?",
       brandColor: data.brandColor ?? "#6366f1",
       position: data.position ?? "bottom-right",
-      avatarUrl: data.avatarUrl ?? null,
+      avatarUrl: normalizeAvatarUrl(data.avatarUrl),
+      widgetLabel: normalizeWidgetLabel(data.widgetLabel),
+      widgetDisplay: normalizeWidgetDisplay(data.widgetDisplay),
       allowedDomains: data.allowedDomains ?? [],
       status: data.status ?? "active",
       mode: data.mode ?? "support",
@@ -52,21 +91,25 @@ export async function createSupportAgent(userId: string, data: SupportAgentCreat
       funnelRules: data.funnelRules ?? null,
     },
   });
+  return normalizeSupportAgent(agent);
 }
 
 export async function listSupportAgents(userId: string) {
-  return prisma.supportAgent.findMany({
+  const agents = await prisma.supportAgent.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
   });
+  return agents.map(normalizeSupportAgent);
 }
 
 export async function getSupportAgent(id: string) {
-  return prisma.supportAgent.findUnique({ where: { id } });
+  const agent = await prisma.supportAgent.findUnique({ where: { id } });
+  return agent ? normalizeSupportAgent(agent) : agent;
 }
 
 export async function getSupportAgentByPublicId(publicId: string) {
-  return prisma.supportAgent.findUnique({ where: { publicId } });
+  const agent = await prisma.supportAgent.findUnique({ where: { publicId } });
+  return agent ? normalizeSupportAgent(agent) : agent;
 }
 
 export async function updateSupportAgent(
@@ -74,8 +117,8 @@ export async function updateSupportAgent(
   id: string,
   data: SupportAgentUpdateInput
 ) {
-  const agent = await prisma.supportAgent.findUnique({ where: { id } });
-  if (!agent || agent.userId !== userId) {
+  const existingAgent = await prisma.supportAgent.findUnique({ where: { id } });
+  if (!existingAgent || existingAgent.userId !== userId) {
     throw new AppError("Support agent not found", 404);
   }
   if (data.name !== undefined) {
@@ -83,7 +126,7 @@ export async function updateSupportAgent(
     if (!nextName) {
       throw new AppError("Name is required", 400);
     }
-    if (nextName !== agent.name) {
+    if (nextName !== existingAgent.name) {
       const dup = await prisma.supportAgent.findFirst({
         where: { userId, name: nextName, NOT: { id } },
       });
@@ -93,10 +136,17 @@ export async function updateSupportAgent(
     }
     data = { ...data, name: nextName };
   }
-  return prisma.supportAgent.update({
+  const updatedAgent = await prisma.supportAgent.update({
     where: { id },
     data: {
       ...data,
+      ...(data.avatarUrl !== undefined ? { avatarUrl: normalizeAvatarUrl(data.avatarUrl) } : {}),
+      ...(data.widgetLabel !== undefined
+        ? { widgetLabel: normalizeWidgetLabel(data.widgetLabel) }
+        : {}),
+      ...(data.widgetDisplay !== undefined
+        ? { widgetDisplay: normalizeWidgetDisplay(data.widgetDisplay) }
+        : {}),
       // Ensure arrays and optional fields are not set to undefined
       ...(data.knowledgeBaseIds ? { knowledgeBaseIds: data.knowledgeBaseIds } : {}),
       ...(data.allowedDomains ? { allowedDomains: data.allowedDomains } : {}),
@@ -107,6 +157,7 @@ export async function updateSupportAgent(
       ...(data.funnelRules !== undefined ? { funnelRules: data.funnelRules } : {}),
     },
   });
+  return normalizeSupportAgent(updatedAgent);
 }
 
 export async function deleteSupportAgent(userId: string, id: string) {

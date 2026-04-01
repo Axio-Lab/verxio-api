@@ -65,7 +65,7 @@ type EntityPaginationProps = {
   totalItems?: number;
   itemsPerPage?: number;
   showInfo?: boolean;
-  /** Merged onto the outer row; same component used by Support, Connections, Task Manager, etc. */
+  /** Merged onto the outer row; same component used by Support, Connections, Workflows, etc. */
   className?: string;
 };
 
@@ -209,7 +209,7 @@ export const EntitySearch = ({
 
 /**
  * Shared pagination UI (Previous / page numbers / Next) used across the app:
- * Support agents list, contacts, Connections, Credentials, Workflows, Task Manager, etc.
+ * Support agents list, contacts, Connections, Credentials, Workflows, etc.
  */
 export const EntityPagination = ({
   currentPage,

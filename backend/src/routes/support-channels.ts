@@ -4,6 +4,7 @@ import { basePrismaClient } from "@/lib/prisma";
 import {
   createSupportChannel,
   listSupportChannelsForAgent,
+  listActiveSupportChannels,
   attachWhatsAppSessionToChannel,
   getOrCreateWhatsAppSessionForSupportChannel,
   getSupportChannelById,
@@ -27,6 +28,24 @@ function getApiBaseUrl() {
   }
   return base.replace(/\/$/, "");
 }
+
+/**
+ * GET /api/support/channels/active
+ * List active support channels for the current user, formatted for report delivery selectors.
+ */
+supportChannelsRouter.get(
+  "/channels/active",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as any).user;
+      const channels = await listActiveSupportChannels(user.id);
+      res.json({ success: true, channels });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 async function getOrCreatePlatformChannel(
   userId: string,

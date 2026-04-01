@@ -6,9 +6,6 @@ import {
 import { respondToChannelMessage } from "@/services/supportChannelChatService";
 import { upsertSupportContact } from "@/services/supportContactService";
 import { formatTelegramMessage } from "@/services/chatIntegrationService";
-import { deliverTaskWorkerFeedbackTelegram } from "@/services/taskWorkerFeedbackDelivery";
-import { handleIncomingSubmission } from "@/services/taskSubmissionService";
-import { downloadTelegramFile } from "@/services/taskImageService";
 
 const router = Router();
 
@@ -93,34 +90,7 @@ router.post("/support/:channelId", async (req: Request, res: Response) => {
         }
       }
 
-      // Human task workers MUST be checked even when the support agent is disabled
-      try {
-        const lookupId = senderId || chatId;
-        const extras = [senderId, chatId].filter(Boolean);
-
-        let imageUrl: string | undefined;
-        const photos = message?.photo;
-        if (photos && photos.length > 0 && channel.telegramBotToken) {
-          const largestPhoto = photos[photos.length - 1];
-          imageUrl = await downloadTelegramFile(channel.telegramBotToken, largestPhoto.file_id);
-        }
-        const result = await handleIncomingSubmission("TELEGRAM", lookupId, text, imageUrl, {
-          supportChannelId: channel.id,
-          additionalExternalIds: extras,
-        });
-        if (result.handled && result.feedback) {
-          await deliverTaskWorkerFeedbackTelegram(
-            channel.telegramBotToken!,
-            chatId,
-            result.feedback
-          );
-        }
-        if (result.handled) return;
-      } catch (workerErr) {
-        console.error("[Support Telegram] Worker routing check FAILED:", workerErr);
-      }
-
-      // Skip support agent if disabled (but workers above still get processed)
+      // Skip support agent if disabled
       const agentStatus = (channel as { supportAgent?: { status: string } }).supportAgent?.status;
       if (agentStatus === "disabled") return;
 

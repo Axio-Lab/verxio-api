@@ -20,7 +20,6 @@ export default function robots(): MetadataRoute.Robots {
           "/vibe/",
           "/chat/",
           "/support/",
-          "/tasks/",
           "/goals/",
         ],
       },

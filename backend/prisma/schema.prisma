@@ -289,8 +289,6 @@ model User {
   agentGoals            AgentGoal[]
   agentMemories         AgentMemory[]
   agentWatches          AgentWatch[]
-  humanTasks            HumanTask[]
-  taskChannels          TaskChannel[]
 
   @@map("user")
 }
@@ -837,7 +835,6 @@ model WhatsAppSession {
 
   chatIntegration ChatIntegration?
   supportChannels SupportChannel[] @relation("SupportChannelWhatsAppSession")
-  taskChannels    TaskChannel[]    @relation("TaskChannelWhatsAppSession")
 
   @@index([status])
   @@index([workerId])
@@ -973,6 +970,8 @@ model SupportAgent {
   brandColor      String   @default("#6366f1")
   position        String   @default("bottom-right")
   avatarUrl       String?
+  widgetLabel     String?
+  widgetDisplay   String   @default("label")
   allowedDomains  String[]
 
   status          String   @default("active")
@@ -996,7 +995,6 @@ model SupportAgent {
   chatSessions    SupportChatSession[]
   channels        SupportChannel[]
   supportContacts SupportContact[]
-  humanTasks      HumanTask[]      @relation("TaskSupportAgent")
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1039,8 +1037,6 @@ model SupportChannel {
 
   supportContacts SupportContact[]
   goalReporting   AgentGoal[]     @relation("GoalReportingChannel")
-  taskReporting   HumanTask[]     @relation("TaskReportChannel")
-  humanWorkers    HumanWorker[]   @relation("WorkerSupportChannel")
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1293,198 +1289,3 @@ model AgentWatch {
   @@map("agent_watches")
 }
 
-// ============================================
-// Pillar 2: AI-Supervised Human Task Compliance
-// ============================================
-
-enum TaskStatus {
-  ACTIVE
-  PAUSED
-  ARCHIVED
-}
-
-enum TaskRecurrence {
-  ONCE
-  INTERVAL
-  DAILY
-  WEEKLY
-}
-
-enum TaskEvidenceType {
-  PHOTO
-  TEXT
-  PHOTO_AND_TEXT
-  DOCUMENT
-}
-
-enum SubmissionStatus {
-  PENDING
-  SUBMITTED
-  VETTING
-  PASSED
-  FAILED
-  MISSED
-  RESUBMITTED
-}
-
-enum WorkerStatus {
-  ACTIVE
-  INACTIVE
-  ONBOARDING
-}
-
-model HumanTask {
-  id                  String           @id @default(cuid())
-  userId              String
-  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  supportAgentId      String?
-  supportAgent        SupportAgent?    @relation("TaskSupportAgent", fields: [supportAgentId], references: [id], onDelete: SetNull)
-  name                String
-  description         String?
-  evidenceType        TaskEvidenceType @default(PHOTO)
-  recurrenceType      TaskRecurrence   @default(DAILY)
-  recurrenceInterval  Int?
-  scheduledTimes      Json             @default("[]")
-  timezone            String           @default("UTC")
-  acceptanceRules     Json             @default("[]")
-  sampleEvidenceUrl   String?
-  scoringEnabled      Boolean          @default(true)
-  passingScore        Int              @default(70)
-  graceMinutes        Int              @default(15)
-  resubmissionAllowed Boolean          @default(true)
-  reportTime          String           @default("18:00")
-  reportChannelId     String?
-  reportChannel       SupportChannel?  @relation("TaskReportChannel", fields: [reportChannelId], references: [id], onDelete: SetNull)
-  deliveryConfig      Json?
-  reportFolderId      String?
-  status              TaskStatus       @default(ACTIVE)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-
-  workers     HumanWorker[]
-  submissions TaskSubmission[]
-  reports     TaskComplianceReport[]
-
-  taskChannelId       String?
-  taskChannel         TaskChannel? @relation("TaskNotificationChannel", fields: [taskChannelId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([status])
-  @@map("human_tasks")
-}
-
-model TaskChannel {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label     String       @default("Task Channel")
-  platform  ChatPlatform
-  status    String       @default("pending") // pending | connected | disabled
-
-  telegramBotToken    String?
-  telegramBotUsername  String?
-
-  whatsappSessionId   String?   @unique
-  whatsappSession     WhatsAppSession? @relation("TaskChannelWhatsAppSession", fields: [whatsappSessionId], references: [id], onDelete: SetNull)
-
-  slackBotToken       String?
-  slackSigningSecret  String?
-  slackTeamId         String?
-  slackChannelId      String?
-
-  discordBotToken     String?
-  discordGuildId      String?
-  discordChannelId    String?
-
-  webhookUrl          String?
-  sharedSecret        String?
-
-  tasks       HumanTask[]   @relation("TaskNotificationChannel")
-  workers     HumanWorker[] @relation("WorkerTaskChannel")
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([userId, label])
-  @@index([userId])
-  @@index([platform])
-  @@map("task_channels")
-}
-
-model HumanWorker {
-  id               String       @id @default(cuid())
-  humanTaskId      String
-  humanTask        HumanTask    @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
-  name             String
-  phone            String?
-  platform         ChatPlatform
-  externalId       String
-  supportChannelId String?
-  supportChannel   SupportChannel? @relation("WorkerSupportChannel", fields: [supportChannelId], references: [id], onDelete: SetNull)
-  taskChannelId    String?
-  taskChannel      TaskChannel?    @relation("WorkerTaskChannel", fields: [taskChannelId], references: [id], onDelete: SetNull)
-  role             String?
-  status           WorkerStatus @default(ONBOARDING)
-  onboardedAt      DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
-  submissions TaskSubmission[]
-
-  @@unique([humanTaskId, platform, externalId])
-  @@index([humanTaskId])
-  @@index([platform, externalId])
-  @@map("human_workers")
-}
-
-model TaskSubmission {
-  id               String           @id @default(cuid())
-  humanTaskId      String
-  humanTask        HumanTask        @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
-  workerId         String
-  worker           HumanWorker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  dueAt            DateTime
-  submittedAt      DateTime?
-  latenessSeconds  Int?
-  imageUrl         String?
-  rawMessage       String?
-  aiScore          Int?
-  aiFindings       String?
-  aiFeedback       String?
-  status                  SubmissionStatus @default(PENDING)
-  vetAttempts             Int              @default(0)
-  reportIncluded          Boolean          @default(false)
-  reminderSentAt          DateTime?
-  upcomingReminderSentAt  DateTime?
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-
-  @@index([humanTaskId])
-  @@index([workerId])
-  @@index([status])
-  @@index([dueAt])
-  @@index([status, dueAt])
-  @@map("task_submissions")
-}
-
-model TaskComplianceReport {
-  id               String    @id @default(cuid())
-  humanTaskId      String
-  humanTask        HumanTask @relation(fields: [humanTaskId], references: [id], onDelete: Cascade)
-  periodStart      DateTime
-  periodEnd        DateTime
-  summaryMarkdown  String
-  totalSubmissions Int       @default(0)
-  missedCount      Int       @default(0)
-  avgScore         Float?
-  passRate         Float?
-  flaggedWorkerIds String[]
-  documentUrl      String?
-  deliveredAt      DateTime?
-  deliveredTo      Json?
-  createdAt        DateTime  @default(now())
-
-  @@index([humanTaskId])
-  @@index([periodStart])
-  @@map("task_compliance_reports")
-}

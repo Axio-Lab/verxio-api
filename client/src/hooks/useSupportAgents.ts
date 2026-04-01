@@ -18,6 +18,9 @@ export interface SupportAgent {
   greeting: string;
   brandColor: string;
   position: string;
+  avatarUrl?: string | null;
+  widgetLabel?: string | null;
+  widgetDisplay?: string;
   status: string;
   conversations: number;
   mode?: string;
@@ -41,6 +44,9 @@ export interface CreateSupportAgentData {
   greeting?: string;
   brandColor?: string;
   position?: string;
+  avatarUrl?: string | null;
+  widgetLabel?: string | null;
+  widgetDisplay?: string;
   mode?: string;
   skillIds?: string[];
   soulMd?: string | null;

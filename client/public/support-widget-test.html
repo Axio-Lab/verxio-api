@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embedded Support Widget Demo</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+        color: #0f172a;
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 64px 24px 140px;
+      }
+
+      .hero {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 40px;
+        line-height: 1.05;
+      }
+
+      p {
+        margin: 0;
+        max-width: 680px;
+        line-height: 1.65;
+        color: #475569;
+      }
+
+      .section {
+        margin-top: 24px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 20px;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="hero">
+        <h1>Support Widget Embedded</h1>
+        <p>
+          This page simulates a normal website with the support widget embedded through a script
+          tag. The floating chat button should appear in the bottom corner automatically.
+        </p>
+      </div>
+
+      <div class="section">
+        <strong>Demo content</strong>
+        <p>
+          Scroll, click around, and use the floating button just like you would on a customer-facing
+          site.
+        </p>
+      </div>
+    </main>
+
+    <script
+    src="http://localhost:3000/support-widget.js"
+    data-support-agent="cmn0kzwud0005zwhgwye2o49b"
+    data-base-url="http://localhost:3000"
+    data-label="Chat with Acme support"
+    data-display="icon"
+  ></script>
+  </body>
+</html>

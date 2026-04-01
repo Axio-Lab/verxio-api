@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ArrowUp,
@@ -34,6 +34,9 @@ type SupportAgentInfo = {
   greeting?: string;
   brandColor?: string;
   position?: string;
+  avatarUrl?: string | null;
+  widgetLabel?: string | null;
+  widgetDisplay?: string | null;
 };
 
 export default function PublicSupportChatPage() {
@@ -62,6 +65,24 @@ export default function PublicSupportChatPage() {
   const [agentSuggestsRating, setAgentSuggestsRating] = useState(false);
 
   const ACCEPT_FILES = "image/jpeg,image/png,image/gif,image/webp,application/pdf";
+  const resolvedAvatarUrl = useMemo(() => {
+    let url = agentInfo?.avatarUrl;
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith("/support-uploads/")) {
+          url = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        } else {
+          return url;
+        }
+      } catch {
+        return url;
+      }
+    }
+    if (!API_BASE) return url;
+    return `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+  }, [agentInfo?.avatarUrl]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -93,6 +114,33 @@ export default function PublicSupportChatPage() {
       cancelled = true;
     };
   }, [publicId]);
+
+  // Notify the parent widget frame about agent branding so it can style the trigger button
+  useEffect(() => {
+    if (!agentInfo?.success) return;
+    try {
+      window.parent?.postMessage(
+        {
+          type: "vx-support-agent-info",
+          brandColor: agentInfo.brandColor,
+          position: agentInfo.position,
+          avatarUrl: resolvedAvatarUrl,
+          name: agentInfo.name,
+          widgetLabel: agentInfo.widgetLabel,
+          widgetDisplay: agentInfo.widgetDisplay,
+        },
+        "*"
+      );
+    } catch {}
+  }, [
+    agentInfo?.success,
+    agentInfo?.brandColor,
+    agentInfo?.position,
+    resolvedAvatarUrl,
+    agentInfo?.name,
+    agentInfo?.widgetLabel,
+    agentInfo?.widgetDisplay,
+  ]);
 
   // Restore conversation from server when we have sessionId (persists across refresh)
   useEffect(() => {
@@ -303,25 +351,36 @@ export default function PublicSupportChatPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
-      <header className="border-b bg-card px-4 py-3 shadow-sm">
+      <header
+        className="border-b px-4 py-3 shadow-sm"
+        style={{ backgroundColor: agentInfo?.brandColor || "#6366f1" }}
+      >
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-2.5">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/5">
-              <Bot className="h-4 w-4 text-foreground/70" />
-            </div>
+            {resolvedAvatarUrl ? (
+              <img
+                src={resolvedAvatarUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-full object-cover border-2 border-white/30"
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <Bot className="h-4 w-4 text-white" />
+              </div>
+            )}
             <div className="min-w-0">
-              <h1 className="text-sm font-medium truncate">
-                {agentInfo?.name || "Verxio Support"}
+              <h1 className="text-sm font-medium truncate text-white">
+                {agentInfo?.name || "Support agent"}
               </h1>
-              <p className="text-[11px] leading-none text-muted-foreground">
-                24/7 Customer Support
+              <p className="text-[11px] leading-none text-white/70">
+                {agentInfo?.description || "Support chat"}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={clearConversation}
-            className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="shrink-0 rounded-md p-2 text-white/70 transition-colors hover:bg-white/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
             title="Clear conversation"
             aria-label="Clear conversation"
           >
@@ -346,11 +405,18 @@ export default function PublicSupportChatPage() {
           )}
           {messages.map((msg, i) => (
             <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "")}>
-              {msg.role === "assistant" && (
-                <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-foreground/5">
-                  <Bot className="h-3.5 w-3.5 text-foreground/60" />
-                </div>
-              )}
+              {msg.role === "assistant" &&
+                (resolvedAvatarUrl ? (
+                  <img
+                    src={resolvedAvatarUrl}
+                    alt=""
+                    className="mt-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-foreground/5">
+                    <Bot className="h-3.5 w-3.5 text-foreground/60" />
+                  </div>
+                ))}
               <div
                 className={cn(
                   "max-w-[85%]",
@@ -427,9 +493,17 @@ export default function PublicSupportChatPage() {
           ))}
           {sending && (
             <div className="flex gap-3">
-              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-foreground/5">
-                <Bot className="h-3.5 w-3.5 text-foreground/60" />
-              </div>
+              {resolvedAvatarUrl ? (
+                <img
+                  src={resolvedAvatarUrl}
+                  alt=""
+                  className="mt-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-foreground/5">
+                  <Bot className="h-3.5 w-3.5 text-foreground/60" />
+                </div>
+              )}
               <div className="flex items-center gap-1.5 py-2">
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40 [animation-delay:0ms]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40 [animation-delay:150ms]" />
@@ -586,7 +660,8 @@ export default function PublicSupportChatPage() {
             <button
               type="submit"
               disabled={sending || (!input.trim() && pendingAttachments.length === 0)}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:opacity-30"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-white transition-opacity disabled:opacity-30"
+              style={{ backgroundColor: agentInfo?.brandColor || "#6366f1" }}
             >
               {sending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

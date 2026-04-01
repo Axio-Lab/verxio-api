@@ -41,6 +41,7 @@ import {
   authenticatedFetch,
   authenticatedGet,
   authenticatedPost,
+  authenticatedPostForm,
 } from "@/lib/api-client";
 import {
   SupportAgent,
@@ -165,6 +166,8 @@ const supportAgentSchema = z.object({
   greeting: z.string().optional(),
   brandColor: z.string().optional(),
   position: z.string().optional(),
+  widgetLabel: z.string().optional(),
+  widgetDisplay: z.enum(["label", "icon"]).optional(),
   knowledgeBaseIds: z.array(z.string()).optional(),
   mode: z.enum(["support", "sdr"]).optional(),
   skillIds: z.array(z.string()).optional(),
@@ -194,6 +197,8 @@ export function SupportContent() {
       greeting: "",
       brandColor: "#6366f1",
       position: "bottom-right",
+      widgetLabel: "",
+      widgetDisplay: "label",
       knowledgeBaseIds: [],
       mode: "support",
       skillIds: [],
@@ -251,7 +256,17 @@ export function SupportContent() {
   const [newMessageText, setNewMessageText] = useState("");
   const [questionEditorsOpen, setQuestionEditorsOpen] = useState<Record<number, boolean>>({});
   const [branchEditorsOpen, setBranchEditorsOpen] = useState<Record<number, boolean>>({});
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    };
+  }, [avatarPreviewUrl]);
 
   // Keep question editor UI state in sync with the rules list.
   // Index-keyed state can drift when rules are added/removed, or when re-opening the dialog.
@@ -566,6 +581,9 @@ export function SupportContent() {
     setEditing(null);
     setQuestionEditorsOpen({});
     setBranchEditorsOpen({});
+    setAvatarUrl(null);
+    setAvatarFile(null);
+    setAvatarPreviewUrl(null);
     form.reset({
       name: "",
       description: "",
@@ -573,6 +591,8 @@ export function SupportContent() {
       greeting: "",
       brandColor: "#6366f1",
       position: "bottom-right",
+      widgetLabel: "",
+      widgetDisplay: "label",
       knowledgeBaseIds: [],
       mode: "support",
       skillIds: [],
@@ -587,6 +607,9 @@ export function SupportContent() {
     setEditing(agent);
     setQuestionEditorsOpen({});
     setBranchEditorsOpen({});
+    setAvatarUrl(agent.avatarUrl ?? null);
+    setAvatarFile(null);
+    setAvatarPreviewUrl(null);
     form.reset({
       name: agent.name,
       description: agent.description ?? "",
@@ -594,6 +617,8 @@ export function SupportContent() {
       greeting: agent.greeting ?? "",
       brandColor: agent.brandColor ?? "#6366f1",
       position: agent.position ?? "bottom-right",
+      widgetLabel: agent.widgetLabel ?? "",
+      widgetDisplay: (agent.widgetDisplay as "label" | "icon") || "label",
       knowledgeBaseIds: agent.knowledgeBaseIds ?? [],
       mode: (agent.mode as "support" | "sdr") || "support",
       skillIds: agent.skillIds ?? [],
@@ -604,18 +629,76 @@ export function SupportContent() {
     setDialogOpen(true);
   };
 
+  const resolveAssetUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith("/support-uploads/")) {
+          url = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        } else {
+          return url;
+        }
+      } catch {
+        return url;
+      }
+    }
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    if (!apiBase) return url;
+    return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreviewUrl(URL.createObjectURL(file));
+  };
+
   const onSubmit = async (values: SupportAgentFormValues) => {
     setIsFormSubmitting(true);
+    const uploadSelectedAvatar = async (): Promise<string> => {
+      const fd = new FormData();
+      fd.append("file", avatarFile!);
+      const data = await authenticatedPostForm<{ success: boolean; url?: string; error?: string }>(
+        "/api/support-agents/upload-avatar",
+        fd
+      );
+      if (!data.success || !data.url) throw new Error(data.error || "Avatar upload failed");
+      return data.url;
+    };
     try {
+      const payload = { ...values, avatarUrl: avatarUrl ?? null };
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, data: values });
+        if (avatarFile) {
+          setAvatarUploading(true);
+          const uploadedUrl = await uploadSelectedAvatar();
+          payload.avatarUrl = uploadedUrl;
+        }
+        await updateMutation.mutateAsync({ id: editing.id, data: payload });
       } else {
-        await createMutation.mutateAsync(values);
+        const created = await createMutation.mutateAsync(payload);
+        if (avatarFile) {
+          try {
+            setAvatarUploading(true);
+            const uploadedUrl = await uploadSelectedAvatar();
+            await updateMutation.mutateAsync({
+              id: created.id,
+              data: { avatarUrl: uploadedUrl },
+            });
+          } catch (err: any) {
+            toast.error(err?.message || "Avatar upload failed");
+          }
+        }
       }
       setDialogOpen(false);
+      setAvatarFile(null);
+      setAvatarPreviewUrl(null);
     } catch {
       // hooks already toast on error
     } finally {
+      setAvatarUploading(false);
       setIsFormSubmitting(false);
     }
   };
@@ -1703,6 +1786,60 @@ export function SupportContent() {
                 placeholder="Hi! How can I help you?"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Agent logo / avatar</Label>
+              <div className="flex items-center gap-3">
+                {avatarPreviewUrl || avatarUrl ? (
+                  <img
+                    src={avatarPreviewUrl || resolveAssetUrl(avatarUrl) || ""}
+                    alt="Avatar"
+                    className="h-10 w-10 rounded-full object-cover border"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs">
+                    None
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={avatarUploading}
+                    onClick={() => document.getElementById("avatar-upload-input")?.click()}
+                  >
+                    {avatarUploading ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    {avatarPreviewUrl || avatarUrl ? "Change" : "Upload"}
+                  </Button>
+                  {(avatarPreviewUrl || avatarUrl) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAvatarUrl(null);
+                        setAvatarFile(null);
+                        setAvatarPreviewUrl(null);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <input
+                  id="avatar-upload-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Shown in the support chat header and widget button. Max 2 MB.
+              </p>
+            </div>
             <div className="flex gap-3">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="brandColor">Brand color</Label>
@@ -1742,6 +1879,41 @@ export function SupportContent() {
                     <SelectItem value="top-left">Top left</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="widgetLabel">Widget button label</Label>
+                <Input
+                  id="widgetLabel"
+                  placeholder="Chat with Acme support"
+                  {...form.register("widgetLabel")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to use the agent name automatically.
+                </p>
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="widgetDisplay">Widget trigger style</Label>
+                <Select
+                  value={form.watch("widgetDisplay") || "label"}
+                  onValueChange={(value) => {
+                    form.setValue("widgetDisplay", value as "label" | "icon", {
+                      shouldDirty: true,
+                    });
+                  }}
+                >
+                  <SelectTrigger id="widgetDisplay" className="w-full">
+                    <SelectValue placeholder="Select trigger style" />
+                  </SelectTrigger>
+                  <SelectContent side="bottom" align="end" className="max-h-64">
+                    <SelectItem value="label">Label + icon</SelectItem>
+                    <SelectItem value="icon">Icon only</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Icon-only uses the uploaded avatar when available.
+                </p>
               </div>
             </div>
             <DialogFooter className="pt-2">
@@ -1801,9 +1973,15 @@ export function SupportContent() {
             const publicLink = baseUrl
               ? `${baseUrl.replace(/\/+$/, "")}/support/${agent.publicId}`
               : `/support/${agent.publicId}`;
-            const embedCode = baseUrl
-              ? `<script src="${baseUrl.replace(/\/+$/, "")}/support-widget.js" data-support-agent="${agent.publicId}"></script>`
-              : `<script src="/support-widget.js" data-support-agent="${agent.publicId}"></script>`;
+            const widgetBaseUrl = baseUrl ? baseUrl.replace(/\/+$/, "") : "";
+            const embedAttributes = [
+              `src="${widgetBaseUrl ? `${widgetBaseUrl}/support-widget.js` : "/support-widget.js"}"`,
+              `data-support-agent="${agent.publicId}"`,
+              ...(widgetBaseUrl ? [`data-base-url="${widgetBaseUrl}"`] : []),
+              ...(agent.widgetLabel ? [`data-label="${agent.widgetLabel}"`] : []),
+              ...(agent.widgetDisplay ? [`data-display="${agent.widgetDisplay}"`] : []),
+            ];
+            const embedCode = `<script ${embedAttributes.join(" ")}></script>`;
 
             return (
               <div

@@ -26,8 +26,8 @@ const PLANS: Plan[] = [
       "Visual workflow builder",
       "10,000+ actions across 800+ apps",
       "1 support agent (any channel)",
-      "5 human tasks with AI vetting",
       "3 AI goals",
+      "Shared inbox and routing",
       "1,000 AI credits included",
       "Community support",
     ],
@@ -43,8 +43,8 @@ const PLANS: Plan[] = [
     features: [
       "Everything in Basic",
       "5 support agents across channels",
-      "25 human tasks with AI vision scoring",
       "10 AI goals with sub-agent orchestration",
+      "Advanced channel integrations",
       "5,000 AI credits included",
       "Report delivery (Docs, Sheets, Notion, Slack)",
       "Priority support",
@@ -61,7 +61,7 @@ const PLANS: Plan[] = [
     features: [
       "Everything in Pro",
       "Unlimited support agents",
-      "Unlimited human tasks and goals",
+      "Unlimited AI goals",
       "20,000 AI credits included",
       "Team collaboration and workspaces",
       "Organization management",

@@ -86,7 +86,7 @@ export async function deliverToDestinations(
           results.push({ action: "GMAIL", label: "Gmail", delivered: true, result });
           break;
         }
-        // WhatsApp is handled natively in taskReportService, not via Composio
+        // WhatsApp delivery is handled outside Composio.
       }
     } catch (err: any) {
       console.error(`[ComposioDelivery] ${dest.type} failed:`, err.message);
