@@ -184,7 +184,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans text-sm;
     letter-spacing: var(--tracking-normal);
   }
   /* Ensure logos/images aren't affected by text color */

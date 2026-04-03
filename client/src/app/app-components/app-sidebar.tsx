@@ -206,7 +206,7 @@ export const AppSidebar = () => {
             <SidebarMenuButton
               asChild
               className={cn(
-                "gap-x-4 h-10 px-4 transition-all flex-1",
+                "gap-x-3 h-9 px-3 transition-all flex-1",
                 isCollapsed && "justify-center"
               )}
             >
@@ -214,9 +214,9 @@ export const AppSidebar = () => {
                 <Image
                   src={isCollapsed ? "/logo/verxioIcon.svg" : "/logo/verxioLogo.svg"}
                   alt="Verxio"
-                  width={isCollapsed ? 32 : 100}
-                  height={isCollapsed ? 32 : 100}
-                  className={cn("transition-all", isCollapsed && "w-8 h-8")}
+                  width={isCollapsed ? 28 : 88}
+                  height={isCollapsed ? 28 : 88}
+                  className={cn("transition-all", isCollapsed && "w-7 h-7")}
                 />
               </Link>
             </SidebarMenuButton>
@@ -258,7 +258,7 @@ export const AppSidebar = () => {
                     isActive={isActive(subItem.url)}
                     asChild
                     className={cn(
-                      "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
+                      "gap-x-3 h-9 px-3 font-semibold text-sm transition-all duration-200",
                       !isActive(subItem.url) &&
                         "hover:bg-primary/10 hover:shadow-md hover:scale-[1.02]",
                       isActive(subItem.url) &&
@@ -267,7 +267,7 @@ export const AppSidebar = () => {
                   >
                     <Link href={subItem.url} prefetch>
                       {subItem.icon}
-                      <span className="font-bold md:group-data-[collapsible=icon]:hidden">
+                      <span className="font-semibold md:group-data-[collapsible=icon]:hidden">
                         {subItem.title}
                       </span>
                     </Link>
@@ -284,7 +284,7 @@ export const AppSidebar = () => {
         {!subscriptionLoading && (
           <div
             className={cn(
-              "px-4 py-2 space-y-2 min-w-0 flex flex-col items-center",
+              "px-3 py-1.5 space-y-1.5 min-w-0 flex flex-col items-center",
               isCollapsed && "md:px-0 md:pl-0"
             )}
           >
@@ -294,10 +294,10 @@ export const AppSidebar = () => {
                 data-tour-target="upgrade-button"
                 tooltip="Upgrade Plan"
                 className={cn(
-                  "w-full gap-x-2 h-10 px-4 font-bold transition-all duration-200",
+                  "w-full gap-x-2 h-9 px-3 font-semibold text-sm transition-all duration-200",
                   "border-2 border-green-500 text-foreground bg-transparent hover:bg-green-50 hover:border-green-600 hover:shadow-md hover:scale-[1.02]",
                   "dark:border-green-400 dark:hover:bg-green-950/20 dark:hover:border-green-300",
-                  isCollapsed && "md:w-10 md:h-10 md:p-0 md:ml-0 md:justify-center md:items-center",
+                  isCollapsed && "md:w-9 md:h-9 md:p-0 md:ml-0 md:justify-center md:items-center",
                   isUpgrading && "opacity-75 cursor-wait"
                 )}
                 onClick={handleUpgradePlan}
@@ -308,7 +308,7 @@ export const AppSidebar = () => {
                 ) : (
                   <StarIcon className="w-4 h-4" />
                 )}
-                <span className={cn("font-bold md:group-data-[collapsible=icon]:hidden")}>
+                <span className={cn("font-semibold md:group-data-[collapsible=icon]:hidden")}>
                   {isUpgrading ? "Redirecting..." : "Free (Upgrade Plan)"}
                 </span>
                 {isCollapsed && (
@@ -322,7 +322,7 @@ export const AppSidebar = () => {
                 <div
                   data-tour-target="upgrade-button"
                   className={cn(
-                    "w-full flex items-center justify-center gap-x-2 h-10 px-4 font-bold rounded-md",
+                    "w-full flex items-center justify-center gap-x-2 h-9 px-3 font-semibold text-sm rounded-md",
                     "border-2 border-amber-200 bg-amber-50/80 text-black",
                     "dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-50"
                   )}
@@ -350,7 +350,7 @@ export const AppSidebar = () => {
                   }}
                 >
                   <Crown className="h-4 w-4 shrink-0" />
-                  <span className={cn("text-sm", isCollapsed && "md:sr-only")}>
+                  <span className={cn("text-xs", isCollapsed && "md:sr-only")}>
                     {planDisplayName ?? "Free"}
                   </span>
                 </div>
@@ -358,19 +358,21 @@ export const AppSidebar = () => {
                 {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
                   <div
                     className={cn(
-                      "text-xs text-muted-foreground min-w-0 overflow-hidden",
-                      "px-4 py-2",
+                      "min-w-0 overflow-hidden px-3 py-1",
                       isCollapsed && "md:hidden"
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span>Credits remaining:</span>
-                      <span className="font-semibold tabular-nums">
-                        {rateLimitRemaining} / {rateLimitTotal}
+                    <p
+                      className="text-[9px] leading-tight text-muted-foreground whitespace-nowrap"
+                      title={`Credits remaining: ${rateLimitRemaining} / ${rateLimitTotal}`}
+                    >
+                      Credits remaining: {" "}
+                      <span className="font-semibold tabular-nums text-foreground">
+                        {rateLimitRemaining}/{rateLimitTotal}
                       </span>
-                    </div>
+                    </p>
                     {subscription?.rateLimitResetAt && subscription.rateLimitResetAt !== null && (
-                      <div className="text-[10px] mt-1 opacity-70">
+                      <div className="text-[9px] mt-0.5 opacity-70 whitespace-nowrap">
                         Resets at{" "}
                         {new Date(subscription.rateLimitResetAt).toLocaleTimeString([], {
                           hour: "2-digit",
@@ -424,13 +426,13 @@ export const AppSidebar = () => {
             <SidebarMenuButton
               tooltip="Sign Out"
               className={cn(
-                "gap-x-4 h-10 px-4 font-bold transition-all duration-200",
+                "gap-x-3 h-9 px-3 font-semibold text-sm transition-all duration-200",
                 "hover:bg-red-50 hover:text-red-600 hover:shadow-md hover:scale-[1.02]"
               )}
               onClick={handleSignOut}
             >
               <LogOutIcon className="w-4 h-4" />
-              <span className="font-bold group-data-[collapsible=icon]:hidden">Sign Out</span>
+              <span className="font-semibold group-data-[collapsible=icon]:hidden">Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
