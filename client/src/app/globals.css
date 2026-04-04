@@ -185,7 +185,7 @@
   }
 
   html {
-    font-size: 14px;
+    font-size: 15px;
   }
   body {
     @apply bg-background text-foreground font-sans text-sm;
