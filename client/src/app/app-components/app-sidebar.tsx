@@ -357,16 +357,13 @@ export const AppSidebar = () => {
                 {/* Credit Quota Display (for beta-testers) */}
                 {subscription?.subscriptionPlan === "beta-tester" && rateLimitTotal > 0 && (
                   <div
-                    className={cn(
-                      "min-w-0 overflow-hidden px-3 py-1",
-                      isCollapsed && "md:hidden"
-                    )}
+                    className={cn("min-w-0 overflow-hidden px-3 py-1", isCollapsed && "md:hidden")}
                   >
                     <p
                       className="text-[9px] leading-tight text-muted-foreground whitespace-nowrap"
                       title={`Credits remaining: ${rateLimitRemaining} / ${rateLimitTotal}`}
                     >
-                      Credits remaining: {" "}
+                      Credits remaining:{" "}
                       <span className="font-semibold tabular-nums text-foreground">
                         {rateLimitRemaining}/{rateLimitTotal}
                       </span>

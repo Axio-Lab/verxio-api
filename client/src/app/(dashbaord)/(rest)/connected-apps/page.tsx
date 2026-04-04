@@ -156,7 +156,10 @@ function AppCard({
           View tools <ChevronRight className="h-3 w-3" />
         </button>
         {app.noAuth ? (
-          <Badge variant="secondary" className="h-6 w-full justify-center border-0 text-[10px] sm:w-auto">
+          <Badge
+            variant="secondary"
+            className="h-6 w-full justify-center border-0 text-[10px] sm:w-auto"
+          >
             No auth needed
           </Badge>
         ) : (
@@ -473,9 +476,7 @@ export default function ConnectedAppsPage() {
                 </Badge>
               )}
               {connectedSlugs.has((selectedApp?.slug || "").toLowerCase()) && (
-                <Badge className="bg-primary/10 text-primary border-0 text-[10px]">
-                  Connected
-                </Badge>
+                <Badge className="bg-primary/10 text-primary border-0 text-[10px]">Connected</Badge>
               )}
             </div>
 
@@ -542,8 +543,8 @@ export default function ConnectedAppsPage() {
                     </div>
                   ) : isMcpToolkit && toolsCount > 0 ? (
                     <p className="text-xs text-muted-foreground py-2">
-                      MCP toolkit with {toolsCount} tool{toolsCount !== 1 ? "s" : ""}. Names
-                      resolve dynamically at runtime.
+                      MCP toolkit with {toolsCount} tool{toolsCount !== 1 ? "s" : ""}. Names resolve
+                      dynamically at runtime.
                     </p>
                   ) : toolsCount > 0 ? (
                     <p className="text-xs text-muted-foreground py-2">

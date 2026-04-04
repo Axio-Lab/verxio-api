@@ -37,10 +37,19 @@ export default function NotFound() {
         </p>
 
         <div className="mt-12 flex w-full max-w-md flex-row items-center justify-center gap-3 sm:max-w-none sm:gap-8">
-          <Button asChild size="lg" className="min-w-0 flex-1 font-bold sm:min-w-[10rem] sm:flex-none">
+          <Button
+            asChild
+            size="lg"
+            className="min-w-0 flex-1 font-bold sm:min-w-[10rem] sm:flex-none"
+          >
             <Link href="/">Return home</Link>
           </Button>
-          <Button asChild variant="outline" size="lg" className="min-w-0 flex-1 border-2 font-bold sm:min-w-[10rem] sm:flex-none">
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="min-w-0 flex-1 border-2 font-bold sm:min-w-[10rem] sm:flex-none"
+          >
             <Link href="/workflows">Workflows</Link>
           </Button>
         </div>

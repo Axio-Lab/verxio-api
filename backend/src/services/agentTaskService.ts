@@ -39,6 +39,7 @@ export async function updateTaskStatus(
       status,
       output: output ?? undefined,
       blockerReason: blockerReason ?? null,
+      ...(status === "PENDING" ? { startedAt: null, completedAt: null } : {}),
       ...(status === "IN_PROGRESS" ? { startedAt: new Date() } : {}),
       ...(status === "COMPLETE" || status === "FAILED" || status === "SKIPPED"
         ? { completedAt: new Date() }
@@ -59,12 +60,35 @@ export async function updateTaskStatus(
 
   if (allDone) {
     await updateGoalStatus(task.goalId, anyFailed ? "FAILED" : "COMPLETE");
+  } else if (status === "FAILED") {
+    // Skip dependents that can never unblock due to a failed dependency
+    const failedId = task.id;
+    const pendingDependents = allTasks.filter(
+      (t: { status: string; dependsOn: string[] }) =>
+        t.status === "PENDING" && t.dependsOn.includes(failedId)
+    );
+    for (const dep of pendingDependents) {
+      await updateTaskStatus(
+        dep.id,
+        "SKIPPED",
+        undefined,
+        `Skipped: dependency ${failedId} failed`
+      );
+    }
   }
 
   return task;
 }
 
 export async function getNextPendingTasks(goalId: string) {
+  const goal = await prisma.agentGoal.findUnique({
+    where: { id: goalId },
+    select: { status: true },
+  });
+  if (goal?.status === "PAUSED" || goal?.status === "STOPPED") {
+    return [];
+  }
+
   const allTasks = await prisma.agentTask.findMany({
     where: { goalId },
   });

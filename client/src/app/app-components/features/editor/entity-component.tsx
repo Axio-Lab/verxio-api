@@ -39,10 +39,10 @@ type EntityHeaderProps = {
   /** Optional data-tour-target for the New button (e.g. "new-workflow-button") */
   newButtonDataTourTarget?: string;
 } & (
-    | { onNew: () => void; newButtonRef?: never }
-    | { newButtonRef: string; onNew?: never; newButtonLabel?: never }
-    | { onNew?: never; newButtonRef?: never }
-  );
+  | { onNew: () => void; newButtonRef?: never }
+  | { newButtonRef: string; onNew?: never; newButtonLabel?: never }
+  | { onNew?: never; newButtonRef?: never }
+);
 
 type EntityContainerProps = {
   header?: React.ReactNode;
@@ -406,16 +406,16 @@ export const EntityItem = ({
       ? dropdownItems
       : onRemove
         ? [
-          {
-            label: "Delete",
-            onClick: async () => {
-              await onRemove();
+            {
+              label: "Delete",
+              onClick: async () => {
+                await onRemove();
+              },
+              icon: <TrashIcon className="size-4" />,
+              disabled: isRemoving,
+              loading: isRemoving,
             },
-            icon: <TrashIcon className="size-4" />,
-            disabled: isRemoving,
-            loading: isRemoving,
-          },
-        ]
+          ]
         : [];
 
   const handleItemClick = async (item: EntityItemDropdownItem, e: React.MouseEvent) => {

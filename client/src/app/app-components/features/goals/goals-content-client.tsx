@@ -6,6 +6,8 @@ import {
   useAgentGoals,
   useCreateGoal,
   useDeleteGoal,
+  usePauseGoal,
+  useResumeGoal,
   useAgentWatches,
   useCreateWatch,
   usePauseWatch,
@@ -53,7 +55,6 @@ import {
   Radio,
   Pause,
   Play,
-  Brain,
   Sparkles,
   ChevronDown,
   Bot,
@@ -88,17 +89,24 @@ const GOAL_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     label: "Failed",
     color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   },
+  STOPPED: {
+    label: "Stopped",
+    color: "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300",
+  },
+  PAUSED: {
+    label: "Paused",
+    color: "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
+  },
 };
 
 const tabs = [
   { id: "goals", label: "Goals" },
   { id: "watches", label: "Watches" },
-  { id: "memories", label: "Memories" },
   { id: "agents", label: "Agents" },
 ] as const;
 
 export function GoalsContentClient() {
-  const [activeTab, setActiveTab] = useState<"goals" | "watches" | "memories" | "agents">("goals");
+  const [activeTab, setActiveTab] = useState<"goals" | "watches" | "agents">("goals");
   const [search, setSearch] = useState("");
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [showCreateWatch, setShowCreateWatch] = useState(false);
@@ -112,6 +120,8 @@ export function GoalsContentClient() {
   const { data: availableData } = useAvailableSubagents();
   const createGoal = useCreateGoal();
   const deleteGoal = useDeleteGoal();
+  const pauseGoal = usePauseGoal();
+  const resumeGoal = useResumeGoal();
   const createWatch = useCreateWatch();
   const createAgent = useCreateCustomSubagent();
   const updateAgent = useUpdateCustomSubagent();
@@ -163,7 +173,6 @@ export function GoalsContentClient() {
           newButtonLabel={newButtonLabel ?? "New"}
           onNew={handleNew ?? (() => {})}
           isCreating={createGoal.isPending || createWatch.isPending || createAgent.isPending}
-          disabled={activeTab === "memories"}
         />
       }
       search={
@@ -267,6 +276,20 @@ export function GoalsContentClient() {
                             <DropdownMenuItem onClick={() => router.push(`/goals/${goal.id}`)}>
                               <Eye className="h-4 w-4 mr-2" /> View Details
                             </DropdownMenuItem>
+                            {goal.status === "EXECUTING" && (
+                              <DropdownMenuItem
+                                onClick={() => pauseGoal.mutate({ goalId: goal.id })}
+                              >
+                                <Pause className="h-4 w-4 mr-2" /> Pause
+                              </DropdownMenuItem>
+                            )}
+                            {(goal.status === "PAUSED" || goal.status === "STOPPED") && (
+                              <DropdownMenuItem
+                                onClick={() => resumeGoal.mutate({ goalId: goal.id })}
+                              >
+                                <Play className="h-4 w-4 mr-2" /> Resume
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => deleteGoal.mutate({ goalId: goal.id })}
                               className="text-destructive focus:text-destructive"
@@ -304,16 +327,6 @@ export function GoalsContentClient() {
             </div>
           )}
         </>
-      )}
-
-      {/* Memories Tab */}
-      {activeTab === "memories" && (
-        <div className="flex flex-1 flex-col items-center justify-center text-center py-12 text-muted-foreground">
-          <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">
-            Global agent memories appear here. Open a specific goal to see its memories.
-          </p>
-        </div>
       )}
 
       {/* Agents Tab */}

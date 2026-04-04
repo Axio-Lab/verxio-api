@@ -203,6 +203,7 @@ agentGoalsRouter.get(
   betterAuthMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await goalService.repairStuckInProgressTasksForPausedOrStoppedGoals(req.params.goalId);
       const tasks = await taskService.getGoalTasks(req.params.goalId);
       res.json({ tasks });
     } catch (error) {
@@ -251,6 +252,48 @@ agentGoalsRouter.delete(
     try {
       const userId = (req as any).userId as string;
       await memoryService.deleteMemory(userId, req.params.memoryId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+agentGoalsRouter.post(
+  "/:goalId/pause",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId as string;
+      const goal = await goalService.getGoal(userId, req.params.goalId);
+      if (!goal) return res.status(404).json({ error: "Goal not found" });
+      if (!["EXECUTING", "PLANNING"].includes(goal.status)) {
+        return res.status(400).json({ error: `Cannot pause a goal in ${goal.status} status` });
+      }
+      await goalService.pauseGoal(req.params.goalId);
+      await inngest.send({
+        name: "verxio/goal.paused",
+        data: { goalId: req.params.goalId },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+agentGoalsRouter.post(
+  "/:goalId/resume",
+  betterAuthMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).userId as string;
+      const goal = await goalService.getGoal(userId, req.params.goalId);
+      if (!goal) return res.status(404).json({ error: "Goal not found" });
+      if (!["PAUSED", "STOPPED"].includes(goal.status)) {
+        return res.status(400).json({ error: `Cannot resume a goal in ${goal.status} status` });
+      }
+      await goalService.resumeGoal(req.params.goalId, userId);
       res.json({ success: true });
     } catch (error) {
       next(error);

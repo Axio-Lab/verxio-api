@@ -46,12 +46,24 @@ function buildUpstreamContext(
   return parts.length > 0 ? `\nUpstream task outputs:\n${parts.join("\n\n")}` : "";
 }
 
+async function goalIsExecuting(goalId: string): Promise<boolean> {
+  const g = await prisma.agentGoal.findUnique({
+    where: { id: goalId },
+    select: { status: true },
+  });
+  return g?.status === "EXECUTING";
+}
+
 async function executeGoalTask(
   task: any,
   userId: string,
   goalId: string,
   completedOutputs: Record<string, Record<string, unknown>>
 ): Promise<{ taskId: string; output: Record<string, unknown> }> {
+  if (!(await goalIsExecuting(goalId))) {
+    return { taskId: task.id, output: { aborted: true, reason: "goal_not_executing" } };
+  }
+
   await taskService.updateTaskStatus(task.id, "IN_PROGRESS");
 
   try {
@@ -97,16 +109,36 @@ Input: ${task.input ? JSON.stringify(task.input) : "None"}`;
       // raw text output is fine
     }
 
+    if (!(await goalIsExecuting(goalId))) {
+      await taskService.updateTaskStatus(task.id, "PENDING");
+      return { taskId: task.id, output: { aborted: true, reason: "paused_or_stopped_during_run" } };
+    }
+
     await taskService.updateTaskStatus(task.id, "COMPLETE", output);
     return { taskId: task.id, output };
   } catch (err: any) {
-    await taskService.updateTaskStatus(task.id, "FAILED", undefined, err.message);
+    if (await goalIsExecuting(goalId)) {
+      await taskService.updateTaskStatus(task.id, "FAILED", undefined, err.message);
+    } else {
+      await taskService.updateTaskStatus(task.id, "PENDING");
+    }
     return { taskId: task.id, output: { error: err.message } };
   }
 }
 
 export const goalDecompose = inngest.createFunction(
-  { id: "goal-decompose", name: "Goal Decompose" },
+  {
+    id: "goal-decompose",
+    name: "Goal Decompose",
+    onFailure: async ({ event }) => {
+      const { goalId } = event.data.event.data;
+      if (goalId) {
+        try {
+          await goalService.updateGoalStatus(goalId, "STOPPED");
+        } catch {}
+      }
+    },
+  },
   { event: "verxio/goal.decompose" },
   async ({ event, step }) => {
     const { goalId, userId } = event.data;
@@ -191,10 +223,34 @@ Rules:
 );
 
 export const goalExecuteNext = inngest.createFunction(
-  { id: "goal-execute-next", name: "Goal Execute Next Tasks" },
+  {
+    id: "goal-execute-next",
+    name: "Goal Execute Next Tasks",
+    cancelOn: [{ event: "verxio/goal.paused", match: "data.goalId" }],
+    onFailure: async ({ event }) => {
+      const { goalId } = event.data.event.data;
+      if (goalId) {
+        try {
+          await goalService.updateGoalStatus(goalId, "STOPPED");
+        } catch {}
+      }
+    },
+  },
   { event: "verxio/goal.execute-next" },
   async ({ event, step }) => {
     const { goalId, userId } = event.data;
+
+    const goalStatus = await step.run("check-goal-status", async () => {
+      const g = await prisma.agentGoal.findUnique({
+        where: { id: goalId },
+        select: { status: true },
+      });
+      return g?.status;
+    });
+
+    if (goalStatus === "PAUSED" || goalStatus === "STOPPED") {
+      return { paused: true };
+    }
 
     const nextTasks = await step.run("find-next-tasks", async () => {
       return taskService.getNextPendingTasks(goalId);
@@ -290,8 +346,13 @@ Return JSON: { "synthesis": "...", "deliverables": ["list of URLs, documents, or
       return Promise.all(promises);
     });
 
-    // Re-check: fire another round if more tasks are now unblocked
+    // Re-check: fire another round if more tasks are now unblocked (only while still executing)
     await step.run("check-and-continue", async () => {
+      const g = await prisma.agentGoal.findUnique({
+        where: { id: goalId },
+        select: { status: true },
+      });
+      if (g?.status !== "EXECUTING") return;
       await inngest.send({
         name: "verxio/goal.execute-next",
         data: { goalId, userId },

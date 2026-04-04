@@ -3,6 +3,28 @@ import { inngest } from "@/inngest/index";
 
 const prisma = basePrismaClient as any;
 
+/** DB can still have IN_PROGRESS after pause (race, older runs). Normalize so UI matches reality. */
+export async function repairStuckInProgressTasksForPausedOrStoppedGoals(goalId: string) {
+  await prisma.agentTask.updateMany({
+    where: {
+      goalId,
+      status: "IN_PROGRESS",
+      goal: { status: { in: ["PAUSED", "STOPPED"] } },
+    },
+    data: { status: "PENDING", startedAt: null },
+  });
+}
+
+export async function repairStuckInProgressTasksForUserPausedGoals(userId: string) {
+  await prisma.agentTask.updateMany({
+    where: {
+      status: "IN_PROGRESS",
+      goal: { userId, status: { in: ["PAUSED", "STOPPED"] } },
+    },
+    data: { status: "PENDING", startedAt: null },
+  });
+}
+
 export interface GoalCreateInput {
   name: string;
   objective: string;
@@ -48,6 +70,7 @@ export async function createGoal(userId: string, data: GoalCreateInput) {
 }
 
 export async function listGoals(userId: string) {
+  await repairStuckInProgressTasksForUserPausedGoals(userId);
   return prisma.agentGoal.findMany({
     where: { userId },
     include: {
@@ -59,6 +82,7 @@ export async function listGoals(userId: string) {
 }
 
 export async function getGoal(userId: string, goalId: string) {
+  await repairStuckInProgressTasksForPausedOrStoppedGoals(goalId);
   return prisma.agentGoal.findFirst({
     where: { id: goalId, userId },
     include: {
@@ -78,6 +102,34 @@ export async function updateGoalStatus(goalId: string, status: string) {
       ...(status === "EXECUTING" ? { decomposedAt: new Date() } : {}),
     },
   });
+}
+
+export async function pauseGoal(goalId: string) {
+  await prisma.$transaction(async (tx: any) => {
+    await tx.agentGoal.update({
+      where: { id: goalId },
+      data: { status: "PAUSED" },
+    });
+    await tx.agentTask.updateMany({
+      where: { goalId, status: "IN_PROGRESS" },
+      data: { status: "PENDING", startedAt: null },
+    });
+  });
+  return prisma.agentGoal.findUnique({ where: { id: goalId } });
+}
+
+export async function resumeGoal(goalId: string, userId: string) {
+  const goal = await prisma.agentGoal.update({
+    where: { id: goalId },
+    data: { status: "EXECUTING" },
+  });
+
+  await inngest.send({
+    name: "verxio/goal.execute-next",
+    data: { goalId, userId },
+  });
+
+  return goal;
 }
 
 export async function deleteGoal(userId: string, goalId: string) {
