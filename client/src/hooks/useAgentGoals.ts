@@ -233,6 +233,30 @@ export function useResumeWatch() {
   });
 }
 
+export function usePauseGoal() {
+  const queryClient = useQueryClient();
+  return useProtectedMutation<void, Error, { goalId: string }>({
+    mutationFn: ({ goalId }) => authenticatedPost(`/api/agent-goals/${goalId}/pause`),
+    onSuccess: (_, { goalId }) => {
+      queryClient.invalidateQueries({ queryKey: ["agent-goals"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-goals", goalId] });
+      toast.success("Goal paused");
+    },
+  });
+}
+
+export function useResumeGoal() {
+  const queryClient = useQueryClient();
+  return useProtectedMutation<void, Error, { goalId: string }>({
+    mutationFn: ({ goalId }) => authenticatedPost(`/api/agent-goals/${goalId}/resume`),
+    onSuccess: (_, { goalId }) => {
+      queryClient.invalidateQueries({ queryKey: ["agent-goals"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-goals", goalId] });
+      toast.success("Goal resumed — execution restarted");
+    },
+  });
+}
+
 export function useApproveGoal() {
   const queryClient = useQueryClient();
   return useProtectedMutation<void, Error, { goalId: string }>({
