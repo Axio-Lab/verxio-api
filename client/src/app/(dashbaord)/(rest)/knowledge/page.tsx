@@ -26,6 +26,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { LoadingView, ErrorView } from "@/app/app-components/features/editor/entity-component";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +53,7 @@ interface KnowledgeDocument {
 
 interface KnowledgeBase {
   id: string;
+  userId: string;
   name: string;
   description: string | null;
   documents: KnowledgeDocument[];
@@ -60,6 +63,7 @@ interface KnowledgeBase {
 type DocumentInputMode = "paste" | "upload";
 
 function KnowledgeContent() {
+  const { user: currentUser } = useAuth();
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(true);
   const [kbDialogOpen, setKbDialogOpen] = useState(false);
@@ -264,7 +268,14 @@ function KnowledgeContent() {
               <CardHeader className="pb-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="text-base sm:text-lg break-words">{kb.name}</CardTitle>
+                    <CardTitle className="text-base sm:text-lg break-words flex items-center gap-2">
+                      {kb.name}
+                      {kb.userId !== currentUser?.id && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
+                          Shared
+                        </Badge>
+                      )}
+                    </CardTitle>
                     {kb.description && (
                       <CardDescription className="mt-1 break-words">
                         {kb.description}

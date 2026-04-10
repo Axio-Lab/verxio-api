@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 export interface SupportAgent {
   id: string;
+  userId: string;
   publicId: string;
   name: string;
   description?: string | null;

@@ -1,6 +1,7 @@
 import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { NodeType } from "../lib/node-types";
+import { getSharedResourceIds } from "./organizationService";
 
 const prismaClient = basePrismaClient as any;
 
@@ -542,10 +543,14 @@ export const getWorkflows = async (
   const skip = (page - 1) * limit;
   const take = limit;
 
-  // Build where clause
-  const where: any = {
-    userId,
-  };
+  // Include workflows shared with the user's organization
+  const sharedIds = await getSharedResourceIds(userId, "WORKFLOW");
+
+  // Build where clause: owned OR shared
+  const ownershipFilter: any =
+    sharedIds.length > 0 ? { OR: [{ userId }, { id: { in: sharedIds } }] } : { userId };
+
+  const where: any = { ...ownershipFilter };
 
   if (search && search.trim() !== "") {
     where.name = {
@@ -622,9 +627,12 @@ export const getWorkflowForExecution = async (id: string, userId: string): Promi
     throw new AppError("User ID is required", 400);
   }
 
-  // Load workflow WITHOUT node.data first to avoid 5MB limit
+  // Check shared access for execution
+  const sharedIds = await getSharedResourceIds(userId, "WORKFLOW");
+  const accessFilter = sharedIds.includes(id) ? { id } : { id, userId };
+
   const workflow = await prismaClient.workflow.findFirst({
-    where: { id, userId },
+    where: accessFilter,
     select: {
       id: true,
       name: true,
@@ -653,8 +661,6 @@ export const getWorkflowForExecution = async (id: string, userId: string): Promi
 
   const nodeIds = workflow.nodes.map((n: any) => n.id);
 
-  // Load node.data ONE AT A TIME and strip base64 to stay under 5MB limit
-  // Executors load actual assets from NodeAsset table during step.run()
   const nodeDataMap = new Map<string, any>();
 
   for (const nodeId of nodeIds) {
@@ -697,10 +703,12 @@ export const getWorkflow = async (id: string, userId: string): Promise<WorkflowR
     throw new AppError("User ID is required", 400);
   }
 
-  // Load workflow WITHOUT node.data to avoid 5MB Accelerate limit
-  // node.data can contain massive base64 images (8MB+ per node) that exceed the limit
+  // Check shared access: owned OR shared with user's org
+  const sharedIds = await getSharedResourceIds(userId, "WORKFLOW");
+  const accessFilter = sharedIds.includes(id) ? { id } : { id, userId };
+
   const workflow = await prismaClient.workflow.findFirst({
-    where: { id, userId },
+    where: accessFilter,
     select: {
       id: true,
       name: true,
@@ -1064,9 +1072,12 @@ export const updateWorkflowData = async (
     throw new AppError("User ID is required", 400);
   }
 
-  // Verify workflow exists and belongs to user
+  // Verify workflow exists and user has access (owned or shared)
+  const sharedWorkflowIds = await getSharedResourceIds(userId, "WORKFLOW");
+  const accessFilter = sharedWorkflowIds.includes(id) ? { id } : { id, userId };
+
   const existingWorkflow = await prismaClient.workflow.findFirst({
-    where: { id, userId },
+    where: accessFilter,
     include: {
       nodes: {
         where: {
@@ -1824,12 +1835,11 @@ export const deleteWorkflow = async (id: string, userId: string): Promise<void> 
     throw new AppError("User ID is required", 400);
   }
 
-  // Verify workflow exists and belongs to user
+  const sharedIds = await getSharedResourceIds(userId, "WORKFLOW");
+  const deleteAccessFilter = sharedIds.includes(id) ? { id } : { id, userId };
+
   const existingWorkflow = await prismaClient.workflow.findFirst({
-    where: {
-      id,
-      userId,
-    },
+    where: deleteAccessFilter,
     include: {
       nodes: {
         where: {

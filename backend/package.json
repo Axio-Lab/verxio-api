@@ -81,6 +81,7 @@
     "pg": "^8.17.2",
     "pinata": "^2.5.2",
     "prisma-field-encryption": "^1.6.0",
+    "resend": "^6.10.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "toposort": "^2.0.2",

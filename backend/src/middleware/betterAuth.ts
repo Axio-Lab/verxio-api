@@ -66,10 +66,28 @@ export const betterAuthMiddleware = async (req: Request, res: Response, next: Ne
       }
     }
 
+    // Load organization membership (if any) for downstream route use
+    let organizationId: string | null = null;
+    let orgRole: string | null = null;
+    try {
+      const membership = await (prisma as any).organizationMember.findFirst({
+        where: { userId: betterAuthUser.id },
+        select: { organizationId: true, role: true },
+      });
+      if (membership) {
+        organizationId = membership.organizationId;
+        orgRole = membership.role;
+      }
+    } catch {
+      // Non-blocking: if org lookup fails, proceed without org context
+    }
+
     // Attach user info to request for use in routes
     (req as any).user = betterAuthUser;
     (req as any).userId = betterAuthUser.id;
     (req as any).userEmail = userEmail;
+    (req as any).organizationId = organizationId;
+    (req as any).orgRole = orgRole;
 
     next();
   } catch (error) {

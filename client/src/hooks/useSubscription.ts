@@ -12,6 +12,7 @@ export interface SubscriptionStatus {
   features: string[];
   isSubscribed: boolean;
   planDisplayName: string;
+  viaOrganization?: boolean;
 }
 
 /**

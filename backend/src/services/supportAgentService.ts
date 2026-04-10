@@ -1,5 +1,6 @@
 import { basePrismaClient } from "@/lib/prisma";
 import { AppError } from "@/middleware/errorHandler";
+import { getSharedResourceIds, canAccessResource } from "./organizationService";
 
 const prisma = basePrismaClient as any;
 
@@ -95,8 +96,12 @@ export async function createSupportAgent(userId: string, data: SupportAgentCreat
 }
 
 export async function listSupportAgents(userId: string) {
+  const sharedIds = await getSharedResourceIds(userId, "SUPPORT_AGENT");
+  const where: any =
+    sharedIds.length > 0 ? { OR: [{ userId }, { id: { in: sharedIds } }] } : { userId };
+
   const agents = await prisma.supportAgent.findMany({
-    where: { userId },
+    where,
     orderBy: { createdAt: "desc" },
   });
   return agents.map(normalizeSupportAgent);
@@ -118,8 +123,10 @@ export async function updateSupportAgent(
   data: SupportAgentUpdateInput
 ) {
   const existingAgent = await prisma.supportAgent.findUnique({ where: { id } });
-  if (!existingAgent || existingAgent.userId !== userId) {
-    throw new AppError("Support agent not found", 404);
+  if (!existingAgent) throw new AppError("Support agent not found", 404);
+  if (existingAgent.userId !== userId) {
+    const access = await canAccessResource(userId, "SUPPORT_AGENT", id, existingAgent.userId);
+    if (!access.hasAccess) throw new AppError("Support agent not found", 404);
   }
   if (data.name !== undefined) {
     const nextName = String(data.name).trim();

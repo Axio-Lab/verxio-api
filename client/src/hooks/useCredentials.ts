@@ -22,6 +22,7 @@ export enum CredentialType {
 
 export interface Credential {
   id: string;
+  userId?: string;
   name: string;
   type: CredentialType;
   createdAt: Date;

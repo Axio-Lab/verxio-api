@@ -105,8 +105,8 @@ export function LoginForm() {
       }
 
       toast.success("Login successful! ");
-      // Instant redirect using window.location for faster navigation
-      window.location.href = "/workflows";
+      const redirectTo = searchParams.get("redirect") || "/workflows";
+      window.location.href = redirectTo;
     } catch (error: any) {
       console.error("Login error:", error);
       const errorMessage =
@@ -120,11 +120,11 @@ export function LoginForm() {
   const handleSocialLogin = async (provider: "google") => {
     setSocialLoading(provider);
     try {
-      // Prefetch workflows page for instant navigation after OAuth
-      router.prefetch("/workflows");
+      const redirectTo = searchParams.get("redirect") || "/workflows";
+      router.prefetch(redirectTo);
       await signIn.social({
         provider,
-        callbackURL: "/workflows",
+        callbackURL: redirectTo,
       });
       // The OAuth flow will handle the redirect automatically
     } catch (error) {
