@@ -12,8 +12,10 @@ import {
   EntityItem,
 } from "../editor/entity-component";
 import { useDeleteCredential, Credential, CredentialType } from "@/hooks/useCredentials";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { KeyIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { credentialTypeOptions } from "./credential-form";
@@ -148,7 +150,9 @@ const getCredentialTypeOption = (type: string) => {
 
 export const CredentialsItem = ({ credential }: { credential: Credential }) => {
   const deleteCredential = useDeleteCredential();
+  const { user } = useAuth();
   const credentialOption = getCredentialTypeOption(credential.type);
+  const isShared = credential.userId !== undefined && credential.userId !== user?.id;
 
   const handleDelete = async () => {
     await deleteCredential.mutateAsync({ id: credential.id, name: credential.name });
@@ -159,9 +163,16 @@ export const CredentialsItem = ({ credential }: { credential: Credential }) => {
       href={`/credentials/${credential.id}`}
       title={credential.name}
       subtitle={
-        <span>
-          Updated {formatDistanceToNow(credential.updatedAt, { addSuffix: true })} &bull; Created{" "}
-          {formatDistanceToNow(credential.createdAt, { addSuffix: true })}
+        <span className="flex items-center gap-2">
+          <span>
+            Updated {formatDistanceToNow(credential.updatedAt, { addSuffix: true })} &bull; Created{" "}
+            {formatDistanceToNow(credential.createdAt, { addSuffix: true })}
+          </span>
+          {isShared && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              Shared
+            </Badge>
+          )}
         </span>
       }
       image={

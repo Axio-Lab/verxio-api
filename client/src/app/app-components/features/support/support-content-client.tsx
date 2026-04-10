@@ -8,6 +8,7 @@ import {
   SupportEmptyView,
 } from "@/app/app-components/features/support/support";
 import { EntityPagination } from "@/app/app-components/features/editor/entity-component";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -183,6 +184,7 @@ export function SupportContent() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  const { user: currentUser } = useAuth();
   const { data, isLoading, error } = useSupportAgents();
   const createMutation = useCreateSupportAgent();
   const updateMutation = useUpdateSupportAgent();
@@ -2003,6 +2005,11 @@ export function SupportContent() {
                             className="text-[10px] px-1.5 py-0 font-medium"
                           >
                             SDR
+                          </Badge>
+                        )}
+                        {agent.userId !== currentUser?.id && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
+                            Shared
                           </Badge>
                         )}
                       </div>

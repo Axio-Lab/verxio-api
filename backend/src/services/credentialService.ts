@@ -1,5 +1,6 @@
 import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
+import { getSharedResourceIds, canAccessResource } from "./organizationService";
 
 /**
  * Known credential types for validation and type safety
@@ -158,8 +159,12 @@ export const getCredentials = async (
   const skip = (page - 1) * limit;
   const take = limit;
 
-  // Build where clause
-  const where: any = { userId };
+  // Include credentials shared with the user's organization
+  const sharedIds = await getSharedResourceIds(userId, "CREDENTIAL");
+  const ownershipFilter: any =
+    sharedIds.length > 0 ? { OR: [{ userId }, { id: { in: sharedIds } }] } : { userId };
+
+  const where: any = { ...ownershipFilter };
   if (type) {
     // Validate type if provided (allows known types and custom types)
     if (!isValidCredentialType(type)) {
@@ -181,9 +186,10 @@ export const getCredentials = async (
     take,
     select: {
       id: true,
+      userId: true,
       name: true,
       type: true,
-      value: true, // Include value in list response
+      value: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -219,20 +225,36 @@ export const getCredential = async (
     throw new AppError("User ID is required", 400);
   }
 
-  const credential = await prismaClient.credential.findFirst({
-    where: {
-      id,
-      userId, // Ensure credential belongs to user
-    },
+  let credential = await prismaClient.credential.findFirst({
+    where: { id, userId },
     select: {
       id: true,
+      userId: true,
       name: true,
       type: true,
-      value: true, // Include value for editing
+      value: true,
       createdAt: true,
       updatedAt: true,
     },
   });
+
+  if (!credential) {
+    const access = await canAccessResource(userId, "CREDENTIAL", id);
+    if (access.hasAccess) {
+      credential = await prismaClient.credential.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          type: true,
+          value: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    }
+  }
 
   if (!credential) {
     throw new AppError("Credential not found", 404);
@@ -257,13 +279,16 @@ export const updateCredential = async (
     throw new AppError("User ID is required", 400);
   }
 
-  // Check if credential exists and belongs to user
-  const existingCredential = await prismaClient.credential.findFirst({
-    where: {
-      id,
-      userId,
-    },
+  let existingCredential = await prismaClient.credential.findFirst({
+    where: { id, userId },
   });
+
+  if (!existingCredential) {
+    const access = await canAccessResource(userId, "CREDENTIAL", id);
+    if (access.hasAccess) {
+      existingCredential = await prismaClient.credential.findUnique({ where: { id } });
+    }
+  }
 
   if (!existingCredential) {
     throw new AppError("Credential not found", 404);

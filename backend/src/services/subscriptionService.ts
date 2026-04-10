@@ -102,16 +102,38 @@ async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Resolve the effective userId for subscription checks.
+ * If the user belongs to an organization, returns the org owner's userId
+ * so that the owner's plan covers all members.
+ */
+async function resolveSubscriptionUserId(userId: string): Promise<string> {
+  try {
+    const membership = await (prisma as any).organizationMember.findFirst({
+      where: { userId },
+      include: { organization: { select: { ownerId: true } } },
+    });
+    if (membership?.organization?.ownerId) {
+      return membership.organization.ownerId;
+    }
+  } catch {
+    // On error, fall back to the user's own subscription
+  }
+  return userId;
+}
+
+/**
  * Check if subscription is active and not expired.
+ * For org members, checks the org owner's subscription.
  * Retries on transient DB connectivity errors and fails open
  * (returns true) if the database remains unreachable so that
  * paying users are not blocked by infrastructure blips.
  */
 export async function isSubscriptionActive(userId: string): Promise<boolean> {
+  const effectiveUserId = await resolveSubscriptionUserId(userId);
   try {
     const user = await withDbRetry(() =>
       prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: effectiveUserId },
         select: {
           subscriptionStatus: true,
           subscriptionExpiresAt: true,
@@ -135,7 +157,7 @@ export async function isSubscriptionActive(userId: string): Promise<boolean> {
     if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < new Date()) {
       await prisma.user
         .update({
-          where: { id: userId },
+          where: { id: effectiveUserId },
           data: { subscriptionStatus: "expired" },
         })
         .catch(() => {});
@@ -156,13 +178,17 @@ export async function isSubscriptionActive(userId: string): Promise<boolean> {
 }
 
 /**
- * Get user subscription details
+ * Get user subscription details.
+ * For org members, resolves through the org owner's subscription.
  */
 export async function getUserSubscription(userId: string) {
   try {
+    const effectiveUserId = await resolveSubscriptionUserId(userId);
+    const viaOrganization = effectiveUserId !== userId;
+
     const user = await withDbRetry(() =>
       prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: effectiveUserId },
         select: {
           subscriptionStatus: true,
           subscriptionPlan: true,
@@ -182,14 +208,11 @@ export async function getUserSubscription(userId: string) {
     const isActive = await isSubscriptionActive(userId);
     const rateLimitConfig = getRateLimitConfig(user.subscriptionPlan);
 
-    // Merge plan features with stored features to avoid missing new flags
-    // (e.g., if subscriptionFeatures was set before a new feature existed)
     const planFeatures = getPlanFeatures(user.subscriptionPlan);
     const features = Array.from(
       new Set([...(planFeatures || []), ...(user.subscriptionFeatures || [])])
     );
 
-    // For beta-testers, use the daily credits constant; for others use config
     const rateLimitTotal =
       user.subscriptionPlan === "beta-tester"
         ? BETA_TESTER_DAILY_CREDITS
@@ -198,7 +221,6 @@ export async function getUserSubscription(userId: string) {
     let rateLimitRemaining = user.rateLimitRemaining ?? 0;
     let rateLimitResetAt = user.rateLimitResetAt;
 
-    // Beta-testers: if reset time is null or in the past, reset quota to full and persist
     if (
       user.subscriptionPlan === "beta-tester" &&
       isActive &&
@@ -211,7 +233,7 @@ export async function getUserSubscription(userId: string) {
       rateLimitRemaining = BETA_TESTER_DAILY_CREDITS;
       rateLimitResetAt = nextReset;
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: effectiveUserId },
         data: {
           rateLimitRemaining: BETA_TESTER_DAILY_CREDITS,
           rateLimitResetAt: nextReset,
@@ -229,6 +251,7 @@ export async function getUserSubscription(userId: string) {
       rateLimitResetAt,
       isSubscribed: isActive,
       planDisplayName: getPlanDisplayName(user.subscriptionPlan) ?? "Free",
+      viaOrganization,
     };
   } catch (error) {
     console.error("[SubscriptionService] Error getting subscription:", error);

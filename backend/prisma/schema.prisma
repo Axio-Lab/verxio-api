@@ -290,6 +290,11 @@ model User {
   agentMemories         AgentMemory[]
   agentWatches          AgentWatch[]
 
+  ownedOrganizations       Organization[]         @relation("OwnedOrganizations")
+  organizationMemberships  OrganizationMember[]
+  sentInvites              OrganizationInvite[]   @relation("SentInvites")
+  sharedResources          SharedResource[]       @relation("SharedByUser")
+
   @@map("user")
 }
 
@@ -917,6 +922,88 @@ model ChatConversation {
   @@unique([chatIntegrationId, externalId])
   @@index([chatIntegrationId])
   @@map("chat_conversations")
+}
+
+// ============================================
+// Organization Collaboration
+// ============================================
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  owner     User     @relation("OwnedOrganizations", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  members         OrganizationMember[]
+  invites         OrganizationInvite[]
+  sharedResources SharedResource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model OrganizationInvite {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole      @default(MEMBER)
+  invitedById    String
+  invitedBy      User         @relation("SentInvites", fields: [invitedById], references: [id])
+  status         String       @default("pending") // "pending" | "accepted" | "expired"
+  token          String       @unique @default(cuid())
+  expiresAt      DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, email])
+  @@index([token])
+  @@index([email])
+  @@map("organization_invites")
+}
+
+model SharedResource {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resourceType   String       // "WORKFLOW" | "SUPPORT_AGENT" | "KNOWLEDGE_BASE" | "CREDENTIAL"
+  resourceId     String
+  sharedById     String
+  sharedBy       User         @relation("SharedByUser", fields: [sharedById], references: [id])
+  permission     String       @default("EDIT") // "VIEW" | "EDIT"
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, resourceType, resourceId])
+  @@index([organizationId, resourceType])
+  @@index([resourceId])
+  @@map("shared_resources")
 }
 
 // ============================================

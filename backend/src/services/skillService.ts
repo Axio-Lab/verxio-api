@@ -1,8 +1,8 @@
 import { basePrismaClient } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
+import { getSharedResourceIds, canAccessResource } from "./organizationService";
 import ky from "ky";
 
-// Use basePrismaClient for skill model
 const prismaClient = basePrismaClient as any;
 
 export interface CreateSkillData {
@@ -214,25 +214,28 @@ export const getSkills = async (
 
   const skip = (page - 1) * limit;
 
+  const sharedIds = await getSharedResourceIds(userId, "SKILL");
+  const where: any =
+    sharedIds.length > 0 ? { OR: [{ userId }, { id: { in: sharedIds } }] } : { userId };
+
   const [skills, total] = await Promise.all([
     prismaClient.userSkill.findMany({
-      where: { userId },
+      where,
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        userId: true,
         name: true,
         description: true,
         url: true,
-        content: true, // Include content for detail view
+        content: true,
         createdAt: true,
         updatedAt: true,
       },
     }),
-    prismaClient.userSkill.count({
-      where: { userId },
-    }),
+    prismaClient.userSkill.count({ where }),
   ]);
 
   const totalPages = Math.ceil(total / limit);
@@ -266,12 +269,16 @@ export const getSkill = async (userId: string, skillId: string): Promise<SkillRe
     throw new AppError("Skill ID is required", 400);
   }
 
-  const skill = await prismaClient.userSkill.findFirst({
-    where: {
-      id: skillId,
-      userId, // Ensure user owns the skill
-    },
+  let skill = await prismaClient.userSkill.findFirst({
+    where: { id: skillId, userId },
   });
+
+  if (!skill) {
+    const access = await canAccessResource(userId, "SKILL", skillId);
+    if (access.hasAccess) {
+      skill = await prismaClient.userSkill.findUnique({ where: { id: skillId } });
+    }
+  }
 
   if (!skill) {
     throw new AppError("Skill not found", 404);

@@ -45,6 +45,7 @@ import { internalWhatsAppRouter } from "./routes/internal/whatsapp";
 import { internalDiscordRouter } from "./routes/internal/discord";
 import { internalTelegramSupportRouter } from "./routes/internal/telegram-support";
 import { internalSlackSupportRouter } from "./routes/internal/slack-support";
+import { organizationRouter } from "./routes/organization";
 import { referralRouter } from "./routes/referral";
 import { knowledgeBaseRouter } from "./routes/knowledge-base";
 import { analyticsRouter } from "./routes/analytics";
@@ -226,6 +227,7 @@ app.use("/api/composio/connections", composioConnectionRouter);
 app.use("/api/public/chat", publicChatRouter);
 app.use("/api/public/support-chat", supportPublicChatRouter);
 app.use("/api/support-agents", supportAgentsRouter);
+app.use("/api/organization", organizationRouter);
 app.use("/api/agent-goals", agentGoalsRouter);
 app.use("/api/custom-subagents", customSubagentsRouter);
 

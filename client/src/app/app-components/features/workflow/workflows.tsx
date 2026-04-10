@@ -14,8 +14,15 @@ import {
 import { useDeleteWorkflow, useTriggerInfo, Workflow } from "@/hooks/useWorkflows";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useOrganizations,
+  useShareResource,
+  useUnshareResource,
+  useSharedResources,
+} from "@/hooks/useOrganization";
 import { formatDistanceToNow } from "date-fns";
-import { WorkflowIcon, TrashIcon, FileOutput, Link2 } from "lucide-react";
+import { WorkflowIcon, TrashIcon, FileOutput, Link2, Share2, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ExportWorkflowTemplateDialog } from "./export-workflow-template-dialog";
@@ -153,10 +160,18 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
   const triggerInfo = useTriggerInfo();
   const { subscription } = useSubscription();
   const { user } = useAuth();
+  const { data: orgs } = useOrganizations();
+  const adminOrg = orgs?.find((o) => o.role === "OWNER" || o.role === "ADMIN") ?? null;
+  const { data: sharedResources } = useSharedResources(adminOrg?.id, "WORKFLOW");
+  const shareResource = useShareResource();
+  const unshareResource = useUnshareResource();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   const hasExportAccess = subscription?.features?.includes("export-workflow-as-template") ?? false;
   const creatorUsername = (user?.name as string) || (user?.email as string) || "Creator";
+  const isOrgAdmin = !!adminOrg;
+  const isShared = sharedResources?.some((s) => s.resourceId === workflow.id) ?? false;
+  const isOwnedByMe = workflow.userId === user?.id;
 
   const handleDelete = async () => {
     await deleteWorkflow.mutateAsync({ id: workflow.id, name: workflow.name });
@@ -188,6 +203,25 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
     }
   };
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!adminOrg) return;
+    if (isShared) {
+      unshareResource.mutate({
+        orgId: adminOrg.id,
+        resourceType: "WORKFLOW",
+        resourceId: workflow.id,
+      });
+    } else {
+      shareResource.mutate({
+        orgId: adminOrg.id,
+        resourceType: "WORKFLOW",
+        resourceId: workflow.id,
+      });
+    }
+  };
+
   const dropdownItems = [
     {
       label: "Copy URL",
@@ -203,6 +237,17 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
       disabled: false,
       loading: false,
     },
+    ...(isOrgAdmin && isOwnedByMe
+      ? [
+          {
+            label: isShared ? "Unshare with Org" : "Share with Org",
+            onClick: handleShare,
+            icon: isShared ? <XCircle className="size-4" /> : <Share2 className="size-4" />,
+            disabled: shareResource.isPending || unshareResource.isPending,
+            loading: shareResource.isPending || unshareResource.isPending,
+          },
+        ]
+      : []),
     {
       label: "Delete",
       onClick: handleDelete,
@@ -218,10 +263,22 @@ export const WorkflowsItem = ({ workflow }: { workflow: Workflow }) => {
         href={`/workflows/${workflow.id}`}
         title={workflow.name}
         subtitle={
-          <>
-            Updated {formatDistanceToNow(workflow.updatedAt, { addSuffix: true })} &bull; Created{" "}
-            {formatDistanceToNow(workflow.createdAt, { addSuffix: true })}
-          </>
+          <span className="flex items-center gap-2">
+            <span>
+              Updated {formatDistanceToNow(workflow.updatedAt, { addSuffix: true })} &bull; Created{" "}
+              {formatDistanceToNow(workflow.createdAt, { addSuffix: true })}
+            </span>
+            {isShared && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                Shared
+              </Badge>
+            )}
+            {!isOwnedByMe && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                From Org
+              </Badge>
+            )}
+          </span>
         }
         image={
           <div className="size-8 flex items-center justify-center">

@@ -1,5 +1,6 @@
 import { prisma, basePrismaClient } from "../lib/prisma";
 import crypto from "crypto";
+import { getSharedResourceIds, canAccessResource } from "./organizationService";
 
 const db = prisma as any;
 const rawDb = basePrismaClient as any;
@@ -11,8 +12,12 @@ export async function createKnowledgeBase(userId: string, name: string, descript
 }
 
 export async function listKnowledgeBases(userId: string) {
+  const sharedIds = await getSharedResourceIds(userId, "KNOWLEDGE_BASE");
+  const where: any =
+    sharedIds.length > 0 ? { OR: [{ userId }, { id: { in: sharedIds } }] } : { userId };
+
   return db.knowledgeBase.findMany({
-    where: { userId },
+    where,
     include: { documents: { select: { id: true, title: true, status: true, chunkCount: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -23,13 +28,21 @@ export async function getKnowledgeBase(id: string, userId: string) {
     where: { id },
     include: { documents: true },
   });
-  if (!kb || kb.userId !== userId) throw new Error("Knowledge base not found");
+  if (!kb) throw new Error("Knowledge base not found");
+  if (kb.userId !== userId) {
+    const access = await canAccessResource(userId, "KNOWLEDGE_BASE", id, kb.userId);
+    if (!access.hasAccess) throw new Error("Knowledge base not found");
+  }
   return kb;
 }
 
 export async function deleteKnowledgeBase(id: string, userId: string) {
   const kb = await db.knowledgeBase.findUnique({ where: { id } });
-  if (!kb || kb.userId !== userId) throw new Error("Knowledge base not found");
+  if (!kb) throw new Error("Knowledge base not found");
+  if (kb.userId !== userId) {
+    const access = await canAccessResource(userId, "KNOWLEDGE_BASE", id, kb.userId);
+    if (!access.hasAccess) throw new Error("Knowledge base not found");
+  }
   return db.knowledgeBase.delete({ where: { id } });
 }
 

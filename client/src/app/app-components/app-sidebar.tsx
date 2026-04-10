@@ -2,6 +2,7 @@
 
 import {
   // CreditCardIcon, // TODO: Re-enable when billing portal is properly designed
+  Building2,
   Crown,
   FolderOpenIcon,
   Headset,
@@ -56,6 +57,7 @@ const menuItems = [
   { title: "Agentic Skills", url: "/skills", icon: <BookOpen /> },
   { title: "Analytics", url: "/analytics", icon: <BarChart3 /> },
   { title: "Referrals", url: "/referrals", icon: <Gift /> },
+  { title: "Organization", url: "/organization", icon: <Building2 /> },
 ];
 
 export const AppSidebar = () => {
@@ -352,6 +354,7 @@ export const AppSidebar = () => {
                   <Crown className="h-4 w-4 shrink-0" />
                   <span className={cn("text-xs", isCollapsed && "md:sr-only")}>
                     {planDisplayName ?? "Free"}
+                    {subscription?.viaOrganization && " (Org)"}
                   </span>
                 </div>
                 {/* Credit Quota Display (for beta-testers) */}
