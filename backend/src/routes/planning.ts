@@ -9,6 +9,7 @@ import {
   clearPlanningConversation,
   recordSuccessfulGeneration,
   getUserInsights,
+  generatePlanSoulMd,
 } from "../services/planningService";
 import { prisma as prismaClient } from "../lib/prisma";
 import { requireFeature } from "../middleware/subscriptionAuth";
@@ -16,7 +17,6 @@ import { checkQuota } from "../middleware/subscriptionRateLimit";
 import { SUBSCRIPTION_FEATURES } from "../config/subscription-features";
 import { QUOTA_COST } from "../config/rate-limits";
 import { consumePremiumQuota } from "../services/subscriptionService";
-import * as chatIntegrationService from "../services/chatIntegrationService";
 
 export const planningRouter: Router = Router();
 
@@ -80,7 +80,7 @@ planningRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const { workflowId, message, attachments, model, agentPersonality } = req.body;
+      const { workflowId, message, attachments, model } = req.body;
 
       if (!workflowId) {
         throw new AppError("Workflow ID is required", 400);
@@ -108,18 +108,6 @@ planningRouter.post(
         message: message.trim(),
         attachments,
         model,
-        agentPersonality:
-          agentPersonality && typeof agentPersonality === "object"
-            ? {
-                name: agentPersonality.name || "Verxio",
-                soulMd: agentPersonality.soulMd || "",
-                evolvePersonality: false,
-                skillScope: agentPersonality.skillScope,
-                allowedSkillIds: Array.isArray(agentPersonality.allowedSkillIds)
-                  ? agentPersonality.allowedSkillIds
-                  : [],
-              }
-            : undefined,
       });
 
       res.json({
@@ -144,7 +132,7 @@ planningRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const { workflowId, message, attachments, model, agentPersonality } = req.body;
+      const { workflowId, message, attachments, model } = req.body;
 
       if (!workflowId) {
         throw new AppError("Workflow ID is required", 400);
@@ -182,18 +170,6 @@ planningRouter.post(
           message: message.trim(),
           attachments,
           model,
-          agentPersonality:
-            agentPersonality && typeof agentPersonality === "object"
-              ? {
-                  name: agentPersonality.name || "Verxio",
-                  soulMd: agentPersonality.soulMd || "",
-                  evolvePersonality: false,
-                  skillScope: agentPersonality.skillScope,
-                  allowedSkillIds: Array.isArray(agentPersonality.allowedSkillIds)
-                    ? agentPersonality.allowedSkillIds
-                    : [],
-                }
-              : undefined,
         })) {
           // Send event to client
           res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -328,7 +304,7 @@ planningRouter.post(
 
       await consumePremiumQuota(user.id, QUOTA_COST.GENERATE_SOUL_MD);
 
-      const soulMd = await chatIntegrationService.generateSoulMd({
+      const soulMd = await generatePlanSoulMd({
         name,
         description,
         tone,

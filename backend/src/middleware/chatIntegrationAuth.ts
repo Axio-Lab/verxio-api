@@ -71,10 +71,6 @@ export const chatIntegrationAuthMiddleware = async (
         );
       }
 
-      if (!integration.isActive) {
-        throw new AppError("Chat Integration integration is disabled.", 403);
-      }
-
       // Use timing-safe comparison to prevent timing attacks
       const secretMatch = crypto.timingSafeEqual(
         Buffer.from(secret),
@@ -134,7 +130,7 @@ export const chatIntegrationAuthMiddleware = async (
           },
         });
 
-        if (integration && integration.isActive) {
+        if (integration) {
           // Verify secret
           const secretMatch = crypto.timingSafeEqual(
             Buffer.from(secret),

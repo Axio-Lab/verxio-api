@@ -9,9 +9,10 @@ import {
   chatWithAgent,
   generateSmartPrompt,
   type AgentStreamEvent,
-  type AgentPersonality,
   type MediaAttachment,
 } from "./agent/agentService";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
 import { prisma as prismaClient } from "@/lib/prisma";
 import {
   getLearningContext,
@@ -215,7 +216,7 @@ export const sendPlanningMessage = async (options: {
     extractedText?: string;
   }>;
   model?: string;
-  agentPersonality?: AgentPersonality;
+  isGeneralChat?: boolean;
 }): Promise<{
   response: string;
   conversationHistory: ConversationMessage[];
@@ -266,8 +267,8 @@ export const sendPlanningMessage = async (options: {
     message: options.message,
     conversationHistory,
     learningContext,
-    agentPersonality: options.agentPersonality,
     attachments: mediaAttachments.length > 0 ? mediaAttachments : undefined,
+    isGeneralChat: options.isGeneralChat,
   })) {
     if (event.type === "message" && event.data.text && !event.data.partial) {
       assistantResponse += event.data.text;
@@ -351,7 +352,7 @@ export async function* sendPlanningMessageStreaming(options: {
     extractedText?: string;
   }>;
   model?: string;
-  agentPersonality?: AgentPersonality;
+  isGeneralChat?: boolean;
 }): AsyncGenerator<AgentStreamEvent> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
@@ -393,8 +394,8 @@ export async function* sendPlanningMessageStreaming(options: {
     message: options.message,
     conversationHistory,
     learningContext,
-    agentPersonality: options.agentPersonality,
     attachments: streamMediaAttachments.length > 0 ? streamMediaAttachments : undefined,
+    isGeneralChat: options.isGeneralChat,
   })) {
     // Collect response for history
     if (event.type === "message" && event.data.text && !event.data.partial) {
@@ -591,3 +592,45 @@ export const clearPlanningConversation = async (
     },
   });
 };
+
+const DEFAULT_PLAN_SOUL_MODEL = "claude-sonnet-4-20250514";
+
+/**
+ * Generate a soul.md-style persona document for the planning assistant (used by POST /planning/generate-soul).
+ */
+export async function generatePlanSoulMd(input: {
+  name: string;
+  description: string;
+  tone: string;
+  coreTruths?: string;
+  boundaries?: string;
+}): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("ANTHROPIC_API_KEY is not configured");
+  }
+  const modelId = process.env.AGENT_CLAUDE_MODEL?.trim() || DEFAULT_PLAN_SOUL_MODEL;
+  const anthropic = createAnthropic({ apiKey });
+  const userParts = [
+    `Assistant display name: ${input.name}`,
+    `Role and context: ${input.description}`,
+    `Tone: ${input.tone}`,
+  ];
+  if (input.coreTruths?.trim()) {
+    userParts.push(`Core truths to always honor:\n${input.coreTruths.trim()}`);
+  }
+  if (input.boundaries?.trim()) {
+    userParts.push(`Boundaries (never cross):\n${input.boundaries.trim()}`);
+  }
+  const { text } = await generateText({
+    model: anthropic(modelId),
+    system:
+      'You write a concise Markdown document ("soul.md") that defines how an AI assistant should behave when helping the user plan and build workflows. Use clear sections with ## headings. Be specific and actionable. Output only the Markdown body — no preamble or fenced code blocks.',
+    prompt: userParts.join("\n\n"),
+  });
+  const out = (text || "").trim();
+  if (!out) {
+    throw new Error("Model returned an empty soul document");
+  }
+  return out;
+}

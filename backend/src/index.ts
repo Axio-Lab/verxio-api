@@ -33,6 +33,7 @@ import { googleAuthRouter } from "./routes/auth/google";
 import { workflowGenerationRouter } from "./routes/workflow-generation";
 import { workflowTemplateRouter } from "./routes/workflow-template";
 import { planningRouter } from "./routes/planning";
+import { chatRouter } from "./routes/chat";
 import { billingStatusRouter } from "./routes/billing/status";
 // TODO: Re-enable when billing portal is properly designed
 // import { billingPortalRouter } from "./routes/billing/portal";
@@ -253,6 +254,7 @@ app.use("/api/billing", billingStatusRouter);
 app.use("/api/billing", billingCheckoutRouter);
 app.use("/api/manual-payment", manualPaymentRouter);
 app.use("/api/admin/manual-payments", adminManualPaymentsRouter);
+app.use("/api/chat", chatRouter);
 app.use("/api/chat-integrations", chatIntegrationRouter);
 app.use("/api/support", supportChannelsRouter);
 app.use("/api/internal/whatsapp", internalWhatsAppRouter);

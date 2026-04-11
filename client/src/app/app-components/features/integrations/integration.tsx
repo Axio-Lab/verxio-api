@@ -121,7 +121,7 @@ export const IntegrationItem = ({ integration }: { integration: ChatIntegration 
       title={integration.label}
       subtitle={
         <span>
-          {integration.platform} &bull; {integration.scope} &bull; Updated{" "}
+          {integration.platform} &bull; Updated{" "}
           {formatDistanceToNow(new Date(integration.createdAt), { addSuffix: true })}
         </span>
       }
