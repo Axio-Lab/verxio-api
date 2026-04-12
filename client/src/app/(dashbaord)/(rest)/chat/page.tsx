@@ -3,9 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useChat, type ToolActivity } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { authenticatedPost } from "@/lib/api-client";
-import { ArrowUp, Bot, Loader2, Paperclip, Square, Trash2, X } from "lucide-react";
+import { ArrowUp, Bot, Loader2, Paperclip, Square, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -82,6 +81,20 @@ const TOOL_LABELS: Record<string, string> = {
   generateCode: "Generating code",
 };
 
+const CHAT_MESSAGE_MARKDOWN_CLASS = `chat-message prose prose-sm dark:prose-invert max-w-none break-words
+[&_p]:mb-3 [&_p:last-child]:mb-0 [&_p]:text-[15px] [&_p]:leading-[1.65]
+[&_ul]:my-3 [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-[15px] [&_li]:leading-relaxed
+[&_h1]:text-lg [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:first:mt-0
+[&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2
+[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5
+[&_pre]:my-3 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:bg-background/80 [&_pre]:border [&_pre]:overflow-x-auto [&_pre]:text-[13px]
+[&_code]:text-[13px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-background/80 [&_code]:font-mono
+[&_pre_code]:p-0 [&_pre_code]:bg-transparent
+[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+[&_hr]:my-4 [&_hr]:border-border
+[&_table]:my-3 [&_table]:w-full [&_th]:text-left [&_th]:font-medium [&_th]:py-2 [&_th]:pr-3 [&_td]:py-2 [&_td]:pr-3
+[&_strong]:font-semibold`;
+
 function getToolLabel(name: string, input?: Record<string, unknown>): string {
   if (name === "addNode" && input?.type) {
     return `Adding ${String(input.type).replace(/_/g, " ")} node`;
@@ -131,6 +144,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -218,31 +232,34 @@ export default function ChatPage() {
     }
   };
 
+  const handleClearHistory = async () => {
+    if (isStreaming || isClearing || messages.length === 0) return;
+
+    const confirmed = window.confirm("Clear this chat history? This cannot be undone.");
+    if (!confirmed) return;
+
+    setIsClearing(true);
+    try {
+      await clearHistory();
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  useEffect(() => {
+    const onHeaderClearRequest = () => {
+      void handleClearHistory();
+    };
+    window.addEventListener("verxio:chat-clear-request", onHeaderClearRequest);
+    return () => {
+      window.removeEventListener("verxio:chat-clear-request", onHeaderClearRequest);
+    };
+  }, [handleClearHistory]);
+
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3 md:px-6">
-        <div>
-          <h1 className="text-lg font-semibold">Chat</h1>
-          <p className="text-xs text-muted-foreground">
-            Talk to Verxio — create workflows, manage agents, run actions, and more.
-          </p>
-        </div>
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground"
-            onClick={clearHistory}
-          >
-            <Trash2 className="size-3.5" />
-            Clear
-          </Button>
-        )}
-      </div>
-
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
+      <div className="flex-1 overflow-y-auto px-4 py-7 md:px-6">
         {messages.length === 0 && !isStreaming ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
             <Bot className="size-10" />
@@ -253,12 +270,12 @@ export default function ChatPage() {
             </p>
           </div>
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <div className="mx-auto flex max-w-3xl flex-col gap-7">
             {messages.map((msg, i) => (
               <div key={i}>
                 {msg.role === "user" ? (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground whitespace-pre-wrap">
+                    <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground whitespace-pre-wrap">
                       {msg.content}
                     </div>
                   </div>
@@ -267,14 +284,14 @@ export default function ChatPage() {
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
                       <Bot className="size-4 text-primary" />
                     </div>
-                    <div className="min-w-0 flex-1 space-y-2">
+                    <div className="min-w-0 flex-1 space-y-2.5 pt-0.5">
                       {/* Progress steps (workflow generation style) */}
                       {msg.toolCalls && msg.toolCalls.length > 0 && (
                         <AgentProgressSteps tools={msg.toolCalls} />
                       )}
 
                       {msg.content ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+                        <div className={CHAT_MESSAGE_MARKDOWN_CLASS}>
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {typeof msg.content === "string"
                               ? msg.content
