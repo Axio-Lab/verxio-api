@@ -201,7 +201,7 @@ const WORKFLOW_MODIFYING_TOOLS = [
 ];
 
 export const sendPlanningMessage = async (options: {
-  workflowId: string;
+  workflowId?: string;
   userId: string;
   message: string;
   chatIntegrationId?: string | null;
@@ -227,23 +227,21 @@ export const sendPlanningMessage = async (options: {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  // Per-sender isolation: when externalId is provided (chat integration context),
-  // use ChatConversation instead of WorkflowPlan for conversation history.
   let conversationHistory: ConversationMessage[];
   let useChatConversation = false;
   if (options.chatIntegrationId && options.externalId) {
     const convo = await getOrCreateChatConversation(options.chatIntegrationId, options.externalId);
     conversationHistory = convo.conversationHistory;
     useChatConversation = true;
-  } else {
+  } else if (options.workflowId) {
     const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
     conversationHistory = plan.conversationHistory;
+  } else {
+    conversationHistory = [];
   }
 
-  // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
 
-  // Build media attachments for the agent
   const mediaAttachments: MediaAttachment[] = (options.attachments || []).map((att) => {
     const mime = att.mimeType || att.fileType || "";
     return {
@@ -306,7 +304,7 @@ export const sendPlanningMessage = async (options: {
   // Save updated conversation history to the appropriate store
   if (useChatConversation && options.chatIntegrationId && options.externalId) {
     await saveChatConversation(options.chatIntegrationId, options.externalId, updatedHistory);
-  } else {
+  } else if (options.workflowId) {
     const planRecord = await prismaClient.workflowPlan.findFirst({
       where: {
         workflowId: options.workflowId,
@@ -337,7 +335,7 @@ export const sendPlanningMessage = async (options: {
  * Includes learning context for improved suggestions
  */
 export async function* sendPlanningMessageStreaming(options: {
-  workflowId: string;
+  workflowId?: string;
   userId: string;
   message: string;
   chatIntegrationId?: string | null;
@@ -364,15 +362,15 @@ export async function* sendPlanningMessageStreaming(options: {
     const convo = await getOrCreateChatConversation(options.chatIntegrationId, options.externalId);
     conversationHistory = convo.conversationHistory;
     useChatConversation = true;
-  } else {
+  } else if (options.workflowId) {
     const plan = await getOrCreateWorkflowPlan(options.workflowId, options.chatIntegrationId);
     conversationHistory = plan.conversationHistory;
+  } else {
+    conversationHistory = [];
   }
 
-  // Get learning context for personalized suggestions
   const learningContext = await getLearningContext(options.userId, options.message);
 
-  // Build media attachments for the agent
   const streamMediaAttachments: MediaAttachment[] = (options.attachments || []).map((att) => {
     const mime = att.mimeType || att.fileType || "";
     return {
@@ -426,7 +424,7 @@ export async function* sendPlanningMessageStreaming(options: {
 
   if (useChatConversation && options.chatIntegrationId && options.externalId) {
     await saveChatConversation(options.chatIntegrationId, options.externalId, updatedHistory);
-  } else {
+  } else if (options.workflowId) {
     const planRecord = await prismaClient.workflowPlan.findFirst({
       where: {
         workflowId: options.workflowId,

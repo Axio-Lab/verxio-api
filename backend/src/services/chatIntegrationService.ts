@@ -1382,18 +1382,6 @@ async function handlePlanMessage(
   message: ChatIntegrationMessage
 ): Promise<ChatIntegrationResponse> {
   try {
-    // Use a workspace workflow as default context; the agent can create new workflows freely
-    let workflowId = integration.defaultWorkflowId;
-
-    if (!workflowId) {
-      const workflow = await workflowService.createWorkflow({
-        name: `${integration.label || "Coworker"} Workspace`,
-        userId,
-      });
-      workflowId = workflow.id;
-      await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
-    }
-
     const attachments = message.attachments?.map((att) => ({
       type: att.type === "document" ? "file" : att.type,
       url: att.url,
@@ -1403,7 +1391,6 @@ async function handlePlanMessage(
     }));
 
     const result = await sendPlanningMessage({
-      workflowId,
       userId,
       message: message.message,
       chatIntegrationId: integration.id,
@@ -1419,7 +1406,6 @@ async function handlePlanMessage(
       data: {
         workflowModified: result.workflowModified,
         toolsUsed: result.toolsUsed,
-        workflowId,
       },
     };
   } catch (error) {
@@ -2103,19 +2089,7 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
   }
 
   try {
-    let workflowId = integration.defaultWorkflowId;
-
-    if (!workflowId) {
-      const workflow = await workflowService.createWorkflow({
-        name: `${integration.label || "Coworker"} Workspace`,
-        userId,
-      });
-      workflowId = workflow.id;
-      await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
-    }
-
     for await (const event of sendPlanningMessageStreaming({
-      workflowId,
       userId,
       message: message.message,
       chatIntegrationId: integration.id,

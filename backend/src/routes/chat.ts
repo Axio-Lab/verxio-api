@@ -4,7 +4,6 @@ import { AppError } from "../middleware/errorHandler";
 import { sendPlanningMessageStreaming } from "../services/planningService";
 import { prisma } from "../lib/prisma";
 import { parseConversationHistory } from "../lib/chatEncryption";
-import * as workflowService from "../services/workflowService";
 
 export const chatRouter: Router = Router();
 
@@ -12,20 +11,6 @@ const prismaClient = prisma as any;
 const WEB_CHAT_INTEGRATION_ID = "web-chat";
 
 chatRouter.use(betterAuthMiddleware);
-
-async function getOrCreateDefaultWorkflow(userId: string): Promise<string> {
-  const existing = await prismaClient.workflow.findFirst({
-    where: { userId, name: "Verxio Chat Workspace" },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-
-  const wf = await workflowService.createWorkflow({
-    name: "Verxio Chat Workspace",
-    userId,
-  });
-  return wf.id;
-}
 
 /**
  * POST /api/chat/upload
@@ -66,8 +51,6 @@ chatRouter.post("/message/stream", async (req: Request, res: Response, next: Nex
       throw new AppError("Message is required", 400);
     }
 
-    const workflowId = await getOrCreateDefaultWorkflow(user.id);
-
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -77,7 +60,6 @@ chatRouter.post("/message/stream", async (req: Request, res: Response, next: Nex
 
     try {
       for await (const event of sendPlanningMessageStreaming({
-        workflowId,
         userId: user.id,
         message: message.trim(),
         chatIntegrationId: WEB_CHAT_INTEGRATION_ID,
