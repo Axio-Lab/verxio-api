@@ -42,7 +42,27 @@ export interface VerxioTool {
 export interface ToolContext {
   userId: string;
   workflowId?: string;
+  /** When true, workflow-graph-mutation tools are stripped (dashboard chat / coworker channels). */
+  isGeneralChat?: boolean;
 }
+
+/** Workflow graph tools that must NOT be available in general chat / coworker channels. */
+const GENERAL_CHAT_BLOCKED_TOOL_NAMES = new Set<string>([
+  "createWorkflow",
+  "addNode",
+  "configureNode",
+  "connectNodes",
+  "deleteNode",
+  "executeWorkflow",
+  "executeSingleNodeAndWait",
+  "createMultipleDesignNodes",
+  "createMultipleVideoNodes",
+  "importWorkflowTemplate",
+  "deleteWorkflow",
+  "renameWorkflow",
+  "listNodeTypes",
+  "getNodeSchema",
+]);
 
 // ============================================
 // Available Node Types for Reference
@@ -3671,5 +3691,14 @@ export const verxioTools: VerxioTool[] = [
   listSupportChannelsTool,
   createSupportChannelTool,
 ];
+
+/**
+ * Return the tool list appropriate for the calling context.
+ * General-chat / coworker channels get workflow-graph tools stripped out.
+ */
+export function getVerxioToolsForContext(context: ToolContext): VerxioTool[] {
+  if (!context.isGeneralChat) return verxioTools;
+  return verxioTools.filter((t) => !GENERAL_CHAT_BLOCKED_TOOL_NAMES.has(t.name));
+}
 
 export default verxioTools;

@@ -18,7 +18,7 @@ import {
   type AgentDefinition,
 } from "@anthropic-ai/claude-agent-sdk";
 import { basePrismaClient } from "../../lib/prisma";
-import { verxioTools, type ToolContext } from "./verxio-mcp-tools";
+import { getVerxioToolsForContext, type ToolContext } from "./verxio-mcp-tools";
 import { getVerxioSystemPrompt } from "./verxio-system-prompt";
 import * as connectionService from "../connectionService";
 import { getComposioMcpUrl, listConnectedAccounts } from "../composio/composioService";
@@ -234,6 +234,8 @@ export interface AgentQueryOptions {
   abortController?: AbortController;
   /** Media attachments from the user (images, audio, video, documents) */
   attachments?: MediaAttachment[];
+  /** When true, workflow-graph-mutation tools are omitted (dashboard / coworker chat). */
+  isGeneralChat?: boolean;
 }
 
 export interface AgentStreamEvent {
@@ -246,7 +248,7 @@ export interface AgentStreamEvent {
 // ============================================
 
 function createVerxioMcpTools(context: ToolContext): SdkMcpToolDefinition<any>[] {
-  return verxioTools.map((verxioTool) => {
+  return getVerxioToolsForContext(context).map((verxioTool) => {
     return tool(
       verxioTool.name,
       verxioTool.description,
@@ -359,6 +361,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     maxTurns = 10,
     abortController,
     attachments,
+    isGeneralChat,
   } = options;
 
   const model = getModel(modelOverride);
@@ -367,6 +370,7 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     const toolContext: ToolContext = {
       userId,
       workflowId,
+      isGeneralChat,
     };
 
     // Create Verxio MCP server with custom tools
@@ -760,7 +764,7 @@ All node types, research/TinyFish/Composio rules, plan mode, single-node executi
 
 export async function* chatWithAgent(options: {
   userId: string;
-  workflowId: string;
+  workflowId?: string;
   message: string;
   conversationHistory: Array<{ role: string; content: string }>;
   learningContext?: {
@@ -769,14 +773,14 @@ export async function* chatWithAgent(options: {
   };
   attachments?: MediaAttachment[];
   /** When true the agent operates as a general-purpose assistant (dashboard chat / coworker).
-   *  It can create new workflows, manage any resource, etc.
+   *  Workflow graph tools (create/edit/run/delete) are NOT available in this mode.
    *  When false (default), the agent is constrained to a specific workflow on the canvas (plan dialog). */
   isGeneralChat?: boolean;
 }): AsyncGenerator<AgentStreamEvent> {
   let enhancedPrompt: string;
 
   if (options.isGeneralChat) {
-    enhancedPrompt = `${WORKFLOW_SESSION_CONTEXT}\n\nYou have full access to all of the user's resources. You can create new workflows, manage any existing workflow, create support agents, knowledge bases, credentials, connections, organizations, and everything else on the platform. When the user asks you to build a workflow, create a NEW one with createWorkflow (do NOT reuse the workspace workflow). For node operations on a specific workflow, always specify its workflowId.\n\n`;
+    enhancedPrompt = `${WORKFLOW_SESSION_CONTEXT}\n\n**General-chat mode.** You are the user's autonomous AI ops assistant. You can manage goals, credentials, connections, support agents, knowledge bases, Composio integrations, skills, subagents, memory, watches, analytics, organizations, and browse the web.\n\n**IMPORTANT:** You do NOT have access to workflow-building or workflow-execution tools in this channel. If the user asks you to create, edit, or run a workflow/automation, tell them to open (or create) a workflow on the **Workflows** page and use the **Plan** dialog or node editor there.\n\n`;
   } else {
     enhancedPrompt = `${WORKFLOW_SESSION_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
   }
@@ -799,6 +803,7 @@ export async function* chatWithAgent(options: {
     conversationHistory: options.conversationHistory,
     attachments: options.attachments,
     maxTurns: 15,
+    isGeneralChat: options.isGeneralChat,
   })) {
     yield event;
   }
