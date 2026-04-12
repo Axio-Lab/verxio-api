@@ -27,8 +27,7 @@ export function IntegrationsContent() {
     const query = searchQuery.toLowerCase();
     return (
       integration.label.toLowerCase().includes(query) ||
-      integration.platform.toLowerCase().includes(query) ||
-      integration.scope.toLowerCase().includes(query)
+      integration.platform.toLowerCase().includes(query)
     );
   });
 

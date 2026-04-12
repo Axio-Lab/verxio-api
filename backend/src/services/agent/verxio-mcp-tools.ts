@@ -13,6 +13,17 @@ import { NodeType } from "../../lib/node-types";
 import { inngest } from "../../inngest";
 import * as connectionService from "../connectionService";
 import * as skillService from "../skillService";
+import * as supportAgentService from "../supportAgentService";
+import * as knowledgeBaseService from "../knowledgeBaseService";
+import * as credentialService from "../credentialService";
+import * as organizationService from "../organizationService";
+import * as workflowTemplateService from "../workflowTemplateService";
+import * as analyticsService from "../analyticsService";
+import * as workflowService from "../workflowService";
+import * as goalService from "../goalService";
+import * as agentMemoryService from "../agentMemoryService";
+import * as agentWatchService from "../agentWatchService";
+import * as supportChannelService from "../supportChannelService";
 import { runSingleNodeAndWait } from "../singleNodeExecutionService";
 
 const prisma = basePrismaClient as any;
@@ -31,10 +42,6 @@ export interface VerxioTool {
 export interface ToolContext {
   userId: string;
   workflowId?: string;
-  integrationId?: string;
-  evolvePersonality?: boolean;
-  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
-  allowedSkillIds?: string[];
 }
 
 // ============================================
@@ -2104,17 +2111,6 @@ export const getSkillsTool: VerxioTool = {
       orderBy: { createdAt: "desc" },
     });
 
-    // When in integration context with restricted skill scope, filter
-    if (context.skillScope === "NO_SKILLS") {
-      skills = [];
-    } else if (
-      context.skillScope === "SELECTED_SKILLS" &&
-      context.allowedSkillIds &&
-      context.allowedSkillIds.length > 0
-    ) {
-      skills = skills.filter((s: { id: string }) => context.allowedSkillIds!.includes(s.id));
-    }
-
     return {
       success: true,
       skills,
@@ -2398,100 +2394,6 @@ const deleteCustomSubagentTool: VerxioTool = {
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to delete subagent",
-      };
-    }
-  },
-};
-
-// ============================================
-// Agent Personality (Soul) Evolution Tool
-// ============================================
-
-const updateSoulMdTool: VerxioTool = {
-  name: "updateSoulMd",
-  description:
-    "Update your own personality (soul.md) based on user interaction patterns. " +
-    "Only available when personality evolution is enabled. " +
-    "Use sparingly — only when you have clear evidence that the user prefers a different communication style. " +
-    "You can update a specific section (coreTruths, boundaries, vibe) or the full document.",
-  inputSchema: z.object({
-    updatedSection: z
-      .enum(["coreTruths", "boundaries", "vibe", "full"])
-      .describe(
-        "Which section to update: 'coreTruths', 'boundaries', 'vibe', or 'full' for the entire soul.md"
-      ),
-    content: z.string().describe("The new content for the specified section or the full soul.md"),
-    reason: z
-      .string()
-      .describe(
-        "Brief explanation of why you are evolving your personality (based on user interaction patterns)"
-      ),
-  }),
-  execute: async (
-    args: { updatedSection: string; content: string; reason: string },
-    context: ToolContext
-  ) => {
-    try {
-      if (!context.evolvePersonality || !context.integrationId) {
-        return {
-          success: false,
-          error: "Personality evolution is not enabled for this integration.",
-        };
-      }
-
-      // Fetch current soul.md
-      const integration = await prisma.chatIntegration.findFirst({
-        where: { id: context.integrationId, userId: context.userId },
-      });
-
-      if (!integration) {
-        return { success: false, error: "Integration not found." };
-      }
-
-      let updatedSoulMd: string;
-
-      if (args.updatedSection === "full") {
-        updatedSoulMd = args.content;
-      } else {
-        // Parse existing soul.md and update the specific section
-        const currentSoul = integration.soulMd || "";
-        const sectionMap: Record<string, string> = {
-          coreTruths: "## Core Truths",
-          boundaries: "## Boundaries",
-          vibe: "## The Vibe",
-        };
-        const sectionHeader = sectionMap[args.updatedSection];
-        if (!sectionHeader) {
-          return { success: false, error: `Unknown section: ${args.updatedSection}` };
-        }
-
-        // Find and replace the section
-        const sectionRegex = new RegExp(
-          `(${sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})([\\s\\S]*?)(?=\\n## |$)`,
-          "i"
-        );
-
-        if (sectionRegex.test(currentSoul)) {
-          updatedSoulMd = currentSoul.replace(sectionRegex, `${sectionHeader}\n${args.content}\n`);
-        } else {
-          // Section doesn't exist; append
-          updatedSoulMd = `${currentSoul}\n\n${sectionHeader}\n${args.content}\n`;
-        }
-      }
-
-      await prisma.chatIntegration.update({
-        where: { id: context.integrationId },
-        data: { soulMd: updatedSoulMd },
-      });
-
-      return {
-        success: true,
-        message: `Personality ${args.updatedSection === "full" ? "fully updated" : `section "${args.updatedSection}" updated`}. Reason: ${args.reason}`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to update soul.md",
       };
     }
   },
@@ -3193,6 +3095,491 @@ const generateGoalReportTool: VerxioTool = {
   },
 };
 
+// ============================================
+// Full platform parity: support, KB, credentials, org, templates, analytics, goals, watches, memory, channels
+// ============================================
+
+const listSupportAgentsTool: VerxioTool = {
+  name: "listSupportAgents",
+  description:
+    "List all support agents the user owns or has org access to. Use before creating channels or updating agents.",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) =>
+    supportAgentService.listSupportAgents(context.userId),
+};
+
+const createSupportAgentTool: VerxioTool = {
+  name: "createSupportAgent",
+  description:
+    "Create a new support or SDR agent. Set mode to 'support' (default) or 'sdr'. Optionally attach knowledgeBaseIds, greeting, soulMd, skillIds.",
+  inputSchema: z.object({
+    name: z.string().describe("Display name for the agent"),
+    description: z.string().optional(),
+    knowledgeBaseIds: z.array(z.string()).optional(),
+    greeting: z.string().optional(),
+    mode: z.enum(["support", "sdr"]).optional(),
+    skillIds: z.array(z.string()).optional(),
+    soulMd: z.string().optional(),
+    brandColor: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    supportAgentService.createSupportAgent(context.userId, args),
+};
+
+const getSupportAgentTool: VerxioTool = {
+  name: "getSupportAgent",
+  description:
+    "Get a support agent by ID including configuration. Verifies access (owner or org-shared).",
+  inputSchema: z.object({ id: z.string().describe("Support agent ID") }),
+  execute: async (args: any, context: ToolContext) => {
+    const agent = await supportAgentService.getSupportAgent(args.id);
+    if (!agent) return { error: "Support agent not found" };
+    if (agent.userId !== context.userId) {
+      const { canAccessResource } = await import("../organizationService");
+      const access = await canAccessResource(
+        context.userId,
+        "SUPPORT_AGENT",
+        args.id,
+        agent.userId
+      );
+      if (!access.hasAccess) return { error: "Support agent not found" };
+    }
+    return agent;
+  },
+};
+
+const updateSupportAgentTool: VerxioTool = {
+  name: "updateSupportAgent",
+  description: "Update an existing support agent (name, greeting, KBs, mode, skills, soul, etc.).",
+  inputSchema: z.object({
+    id: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    knowledgeBaseIds: z.array(z.string()).optional(),
+    greeting: z.string().optional(),
+    mode: z.enum(["support", "sdr"]).optional(),
+    skillIds: z.array(z.string()).optional(),
+    soulMd: z.string().optional(),
+    brandColor: z.string().optional(),
+    status: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { id, ...data } = args;
+    return supportAgentService.updateSupportAgent(context.userId, id, data);
+  },
+};
+
+const deleteSupportAgentTool: VerxioTool = {
+  name: "deleteSupportAgent",
+  description:
+    "Permanently delete a support agent owned by the user (sessions and messages removed). Only the owner can delete.",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    supportAgentService.deleteSupportAgent(context.userId, args.id),
+};
+
+const createKnowledgeBaseTool: VerxioTool = {
+  name: "createKnowledgeBase",
+  description:
+    "Create a new knowledge base for agent RAG. Then use addKnowledgeDocument to add text content.",
+  inputSchema: z.object({
+    name: z.string(),
+    description: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    knowledgeBaseService.createKnowledgeBase(context.userId, args.name, args.description),
+};
+
+const getKnowledgeBaseDetailsTool: VerxioTool = {
+  name: "getKnowledgeBaseDetails",
+  description: "Get a knowledge base with documents (owner or org-shared access).",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    knowledgeBaseService.getKnowledgeBase(args.id, context.userId),
+};
+
+const deleteKnowledgeBaseTool: VerxioTool = {
+  name: "deleteKnowledgeBase",
+  description: "Delete a knowledge base and its documents.",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    knowledgeBaseService.deleteKnowledgeBase(args.id, context.userId),
+};
+
+const addKnowledgeDocumentTool: VerxioTool = {
+  name: "addKnowledgeDocument",
+  description:
+    "Add a text document to a knowledge base. sourceType is usually 'text' or 'markdown'. Content is indexed asynchronously.",
+  inputSchema: z.object({
+    knowledgeBaseId: z.string(),
+    title: z.string(),
+    content: z.string().describe("Full text body to index"),
+    sourceType: z.string().optional().default("text"),
+    sourceUrl: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    knowledgeBaseService.addDocument(args.knowledgeBaseId, context.userId, {
+      title: args.title,
+      sourceType: args.sourceType || "text",
+      sourceUrl: args.sourceUrl,
+      content: args.content,
+    }),
+};
+
+const deleteKnowledgeDocumentTool: VerxioTool = {
+  name: "deleteKnowledgeDocument",
+  description: "Delete a document from a knowledge base by document ID.",
+  inputSchema: z.object({ documentId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    knowledgeBaseService.deleteDocument(args.documentId, context.userId),
+};
+
+const createCredentialTool: VerxioTool = {
+  name: "createCredential",
+  description:
+    "Create a stored credential (API keys, tokens). type must be a known CredentialType (OPENAI, ANTHROPIC, GEMINI, etc.) or valid custom type. WHATSAPP may use empty value until linked.",
+  inputSchema: z.object({
+    name: z.string(),
+    type: z.string(),
+    value: z.string().optional().describe("Secret value (required except WHATSAPP placeholder)"),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    credentialService.createCredential({
+      name: args.name,
+      type: args.type,
+      value: args.value ?? "",
+      userId: context.userId,
+    }),
+};
+
+const updateCredentialTool: VerxioTool = {
+  name: "updateCredential",
+  description: "Update credential name, type, or value.",
+  inputSchema: z.object({
+    id: z.string(),
+    name: z.string().optional(),
+    type: z.string().optional(),
+    value: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { id, ...data } = args;
+    return credentialService.updateCredential(id, context.userId, data);
+  },
+};
+
+const deleteCredentialTool: VerxioTool = {
+  name: "deleteCredential",
+  description: "Delete a credential by ID.",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    credentialService.deleteCredential(args.id, context.userId),
+};
+
+const createUserConnectionTool: VerxioTool = {
+  name: "createUserConnection",
+  description:
+    "Create a user connection (MCP_SERVER, DATABASE, DOCUMENTATION, API_ENDPOINT). config must match the type (see connection docs).",
+  inputSchema: z.object({
+    name: z.string(),
+    type: z.enum(["MCP_SERVER", "DATABASE", "DOCUMENTATION", "API_ENDPOINT"]),
+    config: z.record(z.string(), z.unknown()).describe("Connection-specific JSON config"),
+    description: z.string().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    connectionService.createConnection({
+      userId: context.userId,
+      name: args.name,
+      type: args.type as any,
+      config: args.config,
+      description: args.description,
+    }),
+};
+
+const updateUserConnectionTool: VerxioTool = {
+  name: "updateUserConnection",
+  description: "Update a user connection name, config, type, or active flag.",
+  inputSchema: z.object({
+    id: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    type: z.enum(["MCP_SERVER", "DATABASE", "DOCUMENTATION", "API_ENDPOINT"]).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    isActive: z.boolean().optional(),
+  }),
+  execute: async (args: any, context: ToolContext) => {
+    const { id, ...data } = args;
+    return connectionService.updateConnection(id, context.userId, data);
+  },
+};
+
+const deleteUserConnectionTool: VerxioTool = {
+  name: "deleteUserConnection",
+  description: "Delete a user connection by ID.",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    connectionService.deleteConnection(args.id, context.userId),
+};
+
+const testUserConnectionTool: VerxioTool = {
+  name: "testUserConnection",
+  description: "Run a connectivity test on a user connection.",
+  inputSchema: z.object({ id: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    connectionService.testConnection(args.id, context.userId),
+};
+
+const listOrganizationsTool: VerxioTool = {
+  name: "listOrganizations",
+  description: "List organizations the user belongs to with role and counts.",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) =>
+    organizationService.getUserOrganizations(context.userId),
+};
+
+const createOrganizationTool: VerxioTool = {
+  name: "createOrganization",
+  description: "Create a new organization. User becomes owner.",
+  inputSchema: z.object({ name: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    organizationService.createOrganization(context.userId, args.name),
+};
+
+const inviteOrgMemberTool: VerxioTool = {
+  name: "inviteOrgMember",
+  description: "Invite a user by email to an organization (ADMIN or MEMBER role).",
+  inputSchema: z.object({
+    organizationId: z.string(),
+    email: z.string(),
+    role: z.enum(["ADMIN", "MEMBER"]).optional().default("MEMBER"),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    organizationService.inviteMember(args.organizationId, context.userId, args.email, args.role),
+};
+
+const shareOrgResourceTool: VerxioTool = {
+  name: "shareOrgResource",
+  description:
+    "Share a resource with all members of an organization. resourceType: WORKFLOW, SUPPORT_AGENT, KNOWLEDGE_BASE, CREDENTIAL, SKILL.",
+  inputSchema: z.object({
+    organizationId: z.string(),
+    resourceType: z.enum(["WORKFLOW", "SUPPORT_AGENT", "KNOWLEDGE_BASE", "CREDENTIAL", "SKILL"]),
+    resourceId: z.string(),
+    permission: z.enum(["VIEW", "EDIT"]).optional().default("EDIT"),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    organizationService.shareResource(
+      args.organizationId,
+      context.userId,
+      args.resourceType,
+      args.resourceId,
+      args.permission
+    ),
+};
+
+const unshareOrgResourceTool: VerxioTool = {
+  name: "unshareOrgResource",
+  description: "Remove a shared resource from an organization.",
+  inputSchema: z.object({
+    organizationId: z.string(),
+    resourceType: z.enum(["WORKFLOW", "SUPPORT_AGENT", "KNOWLEDGE_BASE", "CREDENTIAL", "SKILL"]),
+    resourceId: z.string(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    organizationService.unshareResource(
+      args.organizationId,
+      context.userId,
+      args.resourceType,
+      args.resourceId
+    ),
+};
+
+const listOrgMembersTool: VerxioTool = {
+  name: "listOrgMembers",
+  description: "List members of an organization (must be a member).",
+  inputSchema: z.object({ organizationId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    organizationService.getMembers(args.organizationId, context.userId),
+};
+
+const listWorkflowTemplatesTool: VerxioTool = {
+  name: "listWorkflowTemplates",
+  description: "Browse published workflow templates with optional search and pagination.",
+  inputSchema: z.object({
+    search: z.string().optional(),
+    category: z.string().optional(),
+    page: z.number().optional(),
+    limit: z.number().optional(),
+  }),
+  execute: async (args: any) => workflowTemplateService.listTemplates(args),
+};
+
+const getWorkflowTemplateTool: VerxioTool = {
+  name: "getWorkflowTemplate",
+  description: "Get template metadata and snapshot summary by template ID.",
+  inputSchema: z.object({ templateId: z.string() }),
+  execute: async (args: any) => workflowTemplateService.getTemplateById(args.templateId),
+};
+
+const importWorkflowTemplateTool: VerxioTool = {
+  name: "importWorkflowTemplate",
+  description:
+    "Create a new workflow from a marketplace template (checks plan features for premium nodes).",
+  inputSchema: z.object({ templateId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    workflowTemplateService.importTemplate(context.userId, args.templateId),
+};
+
+const getAnalyticsDashboardTool: VerxioTool = {
+  name: "getAnalyticsDashboard",
+  description: "Get execution analytics: runs, success rate, top workflows, recent activity.",
+  inputSchema: z.object({
+    hourlyRate: z.number().optional().describe("Optional $/hour for cost estimate"),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    analyticsService.getAnalyticsDashboard(context.userId, args.hourlyRate ?? 50),
+};
+
+const generateAnalyticsInsightTool: VerxioTool = {
+  name: "generateAnalyticsInsight",
+  description: "Generate an AI-written insight summary from the user's analytics data.",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) =>
+    analyticsService.generateAIInsight(context.userId),
+};
+
+const deleteWorkflowTool: VerxioTool = {
+  name: "deleteWorkflow",
+  description: "Permanently delete a workflow owned by the user.",
+  inputSchema: z.object({ workflowId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    workflowService.deleteWorkflow(args.workflowId, context.userId),
+};
+
+const renameWorkflowTool: VerxioTool = {
+  name: "renameWorkflow",
+  description: "Rename a workflow.",
+  inputSchema: z.object({
+    workflowId: z.string(),
+    name: z.string(),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    workflowService.updateWorkflowName(args.workflowId, context.userId, { name: args.name }),
+};
+
+const listGoalsTool: VerxioTool = {
+  name: "listGoals",
+  description: "List AI goals for the user with status.",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) => goalService.listGoals(context.userId),
+};
+
+const pauseGoalTool: VerxioTool = {
+  name: "pauseGoal",
+  description: "Pause an AI goal and reset in-progress tasks.",
+  inputSchema: z.object({ goalId: z.string() }),
+  execute: async (args: any) => goalService.pauseGoal(args.goalId),
+};
+
+const resumeGoalTool: VerxioTool = {
+  name: "resumeGoal",
+  description: "Resume a paused AI goal and queue execution.",
+  inputSchema: z.object({ goalId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    goalService.resumeGoal(args.goalId, context.userId),
+};
+
+const deleteGoalTool: VerxioTool = {
+  name: "deleteGoal",
+  description: "Delete an AI goal owned by the user.",
+  inputSchema: z.object({ goalId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    goalService.deleteGoal(context.userId, args.goalId),
+};
+
+const listAllMemoriesTool: VerxioTool = {
+  name: "listAllMemories",
+  description: "List stored long-term memory facts for the user.",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) =>
+    agentMemoryService.listAllMemories(context.userId),
+};
+
+const forgetMemoryFactTool: VerxioTool = {
+  name: "forgetMemoryFact",
+  description: "Forget a memory by semantic key and scope (same as recall_facts scope).",
+  inputSchema: z.object({
+    key: z.string(),
+    scope: z.string().describe("e.g. global, goal:<id>"),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    agentMemoryService.forgetFact(context.userId, args.key, args.scope),
+};
+
+const deleteMemoryByIdTool: VerxioTool = {
+  name: "deleteMemoryById",
+  description: "Delete a memory row by its database id.",
+  inputSchema: z.object({ memoryId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    agentMemoryService.deleteMemory(context.userId, args.memoryId),
+};
+
+const listWatchesTool: VerxioTool = {
+  name: "listWatches",
+  description: "List proactive watches (triggers to workflows).",
+  inputSchema: z.object({}),
+  execute: async (_args: unknown, context: ToolContext) =>
+    agentWatchService.listWatches(context.userId),
+};
+
+const pauseWatchTool: VerxioTool = {
+  name: "pauseWatch",
+  description: "Pause a watch by ID.",
+  inputSchema: z.object({ watchId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    agentWatchService.pauseWatch(context.userId, args.watchId),
+};
+
+const resumeWatchTool: VerxioTool = {
+  name: "resumeWatch",
+  description: "Resume a paused watch.",
+  inputSchema: z.object({ watchId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    agentWatchService.resumeWatch(context.userId, args.watchId),
+};
+
+const deleteWatchTool: VerxioTool = {
+  name: "deleteWatch",
+  description: "Delete a watch permanently.",
+  inputSchema: z.object({ watchId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    agentWatchService.deleteWatch(context.userId, args.watchId),
+};
+
+const listSupportChannelsTool: VerxioTool = {
+  name: "listSupportChannels",
+  description:
+    "List messaging channels configured for a support agent (WhatsApp, Telegram, Slack, Discord).",
+  inputSchema: z.object({ supportAgentId: z.string() }),
+  execute: async (args: any, context: ToolContext) =>
+    supportChannelService.listSupportChannelsForAgent(context.userId, args.supportAgentId),
+};
+
+const createSupportChannelTool: VerxioTool = {
+  name: "createSupportChannel",
+  description:
+    "Create a pending support channel row for a platform. User must complete OAuth/QR in the Verxio dashboard for WhatsApp/Telegram/etc.",
+  inputSchema: z.object({
+    supportAgentId: z.string(),
+    platform: z.enum(["WHATSAPP", "TELEGRAM", "SLACK", "DISCORD"]),
+  }),
+  execute: async (args: any, context: ToolContext) =>
+    supportChannelService.createSupportChannel({
+      userId: context.userId,
+      supportAgentId: args.supportAgentId,
+      platform: args.platform as any,
+    }),
+};
+
 export const verxioTools: VerxioTool[] = [
   listNodeTypesTool,
   getNodeSchemaTool,
@@ -3221,7 +3608,6 @@ export const verxioTools: VerxioTool[] = [
   createCustomSubagentTool,
   updateCustomSubagentTool,
   deleteCustomSubagentTool,
-  updateSoulMdTool,
   browseWebsiteTool,
   checkWebRunTool,
   searchKnowledgeBaseTool,
@@ -3240,6 +3626,50 @@ export const verxioTools: VerxioTool[] = [
   createWatchTool,
   deliverReportToGoogleDocsTool,
   generateGoalReportTool,
+  // Full platform parity tools
+  listSupportAgentsTool,
+  createSupportAgentTool,
+  getSupportAgentTool,
+  updateSupportAgentTool,
+  deleteSupportAgentTool,
+  createKnowledgeBaseTool,
+  getKnowledgeBaseDetailsTool,
+  deleteKnowledgeBaseTool,
+  addKnowledgeDocumentTool,
+  deleteKnowledgeDocumentTool,
+  createCredentialTool,
+  updateCredentialTool,
+  deleteCredentialTool,
+  createUserConnectionTool,
+  updateUserConnectionTool,
+  deleteUserConnectionTool,
+  testUserConnectionTool,
+  listOrganizationsTool,
+  createOrganizationTool,
+  inviteOrgMemberTool,
+  shareOrgResourceTool,
+  unshareOrgResourceTool,
+  listOrgMembersTool,
+  listWorkflowTemplatesTool,
+  getWorkflowTemplateTool,
+  importWorkflowTemplateTool,
+  getAnalyticsDashboardTool,
+  generateAnalyticsInsightTool,
+  deleteWorkflowTool,
+  renameWorkflowTool,
+  listGoalsTool,
+  pauseGoalTool,
+  resumeGoalTool,
+  deleteGoalTool,
+  listAllMemoriesTool,
+  forgetMemoryFactTool,
+  deleteMemoryByIdTool,
+  listWatchesTool,
+  pauseWatchTool,
+  resumeWatchTool,
+  deleteWatchTool,
+  listSupportChannelsTool,
+  createSupportChannelTool,
 ];
 
 export default verxioTools;

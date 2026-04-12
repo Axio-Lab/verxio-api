@@ -46,16 +46,6 @@ export async function createIntegration(
   data: {
     label: string;
     platform?: "TELEGRAM" | "WHATSAPP" | "DISCORD" | "SLACK";
-    scope?: "SINGLE_WORKFLOW" | "ALL_WORKFLOWS" | "ALLOW_LIST";
-    scopeWorkflowId?: string | null;
-    allowedWorkflowIds?: string[];
-    isActive?: boolean;
-    allowPlanMode?: boolean;
-    allowWorkflowExecution?: boolean;
-    soulMd?: string | null;
-    evolvePersonality?: boolean;
-    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
-    allowedSkillIds?: string[];
   }
 ) {
   const label = String(data.label ?? "").trim();
@@ -74,18 +64,8 @@ export async function createIntegration(
       userId,
       label,
       platform: data.platform || "TELEGRAM",
-      scope: data.scope || "ALL_WORKFLOWS",
-      scopeWorkflowId: data.scopeWorkflowId || null,
-      allowedWorkflowIds: data.allowedWorkflowIds || [],
       sharedSecret: secret,
       webhookUrl: null,
-      isActive: data.isActive ?? true,
-      allowPlanMode: data.allowPlanMode ?? true,
-      allowWorkflowExecution: data.allowWorkflowExecution ?? true,
-      soulMd: data.soulMd || null,
-      evolvePersonality: data.evolvePersonality ?? false,
-      skillScope: data.skillScope || "ALL_SKILLS",
-      allowedSkillIds: data.allowedSkillIds || [],
     },
   });
 }
@@ -117,20 +97,10 @@ export async function updateIntegration(
   data: {
     label?: string;
     platform?: "TELEGRAM" | "WHATSAPP" | "DISCORD" | "SLACK";
-    scope?: "SINGLE_WORKFLOW" | "ALL_WORKFLOWS" | "ALLOW_LIST";
-    scopeWorkflowId?: string | null;
-    allowedWorkflowIds?: string[];
-    isActive?: boolean;
     defaultWorkflowId?: string | null;
     lastRunWorkflowId?: string | null;
-    allowPlanMode?: boolean;
-    allowWorkflowExecution?: boolean;
     telegramBotToken?: string | null;
     whatsappOnlyOwnerCanChat?: boolean;
-    soulMd?: string | null;
-    evolvePersonality?: boolean;
-    skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
-    allowedSkillIds?: string[];
   }
 ) {
   const existing = await getIntegration(userId, integrationId);
@@ -162,93 +132,6 @@ export async function updateIntegration(
 // ============================================
 // Agent Personality (soul.md) Management
 // ============================================
-
-/**
- * Generate a soul.md personality document using Claude.
- */
-export async function generateSoulMd(params: {
-  name: string;
-  description: string;
-  tone: string;
-  coreTruths?: string;
-  boundaries?: string;
-}): Promise<string> {
-  const { name, description, tone, coreTruths, boundaries } = params;
-
-  const prompt = `You are an expert at crafting agent personality documents (soul.md). Generate a rich, detailed soul.md personality document for an AI assistant with the following details:
-
-**Agent Name:** ${name}
-**What it does:** ${description}
-**Tone/Vibe:** ${tone}
-${coreTruths ? `**User-provided Core Truths:** ${coreTruths}` : ""}
-${boundaries ? `**User-provided Boundaries:** ${boundaries}` : ""}
-
-The soul.md MUST have exactly three sections:
-
-## Core Truths
-These are the fundamental beliefs and values that define this agent. They should reflect the agent's purpose, principles, and what it stands for. Include 5-8 core truths.
-
-## Boundaries
-These are hard limits — things the agent will never do, topics it avoids, and ethical guardrails. Include 4-6 boundaries.
-
-## The Vibe
-This defines the agent's voice, tone, and communication style. How does it greet people? What kind of language does it use? Does it use humor? How formal or casual is it? Be very specific and give examples of how the agent would phrase things.
-
-Output ONLY the soul.md content in markdown format. Do not wrap in code fences. Make it feel authentic and unique to this agent's personality — not generic.`;
-
-  const { generateTextWithSystemPrompt } = await import("./agent/agentService");
-
-  const result = await generateTextWithSystemPrompt({
-    systemPrompt:
-      "You are an expert at crafting agent personality documents (soul.md). " +
-      "Output ONLY the soul.md content in markdown format. " +
-      "Do not wrap in code fences. Make it feel authentic and unique — not generic.",
-    userPrompt: prompt,
-  });
-
-  if (!result.text?.trim()) {
-    throw new Error("AI returned empty soul.md content.");
-  }
-
-  return result.text.trim();
-}
-
-/**
- * Save soul.md content to an integration.
- */
-export async function saveSoulMd(userId: string, integrationId: string, soulMd: string) {
-  const existing = await getIntegration(userId, integrationId);
-  if (!existing) {
-    throw new Error("Integration not found.");
-  }
-
-  return (prisma as any).chatIntegration.update({
-    where: { id: integrationId },
-    data: { soulMd },
-  });
-}
-
-/**
- * Update soul.md via agent self-evolution.
- */
-export async function updateSoulEvolution(
-  userId: string,
-  integrationId: string,
-  updatedSoulMd: string
-) {
-  const existing = await getIntegration(userId, integrationId);
-  if (!existing) {
-    throw new Error("Integration not found.");
-  }
-  if (!existing.evolvePersonality) {
-    throw new Error("Personality evolution is not enabled for this integration.");
-  }
-
-  return (prisma as any).chatIntegration.update({
-    where: { id: integrationId },
-    data: { soulMd: updatedSoulMd },
-  });
-}
 
 /**
  * Build hosted Telegram webhook URL for a specific integration.
@@ -1114,17 +997,6 @@ function truncateTelegramText(text: string, maxLength = 3500): string {
   return `${text.slice(0, maxLength)}\n...`;
 }
 
-function resolveAllowedWorkflowIds(integration: any): string[] | null {
-  if (integration?.scope === "ALL_WORKFLOWS") return null;
-  if (integration?.scope === "SINGLE_WORKFLOW") {
-    return integration.scopeWorkflowId ? [integration.scopeWorkflowId] : [];
-  }
-  if (integration?.scope === "ALLOW_LIST") {
-    return Array.isArray(integration.allowedWorkflowIds) ? integration.allowedWorkflowIds : [];
-  }
-  return null;
-}
-
 /**
  * Check if user has premium access (plan mode requires premium)
  */
@@ -1136,12 +1008,6 @@ function hasPremiumAccess(user: { subscriptionPlan?: string | null }): boolean {
   }
   // Premium plans: pro, enterprise, beta-tester, etc.
   return true;
-}
-
-function isWorkflowAllowed(integration: any, workflowId: string): boolean {
-  const allowed = resolveAllowedWorkflowIds(integration);
-  if (!allowed) return true;
-  return allowed.includes(workflowId);
 }
 
 type MediaItem = { type: "photo" | "video" | "audio"; url: string; label: string };
@@ -1319,24 +1185,25 @@ export async function processMessage(
   }
 
   // Treat natural-language "run" requests as workflow execution
-  if (integration.allowWorkflowExecution) {
-    const runMatch = lowerText.match(/^(run|execute|rerun)\b(.*)$/);
-    if (runMatch) {
-      const args = (runMatch[2] || "").trim();
-      return handleRunWorkflow(userId, integration, args, message);
-    }
+  const runMatch = lowerText.match(/^(run|execute|rerun)\b(.*)$/);
+  if (runMatch) {
+    const args = (runMatch[2] || "").trim();
+    return handleRunWorkflow(userId, integration, args, message);
   }
 
-  // Default: Use plan mode if allowed
-  if (integration.allowPlanMode) {
-    return handlePlanMessage(userId, integration, message);
+  // Default: Use plan mode (full autonomous access)
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionPlan: true },
+  });
+  if (!user || !hasPremiumAccess(user)) {
+    return {
+      success: false,
+      type: "error",
+      message: `**Plan Mode is a Premium Feature**\n\nPlan Mode (AI assistant) requires a premium subscription. Upgrade plan to use this feature.\n\nVisit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
+    };
   }
-
-  return {
-    success: false,
-    type: "error",
-    message: "Plan mode is disabled for this integration. Use /help for available commands.",
-  };
+  return handlePlanMessage(userId, integration, message);
 }
 
 /**
@@ -1419,13 +1286,6 @@ Just send a message to chat with the AI. It can create workflows, manage agents,
       return handleDeleteCredential(userId, args);
 
     case "run":
-      if (!integration.allowWorkflowExecution) {
-        return {
-          success: false,
-          type: "error",
-          message: "Workflow execution is disabled for this integration.",
-        };
-      }
       return handleRunWorkflow(userId, integration, args, message);
 
     case "status":
@@ -1433,8 +1293,6 @@ Just send a message to chat with the AI. It can create workflows, manage agents,
         success: true,
         type: "info",
         message: `**Integration Status:**
-- Plan Mode: ${integration.allowPlanMode ? "Enabled" : "Disabled"}
-- Workflow Execution: ${integration.allowWorkflowExecution ? "Enabled" : "Disabled"}
 - Total Requests: ${integration.totalRequests}
 - Last Used: ${integration.lastUsedAt ? new Date(integration.lastUsedAt).toLocaleString() : "Never"}`,
       };
@@ -1496,22 +1354,8 @@ async function handleClearConversation(
     }
 
     // Also clear the legacy WorkflowPlan-based history
-    let workflowId = integration.defaultWorkflowId;
-    const allowedIds = resolveAllowedWorkflowIds(integration);
-
-    if (integration.scope === "SINGLE_WORKFLOW" && integration.scopeWorkflowId) {
-      workflowId = integration.scopeWorkflowId;
-    } else if (
-      integration.scope === "ALLOW_LIST" &&
-      allowedIds &&
-      allowedIds.length > 0 &&
-      (!workflowId || !allowedIds.includes(workflowId))
-    ) {
-      workflowId = allowedIds[0];
-    }
-
-    if (workflowId) {
-      await clearPlanningConversation(workflowId, integration.id);
+    if (integration.defaultWorkflowId) {
+      await clearPlanningConversation(integration.defaultWorkflowId, integration.id);
     }
 
     return {
@@ -1538,34 +1382,18 @@ async function handlePlanMessage(
   message: ChatIntegrationMessage
 ): Promise<ChatIntegrationResponse> {
   try {
-    // Get or use default workflow for planning
+    // Use a workspace workflow as default context; the agent can create new workflows freely
     let workflowId = integration.defaultWorkflowId;
-    const allowedIds = resolveAllowedWorkflowIds(integration);
-
-    if (integration.scope === "SINGLE_WORKFLOW" && integration.scopeWorkflowId) {
-      workflowId = integration.scopeWorkflowId;
-    } else if (
-      integration.scope === "ALLOW_LIST" &&
-      allowedIds &&
-      allowedIds.length > 0 &&
-      (!workflowId || !allowedIds.includes(workflowId))
-    ) {
-      workflowId = allowedIds[0];
-    }
 
     if (!workflowId) {
-      // Create a new workflow for this planning session
       const workflow = await workflowService.createWorkflow({
-        name: buildWorkflowName(message),
+        name: `${integration.label || "Coworker"} Workspace`,
         userId,
       });
       workflowId = workflow.id;
-
-      // Update integration with default workflow
       await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
     }
 
-    // Process attachments
     const attachments = message.attachments?.map((att) => ({
       type: att.type === "document" ? "file" : att.type,
       url: att.url,
@@ -1574,20 +1402,6 @@ async function handlePlanMessage(
       fileName: att.fileName,
     }));
 
-    // Build agent personality and skill config from integration (always pass when in integration flow)
-    const agentPersonality = {
-      name: integration.label || "Verxio",
-      soulMd: integration.soulMd || "",
-      evolvePersonality: integration.evolvePersonality ?? false,
-      integrationId: integration.id,
-      skillScope: (integration.skillScope || "ALL_SKILLS") as
-        | "ALL_SKILLS"
-        | "SELECTED_SKILLS"
-        | "NO_SKILLS",
-      allowedSkillIds: integration.allowedSkillIds || [],
-    };
-
-    // Send message to planning service with per-sender isolation via externalId
     const result = await sendPlanningMessage({
       workflowId,
       userId,
@@ -1595,7 +1409,7 @@ async function handlePlanMessage(
       chatIntegrationId: integration.id,
       externalId: message.externalId || null,
       attachments: attachments as any,
-      agentPersonality,
+      isGeneralChat: true,
     });
 
     return {
@@ -1627,10 +1441,7 @@ async function handleListWorkflows(
 ): Promise<ChatIntegrationResponse> {
   try {
     const result = await workflowService.getWorkflows(userId, 1, 100);
-    const allowedIds = resolveAllowedWorkflowIds(integration);
-    const workflows = allowedIds
-      ? result.workflows.filter((w: any) => allowedIds.includes(w.id))
-      : result.workflows;
+    const workflows = result.workflows;
 
     if (workflows.length === 0) {
       return {
@@ -1681,12 +1492,8 @@ async function handleWorkflowDetails(
   }
 
   const result = await workflowService.getWorkflows(userId, 1, 200);
-  const allowedIds = resolveAllowedWorkflowIds(integration);
-  const candidates = allowedIds
-    ? result.workflows.filter((w: any) => allowedIds.includes(w.id))
-    : result.workflows;
 
-  const workflow = candidates.find(
+  const workflow = result.workflows.find(
     (w: any) =>
       w.id === trimmed ||
       w.name.toLowerCase() === trimmed.toLowerCase() ||
@@ -1729,22 +1536,7 @@ async function handleCreateWorkflow(
     };
   }
 
-  if (integration.scope === "SINGLE_WORKFLOW") {
-    return {
-      success: false,
-      type: "error",
-      message: "This integration is locked to a single workflow. Update scope to create more.",
-    };
-  }
-
   const workflow = await workflowService.createWorkflow({ name: trimmed, userId });
-
-  if (integration.scope === "ALLOW_LIST") {
-    const nextAllowed = Array.isArray(integration.allowedWorkflowIds)
-      ? Array.from(new Set([...integration.allowedWorkflowIds, workflow.id]))
-      : [workflow.id];
-    await updateIntegration(userId, integration.id, { allowedWorkflowIds: nextAllowed });
-  }
 
   return {
     success: true,
@@ -1771,12 +1563,8 @@ async function handleDeleteWorkflow(
   }
 
   const result = await workflowService.getWorkflows(userId, 1, 200);
-  const allowedIds = resolveAllowedWorkflowIds(integration);
-  const candidates = allowedIds
-    ? result.workflows.filter((w: any) => allowedIds.includes(w.id))
-    : result.workflows;
 
-  const workflow = candidates.find(
+  const workflow = result.workflows.find(
     (w: any) =>
       w.id === trimmed ||
       w.name.toLowerCase() === trimmed.toLowerCase() ||
@@ -1787,26 +1575,11 @@ async function handleDeleteWorkflow(
     return {
       success: false,
       type: "error",
-      message: `Workflow "${workflowNameOrId}" not found or not allowed for this integration.`,
+      message: `Workflow "${workflowNameOrId}" not found.`,
     };
   }
 
   await workflowService.deleteWorkflow(workflow.id, userId);
-
-  if (integration.scope === "ALLOW_LIST") {
-    const nextAllowed = (integration.allowedWorkflowIds || []).filter(
-      (id: string) => id !== workflow.id
-    );
-    await updateIntegration(userId, integration.id, { allowedWorkflowIds: nextAllowed });
-  }
-
-  if (integration.scope === "SINGLE_WORKFLOW" && integration.scopeWorkflowId === workflow.id) {
-    await updateIntegration(userId, integration.id, {
-      scopeWorkflowId: null,
-      defaultWorkflowId: null,
-      lastRunWorkflowId: null,
-    });
-  }
 
   return {
     success: true,
@@ -2050,51 +1823,28 @@ async function handleRunWorkflow(
   try {
     const trimmed = workflowNameOrId.trim();
     let workflow: any | null = null;
-    const allowedIds = resolveAllowedWorkflowIds(integration);
 
     if (!trimmed) {
-      if (integration.scope === "SINGLE_WORKFLOW" && integration.scopeWorkflowId) {
-        try {
-          workflow = await workflowService.getWorkflow(integration.scopeWorkflowId, userId);
-        } catch (error) {
-          return {
-            success: false,
-            type: "error",
-            message: "Configured workflow not found. Update your Chat Integration integration.",
-          };
-        }
-      } else {
-        const fallbackId = integration.lastRunWorkflowId || integration.defaultWorkflowId;
-        const candidateId =
-          allowedIds && allowedIds.length > 0
-            ? allowedIds.includes(fallbackId)
-              ? fallbackId
-              : allowedIds[0]
-            : fallbackId;
-        if (!candidateId) {
-          return {
-            success: false,
-            type: "error",
-            message: "Please specify a workflow name or ID. Example: `/run My Workflow`",
-          };
-        }
-        try {
-          workflow = await workflowService.getWorkflow(candidateId, userId);
-        } catch (error) {
-          return {
-            success: false,
-            type: "error",
-            message: "Default workflow not found. Use /workflows to select a workflow.",
-          };
-        }
+      const fallbackId = integration.lastRunWorkflowId || integration.defaultWorkflowId;
+      if (!fallbackId) {
+        return {
+          success: false,
+          type: "error",
+          message: "Please specify a workflow name or ID. Example: `/run My Workflow`",
+        };
+      }
+      try {
+        workflow = await workflowService.getWorkflow(fallbackId, userId);
+      } catch (error) {
+        return {
+          success: false,
+          type: "error",
+          message: "Default workflow not found. Use /workflows to select a workflow.",
+        };
       }
     } else {
-      // Try to find workflow by name or ID
       const result = await workflowService.getWorkflows(userId, 1, 200);
-      const candidates = allowedIds
-        ? result.workflows.filter((w: any) => allowedIds.includes(w.id))
-        : result.workflows;
-      workflow = candidates.find(
+      workflow = result.workflows.find(
         (w: any) =>
           w.id === trimmed ||
           w.name.toLowerCase() === trimmed.toLowerCase() ||
@@ -2102,9 +1852,7 @@ async function handleRunWorkflow(
       );
       if (!workflow && integration.defaultWorkflowId) {
         try {
-          if (!allowedIds || allowedIds.includes(integration.defaultWorkflowId)) {
-            workflow = await workflowService.getWorkflow(integration.defaultWorkflowId, userId);
-          }
+          workflow = await workflowService.getWorkflow(integration.defaultWorkflowId, userId);
         } catch (error) {
           workflow = null;
         }
@@ -2116,14 +1864,6 @@ async function handleRunWorkflow(
           message: `Workflow "${workflowNameOrId}" not found. Use /workflows to see available workflows.`,
         };
       }
-    }
-
-    if (!isWorkflowAllowed(integration, workflow.id)) {
-      return {
-        success: false,
-        type: "error",
-        message: "This workflow is not allowed for the current Chat Integration integration.",
-      };
     }
 
     await updateIntegration(userId, integration.id, { lastRunWorkflowId: workflow.id });
@@ -2340,19 +2080,7 @@ export async function* processMessageStreaming(
     return;
   }
 
-  if (!integration.allowPlanMode) {
-    yield {
-      type: "complete",
-      data: {
-        success: false,
-        type: "error",
-        message: "Plan mode is disabled for this integration.",
-      },
-    };
-    return;
-  }
-
-  // Check premium access before allowing plan mode
+  // Check premium access
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { subscriptionPlan: true },
@@ -2379,34 +2107,21 @@ Visit your dashboard to upgrade: ${process.env.FRONTEND_URL}/billing`,
 
     if (!workflowId) {
       const workflow = await workflowService.createWorkflow({
-        name: buildWorkflowName(message),
+        name: `${integration.label || "Coworker"} Workspace`,
         userId,
       });
       workflowId = workflow.id;
       await updateIntegration(userId, integration.id, { defaultWorkflowId: workflowId });
     }
 
-    // Build agent personality and skill config from integration
-    const agentPersonality = {
-      name: integration.label || "Verxio",
-      soulMd: integration.soulMd || "",
-      evolvePersonality: integration.evolvePersonality ?? false,
-      integrationId: integration.id,
-      skillScope: (integration.skillScope || "ALL_SKILLS") as
-        | "ALL_SKILLS"
-        | "SELECTED_SKILLS"
-        | "NO_SKILLS",
-      allowedSkillIds: integration.allowedSkillIds || [],
-    };
-
-    // Stream from planning service (chatIntegrationId scopes conversation per integration)
     for await (const event of sendPlanningMessageStreaming({
       workflowId,
       userId,
       message: message.message,
       chatIntegrationId: integration.id,
+      externalId: message.externalId || undefined,
       attachments: message.attachments as any,
-      agentPersonality,
+      isGeneralChat: true,
     })) {
       yield event;
     }
@@ -2440,13 +2155,6 @@ export async function testConnection(
       };
     }
     if (integration.platform === "WHATSAPP") {
-      if (!integration.isActive) {
-        return {
-          success: false,
-          message: "Chat Integration integration is disabled.",
-          integration,
-        };
-      }
       const { getWhatsAppSessionStatus, sendWhatsAppMessage } =
         await import("./whatsappConnectorClient");
       const session = await getOrCreateWhatsAppSession(integrationId);
@@ -2465,7 +2173,6 @@ export async function testConnection(
             "WhatsApp connector is not running or session not loaded. Start the connector and connect to see status.",
           integration: {
             whatsappSessionId: integration.whatsappSessionId,
-            isActive: integration.isActive,
           },
         };
       }
@@ -2500,19 +2207,11 @@ export async function testConnection(
         integration: {
           whatsappSessionId: integration.whatsappSessionId,
           whatsappStatus: status.status,
-          isActive: integration.isActive,
         },
       };
     }
 
     if (integration.platform === "SLACK") {
-      if (!integration.isActive) {
-        return {
-          success: false,
-          message: "Chat integration is disabled.",
-          integration,
-        };
-      }
       if (!integration.slackBotToken) {
         return {
           success: false,
@@ -2559,19 +2258,11 @@ export async function testConnection(
           : "Slack connection verified. Add the bot to a channel and @mention it to receive a test message.",
         integration: {
           slackTeamId: integration.slackTeamId,
-          isActive: integration.isActive,
         },
       };
     }
 
     if (integration.platform === "DISCORD") {
-      if (!integration.isActive) {
-        return {
-          success: false,
-          message: "Chat integration is disabled.",
-          integration,
-        };
-      }
       if (!integration.discordBotToken) {
         return {
           success: false,
@@ -2586,9 +2277,6 @@ export async function testConnection(
           success: true,
           message:
             "Discord connector is not connected. Ensure the Discord connector service is running and the bot token is saved.",
-          integration: {
-            isActive: integration.isActive,
-          },
         };
       }
       let testMessageSent = false;
@@ -2613,7 +2301,6 @@ export async function testConnection(
           ? "A test message was sent to your Discord channel."
           : "Discord bot is connected. Add the bot to a server and @mention it to receive a test message.",
         integration: {
-          isActive: integration.isActive,
           guildCount: status?.guildCount,
         },
       };
@@ -2623,14 +2310,6 @@ export async function testConnection(
       return {
         success: false,
         message: `Test connection is not supported for ${integration.platform}.`,
-        integration,
-      };
-    }
-
-    if (!integration.isActive) {
-      return {
-        success: false,
-        message: "Chat Integration integration is disabled.",
         integration,
       };
     }
@@ -2653,9 +2332,6 @@ export async function testConnection(
         message: "Telegram webhook is not configured correctly. Re-save the bot token.",
         integration: {
           webhookUrl: integration.webhookUrl,
-          isActive: integration.isActive,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           totalRequests: integration.totalRequests,
           lastUsedAt: integration.lastUsedAt,
         },
@@ -2699,9 +2375,6 @@ export async function testConnection(
         : "Telegram webhook is configured and active. Link an account and message the bot to receive a test in Telegram.",
       integration: {
         webhookUrl: integration.webhookUrl,
-        isActive: integration.isActive,
-        allowPlanMode: integration.allowPlanMode,
-        allowWorkflowExecution: integration.allowWorkflowExecution,
         totalRequests: integration.totalRequests,
         lastUsedAt: integration.lastUsedAt,
       },

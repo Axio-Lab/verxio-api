@@ -17,8 +17,6 @@ import {
   useWhatsAppStatus,
   useSaveSlackBotToken,
   useSaveDiscordBotToken,
-  useGenerateSoulMd,
-  useSaveSoulMd,
 } from "@/hooks/useChatIntegrations";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import { useSkills } from "@/hooks/useSkills";
@@ -124,8 +122,6 @@ export function ChatIntegrationsSetup({
   const connectWhatsApp = useConnectWhatsApp(selectedIntegrationId || "");
   const saveSlackToken = useSaveSlackBotToken(selectedIntegrationId || "");
   const saveDiscordToken = useSaveDiscordBotToken(selectedIntegrationId || "");
-  const generateSoulMd = useGenerateSoulMd(selectedIntegrationId || "");
-  const saveSoulMd = useSaveSoulMd(selectedIntegrationId || "");
   const selectedPlatform = integrationsData?.integrations?.find(
     (i) => i.id === selectedIntegrationId
   )?.platform;
@@ -148,29 +144,6 @@ export function ChatIntegrationsSetup({
   const [newPlatform, setNewPlatform] = useState<"TELEGRAM" | "WHATSAPP" | "DISCORD" | "SLACK">(
     "TELEGRAM"
   );
-  const [newScope, setNewScope] = useState<"SINGLE_WORKFLOW" | "ALL_WORKFLOWS" | "ALLOW_LIST">(
-    "ALL_WORKFLOWS"
-  );
-  const [newScopeWorkflowId, setNewScopeWorkflowId] = useState("none");
-  const [newAllowedWorkflowIds, setNewAllowedWorkflowIds] = useState<string[]>([]);
-
-  // Soul/personality state
-  const [soulUpdateExpanded, setSoulUpdateExpanded] = useState(false);
-  const [soulTab, setSoulTab] = useState<string>("paste");
-  const [soulPasteContent, setSoulPasteContent] = useState("");
-  const [soulGenName, setSoulGenName] = useState("");
-  const [soulGenDescription, setSoulGenDescription] = useState("");
-  const [soulGenTone, setSoulGenTone] = useState("friendly");
-  const [soulGenCoreTruths, setSoulGenCoreTruths] = useState("");
-  const [soulGenBoundaries, setSoulGenBoundaries] = useState("");
-  const [soulPreview, setSoulPreview] = useState<string | null>(null);
-  const [evolvePersonality, setEvolvePersonality] = useState(false);
-
-  // Skill selection draft (saved on "Save" click — scope + selected skills batched)
-  const [skillScopeDraft, setSkillScopeDraft] = useState<
-    "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS"
-  >("ALL_SKILLS");
-  const [selectedSkillIdsDraft, setSelectedSkillIdsDraft] = useState<string[]>([]);
 
   useEffect(() => {
     if (initialIntegrationId) {
@@ -192,22 +165,6 @@ export function ChatIntegrationsSetup({
     if (integration?.label) {
       setLabelDraft(integration.label);
     }
-    // Load soul state
-    if (integration?.soulMd) {
-      setSoulPasteContent(integration.soulMd);
-      setSoulPreview(integration.soulMd);
-    } else {
-      setSoulPasteContent("");
-      setSoulPreview(null);
-    }
-    setEvolvePersonality(integration?.evolvePersonality ?? false);
-    // Pre-fill generation name from label
-    setSoulGenName(integration?.label || "");
-    // Sync skill scope + selection draft
-    setSkillScopeDraft(
-      (integration?.skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS") || "ALL_SKILLS"
-    );
-    setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
     // Pre-fill Discord fields when token is set (for Edit mode)
     if (integration?.platform === "DISCORD" && integration?.discordClientId) {
       setDiscordClientId(integration.discordClientId);
@@ -251,26 +208,14 @@ export function ChatIntegrationsSetup({
       toast.error("Please enter a label for this integration.");
       return;
     }
-    const scopeWorkflowId =
-      newScope === "SINGLE_WORKFLOW"
-        ? newScopeWorkflowId === "none"
-          ? null
-          : newScopeWorkflowId
-        : null;
-    const allowedWorkflowIds = newScope === "ALLOW_LIST" ? newAllowedWorkflowIds : [];
     createIntegration.mutate(
       {
         label: newLabel.trim(),
         platform: newPlatform,
-        scope: newScope,
-        scopeWorkflowId,
-        allowedWorkflowIds,
       },
       {
         onSuccess: (result) => {
           setNewLabel("");
-          setNewScopeWorkflowId("none");
-          setNewAllowedWorkflowIds([]);
           setSelectedIntegrationId(result.integration.id);
           // If in createOnly mode, navigate back to integrations page
           if (createOnly) {
@@ -317,71 +262,6 @@ export function ChatIntegrationsSetup({
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Workflow Scope</Label>
-            <Select value={newScope} onValueChange={(value) => setNewScope(value as any)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
-                <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
-                <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {newScope === "SINGLE_WORKFLOW" && (
-            <div className="space-y-2">
-              <Label>Scoped Workflow</Label>
-              <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select workflow" />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
-                >
-                  <SelectItem value="none">None</SelectItem>
-                  {workflows.map((workflow) => (
-                    <SelectItem key={workflow.id} value={workflow.id}>
-                      {workflow.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {newScope === "ALLOW_LIST" && (
-            <div className="space-y-2">
-              <Label>Allowed Workflows</Label>
-              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
-                <div className="grid gap-2 md:grid-cols-2">
-                  {workflows.map((workflow) => {
-                    const checked = newAllowedWorkflowIds.includes(workflow.id);
-                    return (
-                      <label
-                        key={workflow.id}
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            setNewAllowedWorkflowIds((current) =>
-                              e.target.checked
-                                ? Array.from(new Set([...current, workflow.id]))
-                                : current.filter((id) => id !== workflow.id)
-                            );
-                          }}
-                        />
-                        <span>{workflow.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
           <div className="flex items-center gap-2">
             <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
               {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -429,71 +309,6 @@ export function ChatIntegrationsSetup({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Scope</Label>
-            <Select value={newScope} onValueChange={(value) => setNewScope(value as any)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
-                <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
-                <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {newScope === "SINGLE_WORKFLOW" && (
-            <div className="space-y-2">
-              <Label>Scoped Workflow</Label>
-              <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select workflow" />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
-                >
-                  <SelectItem value="none">None</SelectItem>
-                  {workflows.map((workflow) => (
-                    <SelectItem key={workflow.id} value={workflow.id}>
-                      {workflow.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {newScope === "ALLOW_LIST" && (
-            <div className="space-y-2">
-              <Label>Allowed Workflows</Label>
-              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
-                <div className="grid gap-2 md:grid-cols-2">
-                  {workflows.map((workflow) => {
-                    const checked = newAllowedWorkflowIds.includes(workflow.id);
-                    return (
-                      <label
-                        key={workflow.id}
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            setNewAllowedWorkflowIds((current) =>
-                              e.target.checked
-                                ? Array.from(new Set([...current, workflow.id]))
-                                : current.filter((id) => id !== workflow.id)
-                            );
-                          }}
-                        />
-                        <span>{workflow.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
           <div className="flex items-center gap-2">
             <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
               {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -561,28 +376,6 @@ export function ChatIntegrationsSetup({
     setBotToken("");
   };
 
-  const handleToggleActive = (checked: boolean) => {
-    updateIntegration.mutate({ isActive: checked });
-  };
-
-  const handleTogglePlanMode = (checked: boolean) => {
-    updateIntegration.mutate({ allowPlanMode: checked });
-  };
-
-  const handleToggleWorkflowExecution = (checked: boolean) => {
-    updateIntegration.mutate({ allowWorkflowExecution: checked });
-  };
-
-  const handleDefaultWorkflowChange = (workflowId: string) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    updateIntegration.mutate({
-      defaultWorkflowId: workflowId === "none" ? null : workflowId,
-    });
-  };
-
   const handleLabelSave = () => {
     if (!labelDraft.trim()) {
       toast.error("Label cannot be empty.");
@@ -595,74 +388,10 @@ export function ChatIntegrationsSetup({
     updateIntegration.mutate({ label: labelDraft.trim() });
   };
 
-  const handleScopeChange = (scope: string) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    updateIntegration.mutate({
-      scope: scope as any,
-      scopeWorkflowId: scope === "SINGLE_WORKFLOW" ? integration?.scopeWorkflowId || null : null,
-      allowedWorkflowIds: scope === "ALLOW_LIST" ? integration?.allowedWorkflowIds || [] : [],
-    });
-  };
-
-  const handleScopeWorkflowChange = (workflowId: string) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    updateIntegration.mutate({
-      scopeWorkflowId: workflowId === "none" ? null : workflowId,
-    });
-  };
-
   const handleWhatsAppOnlyOwnerChange = (onlyOwner: boolean) => {
     if (!integration?.id) return;
     updateIntegration.mutate({ whatsappOnlyOwnerCanChat: onlyOwner });
   };
-
-  const handleAllowListToggle = (workflowId: string, checked: boolean) => {
-    if (!integration?.id) {
-      toast.error("Select an integration first.");
-      return;
-    }
-    const current = integration?.allowedWorkflowIds || [];
-    const next = checked
-      ? Array.from(new Set([...current, workflowId]))
-      : current.filter((id) => id !== workflowId);
-    updateIntegration.mutate({ allowedWorkflowIds: next });
-  };
-
-  const handleSkillScopeDraftChange = (skillScope: string) => {
-    const scope = skillScope as "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
-    setSkillScopeDraft(scope);
-    if (scope !== "SELECTED_SKILLS") {
-      setSelectedSkillIdsDraft([]);
-    } else {
-      setSelectedSkillIdsDraft(integration?.allowedSkillIds || []);
-    }
-  };
-
-  const handleSkillDraftToggle = (skillId: string, checked: boolean) => {
-    setSelectedSkillIdsDraft((prev) =>
-      checked ? [...prev, skillId] : prev.filter((id) => id !== skillId)
-    );
-  };
-
-  const handleSaveSkillAccess = () => {
-    if (!integration?.id) return;
-    updateIntegration.mutate({
-      skillScope: skillScopeDraft,
-      allowedSkillIds: skillScopeDraft === "SELECTED_SKILLS" ? selectedSkillIdsDraft : [],
-    });
-  };
-
-  const skillAccessHasChanges =
-    skillScopeDraft !== (integration?.skillScope || "ALL_SKILLS") ||
-    (skillScopeDraft === "SELECTED_SKILLS" &&
-      JSON.stringify([...selectedSkillIdsDraft].sort()) !==
-        JSON.stringify([...(integration?.allowedSkillIds || [])].sort()));
 
   const handleUnlinkIdentity = (platform: string, externalId: string) => {
     unlinkIdentity.mutate({ platform, externalId });
@@ -724,71 +453,6 @@ export function ChatIntegrationsSetup({
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Workflow Scope</Label>
-              <Select value={newScope} onValueChange={(value) => setNewScope(value as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
-                  <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
-                  <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {newScope === "SINGLE_WORKFLOW" && (
-              <div className="space-y-2">
-                <Label>Scoped Workflow</Label>
-                <Select value={newScopeWorkflowId} onValueChange={setNewScopeWorkflowId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select workflow" />
-                  </SelectTrigger>
-                  <SelectContent
-                    side="bottom"
-                    className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
-                  >
-                    <SelectItem value="none">None</SelectItem>
-                    {workflows.map((workflow) => (
-                      <SelectItem key={workflow.id} value={workflow.id}>
-                        {workflow.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {newScope === "ALLOW_LIST" && (
-              <div className="space-y-2">
-                <Label>Allowed Workflows</Label>
-                <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {workflows.map((workflow) => {
-                      const checked = newAllowedWorkflowIds.includes(workflow.id);
-                      return (
-                        <label
-                          key={workflow.id}
-                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              setNewAllowedWorkflowIds((current) =>
-                                e.target.checked
-                                  ? Array.from(new Set([...current, workflow.id]))
-                                  : current.filter((id) => id !== workflow.id)
-                              );
-                            }}
-                          />
-                          <span>{workflow.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
             <div className="flex items-center gap-2">
               <Button onClick={handleCreateIntegration} disabled={createIntegration.isPending}>
                 {createIntegration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1044,9 +708,8 @@ export function ChatIntegrationsSetup({
             </div>
             {integration?.whatsappOnlyOwnerCanChat === false && (
               <p className="text-sm text-muted-foreground">
-                Customer support mode: anyone who messages this number can chat with the agent. Set
-                scope to &quot;Single workflow&quot; below and select your Enquiries (or support)
-                workflow with skills and documents.
+                Customer support mode: anyone who messages this number can chat with the agent.
+                Configure skills and knowledge below for the best experience.
               </p>
             )}
           </CardContent>
@@ -1421,359 +1084,11 @@ export function ChatIntegrationsSetup({
           </Card>
         )}
 
-      {/* Agent Personality (soul.md) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            Agent Personality
-          </CardTitle>
-          <CardDescription>
-            Give your agent a unique personality. Display your current personality below, or update
-            it by pasting, uploading, or generating.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Display existing personality (like skills) */}
-          {(integration?.hasSoulMd || integration?.soulMd || soulPreview) && (
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                Current Personality
-              </h4>
-              <pre className="text-xs whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
-                {soulPreview || integration?.soulMd || ""}
-              </pre>
-            </div>
-          )}
-
-          {/* Update personality: button toggles options */}
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSoulUpdateExpanded(!soulUpdateExpanded)}
-              className="gap-2"
-            >
-              {soulUpdateExpanded ? (
-                <>
-                  <XCircle className="h-3.5 w-3.5" />
-                  Hide options
-                </>
-              ) : (
-                <>
-                  <FileText className="h-3.5 w-3.5" />
-                  {integration?.hasSoulMd || soulPreview ? "Update personality" : "Set personality"}
-                </>
-              )}
-            </Button>
-            {soulUpdateExpanded && (
-              <Tabs value={soulTab} onValueChange={setSoulTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="paste" className="flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5" />
-                    Paste
-                  </TabsTrigger>
-                  <TabsTrigger value="upload" className="flex items-center gap-1.5">
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload
-                  </TabsTrigger>
-                  <TabsTrigger value="generate" className="flex items-center gap-1.5">
-                    <Wand2 className="h-3.5 w-3.5" />
-                    Generate
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Paste Tab — pre-filled with existing personality, editable, Save */}
-                <TabsContent value="paste" className="space-y-3 mt-3">
-                  <Textarea
-                    placeholder={`## Core Truths\n- I believe in being helpful and direct\n- ...\n\n## Boundaries\n- I never share private data\n- ...\n\n## The Vibe\nI'm friendly, concise, and a little witty...`}
-                    value={soulPasteContent}
-                    onChange={(e) => setSoulPasteContent(e.target.value)}
-                    rows={10}
-                    className="font-mono text-xs"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={!soulPasteContent.trim() || saveSoulMd.isPending}
-                    onClick={() => {
-                      saveSoulMd.mutate(
-                        { soulMd: soulPasteContent },
-                        {
-                          onSuccess: () => {
-                            setSoulPreview(soulPasteContent);
-                          },
-                        }
-                      );
-                    }}
-                  >
-                    {saveSoulMd.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : null}
-                    Save Personality
-                  </Button>
-                </TabsContent>
-
-                {/* Upload Tab */}
-                <TabsContent value="upload" className="space-y-3 mt-3">
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Upload a <code>.md</code> file with your agent&apos;s personality
-                    </p>
-                    <Input
-                      type="file"
-                      accept=".md,.txt,.markdown"
-                      className="max-w-xs mx-auto"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const text = await file.text();
-                        setSoulPasteContent(text);
-                        saveSoulMd.mutate(
-                          { soulMd: text },
-                          {
-                            onSuccess: () => {
-                              setSoulPreview(text);
-                              toast.success("Personality file uploaded and saved");
-                            },
-                          }
-                        );
-                      }}
-                    />
-                  </div>
-                </TabsContent>
-
-                {/* Generate Tab */}
-                <TabsContent value="generate" className="space-y-3 mt-3">
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs font-medium">Agent Name</Label>
-                      <Input
-                        placeholder="e.g., Distro"
-                        value={soulGenName}
-                        onChange={(e) => setSoulGenName(e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium">Description</Label>
-                      <Textarea
-                        placeholder="What does this agent do? e.g., Helps users manage their workflow automations and schedules..."
-                        value={soulGenDescription}
-                        onChange={(e) => setSoulGenDescription(e.target.value)}
-                        rows={3}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium">Tone</Label>
-                      <Select value={soulGenTone} onValueChange={setSoulGenTone}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="professional">Professional</SelectItem>
-                          <SelectItem value="friendly">Friendly</SelectItem>
-                          <SelectItem value="witty">Witty</SelectItem>
-                          <SelectItem value="sarcastic">Sarcastic</SelectItem>
-                          <SelectItem value="formal">Formal</SelectItem>
-                          <SelectItem value="creative">Creative</SelectItem>
-                          <SelectItem value="empathetic">Empathetic</SelectItem>
-                          <SelectItem value="concise">Concise</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium">Core Truths (optional)</Label>
-                      <Textarea
-                        placeholder="What does your agent believe in? Its values and principles..."
-                        value={soulGenCoreTruths}
-                        onChange={(e) => setSoulGenCoreTruths(e.target.value)}
-                        rows={2}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium">Boundaries (optional)</Label>
-                      <Textarea
-                        placeholder="Hard limits — things the agent should never do..."
-                        value={soulGenBoundaries}
-                        onChange={(e) => setSoulGenBoundaries(e.target.value)}
-                        rows={2}
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={
-                        !soulGenName.trim() ||
-                        !soulGenDescription.trim() ||
-                        generateSoulMd.isPending
-                      }
-                      onClick={() => {
-                        generateSoulMd.mutate(
-                          {
-                            name: soulGenName,
-                            description: soulGenDescription,
-                            tone: soulGenTone,
-                            coreTruths: soulGenCoreTruths || undefined,
-                            boundaries: soulGenBoundaries || undefined,
-                          },
-                          {
-                            onSuccess: (result) => {
-                              setSoulPreview(result.soulMd);
-                              setSoulPasteContent(result.soulMd);
-                              saveSoulMd.mutate({ soulMd: result.soulMd });
-                              // Clear generation fields after AI generates
-                              setSoulGenName("");
-                              setSoulGenDescription("");
-                              setSoulGenTone("friendly");
-                              setSoulGenCoreTruths("");
-                              setSoulGenBoundaries("");
-                              setSoulTab("paste");
-                            },
-                          }
-                        );
-                      }}
-                    >
-                      {generateSoulMd.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-4 w-4 mr-2" />
-                      )}
-                      Generate Personality (20 credits)
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
-
-          {/* Evolve toggle */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Allow personality to evolve</Label>
-              <p className="text-xs text-muted-foreground">
-                The agent can refine its personality over time based on your interactions.
-              </p>
-            </div>
-            <Switch
-              checked={evolvePersonality}
-              onCheckedChange={(checked) => {
-                setEvolvePersonality(checked);
-                updateIntegration.mutate({ evolvePersonality: checked });
-              }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Skill Access */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Skill Access
-          </CardTitle>
-          <CardDescription>
-            Choose which custom skills this agent can use. Skills extend the agent&apos;s
-            capabilities with your knowledge and instructions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Skill scope</Label>
-            <Select value={skillScopeDraft} onValueChange={handleSkillScopeDraftChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select skill scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL_SKILLS">All skills</SelectItem>
-                <SelectItem value="SELECTED_SKILLS">Select skills</SelectItem>
-                <SelectItem value="NO_SKILLS">No skills</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {skillScopeDraft === "ALL_SKILLS" && "Agent has access to all your custom skills."}
-              {skillScopeDraft === "SELECTED_SKILLS" &&
-                "Agent can only use the skills you select below."}
-              {skillScopeDraft === "NO_SKILLS" &&
-                "Agent has no custom skills — only built-in capabilities."}
-            </p>
-          </div>
-
-          {skillScopeDraft === "SELECTED_SKILLS" && (
-            <div className="space-y-3">
-              <Label>Choose skills for this agent</Label>
-              <p className="text-xs text-muted-foreground">
-                Select the skills you want this agent to use. Click Save skills when done.
-              </p>
-              <div className="max-h-[200px] overflow-y-auto rounded-md border p-2">
-                {(skillsData?.skills ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No skills yet.{" "}
-                    <NextLink href="/skills" className="text-primary underline">
-                      Create a skill
-                    </NextLink>{" "}
-                    to add knowledge for your agent.
-                  </p>
-                ) : (
-                  <div className="grid gap-2">
-                    {(skillsData?.skills ?? []).map((skill) => {
-                      const checked = selectedSkillIdsDraft.includes(skill.id);
-                      return (
-                        <label
-                          key={skill.id}
-                          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => handleSkillDraftToggle(skill.id, e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="font-medium">{skill.name}</span>
-                          {skill.description && (
-                            <span className="text-muted-foreground text-xs truncate">
-                              — {skill.description}
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              {(skillsData?.skills ?? []).length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Select skills above, then click Save below.
-                </p>
-              )}
-            </div>
-          )}
-
-          {skillAccessHasChanges && (
-            <Button
-              size="sm"
-              onClick={handleSaveSkillAccess}
-              disabled={updateIntegration.isPending}
-            >
-              {updateIntegration.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
-              Save
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Settings</CardTitle>
-          <CardDescription>
-            Control how your AI Coworker can interact with your workflows.
-          </CardDescription>
+          <CardDescription>Configure your AI Coworker identity and platform.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -1809,132 +1124,6 @@ export function ChatIntegrationsSetup({
             <p className="text-xs text-muted-foreground">
               Platform cannot be changed after creation — each uses different configuration.
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Workflow Scope</Label>
-            <Select value={integration?.scope} onValueChange={handleScopeChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL_WORKFLOWS">All workflows</SelectItem>
-                <SelectItem value="SINGLE_WORKFLOW">Single workflow</SelectItem>
-                <SelectItem value="ALLOW_LIST">Allow list</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {integration?.scope === "SINGLE_WORKFLOW" && (
-            <div className="space-y-2">
-              <Label>Scoped Workflow</Label>
-              <Select
-                value={integration?.scopeWorkflowId || "none"}
-                onValueChange={handleScopeWorkflowChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select workflow" />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  className="max-h-[300px] w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
-                >
-                  <SelectItem value="none">None</SelectItem>
-                  {workflows.map((workflow) => (
-                    <SelectItem key={workflow.id} value={workflow.id}>
-                      {workflow.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {integration?.scope === "ALLOW_LIST" && (
-            <div className="space-y-2">
-              <Label>Allowed Workflows</Label>
-              <div className="max-h-[300px] overflow-y-auto rounded-md border p-2">
-                <div className="grid gap-2 md:grid-cols-2">
-                  {workflows.map((workflow) => {
-                    const checked = integration?.allowedWorkflowIds?.includes(workflow.id) || false;
-                    return (
-                      <label
-                        key={workflow.id}
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => handleAllowListToggle(workflow.id, e.target.checked)}
-                        />
-                        <span>{workflow.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Coworker Active</Label>
-              <p className="text-sm text-muted-foreground">Enable or disable this AI Coworker.</p>
-            </div>
-            <Switch
-              checked={integration?.isActive || false}
-              onCheckedChange={handleToggleActive}
-              disabled={updateIntegration.isPending}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Allow Plan Mode</Label>
-              <p className="text-sm text-muted-foreground">
-                Let AI Coworker create and modify workflows using plan mode.
-              </p>
-            </div>
-            <Switch
-              checked={integration?.allowPlanMode || false}
-              onCheckedChange={handleTogglePlanMode}
-              disabled={updateIntegration.isPending}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Allow Workflow Execution</Label>
-              <p className="text-sm text-muted-foreground">
-                Let AI Coworker trigger workflow runs from chat commands.
-              </p>
-            </div>
-            <Switch
-              checked={integration?.allowWorkflowExecution || false}
-              onCheckedChange={handleToggleWorkflowExecution}
-              disabled={updateIntegration.isPending}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Default Workflow for Planning</Label>
-            <Select
-              value={integration?.defaultWorkflowId || "none"}
-              onValueChange={handleDefaultWorkflowChange}
-              disabled={updateIntegration.isPending}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a workflow" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Create new workflow for each session</SelectItem>
-                {workflows.map((workflow) => (
-                  <SelectItem key={workflow.id} value={workflow.id}>
-                    {workflow.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>

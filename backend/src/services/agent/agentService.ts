@@ -234,8 +234,6 @@ export interface AgentQueryOptions {
   abortController?: AbortController;
   /** Media attachments from the user (images, audio, video, documents) */
   attachments?: MediaAttachment[];
-  /** Agent personality for soul.md injection */
-  agentPersonality?: AgentPersonality;
 }
 
 export interface AgentStreamEvent {
@@ -361,20 +359,14 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
     maxTurns = 10,
     abortController,
     attachments,
-    agentPersonality,
   } = options;
 
   const model = getModel(modelOverride);
 
   try {
-    // Create tool context (include soul evolution info and skill scope when personality is set)
     const toolContext: ToolContext = {
       userId,
       workflowId,
-      integrationId: agentPersonality?.integrationId,
-      evolvePersonality: agentPersonality?.evolvePersonality,
-      skillScope: agentPersonality?.skillScope,
-      allowedSkillIds: agentPersonality?.allowedSkillIds,
     };
 
     // Create Verxio MCP server with custom tools
@@ -425,28 +417,6 @@ export async function* runAgentQuery(options: AgentQueryOptions): AsyncGenerator
       if (composioUrl) {
         composioMcpConfig = { type: "http", url: composioUrl };
       }
-    }
-
-    // Filter skills based on integration config (when from chat integration)
-    if (agentPersonality?.skillScope !== undefined) {
-      const allSkills = userContext.userSkills as Array<{
-        id: string;
-        name: string;
-        description?: string | null;
-        content: string;
-      }>;
-      let filteredSkills: typeof allSkills;
-      if (agentPersonality.skillScope === "NO_SKILLS") {
-        filteredSkills = [];
-      } else if (
-        agentPersonality.skillScope === "SELECTED_SKILLS" &&
-        agentPersonality.allowedSkillIds?.length
-      ) {
-        filteredSkills = allSkills.filter((s) => agentPersonality.allowedSkillIds!.includes(s.id));
-      } else {
-        filteredSkills = allSkills;
-      }
-      userContext = { ...userContext, userSkills: filteredSkills };
     }
 
     // Build system prompt
@@ -764,18 +734,29 @@ export async function generateWorkflowWithAgent(
 // ============================================
 
 const WORKFLOW_SESSION_CONTEXT = `
-All capabilities, node types, research/TinyFish/Composio rules, plan mode, single-node execution, workflow-building instructions, task management, and goal orchestration are in your system prompt. Follow them.
-`;
+You are Verxio, an autonomous AI operations assistant with FULL access to every feature on the platform.
 
-export interface AgentPersonality {
-  name: string;
-  soulMd: string;
-  evolvePersonality: boolean;
-  integrationId?: string;
-  /** Skill access for chat integration: scope and allowed skill IDs when SELECTED_SKILLS */
-  skillScope?: "ALL_SKILLS" | "SELECTED_SKILLS" | "NO_SKILLS";
-  allowedSkillIds?: string[];
-}
+## Core Principles
+1. **Act, don't ask.** When the user's intent is clear, execute immediately. Do not ask for confirmation unless the action is destructive (deleting resources) or ambiguous.
+2. **Chain actions.** If a task requires multiple steps (e.g. "create a support agent with a knowledge base"), complete all steps in sequence without pausing between them.
+3. **Report results.** After executing, provide a clear summary of what was done, including relevant IDs, names, and links.
+4. **Be autonomous.** You have tools for everything: workflows, support agents, knowledge bases, credentials, connections, organizations, templates, analytics, goals, skills, subagents, memory, watches, Composio integrations, and web browsing. Use them proactively.
+
+## Available Capabilities
+- Workflow management: create, edit nodes, connect, run, delete, rename, list
+- Support agents: create, configure, update, delete, manage channels
+- Knowledge bases: create, add documents, search, delete
+- Credentials: create, update, delete, check
+- Connections: create MCP/DB/docs connections, test, delete
+- Organization: create orgs, invite members, share resources
+- Templates: browse marketplace, import as workflows
+- Analytics: view execution metrics, generate AI insights
+- Goals: create, decompose, pause, resume, delete, report
+- Skills & subagents: full CRUD
+- Web browsing, Composio actions, memory, watches
+
+All node types, research/TinyFish/Composio rules, plan mode, single-node execution, workflow-building instructions, task management, and goal orchestration are in your system prompt. Follow them.
+`;
 
 export async function* chatWithAgent(options: {
   userId: string;
@@ -786,33 +767,19 @@ export async function* chatWithAgent(options: {
     similarWorkflows?: Array<{ description: string; nodes: string[] }>;
     userPreferences?: Record<string, unknown>;
   };
-  agentPersonality?: AgentPersonality;
   attachments?: MediaAttachment[];
+  /** When true the agent operates as a general-purpose assistant (dashboard chat / coworker).
+   *  It can create new workflows, manage any resource, etc.
+   *  When false (default), the agent is constrained to a specific workflow on the canvas (plan dialog). */
+  isGeneralChat?: boolean;
 }): AsyncGenerator<AgentStreamEvent> {
-  // Build soul/personality preamble if available
-  let soulPreamble = "";
-  if (options.agentPersonality?.soulMd) {
-    const { name, soulMd, evolvePersonality } = options.agentPersonality;
-    soulPreamble = `## Your Identity
-Your name is **${name}**. You are the user's personal workflow and automation assistant.
-When asked "who are you", respond with your name and personality — you are ${name}, powered by Verxio.
+  let enhancedPrompt: string;
 
-## Your Personality (soul.md)
-${soulMd}
-
-${
-  evolvePersonality
-    ? `## Personality Evolution
-You may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n`
-    : ""
-}
----
-
-`;
+  if (options.isGeneralChat) {
+    enhancedPrompt = `${WORKFLOW_SESSION_CONTEXT}\n\nYou have full access to all of the user's resources. You can create new workflows, manage any existing workflow, create support agents, knowledge bases, credentials, connections, organizations, and everything else on the platform. When the user asks you to build a workflow, create a NEW one with createWorkflow (do NOT reuse the workspace workflow). For node operations on a specific workflow, always specify its workflowId.\n\n`;
+  } else {
+    enhancedPrompt = `${WORKFLOW_SESSION_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
   }
-
-  // Build enhanced prompt with workflow session context
-  let enhancedPrompt = `${soulPreamble}${WORKFLOW_SESSION_CONTEXT}\n\n**CRITICAL: You are working on an EXISTING workflow that is already on the canvas. The workflow ID is: ${options.workflowId}**\n\n**IMPORTANT RULES:**\n1. NEVER call createWorkflow - the workflow already exists\n2. ALWAYS use workflowId: "${options.workflowId}" when adding/updating nodes\n3. When generating a new workflow, REPLACE existing nodes (delete old ones if needed, then add new ones)\n4. This ensures the new workflow replaces the old one on the canvas instead of creating duplicates\n\n`;
 
   // Add learning context if available
   if (options.learningContext?.similarWorkflows?.length) {
@@ -832,7 +799,6 @@ You may refine your personality over time. If you notice patterns in how the use
     conversationHistory: options.conversationHistory,
     attachments: options.attachments,
     maxTurns: 15,
-    agentPersonality: options.agentPersonality,
   })) {
     yield event;
   }

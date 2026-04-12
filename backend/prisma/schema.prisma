@@ -764,23 +764,17 @@ model ChatIntegration {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label           String   @default("Chat Integration") // User-defined label
+  label           String   @default("Chat Integration")
   platform        ChatPlatform @default(TELEGRAM)
-  scope           ChatScope    @default(ALL_WORKFLOWS)
-  scopeWorkflowId String?  // Workflow ID for SINGLE_WORKFLOW scope
-  allowedWorkflowIds String[] @default([]) // Workflow IDs for ALLOW_LIST scope
   /// @encrypted
-  sharedSecret    String   // Secret for authenticating incoming requests
+  sharedSecret    String
   /// @encrypted
-  telegramBotToken String? // Optional Telegram bot token for guided setup
-  telegramBotUsername String?  // Bot username (without @), fetched via getMe
-  telegramBotId      String?  // Bot's Telegram user ID (for reply detection in groups)
-  isActive        Boolean  @default(true)
-  webhookUrl      String?  // Generated webhook URL for external services to call
-  defaultWorkflowId String? // Optional default workflow to use
-  lastRunWorkflowId String? // Last workflow run via chat integration
-  allowPlanMode   Boolean  @default(true) // Allow plan mode interactions
-  allowWorkflowExecution Boolean @default(true) // Allow direct workflow execution
+  telegramBotToken String?
+  telegramBotUsername String?
+  telegramBotId      String?
+  webhookUrl      String?
+  defaultWorkflowId String?
+  lastRunWorkflowId String?
   externalIdentities ExternalIdentity[]
   lastUsedAt      DateTime?
   totalRequests   Int      @default(0)
@@ -806,18 +800,9 @@ model ChatIntegration {
   discordGuildId      String?  // Server/guild ID (optional, for scoping)
   discordBotUserId    String?  // Bot's own user ID (to ignore self-messages)
 
-  // Agent personality (soul.md)
-  soulMd             String?  @db.Text  // Personality markdown (soul.md content)
-  evolvePersonality  Boolean  @default(false) // Allow agent to refine its own soul over time
-
-  // Skill access
-  skillScope         SkillScope @default(ALL_SKILLS) // ALL_SKILLS | SELECTED_SKILLS | NO_SKILLS
-  allowedSkillIds    String[] @default([]) // Skill IDs when skillScope is SELECTED_SKILLS
-
   @@unique([userId, label])
   @@index([userId])
   @@index([platform])
-  @@index([scope])
   @@index([whatsappSessionId])
   @@map("chat_integrations")
 }
@@ -853,17 +838,6 @@ enum ChatPlatform {
   SLACK
 }
 
-enum ChatScope {
-  SINGLE_WORKFLOW
-  ALL_WORKFLOWS
-  ALLOW_LIST
-}
-
-enum SkillScope {
-  ALL_SKILLS     // Agent has access to all user custom skills
-  SELECTED_SKILLS // Agent has access only to selected skills
-  NO_SKILLS      // Agent has no custom skills
-}
 
 model UserSkill {
   id          String   @id @default(cuid())

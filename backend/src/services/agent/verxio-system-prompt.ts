@@ -741,7 +741,6 @@ export const getVerxioSystemPrompt = async (options?: {
   availableCredentials?: Array<{ type: string; name: string }>;
   userSkills?: Array<{ name: string; description?: string; content: string }>;
   composioConnectedApps?: Array<{ id: string; appSlug: string; status: string }>;
-  agentPersonality?: { name: string; soulMd: string; evolvePersonality: boolean };
 }) => {
   // Load built-in skill metadata and guide metadata in parallel (progressive disclosure)
   const [builtInSkillsMetadata, guideMetadata] = await Promise.all([
@@ -752,16 +751,7 @@ export const getVerxioSystemPrompt = async (options?: {
     Promise.resolve(discoverGuides()),
   ]);
 
-  // Build identity section — use agent personality if available
-  const personality = options?.agentPersonality;
-  const identitySection = personality?.soulMd
-    ? `Your name is **${personality.name}**. You are the user's operations partner, built to run and scale their business.
-When asked "who are you", respond with your name and personality — you are ${personality.name}, an operations partner that helps run, automate, and scale business operations.
-
-## Your Personality (soul.md)
-${personality.soulMd}
-${personality.evolvePersonality ? `\n## Personality Evolution\nYou may refine your personality over time. If you notice patterns in how the user prefers to interact, you can propose an update to your soul by calling the updateSoulMd tool. Only do this when you have clear evidence of user preferences, not speculatively.\n` : ""}`
-    : `Your name is **Verxio**. You are the user's operations partner, built to run and scale their business.`;
+  const identitySection = `Your name is **Verxio**. You are the user's operations partner, built to run and scale their business.`;
 
   return `
 ${PROMPT_INJECTION_SECURITY_PREAMBLE}
@@ -981,11 +971,6 @@ If the user asked for content (scripts, posts, calendars, frameworks), produce i
 **3. Deep planning with the user**
 - Prefer one clarifying question at a time when the request is vague.
 - Offer alternatives when there are multiple valid designs.
-
-**4. Plan persona and skill scope**
-- When the user has configured a Plan persona (soul + skill scope), use that personality and prioritize the allowed skills for planning suggestions.
-- For example, a content writing persona with content writer skills should focus on those skills when planning content workflows.
-- If skill scope is SELECTED_SKILLS, use only the allowed skills; if NO_SKILLS, rely on built-in capabilities; if ALL_SKILLS, use all available skills.
 
 ### Building/Updating Workflows (CRITICAL)
 When building or updating a workflow, you MUST:

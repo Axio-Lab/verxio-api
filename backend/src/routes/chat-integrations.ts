@@ -59,15 +59,8 @@ chatIntegrationRouter.get(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
           webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           totalRequests: integration.totalRequests,
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
@@ -80,13 +73,6 @@ chatIntegrationRouter.get(
           discordBotTokenSet: !!integration.discordBotToken,
           discordBotUserId: integration.discordBotUserId,
           discordClientId: integration.discordClientId,
-          // Agent personality
-          hasSoulMd: !!integration.soulMd,
-          soulMd: integration.soulMd || null,
-          evolvePersonality: integration.evolvePersonality ?? false,
-          // Skill access
-          skillScope: integration.skillScope ?? "ALL_SKILLS",
-          allowedSkillIds: integration.allowedSkillIds || [],
         })),
       });
     } catch (error) {
@@ -105,20 +91,7 @@ chatIntegrationRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const {
-        label,
-        platform,
-        scope,
-        scopeWorkflowId,
-        allowedWorkflowIds,
-        isActive,
-        allowPlanMode,
-        allowWorkflowExecution,
-        soulMd,
-        evolvePersonality,
-        skillScope,
-        allowedSkillIds,
-      } = req.body;
+      const { label, platform } = req.body;
 
       if (!label || typeof label !== "string") {
         throw new AppError("Integration label is required", 400);
@@ -148,16 +121,6 @@ chatIntegrationRouter.post(
       const integration = await chatIntegrationService.createIntegration(user.id, {
         label: label.trim(),
         platform,
-        scope,
-        scopeWorkflowId,
-        allowedWorkflowIds,
-        isActive,
-        allowPlanMode,
-        allowWorkflowExecution,
-        soulMd,
-        evolvePersonality,
-        skillScope,
-        allowedSkillIds,
       });
 
       res.json({
@@ -166,20 +129,9 @@ chatIntegrationRouter.post(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
           webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
-          hasSoulMd: !!integration.soulMd,
-          evolvePersonality: integration.evolvePersonality ?? false,
-          skillScope: integration.skillScope ?? "ALL_SKILLS",
-          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -210,15 +162,8 @@ chatIntegrationRouter.get(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
           webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           totalRequests: integration.totalRequests,
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
@@ -229,11 +174,6 @@ chatIntegrationRouter.get(
           slackTeamId: integration.slackTeamId,
           discordBotTokenSet: !!integration.discordBotToken,
           discordBotUserId: integration.discordBotUserId,
-          hasSoulMd: !!integration.soulMd,
-          soulMd: integration.soulMd || null,
-          evolvePersonality: integration.evolvePersonality ?? false,
-          skillScope: integration.skillScope ?? "ALL_SKILLS",
-          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -280,23 +220,7 @@ chatIntegrationRouter.put(
     try {
       const user = (req as any).user;
       const { id } = req.params;
-      const {
-        label,
-        platform,
-        scope,
-        scopeWorkflowId,
-        allowedWorkflowIds,
-        isActive,
-        defaultWorkflowId,
-        allowPlanMode,
-        allowWorkflowExecution,
-        telegramBotToken,
-        whatsappOnlyOwnerCanChat,
-        soulMd,
-        evolvePersonality,
-        skillScope,
-        allowedSkillIds,
-      } = req.body;
+      const { label, platform, telegramBotToken, whatsappOnlyOwnerCanChat } = req.body;
 
       if (platform === "TELEGRAM") {
         try {
@@ -322,19 +246,8 @@ chatIntegrationRouter.put(
       const integration = await chatIntegrationService.updateIntegration(user.id, id, {
         label,
         platform,
-        scope,
-        scopeWorkflowId,
-        allowedWorkflowIds,
-        isActive,
-        defaultWorkflowId,
-        allowPlanMode,
-        allowWorkflowExecution,
         telegramBotToken,
         whatsappOnlyOwnerCanChat,
-        soulMd,
-        evolvePersonality,
-        skillScope,
-        allowedSkillIds,
       });
 
       res.json({
@@ -343,19 +256,8 @@ chatIntegrationRouter.put(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
           whatsappOnlyOwnerCanChat: integration.whatsappOnlyOwnerCanChat ?? true,
-          hasSoulMd: !!integration.soulMd,
-          evolvePersonality: integration.evolvePersonality ?? false,
-          skillScope: integration.skillScope ?? "ALL_SKILLS",
-          allowedSkillIds: integration.allowedSkillIds || [],
         },
       });
     } catch (error) {
@@ -518,97 +420,6 @@ chatIntegrationRouter.post(
 );
 
 /**
- * POST /api/chat-integrations/integrations/:id/generate-soul
- * Generate a soul.md personality using Claude (costs 20 credits)
- */
-chatIntegrationRouter.post(
-  "/integrations/:id/generate-soul",
-  betterAuthMiddleware,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = (req as any).user;
-      const { id } = req.params;
-      const { name, description, tone, coreTruths, boundaries } = req.body as {
-        name?: string;
-        description?: string;
-        tone?: string;
-        coreTruths?: string;
-        boundaries?: string;
-      };
-
-      if (!name || !description || !tone) {
-        return res.status(400).json({
-          success: false,
-          error: "name, description, and tone are required.",
-        });
-      }
-
-      // Verify integration ownership
-      const integration = await chatIntegrationService.getIntegration(user.id, id);
-      if (!integration) {
-        throw new AppError("Integration not found", 404);
-      }
-
-      // Consume 20 credits
-      await consumePremiumQuota(user.id, QUOTA_COST.GENERATE_SOUL_MD);
-
-      // Generate soul.md via Claude
-      const soulMd = await chatIntegrationService.generateSoulMd({
-        name,
-        description,
-        tone,
-        coreTruths,
-        boundaries,
-      });
-
-      // Save to integration
-      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
-
-      res.json({
-        success: true,
-        soulMd,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
- * POST /api/chat-integrations/integrations/:id/save-soul
- * Save manually uploaded/pasted soul.md content (free)
- */
-chatIntegrationRouter.post(
-  "/integrations/:id/save-soul",
-  betterAuthMiddleware,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = (req as any).user;
-      const { id } = req.params;
-      const { soulMd } = req.body as { soulMd?: string };
-
-      if (!soulMd || !soulMd.trim()) {
-        return res.status(400).json({
-          success: false,
-          error: "soulMd content is required.",
-        });
-      }
-
-      const integration = await chatIntegrationService.getIntegration(user.id, id);
-      if (!integration) {
-        throw new AppError("Integration not found", 404);
-      }
-
-      await chatIntegrationService.saveSoulMd(user.id, id, soulMd);
-
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
  * POST /api/chat-integrations/integrations/:id/regenerate-secret
  * Regenerate the shared secret
  */
@@ -750,15 +561,8 @@ chatIntegrationRouter.get(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
           webhookUrl: getEffectiveWebhookUrl(integration),
           secretPreview: `${integration.sharedSecret.slice(0, 8)}...${integration.sharedSecret.slice(-4)}`,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           totalRequests: integration.totalRequests,
           lastUsedAt: integration.lastUsedAt,
           createdAt: integration.createdAt,
@@ -806,23 +610,13 @@ chatIntegrationRouter.put(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
-      const {
-        isActive,
-        defaultWorkflowId,
-        allowPlanMode,
-        allowWorkflowExecution,
-        telegramBotToken,
-      } = req.body;
+      const { telegramBotToken } = req.body;
 
       const integrationToUpdate = await requireSingleIntegration(user.id);
       const integration = await chatIntegrationService.updateIntegration(
         user.id,
         integrationToUpdate.id,
         {
-          isActive,
-          defaultWorkflowId,
-          allowPlanMode,
-          allowWorkflowExecution,
           telegramBotToken,
         }
       );
@@ -833,13 +627,6 @@ chatIntegrationRouter.put(
           id: integration.id,
           label: integration.label,
           platform: integration.platform,
-          scope: integration.scope,
-          scopeWorkflowId: integration.scopeWorkflowId,
-          allowedWorkflowIds: integration.allowedWorkflowIds,
-          isActive: integration.isActive,
-          defaultWorkflowId: integration.defaultWorkflowId,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
           telegramBotTokenSet: !!integration.telegramBotToken,
         },
       });
@@ -1719,9 +1506,8 @@ chatIntegrationRouter.get(
           email: user.email,
         },
         integration: {
-          isActive: integration.isActive,
-          allowPlanMode: integration.allowPlanMode,
-          allowWorkflowExecution: integration.allowWorkflowExecution,
+          id: integration.id,
+          label: integration.label,
         },
         identity: externalIdentity
           ? {
