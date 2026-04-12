@@ -5,8 +5,10 @@ import { useState } from "react";
 
 interface Plan {
   name: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
+  monthlyPrice: {
+    USD: number;
+    NGN: number;
+  };
   description: string;
   highlight: boolean;
   features: string[];
@@ -18,8 +20,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name: "Basic",
-    monthlyPrice: 9,
-    yearlyPrice: 86,
+    monthlyPrice: { USD: 9, NGN: 15000 },
     description: "For individuals getting started with agentic operations.",
     highlight: false,
     features: [
@@ -36,8 +37,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Pro",
-    monthlyPrice: 49,
-    yearlyPrice: 470,
+    monthlyPrice: { USD: 49, NGN: 70000 },
     description: "Full operational power for professionals and small teams.",
     highlight: true,
     features: [
@@ -54,8 +54,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Business",
-    monthlyPrice: 99,
-    yearlyPrice: 950,
+    monthlyPrice: { USD: 109, NGN: 150000 },
     description: "For teams that need unlimited operations and collaboration.",
     highlight: false,
     features: [
@@ -72,8 +71,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Agency",
-    monthlyPrice: 500,
-    yearlyPrice: 4800,
+    monthlyPrice: { USD: 500, NGN: 700000 },
     description: "White-label agentic operations for agencies and enterprises.",
     highlight: false,
     features: [
@@ -91,14 +89,26 @@ const PLANS: Plan[] = [
   },
 ];
 
+type Currency = "USD" | "NGN";
+
+function getYearlyPrice(monthly: number): number {
+  return Math.round(monthly * 12 * 0.8); // 20% off annual billing
+}
+
 function getDiscount(monthly: number, yearly: number): number {
   const fullYearly = monthly * 12;
   if (fullYearly === 0) return 0;
   return Math.round(((fullYearly - yearly) / fullYearly) * 100);
 }
 
+function formatPrice(amount: number, currency: Currency): string {
+  const formatted = amount.toLocaleString();
+  return currency === "NGN" ? `₦${formatted}` : `$${formatted}`;
+}
+
 export function Pricing() {
   const [isYearly, setIsYearly] = useState(true);
+  const [currency, setCurrency] = useState<Currency>("USD");
   const [activePlan, setActivePlan] = useState<string | null>(null);
 
   return (
@@ -137,13 +147,40 @@ export function Pricing() {
           </span>
         </div>
 
+        <div className="mb-12 -mt-6 flex items-center justify-center">
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
+            <button
+              onClick={() => setCurrency("USD")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                currency === "USD"
+                  ? "bg-primary/15 text-primary shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              USD
+            </button>
+            <button
+              onClick={() => setCurrency("NGN")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                currency === "NGN"
+                  ? "bg-primary/15 text-primary shadow-sm"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              NGN
+            </button>
+          </div>
+        </div>
+
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {PLANS.map((plan) => {
-            const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+            const monthlyPrice = plan.monthlyPrice[currency];
+            const yearlyPrice = getYearlyPrice(monthlyPrice);
+            const price = isYearly ? yearlyPrice : monthlyPrice;
             const displayPrice = isYearly
-              ? `$${Math.round(plan.yearlyPrice / 12)}`
-              : `$${plan.monthlyPrice}`;
-            const discount = getDiscount(plan.monthlyPrice, plan.yearlyPrice);
+              ? formatPrice(Math.round(yearlyPrice / 12), currency)
+              : formatPrice(monthlyPrice, currency);
+            const discount = getDiscount(monthlyPrice, yearlyPrice);
             const isActive = activePlan === plan.name;
             const isProPlan = plan.name === "Pro";
             // Pro plan should only have primary styling when active OR when no plan is selected
@@ -173,7 +210,7 @@ export function Pricing() {
                   </div>
                 )}
 
-                <div className="mb-6">
+                <div className="mb-6 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
                     {isYearly && discount > 0 && (
@@ -182,12 +219,18 @@ export function Pricing() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-gray-900">{displayPrice}</span>
-                    <span className="text-sm text-gray-500">/month</span>
+                  <div className="mt-3 flex min-w-0 flex-nowrap items-baseline gap-1.5">
+                    <span className="text-[40px] sm:text-[32px] font-bold leading-none tracking-tight text-gray-900 whitespace-nowrap">
+                      {displayPrice}
+                    </span>
+                    <span className="shrink-0 text-sm text-gray-500">/month</span>
                   </div>
-                  {isYearly && <p className="mt-1 text-xs text-gray-400">${price} billed yearly</p>}
-                  <p className="mt-2 text-sm text-gray-600">{plan.description}</p>
+                  {isYearly && (
+                    <p className="mt-1 text-xs text-primary break-words">
+                      {formatPrice(price, currency)} billed yearly
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-gray-600 break-words">{plan.description}</p>
                 </div>
 
                 <ul className="space-y-3 mb-8 flex-1">
