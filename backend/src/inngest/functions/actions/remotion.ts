@@ -118,7 +118,7 @@ export const remotionExecutor: NodeExecutor<RemotionData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "REMOTION");
 
-    // Consume premium quota once per workflow run (inside step.run so Inngest memoizes across resumes)
+    // Flat credit cost per render (not per-second — composition length is not known upfront).
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST } = await import("@/config/rate-limits");
     try {

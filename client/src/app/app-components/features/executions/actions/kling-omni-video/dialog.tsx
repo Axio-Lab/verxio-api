@@ -76,6 +76,7 @@ const formSchema = z
     mode: z.enum(["std", "pro"]),
     aspect_ratio: z.enum(["16:9", "9:16", "1:1"]),
     duration: z.coerce.number().min(MIN_DURATION).max(MAX_DURATION),
+    sound: z.enum(["on", "off"]),
   })
   .superRefine((data, ctx) => {
     if (data.multi_shot) {
@@ -143,6 +144,7 @@ export const KlingOmniVideoDialog = ({
       mode: defaultValues.mode ?? "std",
       aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
       duration: Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)),
+      sound: (defaultValues as any).sound ?? "off",
     },
   });
 
@@ -192,6 +194,7 @@ export const KlingOmniVideoDialog = ({
         mode: defaultValues.mode ?? "std",
         aspect_ratio: defaultValues.aspect_ratio ?? "16:9",
         duration: durationNum,
+        sound: (defaultValues as any).sound ?? "off",
       });
 
       if (defaultValues.referenceImages && defaultValues.referenceImages.length > 0) {
@@ -292,10 +295,15 @@ export const KlingOmniVideoDialog = ({
               name="variables"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Output variable name</FormLabel>
+                  <FormLabel>Output Variable Name</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="klingOmniVideo" />
                   </FormControl>
+                  <FormDescription>
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "klingOmniVideo"}.videoUrl}}`}</code>
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -641,16 +649,34 @@ export const KlingOmniVideoDialog = ({
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="sound"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sound</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="off">Off</SelectItem>
+                        <SelectItem value="on">On</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Save"
+                  "Save configuration"
                 )}
               </Button>
             </DialogFooter>

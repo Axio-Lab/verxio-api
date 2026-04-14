@@ -18,8 +18,11 @@ export interface RateLimitConfig {
 export const BETA_TESTER_DAILY_CREDITS = 500;
 
 /**
- * Quota cost per premium action/feature
- * These values represent credits consumed per use
+ * Quota cost per premium action/feature.
+ * Video generation entries (VEO, SEEDANCE, KLING_* video nodes) are **credits per second**
+ * of video (requested duration, or output duration when only the API provides it).
+ * Multiply by billable seconds at runtime — e.g. KLING_OMNI_VIDEO: 20 and 15s ⇒ 300 credits.
+ * REMOTION stays a flat credit cost per render (composition length is not fixed upfront).
  */
 export const QUOTA_COST = {
   VEO: 15,
@@ -36,13 +39,13 @@ export const QUOTA_COST = {
   AI_GENERATE: 5,
   // Kling node costs
   KLING_IMAGE: 10,
-  KLING_TEXT2VIDEO: 15,
-  KLING_IMAGE2VIDEO: 15,
-  KLING_MULTI_IMAGE2VIDEO: 15,
+  KLING_TEXT2VIDEO: 20,
+  KLING_IMAGE2VIDEO: 20,
+  KLING_MULTI_IMAGE2VIDEO: 25,
   KLING_OMNI_IMAGE: 15,
-  KLING_OMNI_VIDEO: 20,
+  KLING_OMNI_VIDEO: 35,
   KLING_TTS: 10,
-  KLING_VIDEO_EXTEND: 10,
+  KLING_VIDEO_EXTEND: 200,
   KLING_MULTI_IMAGE2IMAGE: 10,
   KLING_MOTION_CONTROL: 10,
   // Valyu AI nodes
@@ -58,6 +61,25 @@ export const QUOTA_COST = {
   GENERATE_SOUL_MD: 20,
   DISCORD_CHAT_INTEGRATION: 10,
 } as const;
+
+/** Minimum 1 billable second; fractional seconds round up. */
+export function billableVideoSeconds(durationSeconds: unknown, fallback = 1): number {
+  const n =
+    typeof durationSeconds === "number"
+      ? durationSeconds
+      : parseFloat(String(durationSeconds ?? "").trim());
+  if (!Number.isFinite(n) || n <= 0) {
+    return Math.max(1, Math.round(fallback));
+  }
+  return Math.max(1, Math.ceil(n));
+}
+
+export function videoCreditsForDuration(
+  creditsPerSecond: number,
+  durationSeconds: unknown
+): number {
+  return billableVideoSeconds(durationSeconds) * creditsPerSecond;
+}
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "beta-tester": {

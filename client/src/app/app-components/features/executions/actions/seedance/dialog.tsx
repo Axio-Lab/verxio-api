@@ -347,7 +347,9 @@ export const SeedanceDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
                     <Input placeholder="seedance" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Variable name to store the result (e.g., seedance.videoUrl)
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "seedance"}.videoUrl}}`}</code>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -780,7 +782,7 @@ export const SeedanceDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
             </div>
 
             <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
-              <Button type="submit">Save Configuration</Button>
+              <Button type="submit">Save configuration</Button>
             </DialogFooter>
           </form>
         </Form>

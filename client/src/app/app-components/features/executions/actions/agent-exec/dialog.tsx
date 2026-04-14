@@ -275,11 +275,8 @@ export function AgentExecDialog({
         </div>
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!objective.trim()}>
-            Save
+          <Button className="ml-auto" onClick={handleSave} disabled={!objective.trim()}>
+            Save configuration
           </Button>
         </DialogFooter>
       </DialogContent>

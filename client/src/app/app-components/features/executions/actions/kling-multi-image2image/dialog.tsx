@@ -12,6 +12,7 @@ import { z } from "zod/v3";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -288,10 +289,19 @@ export const KlingMultiImage2ImageDialog = ({
               name="variables"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Output variable name</FormLabel>
+                  <FormLabel>Output Variable Name</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="klingMultiImage2Image" />
                   </FormControl>
+                  <FormDescription>
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "klingMultiImage2Image"}.imageUrls}}`}</code>{" "}
+                    - Image URLs array
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "klingMultiImage2Image"}.imageUrls[0]}}`}</code>{" "}
+                    - First image URL
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -561,14 +571,11 @@ export const KlingMultiImage2ImageDialog = ({
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Save"
+                  "Save configuration"
                 )}
               </Button>
             </DialogFooter>

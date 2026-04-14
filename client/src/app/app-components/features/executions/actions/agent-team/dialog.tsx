@@ -172,10 +172,9 @@ export function AgentTeamDialog({
           </div>
 
           <DialogFooter className="mt-4 shrink-0">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+            <Button type="submit" className="ml-auto">
+              Save configuration
             </Button>
-            <Button type="submit">Save Configuration</Button>
           </DialogFooter>
         </form>
       </DialogContent>
