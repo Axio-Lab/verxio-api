@@ -151,34 +151,6 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "VEO");
 
-    // Consume premium quota once per workflow run (must be inside step.run so Inngest
-    // memoizes it across resumes - otherwise every function resume deducts again)
-    const { consumePremiumQuota } = await import("@/services/subscriptionService");
-    const { QUOTA_COST } = await import("@/config/rate-limits");
-    try {
-      await step.run(`veo-consume-quota-${nodeId}`, async () => {
-        await consumePremiumQuota(userId, QUOTA_COST.VEO);
-        return { consumed: true };
-      });
-    } catch (quotaError) {
-      await publishStatus(publish, step, nodeId, "error");
-      const error = new NonRetriableError(
-        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
-      );
-      await step.run(`publish-error-quota-${nodeId}`, async () => {
-        await publish(
-          veoChannel().output({
-            nodeId,
-            output: {
-              ...context,
-              error: { message: error.message },
-            },
-          })
-        );
-      });
-      throw error;
-    }
-
     // Extract data to primitives
     const localVariablesName = String(data?.variables || "veo");
     const localMode = String(data?.mode || "text");
@@ -226,6 +198,36 @@ export const veoExecutor: NodeExecutor<VeoData> = async ({
               error: {
                 message: error.message,
               },
+            },
+          })
+        );
+      });
+      throw error;
+    }
+
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST, videoCreditsForDuration } = await import("@/config/rate-limits");
+    const veoDurationForBilling = localDurationSeconds ?? "8";
+    try {
+      await step.run(`veo-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(
+          userId,
+          videoCreditsForDuration(QUOTA_COST.VEO, veoDurationForBilling)
+        );
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const error = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`publish-error-quota-${nodeId}`, async () => {
+        await publish(
+          veoChannel().output({
+            nodeId,
+            output: {
+              ...context,
+              error: { message: error.message },
             },
           })
         );

@@ -118,30 +118,6 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "SEEDANCE");
 
-    // Consume premium quota
-    const { consumePremiumQuota } = await import("@/services/subscriptionService");
-    const { QUOTA_COST } = await import("@/config/rate-limits");
-    try {
-      await step.run(`seedance-consume-quota-${nodeId}`, async () => {
-        await consumePremiumQuota(userId, QUOTA_COST.SEEDANCE || 1);
-        return { consumed: true };
-      });
-    } catch (quotaError) {
-      await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
-      );
-      await step.run(`seedance-quota-err-${nodeId}`, async () => {
-        await publish(
-          seedanceChannel().output({
-            nodeId,
-            output: { ...context, error: { message: err.message } },
-          })
-        );
-      });
-      throw err;
-    }
-
     if (!process.env.ARK_API_KEY) {
       await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError("ARK_API_KEY is not configured");
@@ -424,6 +400,33 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
       }
     }
 
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST, videoCreditsForDuration } = await import("@/config/rate-limits");
+    const seedanceDuration = data?.duration ?? 5;
+    try {
+      await step.run(`seedance-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(
+          userId,
+          videoCreditsForDuration(QUOTA_COST.SEEDANCE, seedanceDuration)
+        );
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`seedance-quota-err-${nodeId}`, async () => {
+        await publish(
+          seedanceChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
     // For now, always use Seedance 1.5 Pro
     const model = "seedance-1-5-pro-251215";
 
@@ -433,7 +436,7 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
       content,
       generate_audio: data?.generateAudio ?? false,
       ratio: data?.ratio || "adaptive",
-      duration: data?.duration || 5,
+      duration: seedanceDuration,
       watermark: data?.watermark ?? false,
     };
 

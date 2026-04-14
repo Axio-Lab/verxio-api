@@ -57,30 +57,6 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
     const { checkNodeAccess } = await import("@/services/subscriptionCheck");
     await checkNodeAccess(userId, "KLING_OMNI_VIDEO");
 
-    // Consume premium quota once per workflow run for this node
-    const { consumePremiumQuota } = await import("@/services/subscriptionService");
-    const { QUOTA_COST } = await import("@/config/rate-limits");
-    try {
-      await step.run(`kling-omni-video-consume-quota-${nodeId}`, async () => {
-        await consumePremiumQuota(userId, QUOTA_COST.KLING_OMNI_VIDEO);
-        return { consumed: true };
-      });
-    } catch (quotaError) {
-      await publishStatus(publish, step, nodeId, "error");
-      const err = new NonRetriableError(
-        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
-      );
-      await step.run(`kling-omni-video-quota-err-${nodeId}`, async () => {
-        await publish(
-          klingChannel().output({
-            nodeId,
-            output: { ...context, error: { message: err.message } },
-          })
-        );
-      });
-      throw err;
-    }
-
     if (!process.env.KLING_ACCESS_KEY) {
       await publishStatus(publish, step, nodeId, "error");
       const err = new NonRetriableError("KLING_ACCESS_KEY is not configured");
@@ -200,6 +176,33 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
         throw err;
       }
     }
+
+    const { consumePremiumQuota } = await import("@/services/subscriptionService");
+    const { QUOTA_COST, videoCreditsForDuration } = await import("@/config/rate-limits");
+    try {
+      await step.run(`kling-omni-video-consume-quota-${nodeId}`, async () => {
+        await consumePremiumQuota(
+          userId,
+          videoCreditsForDuration(QUOTA_COST.KLING_OMNI_VIDEO, totalDuration)
+        );
+        return { consumed: true };
+      });
+    } catch (quotaError) {
+      await publishStatus(publish, step, nodeId, "error");
+      const err = new NonRetriableError(
+        quotaError instanceof Error ? quotaError.message : "Rate limit exceeded"
+      );
+      await step.run(`kling-omni-video-quota-err-${nodeId}`, async () => {
+        await publish(
+          klingChannel().output({
+            nodeId,
+            output: { ...context, error: { message: err.message } },
+          })
+        );
+      });
+      throw err;
+    }
+
     const nodeAssets = await (basePrismaClient as any).nodeAsset.findMany({ where: { nodeId } });
 
     const imageSources: Array<{ src: string; type?: "first_frame" | "end_frame" }> = [];
