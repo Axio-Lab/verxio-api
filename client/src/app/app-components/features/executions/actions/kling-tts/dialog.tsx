@@ -204,14 +204,11 @@ export const KlingTtsDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Save"
+                  "Save configuration"
                 )}
               </Button>
             </DialogFooter>

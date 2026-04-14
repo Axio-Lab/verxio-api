@@ -12,6 +12,7 @@ import { z } from "zod/v3";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -186,10 +187,15 @@ export const KlingMultiImage2VideoDialog = ({
               name="variables"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Output variable name</FormLabel>
+                  <FormLabel>Output Variable Name</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="klingMultiImage2Video" />
                   </FormControl>
+                  <FormDescription>
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "klingMultiImage2Video"}.videoUrl}}`}</code>
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -350,14 +356,11 @@ export const KlingMultiImage2VideoDialog = ({
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Save"
+                  "Save configuration"
                 )}
               </Button>
             </DialogFooter>

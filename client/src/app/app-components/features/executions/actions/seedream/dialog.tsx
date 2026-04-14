@@ -249,12 +249,14 @@ export const SeedreamDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
               name="variables"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Variables name</FormLabel>
+                  <FormLabel>Output Variable Name</FormLabel>
                   <FormControl>
                     <Input placeholder="seedream" {...field} />
                   </FormControl>
                   <FormDescription>
-                    The key under which outputs will be available in subsequent nodes.
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "seedream"}.imageUrl}}`}</code>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -527,7 +529,7 @@ export const SeedreamDialog = ({ open, onOpenChange, onSubmit, defaultValues = {
 
             <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
               <Button type="submit" className="ml-auto">
-                Save Configuration
+                Save configuration
               </Button>
             </DialogFooter>
           </form>

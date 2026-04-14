@@ -21,6 +21,7 @@ type KlingImage2VideoData = {
   model_name?: "kling-v3";
   mode?: "std" | "pro";
   duration?: number | string;
+  sound?: "on" | "off";
   negative_prompt?: string;
   multi_shot?: boolean;
   multi_prompt?: KlingImage2VideoMultiPromptItem[];
@@ -219,6 +220,7 @@ export const klingImage2VideoExecutor: NodeExecutor<KlingImage2VideoData> = asyn
       model_name: data?.model_name ?? "kling-v3",
       mode: data?.mode ?? "std",
       duration: String(totalDuration),
+      sound: data?.sound ?? "off",
     };
     if (imageBase64) body.image = imageBase64;
     if (multiShot) {

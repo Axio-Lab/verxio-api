@@ -62,6 +62,7 @@ const formSchema = z
     model_name: z.enum(["kling-v3"]),
     mode: z.enum(["std", "pro"]),
     duration: z.coerce.number().min(MIN_DURATION).max(MAX_DURATION),
+    sound: z.enum(["on", "off"]),
     negative_prompt: z.string().max(2500).optional(),
     multi_shot: z.boolean(),
     multi_prompt: z.array(multiPromptItemSchema).max(MAX_STORYBOARDS),
@@ -131,6 +132,7 @@ export const KlingImage2VideoDialog = ({
       model_name: "kling-v3",
       mode: defaultValues.mode ?? "std",
       duration: Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(defaultValues.duration) || 5)),
+      sound: (defaultValues as any).sound ?? "off",
       negative_prompt: defaultValues.negative_prompt ?? "",
       multi_shot: defaultValues.multi_shot ?? false,
       multi_prompt:
@@ -192,6 +194,7 @@ export const KlingImage2VideoDialog = ({
         model_name: "kling-v3",
         mode: defaultValues.mode ?? "std",
         duration: durationNum,
+        sound: (defaultValues as any).sound ?? "off",
         negative_prompt: defaultValues.negative_prompt ?? "",
         multi_shot: defaultValues.multi_shot ?? false,
         multi_prompt:
@@ -253,10 +256,15 @@ export const KlingImage2VideoDialog = ({
               name="variables"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Output variable name</FormLabel>
+                  <FormLabel>Output Variable Name</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="klingImage2Video" />
                   </FormControl>
+                  <FormDescription>
+                    Use this name to reference the result in other nodes:
+                    <br />
+                    <code className="text-xs">{`{{${field.value || "klingImage2Video"}.videoUrl}}`}</code>
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -542,6 +550,27 @@ export const KlingImage2VideoDialog = ({
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="sound"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sound</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="off">Off</SelectItem>
+                        <SelectItem value="on">On</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <FormField
               control={form.control}
@@ -557,14 +586,11 @@ export const KlingImage2VideoDialog = ({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Save"
+                  "Save configuration"
                 )}
               </Button>
             </DialogFooter>

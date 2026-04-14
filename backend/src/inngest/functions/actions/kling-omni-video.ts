@@ -23,7 +23,8 @@ type KlingOmniVideoData = {
   element_list?: string;
   mode?: "std" | "pro";
   aspect_ratio?: string;
-  duration?: string; // total duration 1-15 seconds
+  duration?: string;
+  sound?: "on" | "off";
   variables?: string;
 };
 
@@ -267,6 +268,7 @@ export const klingOmniVideoExecutor: NodeExecutor<KlingOmniVideoData> = async ({
     const body: Record<string, unknown> = {
       model_name: data?.model_name ?? "kling-v3-omni",
       mode: data?.mode ?? "std",
+      sound: data?.sound ?? "off",
       aspect_ratio: data?.aspect_ratio ?? "16:9",
       duration: String(totalDuration),
     };

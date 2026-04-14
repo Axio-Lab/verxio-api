@@ -490,12 +490,9 @@ export const CodeBlockDialog = ({ open, onOpenChange, onSubmit, defaultValues = 
             </div>
 
             <DialogFooter className="flex-shrink-0 mt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="ml-auto" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save
+                Save configuration
               </Button>
             </DialogFooter>
           </form>
