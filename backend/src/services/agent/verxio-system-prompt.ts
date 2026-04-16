@@ -220,13 +220,13 @@ For exact action names and fields for any node type, use the getNodeSchema(nodeT
 **KLING_MULTI_IMAGE2IMAGE** - Fields: { variables?, prompt?, subjectImages (upload), n?: 1-9, aspect_ratio? } | Max 9 subject images | Output: { imageUrls, task_id }
 
 **SEEDANCE**
-- Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"reference"|"frames", firstFrameImage?, firstFrameImageFilename?, firstFrame?, firstFrameFilename?, lastFrame?, lastFrameFilename?, referenceImages?: Array<{file, filename}>, generateAudio?, ratio?: "16:9"|"4:3"|"1:1"|"3:4"|"9:16"|"21:9"|"adaptive", duration?: 4-12, resolution?: "480p"|"720p"|"1080p", cameraFixed?, draft?, returnLastFrame? }
-- Modes: "text" (default), "image" (req firstFrameImage), "reference" (req referenceImages, 1-4), "frames" (req firstFrame+lastFrame)
-- Model: seedance-1-5-pro-251215 (fixed)
-- Duration: 4-12s | Resolutions: "480p", "720p", "1080p" | Ratios: "16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"
-- generateAudio: true enables audio-visual (Pro only) | draft: true for preview (480p only, lower cost) | returnLastFrame: true returns last frame image
+- Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"reference"|"frames", firstFrameImage?, firstFrameImageFilename?, firstFrame?, firstFrameFilename?, lastFrame?, lastFrameFilename?, referenceImages?: Array<{file, filename}> (up to 9), referenceVideos?: Array<{file, filename?}> (up to 3), referenceAudios?: Array<{file, filename?}> (up to 3), generateAudio?, ratio?: "16:9"|"4:3"|"1:1"|"3:4"|"9:16"|"21:9"|"adaptive", duration?: 4-15 or -1 (model-picked length), resolution?: "480p"|"720p", returnLastFrame? }
+- Modes: "text" (default), "image" (req firstFrameImage), "reference" (at least one of referenceImages or referenceVideos; audio optional but cannot be alone), "frames" (req firstFrame+lastFrame)
+- Model: dreamina-seedance-2-0-260128 (fixed)
+- Duration: 4-15s or -1 (smart) | Resolutions: "480p", "720p" only (no 1080p for 2.0) | Ratios: "16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"
+- generateAudio (default on) | returnLastFrame | service_tier default only (flex/offline not supported on 2.0)
 - Source images: URLs, base64, or {{previousNode.imageUrl}}
-- Output: { videoUrl, lastFrameUrl? (if returnLastFrame), model: "seedance-1-5-pro-251215" }
+- Output: { videoUrl, lastFrameUrl? (if returnLastFrame), model: "dreamina-seedance-2-0-260128", taskId, duration?, ... }
 
 **SEEDREAM**
 - Fields: { variables (REQ), prompt (REQ), mode?: "text"|"image"|"multi", sourceImage?, sourceImageFilename?, referenceImages?: Array<{file, filename}>, size?: "2K"|"4K"|"widthxheight", sequentialImageGeneration?: "disabled"|"auto", maxImages?: 1-14 }
@@ -445,11 +445,11 @@ IMPORTANT: Use the EXACT variable names shown below in your {{}} templates.
   - {{veo.resolution}} - Video resolution ("720p", "1080p", "4k")
 
 **SEEDANCE** (if variables: "seedance")
-- Outputs: { videoUrl: string, lastFrameUrl?: string (if returnLastFrame: true), model: "seedance-1-5-pro-251215", size?: string, ... }
+- Outputs: { videoUrl: string, lastFrameUrl?: string (if returnLastFrame: true), model: "dreamina-seedance-2-0-260128", taskId?: string, ... }
 - Template examples:
   - {{seedance.videoUrl}} - Direct downloadable URL to the generated video
   - {{seedance.lastFrameUrl}} - Last frame image URL (if returnLastFrame was enabled)
-  - {{seedance.model}} - Model used ("seedance-1-5-pro-251215")
+  - {{seedance.model}} - Model used ("dreamina-seedance-2-0-260128")
 
 **SEEDREAM** (if variables: "seedream")
 - Outputs: { images: Array<{url?: string, size?: string}>, size: string, model: "seedream-4-5-251128" }

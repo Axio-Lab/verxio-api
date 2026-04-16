@@ -6,11 +6,25 @@ import {
   createSeedanceTask,
   pollSeedanceTask,
   uploadImageForSeedance,
+  uploadVideoForSeedance,
+  uploadAudioForSeedance,
+  SEEDANCE_DEFAULT_MODEL,
   type SeedanceRatio,
   type SeedanceResolution,
   type SeedanceContentItem,
 } from "@/services/seedanceApi";
 import { basePrismaClient } from "@/lib/prisma";
+
+/** Seedance 2.0 duration rules: 4–15 seconds, or -1 (model picks length). */
+function normalizeSeedance20Duration(d: number | undefined): number {
+  if (d === -1) return -1;
+  const n = d ?? 5;
+  if (!Number.isFinite(n)) return 5;
+  return Math.min(15, Math.max(4, Math.round(n)));
+}
+
+/** Credits to reserve when duration is -1 (actual length unknown until task completes). */
+const SEEDANCE20_BILLING_SECONDS_WHEN_AUTO = 15;
 
 type SeedanceData = {
   variables?: string;
@@ -25,19 +39,24 @@ type SeedanceData = {
   firstFrameFilename?: string;
   lastFrame?: string;
   lastFrameFilename?: string;
-  // Reference images (1-4 images)
+  // Reference images (Seedance 2.0: 0–9; multimodal needs ≥1 image or video total)
   referenceImages?: Array<{ file: string; filename: string }>;
-  // Video parameters
+  /** Reference videos (0–3): public URL, base64/data URL, or asset: — API requires URL in request */
+  referenceVideos?: Array<{ file: string; filename?: string }>;
+  /** Reference audio (0–3): cannot be used alone; needs ≥1 image or video */
+  referenceAudios?: Array<{ file: string; filename?: string }>;
+  // Video parameters (dreamina-seedance-2-0: duration 4–15 or -1 for model-picked length)
   generateAudio?: boolean;
   ratio?: SeedanceRatio;
-  duration?: number; // 2-12 seconds (4-12 for 1.5-pro)
+  duration?: number;
   resolution?: SeedanceResolution;
   seed?: number;
+  /** Ignored for Seedance 2.0 (not supported by API). */
   cameraFixed?: boolean;
   watermark?: boolean;
-  // Draft mode (1.5-pro only)
+  /** Ignored for Seedance 2.0 (1.5 Pro only). */
   draft?: boolean;
-  // Service tier
+  /** `flex` is ignored for Seedance 2.0 (offline tier not supported). */
   serviceTier?: "default" | "flex";
   executionExpiresAfter?: number;
   returnLastFrame?: boolean;
@@ -327,12 +346,13 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
         role: "last_frame",
       });
     } else if (mode === "reference") {
-      // Image-to-video (reference images - 1-4 images)
+      // Multimodal reference (Seedance 2.0): up to 9 images, 3 videos, 3 audio; need ≥1 image or video
       const referenceImages: Array<{ file: string; filename: string }> = [];
+      const referenceVideos: Array<{ file: string; filename?: string }> = [];
+      const referenceAudios: Array<{ file: string; filename?: string }> = [];
 
-      // Get from data.referenceImages
       if (Array.isArray(data?.referenceImages)) {
-        for (const ref of data.referenceImages) {
+        for (const ref of data.referenceImages.slice(0, 9)) {
           const resolved = await resolveImageSource(
             ref.file,
             context as Record<string, unknown>,
@@ -340,31 +360,79 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
             nodeAssets
           );
           if (resolved) {
-            referenceImages.push({
-              file: resolved,
-              filename: ref.filename,
-            });
+            referenceImages.push({ file: resolved, filename: ref.filename });
           }
         }
       }
 
-      // Get from assets if not enough from data
-      if (referenceImages.length < 4) {
-        for (const asset of nodeAssets.slice(referenceImages.length, 4)) {
-          if (asset?.fileData) {
-            const raw = normalizeBase64(asset.fileData);
-            referenceImages.push({
-              file: raw,
-              filename: asset.filename,
-            });
+      const refImgAssets = nodeAssets.filter((a: any) => a.fileType === "seedance-reference-image");
+      if (!data?.referenceImages?.length) {
+        for (const asset of refImgAssets) {
+          if (referenceImages.length >= 9) break;
+          if (!asset?.fileData) continue;
+          referenceImages.push({
+            file: normalizeBase64(asset.fileData),
+            filename: asset.filename || "reference.png",
+          });
+        }
+      }
+
+      if (Array.isArray(data?.referenceVideos)) {
+        for (const ref of data.referenceVideos.slice(0, 3)) {
+          const resolved = await resolveImageSource(
+            ref.file,
+            context as Record<string, unknown>,
+            compile,
+            nodeAssets
+          );
+          if (resolved) {
+            referenceVideos.push({ file: resolved, filename: ref.filename });
           }
         }
       }
 
-      if (referenceImages.length === 0) {
+      const refVidAssets = nodeAssets.filter((a: any) => a.fileType === "seedance-reference-video");
+      if (!data?.referenceVideos?.length) {
+        for (const asset of refVidAssets) {
+          if (referenceVideos.length >= 3) break;
+          if (!asset?.fileData) continue;
+          referenceVideos.push({
+            file: normalizeBase64(asset.fileData),
+            filename: asset.filename || "reference.mp4",
+          });
+        }
+      }
+
+      if (Array.isArray(data?.referenceAudios)) {
+        for (const ref of data.referenceAudios.slice(0, 3)) {
+          const resolved = await resolveImageSource(
+            ref.file,
+            context as Record<string, unknown>,
+            compile,
+            nodeAssets
+          );
+          if (resolved) {
+            referenceAudios.push({ file: resolved, filename: ref.filename });
+          }
+        }
+      }
+
+      const refAudAssets = nodeAssets.filter((a: any) => a.fileType === "seedance-reference-audio");
+      if (!data?.referenceAudios?.length) {
+        for (const asset of refAudAssets) {
+          if (referenceAudios.length >= 3) break;
+          if (!asset?.fileData) continue;
+          referenceAudios.push({
+            file: normalizeBase64(asset.fileData),
+            filename: asset.filename || "reference.mp3",
+          });
+        }
+      }
+
+      if (referenceImages.length + referenceVideos.length < 1) {
         await publishStatus(publish, step, nodeId, "error");
         const err = new NonRetriableError(
-          "Seedance: at least one reference image is required for reference mode"
+          "Seedance: multimodal reference mode requires at least one reference image or video (audio alone is not supported)"
         );
         await step.run(`seedance-err-${nodeId}`, async () => {
           await publish(
@@ -377,10 +445,9 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
         throw err;
       }
 
-      // Upload images to get URLs
-      const imageUrls = await step.run("seedance-upload-references", async () => {
+      const imageUrls = await step.run("seedance-upload-ref-images", async () => {
         const urls: string[] = [];
-        for (const ref of referenceImages) {
+        for (const ref of referenceImages.slice(0, 9)) {
           const url =
             ref.file.startsWith("http") || ref.file.startsWith("https")
               ? ref.file
@@ -390,7 +457,32 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
         return urls;
       });
 
-      // Add reference images to content
+      const videoUrls = await step.run("seedance-upload-ref-videos", async () => {
+        const urls: string[] = [];
+        for (const ref of referenceVideos.slice(0, 3)) {
+          const r = ref.file;
+          const url =
+            r.startsWith("http") || r.startsWith("https")
+              ? r
+              : await uploadVideoForSeedance(r, ref.filename);
+          urls.push(url);
+        }
+        return urls;
+      });
+
+      const audioUrls = await step.run("seedance-upload-ref-audios", async () => {
+        const urls: string[] = [];
+        for (const ref of referenceAudios.slice(0, 3)) {
+          const r = ref.file;
+          const url =
+            r.startsWith("http") || r.startsWith("https")
+              ? r
+              : await uploadAudioForSeedance(r, ref.filename);
+          urls.push(url);
+        }
+        return urls;
+      });
+
       for (const url of imageUrls) {
         content.push({
           type: "image_url",
@@ -398,16 +490,33 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
           role: "reference_image",
         });
       }
+      for (const url of videoUrls) {
+        content.push({
+          type: "video_url",
+          video_url: { url },
+          role: "reference_video",
+        });
+      }
+      for (const url of audioUrls) {
+        content.push({
+          type: "audio_url",
+          audio_url: { url },
+          role: "reference_audio",
+        });
+      }
     }
+
+    const apiDuration = normalizeSeedance20Duration(data?.duration);
+    const billingSeconds =
+      apiDuration === -1 ? SEEDANCE20_BILLING_SECONDS_WHEN_AUTO : apiDuration;
 
     const { consumePremiumQuota } = await import("@/services/subscriptionService");
     const { QUOTA_COST, videoCreditsForDuration } = await import("@/config/rate-limits");
-    const seedanceDuration = data?.duration ?? 5;
     try {
       await step.run(`seedance-consume-quota-${nodeId}`, async () => {
         await consumePremiumQuota(
           userId,
-          videoCreditsForDuration(QUOTA_COST.SEEDANCE, seedanceDuration)
+          videoCreditsForDuration(QUOTA_COST.SEEDANCE, billingSeconds)
         );
         return { consumed: true };
       });
@@ -427,26 +536,30 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
       throw err;
     }
 
-    // For now, always use Seedance 1.5 Pro
-    const model = "seedance-1-5-pro-251215";
+    const model = SEEDANCE_DEFAULT_MODEL;
 
-    // Create task request
+    // Create task request (Seedance 2.0: no draft, no camera_fixed, no flex tier per API)
+    const resolutionRaw = data?.resolution as string | undefined;
+    const resolution =
+      resolutionRaw === "1080p"
+        ? "720p"
+        : resolutionRaw === "480p" || resolutionRaw === "720p"
+          ? resolutionRaw
+          : undefined;
     const taskRequest: any = {
       model,
       content,
-      generate_audio: data?.generateAudio ?? false,
+      generate_audio: data?.generateAudio ?? true,
       ratio: data?.ratio || "adaptive",
-      duration: seedanceDuration,
+      duration: apiDuration,
       watermark: data?.watermark ?? false,
     };
 
-    if (data?.resolution) taskRequest.resolution = data.resolution;
+    if (resolution) taskRequest.resolution = resolution;
     if (data?.seed !== undefined) taskRequest.seed = data.seed;
-    if (data?.cameraFixed !== undefined) taskRequest.camera_fixed = data.cameraFixed;
-    if (data?.draft !== undefined && model === "seedance-1-5-pro-251215") {
-      taskRequest.draft = data.draft;
+    if (data?.serviceTier && data.serviceTier !== "flex") {
+      taskRequest.service_tier = data.serviceTier;
     }
-    if (data?.serviceTier) taskRequest.service_tier = data.serviceTier;
     if (data?.executionExpiresAfter) {
       taskRequest.execution_expires_after = data.executionExpiresAfter;
     }
@@ -500,6 +613,7 @@ export const seedanceExecutor: NodeExecutor<SeedanceData> = async ({
         videoUrl,
         lastFrameUrl: task.content?.last_frame_url,
         taskId,
+        model: task.model ?? model,
         duration: task.duration,
         resolution: task.resolution,
         ratio: task.ratio,

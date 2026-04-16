@@ -6,11 +6,13 @@
 
 const DEFAULT_BASE_URL = "https://ark.ap-southeast.bytepluses.com/api/v3";
 
-export type SeedanceModel = "seedance-1-5-pro-251215";
+/** Default model id for workflow / API requests — keep in sync with BytePlus console. */
+export const SEEDANCE_DEFAULT_MODEL = "dreamina-seedance-2-0-260128" as const;
 
 export type SeedanceRatio = "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "21:9" | "adaptive";
 
-export type SeedanceResolution = "480p" | "720p" | "1080p";
+/** Seedance 2.0 / 2.0 fast: 1080p not supported for this model. */
+export type SeedanceResolution = "480p" | "720p";
 
 export type SeedanceStatus = "queued" | "running" | "succeeded" | "failed" | "expired";
 
@@ -25,21 +27,31 @@ export type SeedanceContentItem =
       role?: "first_frame" | "last_frame" | "reference_image";
     }
   | {
+      type: "video_url";
+      video_url: { url: string };
+      role?: "reference_video";
+    }
+  | {
+      type: "audio_url";
+      audio_url: { url: string };
+      role?: "reference_audio";
+    }
+  | {
       type: "draft_task";
       draft_task: { id: string };
     };
 
 export type CreateSeedanceTaskRequest = {
-  model: SeedanceModel;
+  model: typeof SEEDANCE_DEFAULT_MODEL;
   content: SeedanceContentItem[];
   generate_audio?: boolean;
   ratio?: SeedanceRatio;
-  duration?: number; // 2-12 seconds (4-12 for 1.5-pro)
+  duration?: number; // Allowed range depends on model; see BytePlus API docs
   resolution?: SeedanceResolution;
   seed?: number;
   camera_fixed?: boolean;
   watermark?: boolean;
-  draft?: boolean; // Only for 1.5-pro
+  draft?: boolean; // When supported by the active model
   service_tier?: "default" | "flex";
   execution_expires_after?: number; // For flex tier
   return_last_frame?: boolean;
@@ -210,5 +222,73 @@ export async function uploadImageForSeedance(
     throw new Error("Image upload did not return a URL");
   }
 
+  return json.url;
+}
+
+function guessVideoMimeFromFilename(filename?: string): string {
+  const lower = (filename || "").toLowerCase();
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  return "video/mp4";
+}
+
+function guessAudioMimeFromFilename(filename?: string): string {
+  const lower = (filename || "").toLowerCase();
+  if (lower.endsWith(".wav")) return "audio/wav";
+  return "audio/mpeg";
+}
+
+/** Upload reference video (base64 or data URL) — BytePlus requires a public URL for video_url. */
+export async function uploadVideoForSeedance(
+  videoBase64: string,
+  filename?: string
+): Promise<string> {
+  let base64Data = videoBase64;
+  if (videoBase64.startsWith("data:")) {
+    base64Data = videoBase64.split(",")[1] || videoBase64;
+  }
+  const buffer = Buffer.from(base64Data, "base64");
+  const formData = new FormData();
+  const mime = guessVideoMimeFromFilename(filename);
+  const name = filename || "reference.mp4";
+  formData.append("file", new Blob([buffer], { type: mime }), name);
+  const uploadUrl = process.env.API_URL;
+  const response = await fetch(`${uploadUrl}/api/public/chat/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Video upload failed: ${response.status} ${errorText}`);
+  }
+  const json = (await response.json()) as { url?: string };
+  if (!json?.url) throw new Error("Video upload did not return a URL");
+  return json.url;
+}
+
+/** Upload reference audio (base64 or data URL). */
+export async function uploadAudioForSeedance(
+  audioBase64: string,
+  filename?: string
+): Promise<string> {
+  let base64Data = audioBase64;
+  if (audioBase64.startsWith("data:")) {
+    base64Data = audioBase64.split(",")[1] || audioBase64;
+  }
+  const buffer = Buffer.from(base64Data, "base64");
+  const formData = new FormData();
+  const mime = guessAudioMimeFromFilename(filename);
+  const name = filename || "reference.mp3";
+  formData.append("file", new Blob([buffer], { type: mime }), name);
+  const uploadUrl = process.env.API_URL;
+  const response = await fetch(`${uploadUrl}/api/public/chat/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Audio upload failed: ${response.status} ${errorText}`);
+  }
+  const json = (await response.json()) as { url?: string };
+  if (!json?.url) throw new Error("Audio upload did not return a URL");
   return json.url;
 }
