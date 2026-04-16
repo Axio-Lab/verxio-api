@@ -223,7 +223,7 @@ export const AVAILABLE_NODE_TYPES = {
     {
       type: "SEEDANCE",
       description:
-        "BytePlus Seedance video generation. Supports text-to-video, image-to-video (first frame), first-and-last frame interpolation, and multi-reference image-to-video (1-4 images). Uses Seedance 1.5 Pro model.",
+        "BytePlus Seedance video generation (dreamina-seedance-2-0-260128). Supports text-to-video, image-to-video (first frame), first-and-last frame interpolation, and multimodal reference mode: up to 9 images, up to 3 reference videos, up to 3 reference audio (at least one image or video required; audio cannot be used alone).",
     },
     {
       type: "SEEDREAM",

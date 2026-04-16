@@ -371,6 +371,24 @@ function transformWorkflow(workflow: any): WorkflowResponse {
           filename: asset.filename,
         }));
       }
+      const referenceVideoAssets = node.assets.filter(
+        (a: any) => a.fileType === "seedance-reference-video"
+      );
+      if (referenceVideoAssets.length > 0) {
+        nodeData.referenceVideos = referenceVideoAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
+      const referenceAudioAssets = node.assets.filter(
+        (a: any) => a.fileType === "seedance-reference-audio"
+      );
+      if (referenceAudioAssets.length > 0) {
+        nodeData.referenceAudios = referenceAudioAssets.map((asset: any) => ({
+          file: asset.fileData || `asset:${asset.filename}`,
+          filename: asset.filename,
+        }));
+      }
       // First frame image (for image mode)
       const firstFrameImageAsset = node.assets.find(
         (a: any) => a.fileType === "seedance-first-frame-image"
@@ -1521,6 +1539,34 @@ export const updateWorkflowData = async (
             });
           });
           delete nodeData.referenceImages;
+        }
+        if (Array.isArray(nodeData.referenceVideos) && nodeData.referenceVideos.length > 0) {
+          const validVids = nodeData.referenceVideos.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validVids.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `seedance-reference-video-${idx + 1}.mp4`,
+              fileType: "seedance-reference-video",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceVideos;
+        }
+        if (Array.isArray(nodeData.referenceAudios) && nodeData.referenceAudios.length > 0) {
+          const validAud = nodeData.referenceAudios.filter(
+            (r: any) => r.file && r.file.startsWith("data:")
+          );
+          validAud.forEach((r: any, idx: number) => {
+            assetsToStore.push({
+              filename: r.filename || `seedance-reference-audio-${idx + 1}.mp3`,
+              fileType: "seedance-reference-audio",
+              fileData: r.file,
+              isBackgroundAudio: false,
+            });
+          });
+          delete nodeData.referenceAudios;
         }
         // First frame image (for image mode)
         if (nodeData.firstFrameImage && typeof nodeData.firstFrameImage === "string") {
