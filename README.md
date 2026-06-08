@@ -7,7 +7,7 @@
 
 ## Overview
 
-Verxio is a autonomous AI-powered workflow automation platform that enables users to create, execute, and manage complex automation workflows through an intuitive visual interface or via an openclaw instance (chat gateway)
+Verxio is an autonomous AI-powered workflow automation platform that enables users to create, execute, and manage complex automation workflows through an intuitive visual interface or via an OpenClaw instance (chat gateway)
 
 The platform combines:
 
