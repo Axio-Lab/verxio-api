@@ -157,8 +157,3 @@ http://localhost:8080/api-docs
 #### Planning Agent
 - `POST /api/planning/chat` - Chat with planning agent
 - `POST /api/planning/generate-workflow` - Generate workflow from prompt
-
-### Authentication
-
-Most endpoints require authentication via Better Auth. Include the session cookie or Bearer token in requests.
-
